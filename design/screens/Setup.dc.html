@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF; border-top: 2px solid transparent; overflow: hidden">
+<dc-import name="Sidebar" active="setup" mode="idle" hint-size="220px,720px"></dc-import>
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+<div style="display: flex; align-items: center; height: 32px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">Setup</h1>
+</div>
+
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; align-items: start">
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600">Profiles</h2>
+<button style="height: 26px; padding: 0 8px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 12px; cursor: pointer">New profile</button>
+</div>
+<sc-for list="{{profiles}}" as="p" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #181C26">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px; font-weight: 500">{{p.name}}</span><span style="font-size: 12px; color: #8A93A6">seals {{p.seals}}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<sc-for list="{{p.types}}" as="t" hint-placeholder-count="3"><span style="height: 20px; display: flex; align-items: center; padding: 0 7px; border: 1px solid #2A3040; border-radius: 4px; font-size: 11px; color: #B8BFCC">{{t}}</span></sc-for>
+</div>
+</div>
+</sc-for>
+</section>
+
+
+
+<section style="background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430"><h2 style="margin: 0; font-size: 13px; font-weight: 600">Preferences</h2></div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; font-size: 13px">On login</span>
+<span style="height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid #2A3040; border-radius: 6px; font-size: 12px; color: #E6E9EF">Open Home<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; font-size: 13px">Close button</span>
+<span style="height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid #2A3040; border-radius: 6px; font-size: 12px; color: #E6E9EF">Minimize to tray<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; font-size: 13px">Go compact when focus starts</span>
+<span style="font-size: 12px; color: #8A93A6">Off</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Rest days</span><span style="font-size: 11px; color: #8A93A6">Don't count against the streak</span></span>
+<div style="display: flex; gap: 3px">
+<sc-for list="{{restDays}}" as="d" hint-placeholder-count="7"><button onClick="{{d.toggle}}" aria-pressed="{{d.on}}" aria-label="{{d.full}}" style="{{d.style}}">{{d.short}}</button></sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px">
+<span style="flex-grow: 1; font-size: 13px">Sounds</span>
+<span style="font-size: 12px; color: #8A93A6">All on</span>
+</div>
+</section>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600">Trackers</h2>
+<button style="height: 26px; padding: 0 8px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 12px; cursor: pointer">New tracker</button>
+</div>
+<sc-for list="{{trackers}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; font-size: 13px">{{t.name}} <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #8A93A6">{{t.unit}}</span></span>
+<span style="font-size: 12px; color: #8A93A6">{{t.kind}}</span>
+</div>
+</sc-for>
+</section>
+
+<section style="background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600">Check-ins</h2>
+<button style="height: 26px; padding: 0 8px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 12px; cursor: pointer">New check-in</button>
+</div>
+<sc-for list="{{checkins}}" as="c" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #181C26">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px; font-weight: 500">{{c.name}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #B8BFCC">{{c.time}}</span></div>
+<div style="display: flex; align-items: center; gap: 3px">
+<sc-for list="{{c.days}}" as="d" hint-placeholder-count="7"><button onClick="{{d.toggle}}" aria-pressed="{{d.on}}" aria-label="{{d.full}}" style="{{d.style}}">{{d.short}}</button></sc-for>
+<span style="margin-left: 8px; font-size: 12px; color: #8A93A6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.asks}}</span>
+</div>
+</div>
+</sc-for>
+<button onClick="{{toggleStartup}}" role="switch" aria-checked="{{startup}}" style="width: 100%; display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 14px; background: transparent; border: none; cursor: pointer; text-align: left; color: #E6E9EF">
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Check in on startup</span><span style="font-size: 12px; color: #8A93A6">Shows a missed check-in when Sanctum boots</span></span>
+<span style="{{track}}"><span style="width: 14px; height: 14px; border-radius: 999px; background: #FFFFFF"></span></span>
+</button>
+</section>
+
+<section style="background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430"><h2 style="margin: 0; font-size: 13px; font-weight: 600">Connections</h2></div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-bottom: 1px solid #181C26">
+<span style="flex-grow: 1; font-size: 13px">Google Calendar</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8A93A6"><span style="width: 6px; height: 6px; border-radius: 999px; background: #5FD4C8"></span>Two-way sync</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px">
+<span style="flex-grow: 1; font-size: 13px">Accountability partner <span style="color: #8A93A6">(optional)</span></span>
+<button style="height: 26px; padding: 0 8px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 12px; cursor: pointer">Invite</button>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { startup: true, days: { m: [1, 4], e: [0, 1, 2, 3, 4, 5, 6], r: [6] } };
+  }
+  renderVals() {
+    const dn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const row = (key) => dn.map((n, i) => {
+      const on = this.state.days[key].includes(i);
+      return {
+        short: n[0], full: n, on,
+        style: 'width: 24px; height: 24px; padding: 0; border-radius: 4px; font-size: 11px; cursor: pointer; ' + (on ? 'background: #172040; border: 1px solid #1F3482; color: #E6E9EF;' : 'background: transparent; border: 1px solid #1F2430; color: #5C6477;'),
+        toggle: () => { const cur = this.state.days[key]; this.setState({ days: { ...this.state.days, [key]: on ? cur.filter((x) => x !== i) : cur.concat([i]) } }); }
+      };
+    });
+    const on = this.state.startup;
+    return {
+      restDays: row('r'),
+      profiles: [
+        { name: 'Interview Prep', seals: 14, types: ['DSA practice', 'System design', 'Behavioral'] },
+        { name: 'Deep Work', seals: 11, types: ['Coding', 'Writing'] },
+        { name: 'Study', seals: 12, types: ['Reading & courses'] },
+        { name: 'Light Work', seals: 8, types: ['Applications', 'Email & admin'] }
+      ],
+      trackers: [{ name: 'Weight', unit: 'lb', kind: 'Number · chart + table' }, { name: 'Body fat', unit: '%', kind: 'Number · chart + table' }],
+      checkins: [
+        { name: 'Morning weigh-in', time: '8:00 AM', days: row('m'), asks: 'Weight, body fat' },
+        { name: 'Evening wrap-up', time: '9:30 PM', days: row('e'), asks: 'Open tasks, tomorrow’s top 3' }
+      ],
+      startup: on, toggleStartup: () => this.setState({ startup: !on }),
+      track: 'width: 32px; height: 18px; flex-shrink: 0; box-sizing: border-box; padding: 2px; border-radius: 999px; display: flex; ' + (on ? 'background: #2F5BFF; justify-content: flex-end;' : 'background: #2A3040; justify-content: flex-start;')
+    };
+  }
+}
+</script>
+</body>
+</html>

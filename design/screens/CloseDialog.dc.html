@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Close Sanctum</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 1120px; height: 720px; overflow: hidden; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<dc-import name="Home" mode="{{homeMode}}" hint-size="1120px,720px"></dc-import>
+<div style="position: absolute; left: 0; top: 0; width: 1120px; height: 720px; background: rgba(5,6,10,0.66)"></div>
+
+<div role="dialog" aria-label="Close Sanctum" style="position: absolute; left: 350px; top: 170px; width: 420px; box-sizing: border-box; display: flex; flex-direction: column; background: #12151C; border: 1px solid #2A3040; border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.55); overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 18px 18px 12px">
+<h1 style="margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em">Close Sanctum</h1>
+<p style="margin: 0; font-size: 13px; color: #8A93A6">{{intro}}</p>
+</div>
+<div role="radiogroup" aria-label="On close" style="display: flex; flex-direction: column; gap: 6px; padding: 0 18px 14px">
+<sc-for list="{{options}}" as="o" hint-placeholder-count="2">
+<button role="radio" aria-checked="{{o.on}}" aria-disabled="{{o.disabled}}" onClick="{{o.pick}}" style="{{o.style}}">
+<span style="{{o.radio}}"><sc-if value="{{o.on}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 999px; background: #FFFFFF"></span></sc-if></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: left">
+<span style="font-size: 13px; font-weight: 500">{{o.title}}</span>
+<span style="font-size: 12px; color: #8A93A6">{{o.desc}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid #1F2430; background: #0F1218">
+<button onClick="{{toggleRemember}}" role="checkbox" aria-checked="{{remember}}" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0; background: transparent; border: none; color: #B8BFCC; font-size: 12px; cursor: pointer">
+<span style="{{rememberBox}}"><sc-if value="{{remember}}" hint-placeholder-val="{{true}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if></span>
+Don't ask again
+</button>
+<button style="margin-left: auto; height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">Cancel</button>
+<button style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">{{cta}}<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: 0.7">↵</span></button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sealed":{"editor":"boolean","default":false},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { choice: 'tray', remember: true };
+  }
+  renderVals() {
+    const sealed = !!this.props.sealed;
+    const choice = sealed ? 'tray' : this.state.choice;
+    const opts = [
+      { id: 'tray', title: 'Minimize to tray', desc: 'Keeps blocking, check-ins, and calendar sync running. Click the tray icon to reopen.' },
+      { id: 'quit', title: 'Quit Sanctum', desc: sealed ? 'Not while sealed. Quitting now counts as breaking the seal.' : 'Stops everything until you open it again or restart.' }
+    ];
+    const options = opts.map((o) => {
+      const on = o.id === choice;
+      const disabled = sealed && o.id === 'quit';
+      return {
+        ...o, on, disabled,
+        pick: () => { if (!disabled) this.setState({ choice: o.id }); },
+        style: 'display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 8px; cursor: ' + (disabled ? 'not-allowed' : 'pointer') + '; font-family: inherit; color: #E6E9EF; ' + (on ? 'background: #172040; border: 1px solid #1F3482;' : 'background: transparent; border: 1px solid #1F2430;') + (disabled ? ' opacity: 0.55;' : ''),
+        radio: 'width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 999px; ' + (on ? 'background: #2F5BFF; border: 1px solid #2F5BFF;' : 'border: 1.5px solid #3A4155;')
+      };
+    });
+    const rem = this.state.remember;
+    return {
+      homeMode: sealed ? 'focus' : 'idle',
+      intro: sealed ? 'You’re sealed. Sanctum will keep running in the tray.' : 'What should the close button do?',
+      options, cta: choice === 'quit' ? 'Quit' : 'Minimize',
+      remember: rem, toggleRemember: () => this.setState({ remember: !rem }),
+      rememberBox: 'width: 15px; height: 15px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 4px; ' + (rem ? 'background: #2F5BFF; border: 1px solid #2F5BFF;' : 'border: 1.5px solid #3A4155;')
+    };
+  }
+}
+</script>
+</body>
+</html>

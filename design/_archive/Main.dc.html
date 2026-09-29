@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;family=DM+Serif+Display:ital@0;1&amp;family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Geist:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Geist',system-ui,sans-serif;background:#0A0C12;color:#E8ECF4}
+a{color:#6E9BFF}a:hover{color:#9DBBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; background: #0A0C12; color: #E8ECF4; font-family: 'Geist', system-ui, sans-serif; display: flex; flex-direction: column; padding: 28px 36px 32px; gap: 26px">
+
+<header style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M5 23V12.5a8 8 0 0 1 16 0V23" stroke="{{accent}}" stroke-width="1.6"></path><path d="M2.5 23h21" stroke="{{accent}}" stroke-width="1.6" stroke-linecap="round"></path><circle cx="13" cy="16" r="2.6" fill="{{accent}}"></circle></svg>
+<span style="font-size: 15px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase">Sanctum</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #232939; border-radius: 999px; font-size: 13px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c1 4 5 5.5 5 11a5 5 0 0 1-10 0c0-3 1.5-4.5 2.5-6 .5 2 1.5 3 2.5 3 0-3-1-5 0-8z"></path></svg>
+<span>12 day streak</span>
+</div>
+<button aria-label="Settings" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #232939; border-radius: 12px; color: #9AA3B5; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg>
+</button>
+</div>
+</header>
+
+<main style="flex-grow: 1; display: flex; gap: 28px; min-height: 0">
+<section style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 30px; padding: 0 24px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Monday, Sept 28</span>
+<h1 style="{{headStyle}}">{{line1}}<br><span style="{{line2Style}}">{{line2}}</span></h1>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Profile</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{profiles}}" as="p" hint-placeholder-count="4">
+<button onClick="{{p.pick}}" style="{{p.style}}">{{p.name}}</button>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #9AA3B5">{{types}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Duration</span>
+<div style="display: flex; gap: 8px">
+<sc-for list="{{durations}}" as="d" hint-placeholder-count="4">
+<button onClick="{{d.pick}}" style="{{d.style}}">{{d.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 20px">
+<a href="Session.dc.html" style="display: inline-flex; align-items: center; gap: 12px; height: 56px; padding: 0 28px; background: {{accent}}; color: #0A0C12; border-radius: 14px; font-size: 16px; font-weight: 600; text-decoration: none">
+<svg width="18" height="18" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 23V12.5a8 8 0 0 1 16 0V23"></path><path d="M2.5 23h21"></path></svg>
+Enter Sanctum
+</a>
+<span style="font-size: 13px; color: #9AA3B5">Opens VS Code, NeetCode, Notion. Seals 14 apps and sites.</span>
+</div>
+</section>
+
+<aside style="width: 344px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 20px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600">Today</span>
+<span style="font-size: 12px; color: #9AA3B5">Google Calendar</span>
+</div>
+<div style="display: flex; gap: 6px">
+<button aria-label="Add a focus block" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #232939; border-radius: 12px; color: #E8ECF4; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+<a href="Calendar.dc.html" aria-label="Expand calendar" style="width: 44px; height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid #232939; border-radius: 12px; color: #E8ECF4">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+</a>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{events}}" as="e" hint-placeholder-count="5">
+<div style="{{e.rowStyle}}">
+<span style="width: 48px; flex-shrink: 0; font-family: 'Geist Mono', monospace; font-size: 12px; color: #9AA3B5; padding-top: 2px">{{e.time}}</span>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-size: 14px">{{e.title}}</span>
+<sc-if value="{{e.focus}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 12px; color: {{accent}}">Seals for {{e.profile}}</span>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</aside>
+</main>
+
+<footer style="display: flex; gap: 12px">
+<div style="flex-grow: 2; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 16px">
+<div style="display: flex; justify-content: space-between; font-size: 13px">
+<span style="color: #9AA3B5">Focus today</span>
+<span><span style="font-family: 'Geist Mono', monospace">1h 42m</span><span style="color: #9AA3B5"> / 2h goal</span></span>
+</div>
+<div style="height: 6px; background: #1E2433; border-radius: 999px; overflow: hidden"><div style="width: 85%; height: 100%; background: {{accent}}; border-radius: 999px"></div></div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 16px"><span style="font-size: 13px; color: #9AA3B5">Drifted</span><span style="font-family: 'Geist Mono', monospace; font-size: 18px">12m</span></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 16px"><span style="font-size: 13px; color: #9AA3B5">Blocked attempts</span><span style="font-family: 'Geist Mono', monospace; font-size: 18px">7</span></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 16px"><span style="font-size: 13px; color: #9AA3B5">Sessions held</span><span style="font-family: 'Geist Mono', monospace; font-size: 18px">3 / 3</span></div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","options":["#6E9BFF","#5FD4C8","#9B8CFF","#E8ECF4"],"default":"#6E9BFF"},"headlineFont":{"editor":"enum","options":["Geist + Serif italic","DM Serif Display","Bricolage Grotesque","Geist Bold"],"default":"Geist + Serif italic","section":"Headline"},"headline":{"editor":"enum","options":["Keep your promises","Mid is a choice","Break your word","You said you would"],"default":"Keep your promises","section":"Headline"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { profile: 'Interview Prep', duration: 50 };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#6E9BFF';
+    const pill = (on) => 'height: 44px; padding: 0 18px; border-radius: 12px; font-size: 14px; cursor: pointer; ' +
+      (on ? 'background: #E8ECF4; color: #0A0C12; border: 1px solid #E8ECF4; font-weight: 500;' : 'background: transparent; color: #CBD2E0; border: 1px solid #262D3F;');
+    const typeMap = {
+      'Interview Prep': 'DSA practice, system design, behavioral prep',
+      'Deep Work': 'Coding, writing',
+      'Study': 'Reading, courses, notes',
+      'Light Work': 'Email, applications, admin'
+    };
+    const profiles = Object.keys(typeMap).map((name) => ({
+      name, style: pill(this.state.profile === name), pick: () => this.setState({ profile: name })
+    }));
+    const durations = [25, 50, 90, 120].map((m) => ({
+      label: m + 'm', style: pill(this.state.duration === m) + ' font-family: Geist Mono, monospace;', pick: () => this.setState({ duration: m })
+    }));
+    const row = (focus) => 'display: flex; gap: 12px; padding: 11px 12px; border-radius: 12px; ' + (focus ? 'background: #161C2B; box-shadow: inset 2px 0 0 ' + accent + ';' : '');
+    const events = [
+      { time: '9:00', title: 'Standup', focus: false },
+      { time: '10:00', title: 'LeetCode: graphs', focus: true, profile: 'Interview Prep' },
+      { time: '12:30', title: 'Lunch', focus: false },
+      { time: '14:00', title: 'Mock interview', focus: false },
+      { time: '16:00', title: 'System design reading', focus: true, profile: 'Study' }
+    ].map((e) => ({ ...e, rowStyle: row(e.focus) }));
+    const lines = {
+      'Keep your promises': ['Keep your promises.', 'Or stay mid.'],
+      'Mid is a choice': ['Mid is a choice.', 'Don’t make it today.'],
+      'Break your word': ['Break your word,', 'or break the habit.'],
+      'You said you would': ['You said you would.', 'So do it.']
+    };
+    const [line1, line2] = lines[this.props.headline ?? 'Keep your promises'] || lines['Keep your promises'];
+    const muted = 'color: #6B7488;';
+    const fonts = {
+      'Geist + Serif italic': ["font-family: 'Geist', system-ui, sans-serif; font-weight: 700; font-size: 60px; line-height: 1.02; letter-spacing: -0.035em;", "font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 66px; letter-spacing: -0.01em; color: #8C96AB;"],
+      'DM Serif Display': ["font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 62px; line-height: 1.02; letter-spacing: -0.015em;", muted + " font-style: italic;"],
+      'Bricolage Grotesque': ["font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 700; font-size: 60px; line-height: 1.0; letter-spacing: -0.03em;", muted],
+      'Geist Bold': ["font-family: 'Geist', system-ui, sans-serif; font-weight: 700; font-size: 60px; line-height: 1.02; letter-spacing: -0.035em;", muted]
+    };
+    const f = fonts[this.props.headlineFont ?? 'Geist + Serif italic'] || fonts['Geist + Serif italic'];
+    const headStyle = 'margin: 0; ' + f[0];
+    const line2Style = f[1];
+    return { accent, profiles, durations, events, types: 'Covers: ' + typeMap[this.state.profile], line1, line2, headStyle, line2Style };
+  }
+}
+</script>
+</body>
+</html>

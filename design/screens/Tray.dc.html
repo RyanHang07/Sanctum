@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum tray panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080B}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button,select{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 1120px; height: 720px; overflow: hidden; background: #07080B; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+
+<div aria-hidden="true" style="position: absolute; left: 40px; top: 36px; width: 640px; height: 460px; border-radius: 10px; background: #111318; border: 1px solid #1B1E26"></div>
+
+<section aria-label="Sanctum tray panel" style="position: absolute; right: 16px; bottom: 60px; width: 340px; box-sizing: border-box; display: flex; flex-direction: column; background: #12151C; border: 1px solid #2A3040; border-radius: 12px; box-shadow: 0 20px 56px rgba(0,0,0,0.6); overflow: hidden">
+
+<div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px 0 14px; border-bottom: 1px solid #1F2430">
+<svg width="15" height="15" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+<span style="font-size: 13px; font-weight: 600">Sanctum</span>
+<span style="{{pill}}"><span style="{{dot}}"></span>{{stateLabel}}</span>
+<button aria-label="Open Sanctum" style="margin-left: auto; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 6px; color: #8A93A6; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+</div>
+
+<sc-if value="{{sealed}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-family: 'Geist Mono', monospace; font-size: 30px; font-weight: 500; letter-spacing: -0.03em; color: #FFFFFF">21:36</span>
+<span style="font-size: 12px; color: #8A93A6">Interview Prep · until 10:50</span>
+</div>
+<div style="height: 4px; background: #1F2430; border-radius: 999px; overflow: hidden"><div style="width: 64%; height: 100%; background: #2F5BFF"></div></div>
+<div style="display: flex; gap: 6px">
+<a href="MiniTimer.dc.html" style="flex: 1 1 0; height: 32px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 12px; text-decoration: none">Compact timer<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">Ctrl M</span></a>
+<a href="HomeFocus.dc.html" style="flex: 1 1 0; height: 32px; display: flex; align-items: center; justify-content: center; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 12px; text-decoration: none">Open Sanctum</a>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{idle}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px">
+<div style="display: flex; gap: 6px">
+<label style="position: relative; flex-grow: 1; display: flex; align-items: center">
+<span style="position: absolute; left: -9999px">Profile</span>
+<select style="width: 100%; height: 32px; appearance: none; padding: 0 26px 0 10px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 12px"><option>Interview Prep</option><option>Deep Work</option><option>Study</option><option>Light Work</option></select>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 9px; pointer-events: none"><path d="M6 9l6 6 6-6"></path></svg>
+</label>
+<label style="position: relative; display: flex; align-items: center">
+<span style="position: absolute; left: -9999px">Duration</span>
+<select style="width: 92px; height: 32px; appearance: none; padding: 0 26px 0 10px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-family: 'Geist Mono', monospace; font-size: 12px"><option>30 min</option><option selected>60 min</option><option>90 min</option><option>120 min</option></select>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 9px; pointer-events: none"><path d="M6 9l6 6 6-6"></path></svg>
+</label>
+</div>
+<a href="HomeFocus.dc.html" style="height: 32px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #2F5BFF; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; text-decoration: none">Enter focus<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: 0.7">Ctrl ↵</span></a>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; border-top: 1px solid #1F2430">
+<div style="display: flex; justify-content: space-between; padding: 10px 14px 4px"><span style="font-size: 12px; font-weight: 500">Up next today</span><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #8A93A6">4/9</span></div>
+<sc-for list="{{tasks}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 14px">
+<button onClick="{{t.toggle}}" role="checkbox" aria-checked="{{t.done}}" aria-label="{{t.title}}" style="{{t.box}}"><sc-if value="{{t.done}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if></button>
+<span style="{{t.text}}">{{t.title}}</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #8A93A6">{{t.time}}</span>
+</div>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; margin-top: 4px; border-top: 1px solid #1F2430">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C6477" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+<span style="font-size: 12px; color: #5C6477">Add a task for today</span>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-top: 1px solid #1F2430; background: #0F1218">
+<span style="font-size: 11px; color: #5C6477; padding-left: 4px">Next check-in 9:30 PM</span>
+<sc-if value="{{sealed}}" hint-placeholder-val="{{true}}"><button style="margin-left: auto; height: 28px; padding: 0 8px; background: transparent; border: none; border-radius: 6px; color: #8A93A6; font-size: 12px; cursor: pointer">Break the seal</button></sc-if>
+<sc-if value="{{idle}}" hint-placeholder-val="{{false}}"><button style="margin-left: auto; height: 28px; padding: 0 8px; background: transparent; border: none; border-radius: 6px; color: #8A93A6; font-size: 12px; cursor: pointer">Quit Sanctum</button></sc-if>
+</div>
+</section>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; padding: 0 12px; background: #15171D; border-top: 1px solid #22252E">
+<div aria-hidden="true" style="flex-grow: 1; display: flex; justify-content: center; gap: 8px">
+<span style="width: 32px; height: 32px; border-radius: 6px; background: #22252E"></span><span style="width: 32px; height: 32px; border-radius: 6px; background: #22252E"></span><span style="width: 32px; height: 32px; border-radius: 6px; background: #22252E"></span><span style="width: 32px; height: 32px; border-radius: 6px; background: #22252E"></span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 3px; background: #2A2D36"></span>
+<span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 3px; background: #2A2D36"></span>
+<span title="Sanctum" style="{{trayIcon}}">
+<svg width="16" height="16" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#FFFFFF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#FFFFFF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+<sc-if value="{{sealed}}" hint-placeholder-val="{{true}}"><span style="position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 999px; background: #2F5BFF; border: 2px solid #15171D"></span></sc-if>
+</span>
+<span style="font-size: 12px; color: #C9CCD4; text-align: right; line-height: 1.2">10:28 AM<br><span style="color: #8A93A6">9/28/2026</span></span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["sealed","open"],"default":"sealed"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tasks: [
+      { title: 'Work session: SQL + DSA', time: 'now', done: false },
+      { title: 'Job search: 5 applications', time: '', done: false },
+      { title: 'Work session: verbal prep', time: '4:00p', done: false }
+    ] };
+  }
+  renderVals() {
+    const sealed = (this.props.mode ?? 'sealed') === 'sealed';
+    const tasks = this.state.tasks.map((t, i) => ({
+      ...t,
+      box: 'width: 15px; height: 15px; flex-shrink: 0; padding: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; ' + (t.done ? 'background: #2F5BFF; border: 1px solid #2F5BFF;' : 'background: transparent; border: 1.5px solid #3A4155;'),
+      text: 'flex-grow: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ' + (t.done ? 'color: #5C6477; text-decoration: line-through;' : 'color: #E6E9EF;'),
+      toggle: () => this.setState({ tasks: this.state.tasks.map((x, j) => j === i ? { ...x, done: !x.done } : x) })
+    }));
+    return {
+      sealed, idle: !sealed, tasks,
+      stateLabel: sealed ? 'Sealed' : 'Open',
+      pill: 'display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px; border-radius: 5px; font-size: 11px; ' + (sealed ? 'background: #172040; border: 1px solid #1F3482; color: #E6E9EF;' : 'border: 1px solid #2A3040; color: #B8BFCC;'),
+      dot: 'width: 6px; height: 6px; border-radius: 999px; background: ' + (sealed ? '#2F5BFF' : '#5C6477') + ';',
+      trayIcon: 'position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2A2D36; box-shadow: inset 0 0 0 1px #3A3F4C;'
+    };
+  }
+}
+</script>
+</body>
+</html>

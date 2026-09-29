@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum compact timer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080B}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 1120px; height: 720px; overflow: hidden; background: #07080B; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+
+<div aria-hidden="true" style="position: absolute; left: 40px; top: 36px; width: 760px; height: 520px; border-radius: 10px; background: #111318; border: 1px solid #1B1E26; display: flex; overflow: hidden">
+<div style="width: 48px; background: #0D0F13"></div>
+<div style="width: 200px; background: #0F1116; display: flex; flex-direction: column; gap: 10px; padding: 18px 14px">
+<div style="height: 8px; width: 120px; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 90px; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 140px; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 70px; border-radius: 4px; background: #1C2029"></div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 22px">
+<div style="height: 8px; width: 60%; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 42%; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 74%; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 38%; border-radius: 4px; background: #1C2029"></div><div style="height: 8px; width: 66%; border-radius: 4px; background: #1C2029"></div>
+</div>
+</div>
+
+<div style="position: absolute; right: 32px; top: 36px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px">
+<div role="timer" aria-label="{{aria}}" style="{{widget}}">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+<circle cx="15" cy="15" r="12" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="3"></circle>
+<circle cx="15" cy="15" r="12" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-dasharray="75.4" stroke-dashoffset="{{ringOffset}}" transform="rotate(-90 15 15)"></circle>
+</svg>
+<div style="display: flex; flex-direction: column; gap: 1px; flex-grow: 1; min-width: 0">
+<span style="font-size: 12px; font-weight: 500; color: #FFFFFF">Interview Prep</span>
+<span style="font-size: 11px; color: rgba(255,255,255,0.78)">{{sub}}</span>
+</div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: {{color}}">{{left}}</span>
+<button aria-label="Expand to full window" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 6px; color: rgba(255,255,255,0.8); cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+</div>
+<span style="font-size: 11px; color: #5C6477">Always on top · drag to move · double-click to expand</span>
+</div>
+
+<div style="position: absolute; left: 40px; right: 40px; bottom: 32px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 12px; color: #8A93A6">Cobalt fills the timer left to right as the session runs. Time stays white</span>
+<button onClick="{{simulate}}" style="height: 30px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 12px; cursor: pointer">{{simLabel}}</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{snaps}}" as="s" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="{{s.widget}}">
+<svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="12" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="3"></circle><circle cx="15" cy="15" r="12" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-dasharray="75.4" stroke-dashoffset="{{s.ringOffset}}" transform="rotate(-90 15 15)"></circle></svg>
+<span style="flex-grow: 1; font-size: 11px; color: rgba(255,255,255,0.8)">{{s.label}}</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 16px; font-weight: 500; color: {{s.color}}">{{s.left}}</span>
+</div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">{{s.hex}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"progress":{"editor":"range","min":0,"max":100,"step":1,"unit":"%","default":64},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sim: null };
+    this.timer = null;
+  }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  mix(p) {
+    const stops = [[0, '#4C6FD9'], [0.5, '#2F5BFF'], [0.8, '#8B6CFF'], [1, '#37C8D6']];
+    const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    let a = stops[0], b = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i++) { if (p >= stops[i][0] && p <= stops[i + 1][0]) { a = stops[i]; b = stops[i + 1]; break; } }
+    const t = b[0] === a[0] ? 0 : (p - a[0]) / (b[0] - a[0]);
+    const ca = hex(a[1]), cb = hex(b[1]);
+    const c = ca.map((v, i) => Math.round(v + (cb[i] - v) * t));
+    return { hex: '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase(), rgb: c };
+  }
+  build(p, big) {
+    const leftS = Math.round(3600 * (1 - p));
+    const left = String(Math.floor(leftS / 60)).padStart(2, '0') + ':' + String(leftS % 60).padStart(2, '0');
+    const pct = (p * 100).toFixed(1);
+    const widget = 'display: flex; align-items: center; gap: ' + (big ? 12 : 10) + 'px; ' + (big ? 'width: 300px; height: 58px; padding: 0 10px 0 12px;' : 'height: 48px; padding: 0 12px;') + ' box-sizing: border-box; border-radius: 12px; background: linear-gradient(90deg, #2F5BFF 0%, #2F5BFF ' + pct + '%, #12151C ' + pct + '%); border: 1px solid #1F3482;' + (big ? ' box-shadow: 0 12px 32px rgba(0,0,0,0.5);' : '');
+    return { color: '#FFFFFF', hex: Math.round(p * 100) + '% filled', left, widget, ringOffset: (75.4 * (1 - p)).toFixed(1) };
+  }
+  renderVals() {
+    const p = this.state.sim != null ? this.state.sim : (this.props.progress ?? 64) / 100;
+    const main = this.build(p, true);
+    const leftMin = Math.ceil(60 * (1 - p));
+    const snaps = [0, 0.35, 0.7, 0.95].map((q) => ({ ...this.build(q, false), label: Math.round(q * 100) + '% done' }));
+    const simulate = () => {
+      if (this.timer) { clearInterval(this.timer); this.timer = null; this.setState({ sim: null }); return; }
+      let q = 0;
+      this.setState({ sim: 0 });
+      this.timer = setInterval(() => {
+        q = Math.min(1, q + 0.01);
+        this.setState({ sim: q });
+        if (q >= 1) { clearInterval(this.timer); this.timer = null; }
+      }, 60);
+    };
+    return {
+      ...main, snaps, simulate, simLabel: this.timer ? 'Stop' : 'Play a session in 6s',
+      sub: p >= 1 ? 'Held. Nice.' : leftMin + ' min left · until 10:50',
+      aria: 'Focus timer, ' + main.left + ' left'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#6E9BFF}a:hover{color:#9DBBFF}
+button,input,select{font-family:inherit}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+<dc-import name="Sidebar" active="today" mode="{{mode}}" accent="{{accentName}}" hint-size="220px,720px"></dc-import>
+
+<main style="position: relative; flex-grow: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 32px">
+<span style="font-size: 13px; color: #8A93A6">Monday, September 28</span>
+<div style="display: flex; align-items: center; gap: 8px">
+<a href="Month.dc.html" aria-label="5 day streak, view history" style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: #12151C; border: 1px solid #1F2430; border-radius: 6px; color: #E6E9EF; font-size: 12px; text-decoration: none">
+<span style="font-family: 'Geist Mono', monospace; font-weight: 500">5</span><span style="color: #8A93A6">day streak</span>
+<span style="display: flex; gap: 3px" aria-hidden="true">
+<sc-for list="{{streakDays}}" as="s" hint-placeholder-count="7"><span style="{{s}}"></span></sc-for>
+</span>
+</a>
+<button style="height: 32px; width: 200px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #12151C; border: 1px solid #1F2430; border-radius: 6px; color: #8A93A6; font-size: 13px; cursor: pointer">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<span style="flex-grow: 1; text-align: left">Search or command</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">Ctrl K</span>
+</button>
+</div>
+</div>
+
+<h1 style="margin: 0; font-family: 'Geist', system-ui, sans-serif; font-weight: 700; font-size: 28px; line-height: 1.15; letter-spacing: -0.03em; color: #E6E9EF">{{h1a}} <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; color: #8C96AB">{{h1b}}</span></h1>
+
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #12151C; border: 1px solid #1F2430; border-radius: 8px">
+<label style="position: relative; display: flex; align-items: center">
+<span style="position: absolute; left: 10px; font-size: 12px; color: #8A93A6; pointer-events: none">Profile</span>
+<select value="{{profile}}" onChange="{{setProfile}}" style="height: 36px; width: 210px; appearance: none; padding: 0 30px 0 62px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 13px; font-weight: 500; cursor: pointer">
+<sc-for list="{{profiles}}" as="p" hint-placeholder-count="4"><option value="{{p}}">{{p}}</option></sc-for>
+</select>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 10px; pointer-events: none"><path d="M6 9l6 6 6-6"></path></svg>
+</label>
+<label style="position: relative; display: flex; align-items: center">
+<span style="position: absolute; left: 10px; font-size: 12px; color: #8A93A6; pointer-events: none">For</span>
+<select value="{{duration}}" onChange="{{setDuration}}" style="height: 36px; width: 124px; appearance: none; padding: 0 30px 0 38px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-family: 'Geist Mono', monospace; font-size: 13px; cursor: pointer">
+<sc-for list="{{durations}}" as="d" hint-placeholder-count="4"><option value="{{d.v}}">{{d.label}}</option></sc-for>
+</select>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 10px; pointer-events: none"><path d="M6 9l6 6 6-6"></path></svg>
+</label>
+<span style="flex-grow: 1; padding-left: 6px; font-size: 12px; color: #8A93A6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{profileNote}}</span>
+<a href="HomeFocus.dc.html" style="height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: {{acc}}; border-radius: 6px; color: {{accOn}}; font-size: 13px; font-weight: 600; text-decoration: none">Enter focus<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: 0.7">Ctrl ↵</span></a>
+</div>
+</sc-if>
+
+<sc-if value="{{isFocus}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 24px; padding: 14px 16px; background: #12151C; border: 1px solid {{accLine}}; border-radius: 8px">
+<span style="font-family: 'Geist Mono', monospace; font-weight: 500; font-size: 32px; letter-spacing: -0.03em; color: #E6E9EF">38:14</span>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #8A93A6"><span><span style="color: {{accText}}; font-weight: 500">Sealed</span> · Interview Prep · 60 min</span><span>Ends 10:50 AM</span></div>
+<div style="height: 4px; background: #1F2430; border-radius: 999px; overflow: hidden"><div style="width: 36%; height: 100%; background: {{acc}}"></div></div>
+<span style="font-size: 12px; color: #8A93A6">14 apps and sites sealed · 3 attempts blocked</span>
+</div>
+<a href="MiniTimer.dc.html" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #171B24; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 13px; text-decoration: none">Compact<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">Ctrl M</span></a>
+<button style="height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">End early</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isEvent}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #12151C; border: 1px solid #1F4A4A; border-radius: 8px">
+<span style="width: 8px; height: 8px; border-radius: 999px; background: #5FD4C8; box-shadow: 0 0 0 4px #10262A"></span>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 14px; font-weight: 500; color: #E6E9EF">Mock interview</span>
+<span style="font-size: 12px; color: #8A93A6">2:00 to 3:00 PM · <span style="font-family: 'Geist Mono', monospace; color: #B8BFCC">18m</span> left · Focus unlocks when it ends</span>
+</div>
+<button style="height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">Open notes</button>
+<button style="height: 32px; padding: 0 12px; background: {{accTint}}; border: 1px solid {{accLine}}; border-radius: 6px; color: #E6E9EF; font-size: 13px; cursor: pointer">Queue focus at 3:00</button>
+</div>
+</sc-if>
+
+<div style="flex-grow: 1; display: flex; gap: 16px; min-height: 0">
+<section style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #E6E9EF">Today</h2>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #8A93A6">{{doneCount}}/{{total}}</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6477" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+<input aria-label="Add a task for today" placeholder="Add a task for today" value="{{draft}}" onChange="{{setDraft}}" onKeyDown="{{onKey}}" style="flex-grow: 1; height: 36px; background: transparent; border: none; outline: none; color: #E6E9EF; font-size: 13px">
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">↵</span>
+</div>
+<div style="display: flex; flex-direction: column; padding: 4px 0">
+<sc-for list="{{tasks}}" as="t" hint-placeholder-count="9">
+<div style="{{t.row}}">
+<button onClick="{{t.toggle}}" role="checkbox" aria-checked="{{t.done}}" aria-label="{{t.title}}" style="{{t.box}}"><sc-if value="{{t.done}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{accOn}}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if></button>
+<span style="{{t.text}}">{{t.title}}</span>
+<sc-if value="{{t.now}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 500; color: {{accText}}">Now</span></sc-if>
+<sc-if value="{{t.tag}}" hint-placeholder-val="{{false}}"><span style="height: 20px; display: flex; align-items: center; padding: 0 7px; border: 1px solid #2A3040; border-radius: 4px; font-size: 11px; color: #B8BFCC">{{t.tag}}</span></sc-if>
+<sc-if value="{{t.repeat}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C6477" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Repeats daily" role="img"><path d="M17 2l3 3-3 3"></path><path d="M4 11V9a4 4 0 0 1 4-4h12"></path><path d="M7 22l-3-3 3-3"></path><path d="M20 13v2a4 4 0 0 1-4 4H4"></path></svg></sc-if>
+<span style="width: 58px; text-align: right; font-family: 'Geist Mono', monospace; font-size: 11px; color: #8A93A6">{{t.time}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<aside style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px">
+<section style="display: flex; flex-direction: column; background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid #1F2430">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #E6E9EF">Schedule</h2>
+<span style="font-size: 11px; color: #8A93A6">Google Calendar</span>
+</div>
+<div style="display: flex; flex-direction: column; padding: 6px">
+<sc-for list="{{events}}" as="e" hint-placeholder-count="5">
+<div style="{{e.row}}">
+<span style="width: 40px; font-family: 'Geist Mono', monospace; font-size: 11px; color: #8A93A6">{{e.time}}</span>
+<span style="{{e.bar}}"></span>
+<span style="{{e.text}}">{{e.title}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #12151C; border: 1px solid #1F2430; border-radius: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="color: #8A93A6">Focus today</span><span style="font-family: 'Geist Mono', monospace; color: #E6E9EF">1h 42m / 2h</span></div>
+<div style="height: 4px; background: #1F2430; border-radius: 999px; overflow: hidden"><div style="width: 85%; height: 100%; background: {{acc}}"></div></div>
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="color: #8A93A6">Next check-in</span><span style="color: #E6E9EF">9:30 PM</span></div>
+</section>
+</aside>
+</div>
+
+<sc-if value="{{toast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; background: #1A1F2B; border: 1px solid #2A3040; border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,0.45); white-space: nowrap">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{acc}}" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+<span style="font-size: 13px; color: #E6E9EF">Week is locked while you're sealed.</span>
+<span style="font-size: 13px; color: #8A93A6">End focus to open it.</span>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"enum","options":["cobalt","current","brass"],"default":"cobalt"},"mode":{"editor":"enum","options":["idle","focus","event"],"default":"idle"},"toast":{"editor":"boolean","default":false},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      profile: 'Interview Prep', duration: '60', draft: '',
+      tasks: [
+        { title: 'Weigh-in', time: '8:00a', done: true, repeat: true },
+        { title: 'Morning meeting', time: '9:00a', done: true, repeat: true },
+        { title: 'Gym', done: true, repeat: true },
+        { title: 'NeetCode daily', done: true, repeat: true },
+        { title: 'Work session: SQL + DSA', tag: 'Interview Prep', time: '10:00a', now: true },
+        { title: 'Job search: 5 applications', repeat: true },
+        { title: 'Eat again / smoothie', repeat: true },
+        { title: 'Work session: verbal interview prep', tag: 'Interview Prep', time: '4:00p' },
+        { title: 'Evening Filmadi meeting', time: '6:00p', repeat: true }
+      ]
+    };
+  }
+  renderVals() {
+    const mode = this.props.mode ?? 'idle';
+    const heads = {
+      idle: ['Keep your promises.', 'Or stay mid.'],
+      focus: ['You’re sealed in.', 'Finish what you started.'],
+      event: ['Mock interview until 3:00.', 'Be all the way there.']
+    };
+    const [h1a, h1b] = heads[mode] || heads.idle;
+    const notes = {
+      'Interview Prep': 'Opens VS Code, NeetCode, Notion · seals 14',
+      'Deep Work': 'Opens VS Code, GitHub · seals 11',
+      'Study': 'Opens Notes, PDF reader · seals 12',
+      'Light Work': 'Opens Gmail, LinkedIn · seals 8'
+    };
+    const box = (on) => 'width: 16px; height: 16px; flex-shrink: 0; box-sizing: border-box; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; ' + (on ? 'background: #6E9BFF; border: 1px solid #6E9BFF;' : 'background: transparent; border: 1.5px solid #3A4155;');
+    const tasks = this.state.tasks.map((t, i) => {
+      const now = mode === 'focus' && !!t.now && !t.done;
+      return {
+        ...t, now, tag: t.tag || '', time: t.time || '', repeat: !!t.repeat,
+        row: 'display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 14px; ' + (now ? 'background: #16203A; box-shadow: inset 2px 0 0 #6E9BFF;' : ''),
+        box: box(t.done),
+        text: 'flex-grow: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ' + (t.done ? 'color: #5C6477; text-decoration: line-through;' : 'color: #E6E9EF;'),
+        toggle: () => this.setState({ tasks: this.state.tasks.map((x, j) => j === i ? { ...x, done: !x.done } : x) })
+      };
+    });
+    const add = () => {
+      const v = this.state.draft.trim();
+      if (!v) return;
+      this.setState({ draft: '', tasks: this.state.tasks.concat([{ title: v }]) });
+    };
+    const evs = [
+      { time: '9:00', title: 'Morning meeting', kind: 'past' },
+      { time: '10:00', title: 'LeetCode: graphs', kind: mode === 'focus' ? 'nowFocus' : 'focus' },
+      { time: '2:00', title: 'Mock interview', kind: mode === 'event' ? 'nowEvent' : 'event' },
+      { time: '4:00', title: 'System design reading', kind: 'focus' },
+      { time: '6:00', title: 'Filmadi meeting', kind: 'event' }
+    ];
+    const events = evs.map((e) => {
+      const color = e.kind.indexOf('ocus') > -1 ? '#6E9BFF' : e.kind === 'past' ? '#2A3040' : '#5FD4C8';
+      const now = e.kind.indexOf('now') === 0;
+      return {
+        ...e,
+        row: 'display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; ' + (now ? 'background: #171B24;' : ''),
+        bar: 'width: 3px; height: 16px; border-radius: 2px; background: ' + color + ';',
+        text: 'font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ' + (e.kind === 'past' ? 'color: #5C6477;' : 'color: #E6E9EF;') + (now ? ' font-weight: 500;' : '')
+      };
+    });
+    return this.themed({
+      mode, isIdle: mode === 'idle', isFocus: mode === 'focus', isEvent: mode === 'event', toast: !!this.props.toast,
+      rootStyle: 'position: relative; width: 1120px; height: 720px; box-sizing: border-box; display: flex; background: #0B0D12; font-family: Geist, system-ui, sans-serif; color: #E6E9EF; overflow: hidden; ' + (mode === 'focus' ? 'border-top: 2px solid #6E9BFF;' : mode === 'event' ? 'border-top: 2px solid #5FD4C8;' : 'border-top: 2px solid transparent;'),
+      h1a, h1b,
+      profile: this.state.profile, profiles: Object.keys(notes), profileNote: notes[this.state.profile],
+      setProfile: (ev) => this.setState({ profile: ev.target.value }),
+      duration: this.state.duration,
+      durations: [30, 60, 90, 120].map((m) => ({ v: String(m), label: m + ' min' })),
+      setDuration: (ev) => this.setState({ duration: ev.target.value }),
+      draft: this.state.draft, setDraft: (ev) => this.setState({ draft: ev.target.value }),
+      onKey: (ev) => { if (ev.key === 'Enter') add(); },
+      tasks, doneCount: tasks.filter((t) => t.done).length, total: tasks.length, events,
+      streakDays: ['kept', 'broken', 'kept', 'kept', 'rest', 'kept', 'today'].map((k) => 'width: 6px; height: 12px; border-radius: 2px; ' + (k === 'kept' ? 'background: #6E9BFF;' : k === 'broken' ? 'background: #E5484D;' : k === 'rest' ? 'background: #2A3040;' : 'background: transparent; border: 1px solid #6E9BFF; box-sizing: border-box;'))
+    });
+  }
+
+  themeOf(name) {
+    const mix = (hex, t) => {
+      const h = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+      const a = h(hex), b = h('#12151C');
+      return '#' + a.map((v, i) => Math.round(b[i] + (v - b[i]) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
+    };
+    const base = { current: ['#6E9BFF', '#9DBBFF', '#0B0D12', '#6E9BFF'], cobalt: ['#2F5BFF', '#A9BBFF', '#FFFFFF', '#7A95FF'], brass: ['#C9A24A', '#DDBB6A', '#0B0D12', '#C9A24A'] }[name] || ['#2F5BFF', '#A9BBFF', '#FFFFFF', '#7A95FF'];
+    if (name === 'current') return { acc: '#6E9BFF', accHover: '#9DBBFF', accOn: '#0B0D12', accTint: '#16203A', accLine: '#2B3F73', accText: '#6E9BFF' };
+    return { acc: base[0], accHover: base[1], accOn: base[2], accText: base[3], accTint: mix(base[0], 0.16), accLine: mix(base[0], 0.45) };
+  }
+  themed(vals) {
+    const T = this.themeOf(this.props.accent ?? 'cobalt');
+    const map = { '#6E9BFF': T.acc, '#9DBBFF': T.accHover, '#16203A': T.accTint, '#2B3F73': T.accLine };
+    const sw = (s) => s.replace(/(^|[^-])color: #6E9BFF/g, '$1color: ' + T.accText).replace(/#6E9BFF|#9DBBFF|#16203A|#2B3F73/g, (m) => map[m]);
+    const walk = (v) => typeof v === 'string' ? sw(v) : Array.isArray(v) ? v.map(walk) : (v && typeof v === 'object' && v.constructor === Object) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v;
+    return { ...walk(vals), ...T, accentName: this.props.accent ?? 'cobalt' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+/* Fonts are bundled so the app renders the same offline (SPEC 4.0.3). */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    @apply bg-app text-text font-sans text-body antialiased;
+    overflow: hidden;
+    user-select: none;
+  }
+  button,
+  input,
+  select {
+    font-family: inherit;
+  }
+  button {
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  /* Keyboard focus: one cobalt ring everywhere. Mouse clicks never show it. */
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    @apply outline-2 outline-offset-2 outline-sealed;
+  }
+  button:focus:not(:focus-visible) {
+    outline: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+  input {
+    user-select: text;
+  }
+  /* Thin dark scrollbars everywhere (Windows' default ones are bright and wide). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme(colors.line-input) transparent;
+  }
+}
+
+/* Moments only (Home headline, sealed dialogs, held dialog, onboarding titles). Mirrors design/tokens.css. */
+@layer components {
+  .headline {
+    @apply font-sans font-bold text-text;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+  .headline em {
+    @apply font-serif text-payoff;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.12em;
+    letter-spacing: -0.01em;
+  }
+  .page-title {
+    @apply font-sans text-page-title text-text;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Sanctum held page (design/screens/HeldPage.dc.html): mesh blobs, torii build, staggered rise. */
+@keyframes held-blob-a { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(180px, 90px) scale(1.2); } 66% { transform: translate(60px, -60px) scale(0.9); } 100% { transform: translate(0, 0) scale(1); } }
+@keyframes held-blob-b { 0% { transform: translate(0, 0) scale(1.1); } 50% { transform: translate(-220px, 40px) scale(0.85); } 100% { transform: translate(0, 0) scale(1.1); } }
+@keyframes held-blob-c { 0% { transform: translate(0, 0); } 50% { transform: translate(120px, -140px) scale(1.15); } 100% { transform: translate(0, 0); } }
+@keyframes held-blob-d { 0% { transform: translate(0, 0) scale(0.9); } 50% { transform: translate(-100px, -80px) scale(1.2); } 100% { transform: translate(0, 0) scale(0.9); } }
+@keyframes held-leg { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes held-beam { from { opacity: 0; transform: translateY(-4px) scaleX(0.6); } to { opacity: 1; transform: none; } }
+@keyframes held-nuki { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes held-key { 0% { opacity: 0; transform: translateY(-5px) scale(0.7); } 60% { opacity: 1; transform: translateY(0.6px) scale(1.04); } 100% { opacity: 1; transform: none; } }
+@keyframes held-ring { from { opacity: 0.55; transform: scale(0.4); } to { opacity: 0; transform: scale(2.6); } }
+@keyframes held-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.held-blob-a { animation: held-blob-a 14s ease-in-out infinite; }
+.held-blob-b { animation: held-blob-b 17s ease-in-out infinite; }
+.held-blob-c { animation: held-blob-c 19s ease-in-out infinite; }
+.held-blob-d { animation: held-blob-d 15s ease-in-out infinite; }
+.held-leg { transform-box: fill-box; transform-origin: bottom; animation: held-leg 0.5s cubic-bezier(0.3, 0.8, 0.2, 1) both; }
+.held-leg-2 { animation-delay: 0.08s; }
+.held-beam { transform-box: fill-box; transform-origin: center; animation: held-beam 0.5s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.held-nuki { transform-box: fill-box; transform-origin: center; animation: held-nuki 0.4s 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.held-key { transform-box: fill-box; transform-origin: center; animation: held-key 0.5s 0.95s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+/* Two rings pulse out from the keyhole, timed with the chime (SPEC 4.0.2). */
+.held-ring { transform-box: fill-box; transform-origin: center; animation: held-ring 1.4s 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.held-ring-2 { animation-delay: 1.45s; }
+.held-r1 { animation: held-rise 0.8s 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.held-r2 { animation: held-rise 0.8s 1.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.held-r3 { animation: held-rise 0.8s 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum trackers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF; border-top: 2px solid transparent; overflow: hidden">
+<dc-import name="Sidebar" active="track" mode="idle" hint-size="220px,720px"></dc-import>
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 32px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">Trackers</h1>
+<div style="display: flex; gap: 6px; align-items: center">
+<div role="group" aria-label="Time range" style="display: flex; padding: 2px; border: 1px solid #2A3040; border-radius: 6px">
+<sc-for list="{{ranges}}" as="r" hint-placeholder-count="5"><button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="{{r.style}}">{{r.label}}</button></sc-for>
+</div>
+<div role="group" aria-label="View" style="display: flex; padding: 2px; border: 1px solid #2A3040; border-radius: 6px">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button onClick="{{v.pick}}" aria-pressed="{{v.on}}" style="{{v.style}}">{{v.label}}</button></sc-for>
+</div>
+<a href="Checkin.dc.html" style="height: 32px; display: flex; align-items: center; padding: 0 12px; background: #2F5BFF; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; text-decoration: none">Log entry</a>
+</div>
+</div>
+
+<sc-if value="{{showChart}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; gap: 12px">
+<sc-for list="{{charts}}" as="c" hint-placeholder-count="2">
+<section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; background: #12151C; border: 1px solid #1F2430; border-radius: 8px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 12px; font-weight: 500; color: #8A93A6">{{c.title}}</h2>
+<span style="font-family: 'Geist Mono', monospace; font-weight: 500; font-size: 24px; letter-spacing: -0.02em">{{c.current}}<span style="font-size: 12px; color: #8A93A6"> {{c.unit}}</span></span>
+</div>
+<span style="font-size: 12px; color: #B8BFCC">{{c.change}}</span>
+</div>
+<div style="position: relative; width: 384px; height: 196px">
+<svg width="384" height="196" viewBox="0 0 384 196" role="img" aria-label="{{c.aria}}">
+<sc-for list="{{c.grid}}" as="g" hint-placeholder-count="3">
+<line x1="38" x2="382" y1="{{g.y}}" y2="{{g.y}}" stroke="#1F2430" stroke-width="1"></line>
+<text x="30" y="{{g.ty}}" text-anchor="end" fill="#5C6477" font-size="10" font-family="Geist Mono, monospace">{{g.label}}</text>
+</sc-for>
+<sc-for list="{{c.xlabels}}" as="x" hint-placeholder-count="3">
+<text x="{{x.x}}" y="192" text-anchor="{{x.anchor}}" fill="#5C6477" font-size="10" font-family="Geist Mono, monospace">{{x.label}}</text>
+</sc-for>
+<polyline points="{{c.points}}" fill="none" stroke="#2F5BFF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+<circle cx="{{c.lastX}}" cy="{{c.lastY}}" r="4" fill="#2F5BFF" stroke="#12151C" stroke-width="2"></circle>
+<sc-for list="{{c.hits}}" as="h" hint-placeholder-count="10">
+<rect x="{{h.x}}" y="0" width="{{h.w}}" height="176" fill="transparent" onMouseEnter="{{h.enter}}" onMouseLeave="{{c.leave}}"></rect>
+</sc-for>
+</svg>
+<sc-if value="{{c.hover}}" hint-placeholder-val="{{false}}">
+<div style="{{c.hover.line}}"></div>
+<div style="{{c.hover.dot}}"></div>
+<div style="{{c.hover.tip}}"><span style="font-family: 'Geist Mono', monospace; font-size: 13px; color: #E6E9EF">{{c.hover.value}}</span><span style="font-size: 11px; color: #8A93A6">{{c.hover.date}}</span></div>
+</sc-if>
+</div>
+</section>
+</sc-for>
+</div>
+</sc-if>
+
+<section style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; background: #12151C; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: 34px; align-items: center; padding: 0 14px; font-size: 12px; color: #8A93A6; border-bottom: 1px solid #1F2430">
+<span>Date</span><span>Weight</span><span>Body fat</span><span>Source</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: 34px; align-items: center; padding: 0 14px; font-size: 13px; border-bottom: 1px solid #181C26">
+<span style="color: #B8BFCC">{{r.date}}</span><span style="font-family: 'Geist Mono', monospace">{{r.w}} lb</span><span style="font-family: 'Geist Mono', monospace">{{r.b}}%</span><span style="color: #8A93A6">{{r.src}}</span>
+</div>
+</sc-for>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { range: '90D', view: 'chart', hover: null };
+    const data = [];
+    const end = new Date(2026, 8, 28);
+    for (let i = 0; i < 104; i++) {
+      const d = new Date(end); d.setDate(end.getDate() - Math.round((103 - i) * 3.5));
+      const t = i / 103;
+      data.push({ d, w: Math.round((184 - 11.6 * t + Math.sin(i * 1.3) * 0.7 + Math.sin(i * 0.31) * 0.9) * 10) / 10, b: Math.round((20.1 - 4.3 * t + Math.sin(i * 1.1) * 0.25) * 10) / 10 });
+    }
+    data[103].w = 172.4; data[103].b = 15.8;
+    this.data = data;
+  }
+  fmt(d) { return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getDate(); }
+  chart(key, title, unit, pts, dec) {
+    const W0 = 42, W1 = 378, H0 = 10, H1 = 172;
+    const vals = pts.map((p) => p[key]);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
+    const n = pts.length;
+    const X = (i) => W0 + (n === 1 ? 0 : i * (W1 - W0) / (n - 1));
+    const Y = (v) => H0 + (1 - (v - lo) / (hi - lo)) * (H1 - H0);
+    const grid = [0, 0.5, 1].map((f) => { const v = lo + (hi - lo) * (1 - f); const y = H0 + f * (H1 - H0); return { y: y.toFixed(1), ty: (y + 3.5).toFixed(1), label: v.toFixed(dec) }; });
+    const xlabels = [0, Math.floor((n - 1) / 2), n - 1].map((i, k) => ({ x: X(i).toFixed(1), label: this.fmt(pts[i].d), anchor: k === 0 ? 'start' : k === 2 ? 'end' : 'middle' }));
+    const step = n > 1 ? (W1 - W0) / (n - 1) : 20;
+    const hits = pts.map((p, i) => ({ x: (X(i) - step / 2).toFixed(1), w: Math.max(step, 4).toFixed(1), enter: () => this.setState({ hover: { key, i } }) }));
+    const first = vals[0], last = vals[n - 1];
+    const diff = Math.round((last - first) * 10) / 10;
+    let hover = null;
+    const h = this.state.hover;
+    if (h && h.key === key && pts[h.i]) {
+      const x = X(h.i), y = Y(pts[h.i][key]);
+      hover = {
+        value: pts[h.i][key].toFixed(1) + ' ' + unit, date: this.fmt(pts[h.i].d),
+        line: 'position: absolute; left: ' + x.toFixed(1) + 'px; top: 10px; width: 1px; height: 162px; background: #3A4155; pointer-events: none;',
+        dot: 'position: absolute; left: ' + (x - 5).toFixed(1) + 'px; top: ' + (y - 5).toFixed(1) + 'px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 999px; background: #2F5BFF; border: 2px solid #12151C; pointer-events: none;',
+        tip: 'position: absolute; left: ' + Math.min(Math.max(x - 46, 0), 292).toFixed(1) + 'px; top: ' + Math.max(y - 54, 0).toFixed(1) + 'px; width: 92px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; background: #1A1F2B; border: 1px solid #2A3040; border-radius: 6px; pointer-events: none;'
+      };
+    }
+    return {
+      title, unit, current: last.toFixed(1), change: (diff > 0 ? '+' : '') + diff + (unit === '%' ? ' pts' : ' ' + unit) + ' this range',
+      aria: title + ' over the selected range, from ' + first + ' to ' + last,
+      grid, xlabels, hits, hover, leave: () => this.setState({ hover: null }),
+      points: pts.map((p, i) => X(i).toFixed(1) + ',' + Y(p[key]).toFixed(1)).join(' '),
+      lastX: X(n - 1).toFixed(1), lastY: Y(last).toFixed(1)
+    };
+  }
+  renderVals() {
+    const counts = { '7D': 3, '30D': 9, '90D': 26, '1Y': 104, 'All': 104 };
+    const pts = this.data.slice(-counts[this.state.range]);
+    const seg = (on) => 'height: 26px; padding: 0 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; ' + (on ? 'background: #1F2430; color: #E6E9EF; font-weight: 500;' : 'background: transparent; color: #8A93A6;');
+    const ranges = Object.keys(counts).map((r) => ({ label: r, on: this.state.range === r, style: seg(this.state.range === r) + ' font-family: Geist Mono, monospace;', pick: () => this.setState({ range: r, hover: null }) }));
+    const views = [['chart', 'Chart'], ['table', 'Table']].map(([k, label]) => ({ label, on: this.state.view === k, style: seg(this.state.view === k), pick: () => this.setState({ view: k }) }));
+    const showChart = this.state.view === 'chart';
+    const rows = pts.slice(-(showChart ? 5 : 16)).reverse().map((p, i) => ({ date: this.fmt(p.d), w: p.w.toFixed(1), b: p.b.toFixed(1), src: i === 0 ? 'Morning check-in' : 'Check-in' }));
+    return { ranges, views, showChart, rows, charts: [this.chart('w', 'Weight', 'lb', pts, 0), this.chart('b', 'Body fat', '%', pts, 1)] };
+  }
+}
+</script>
+</body>
+</html>

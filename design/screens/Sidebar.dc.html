@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum sidebar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<nav aria-label="Sanctum" style="width: 220px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; padding: 16px 12px; background: #0E1016; border-right: 1px solid #1F2430; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+<svg width="18" height="18" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="{{acc}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{acc}}"></path></g></svg>
+<span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em">Sanctum</span>
+</div>
+
+<div style="{{pill}}">
+<span style="{{dot}}"></span>
+<span style="font-size: 12px; font-weight: 500">{{stateLabel}}</span>
+<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 12px; color: #8A93A6">{{stateMeta}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{items}}" as="n" hint-placeholder-count="4">
+<a href="{{n.href}}" aria-disabled="{{n.locked}}" style="{{n.style}}">
+<span style="width: 16px; display: flex; justify-content: center">
+<sc-if value="{{n.isToday}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M8.5 12.5l2.3 2.3 4.7-5"></path></svg></sc-if>
+<sc-if value="{{n.isWeek}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg></sc-if>
+<sc-if value="{{n.isTrack}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"></path></svg></sc-if>
+<sc-if value="{{n.isSetup}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></sc-if>
+</span>
+<span style="flex-grow: 1">{{n.label}}</span>
+<sc-if value="{{n.locked}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></sc-if>
+<sc-if value="{{n.showKey}}" hint-placeholder-val="{{true}}"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #5C6477">{{n.key}}</span></sc-if>
+</a>
+</sc-for>
+</div>
+
+<div style="flex-grow: 1"></div>
+
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 8px; font-size: 12px; color: #5C6477">
+<span style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #171B24; color: #B8BFCC; font-size: 11px; font-weight: 600">R</span>
+<span>Ryan</span>
+<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px">v0.1</span>
+</div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"enum","options":["cobalt","current","brass"],"default":"cobalt"},"active":{"editor":"enum","options":["today","week","track","setup"],"default":"today"},"mode":{"editor":"enum","options":["idle","focus","event"],"default":"idle"},"$preview":{"width":220,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'today';
+    const mode = this.props.mode ?? 'idle';
+    const focus = mode === 'focus';
+    const items = [
+      { id: 'today', label: 'Today', href: 'Home.dc.html', key: 'Ctrl 1' },
+      { id: 'week', label: 'Week', href: 'Week.dc.html', key: 'Ctrl 2' },
+      { id: 'track', label: 'Trackers', href: 'Tracking.dc.html', key: 'Ctrl 3' },
+      { id: 'setup', label: 'Setup', href: 'Setup.dc.html', key: 'Ctrl ,' }
+    ].map((n) => {
+      const on = n.id === active;
+      const locked = focus && !on;
+      return {
+        ...n, locked, showKey: !locked,
+        isToday: n.id === 'today', isWeek: n.id === 'week', isTrack: n.id === 'track', isSetup: n.id === 'setup',
+        href: locked ? '#' : n.href,
+        style: 'height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; font-size: 13px; text-decoration: none; ' +
+          (on ? 'background: #171B24; color: #E6E9EF; font-weight: 500;' : locked ? 'color: #4A5266; cursor: not-allowed;' : 'color: #8A93A6;')
+      };
+    });
+    const states = {
+      idle: { label: 'Open', meta: '', dot: '#5C6477', bg: 'transparent', line: '#1F2430', color: '#B8BFCC' },
+      focus: { label: 'Sealed', meta: '38:14', dot: '#6E9BFF', bg: '#16203A', line: '#2B3F73', color: '#E6E9EF' },
+      event: { label: 'In event', meta: '18m', dot: '#5FD4C8', bg: '#10262A', line: '#1F4A4A', color: '#E6E9EF' }
+    };
+    const s = states[mode] || states.idle;
+    const done = [1, 1, 1, 1, 1, 0, 0];
+    return this.themed({
+      items,
+      stateLabel: s.label, stateMeta: s.meta,
+      pill: 'display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid ' + s.line + '; background: ' + s.bg + '; color: ' + s.color + ';',
+      dot: 'width: 7px; height: 7px; border-radius: 999px; background: ' + s.dot + ';' + (mode !== 'idle' ? ' box-shadow: 0 0 0 3px ' + s.bg + ';' : ''),
+      week: done.map((d, i) => 'flex: 1 1 0; height: 6px; border-radius: 2px; background: ' + (d ? '#6E9BFF' : i === 5 ? '#2B3F73' : '#1F2430') + ';')
+    });
+  }
+
+  themeOf(name) {
+    const mix = (hex, t) => {
+      const h = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+      const a = h(hex), b = h('#12151C');
+      return '#' + a.map((v, i) => Math.round(b[i] + (v - b[i]) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
+    };
+    const base = { current: ['#6E9BFF', '#9DBBFF', '#0B0D12', '#6E9BFF'], cobalt: ['#2F5BFF', '#A9BBFF', '#FFFFFF', '#7A95FF'], brass: ['#C9A24A', '#DDBB6A', '#0B0D12', '#C9A24A'] }[name] || ['#2F5BFF', '#A9BBFF', '#FFFFFF', '#7A95FF'];
+    if (name === 'current') return { acc: '#6E9BFF', accHover: '#9DBBFF', accOn: '#0B0D12', accTint: '#16203A', accLine: '#2B3F73', accText: '#6E9BFF' };
+    return { acc: base[0], accHover: base[1], accOn: base[2], accText: base[3], accTint: mix(base[0], 0.16), accLine: mix(base[0], 0.45) };
+  }
+  themed(vals) {
+    const T = this.themeOf(this.props.accent ?? 'cobalt');
+    const map = { '#6E9BFF': T.acc, '#9DBBFF': T.accHover, '#16203A': T.accTint, '#2B3F73': T.accLine };
+    const sw = (s) => s.replace(/(^|[^-])color: #6E9BFF/g, '$1color: ' + T.accText).replace(/#6E9BFF|#9DBBFF|#16203A|#2B3F73/g, (m) => map[m]);
+    const walk = (v) => typeof v === 'string' ? sw(v) : Array.isArray(v) ? v.map(walk) : (v && typeof v === 'object' && v.constructor === Object) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v;
+    return { ...walk(vals), ...T, accentName: this.props.accent ?? 'cobalt' };
+  }
+}
+</script>
+</body>
+</html>

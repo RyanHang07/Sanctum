@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum sealed session</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@300;400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Geist',system-ui,sans-serif;background:#0A0C12;color:#E8ECF4}
+a{color:#6E9BFF}a:hover{color:#9DBBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; background: radial-gradient(ellipse 60% 55% at 50% 45%, #0F1830 0%, #0A0C12 70%); color: #E8ECF4; font-family: 'Geist', system-ui, sans-serif; display: flex; flex-direction: column; padding: 28px 36px 32px">
+
+<header style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M5 23V12.5a8 8 0 0 1 16 0V23" stroke="{{accent}}" stroke-width="1.6"></path><path d="M2.5 23h21" stroke="{{accent}}" stroke-width="1.6" stroke-linecap="round"></path><circle cx="13" cy="16" r="2.6" fill="{{accent}}"></circle></svg>
+<span style="font-size: 15px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase">Sanctum</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #243764; background: #111A2E; border-radius: 999px; font-size: 13px; color: {{accent}}">
+<svg width="14" height="14" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 23V12.5a8 8 0 0 1 16 0V23"></path><path d="M2.5 23h21"></path></svg>
+<span>Sealed until 10:50</span>
+</div>
+</header>
+
+<main style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px">
+<div style="position: relative; width: 340px; height: 340px; display: flex; align-items: center; justify-content: center">
+<svg width="340" height="340" viewBox="0 0 340 340" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+<circle cx="170" cy="170" r="156" fill="none" stroke="#18203A" stroke-width="4"></circle>
+<circle cx="170" cy="170" r="156" fill="none" stroke="{{accent}}" stroke-width="4" stroke-linecap="round" stroke-dasharray="980.2" stroke-dashoffset="{{offset}}" transform="rotate(-90 170 170)"></circle>
+</svg>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-family: 'Geist Mono', monospace; font-weight: 300; font-size: 76px; letter-spacing: -0.03em">{{remaining}}</span>
+<span style="font-size: 13px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Interview Prep · 50m</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+<span style="font-size: 12px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Now</span>
+<span style="font-family: 'Geist', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 26px">LeetCode, 417. Pacific Atlantic Water Flow</span>
+</div>
+
+<div style="display: flex; gap: 8px">
+<span style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #232939; border-radius: 999px; font-size: 13px; color: #CBD2E0"><span style="width: 6px; height: 6px; border-radius: 999px; background: #5FD4C8"></span>VS Code</span>
+<span style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #232939; border-radius: 999px; font-size: 13px; color: #CBD2E0"><span style="width: 6px; height: 6px; border-radius: 999px; background: #5FD4C8"></span>NeetCode</span>
+<span style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #232939; border-radius: 999px; font-size: 13px; color: #CBD2E0"><span style="width: 6px; height: 6px; border-radius: 999px; background: #5FD4C8"></span>Notion</span>
+</div>
+</main>
+
+<footer style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; gap: 28px; font-size: 13px; color: #9AA3B5">
+<span>Blocked <span style="font-family: 'Geist Mono', monospace; color: #E8ECF4">3</span></span>
+<span>Idle <span style="font-family: 'Geist Mono', monospace; color: #E8ECF4">0m</span></span>
+<span>Next <span style="color: #E8ECF4">Lunch at 12:30</span></span>
+</div>
+<button style="height: 44px; padding: 0 16px; background: transparent; border: 1px solid #232939; border-radius: 12px; color: #9AA3B5; font-size: 13px; cursor: pointer">Break the seal</button>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","options":["#6E9BFF","#5FD4C8","#9B8CFF"],"default":"#6E9BFF"},"progress":{"editor":"range","min":0,"max":100,"step":1,"unit":"%","default":24},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props.progress ?? 24;
+    const left = Math.round(3000 * (1 - p / 100));
+    return {
+      accent: this.props.accent ?? '#6E9BFF',
+      offset: String(980.2 * (p / 100)),
+      remaining: String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0')
+    };
+  }
+}
+</script>
+</body>
+</html>

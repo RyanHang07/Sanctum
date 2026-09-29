@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum calendar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Geist',system-ui,sans-serif;background:#0A0C12;color:#E8ECF4}
+a{color:#6E9BFF}a:hover{color:#9DBBFF}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; background: #0A0C12; color: #E8ECF4; font-family: 'Geist', system-ui, sans-serif; display: flex; flex-direction: column; padding: 24px 28px 28px; gap: 20px">
+
+<header style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 14px">
+<a href="Main.dc.html" aria-label="Collapse calendar" style="width: 44px; height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid #232939; border-radius: 12px; color: #E8ECF4">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"></path></svg>
+</a>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: 'Geist', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.035em; font-size: 30px; line-height: 1.05">Week of <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.1em; letter-spacing: -0.01em; color: #8C96AB">Sept 28</span></h1>
+<span style="font-size: 12px; color: #9AA3B5">Synced with Google Calendar · edits save back</span>
+</div>
+</div>
+<div style="display: flex; gap: 8px; align-items: center">
+<button style="height: 44px; padding: 0 16px; background: transparent; border: 1px solid #262D3F; border-radius: 12px; color: #CBD2E0; font-size: 14px; cursor: pointer">Day</button>
+<button style="height: 44px; padding: 0 16px; background: #E8ECF4; border: 1px solid #E8ECF4; border-radius: 12px; color: #0A0C12; font-size: 14px; font-weight: 500; cursor: pointer">Week</button>
+<button onClick="{{addBlock}}" style="height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: {{accent}}; border: none; border-radius: 12px; color: #0A0C12; font-size: 14px; font-weight: 600; cursor: pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+Focus block
+</button>
+</div>
+</header>
+
+<div style="flex-grow: 1; display: flex; gap: 20px; min-height: 0">
+<section style="flex-grow: 1; display: flex; flex-direction: column; background: #11141C; border: 1px solid #1B2030; border-radius: 18px; padding: 14px 14px 10px 0">
+<div style="display: flex; padding-left: 52px; height: 34px">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="5">
+<div style="flex: 1 1 0; display: flex; align-items: baseline; gap: 6px; padding-left: 8px; font-size: 12px; color: {{d.color}}">
+<span style="letter-spacing: 0.08em; text-transform: uppercase">{{d.name}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 13px">{{d.date}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-grow: 1">
+<div style="width: 52px; flex-shrink: 0; position: relative; height: 520px">
+<sc-for list="{{hours}}" as="h" hint-placeholder-count="11">
+<span style="{{h.style}}">{{h.label}}</span>
+</sc-for>
+</div>
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+<div style="flex: 1 1 0; position: relative; height: 520px; border-left: 1px solid #1B2030; background-image: repeating-linear-gradient(to bottom, #1B2030 0, #1B2030 1px, transparent 1px, transparent 52px)">
+<sc-for list="{{c.events}}" as="e" hint-placeholder-count="2">
+<button onClick="{{e.pick}}" style="{{e.style}}">
+<span style="font-size: 12px; font-weight: 500; color: #E8ECF4; text-align: left">{{e.title}}</span>
+<span style="font-size: 11px; color: {{e.sub}}; text-align: left">{{e.meta}}</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+
+<aside style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 18px">
+<span style="font-size: 12px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Edit block</span>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA3B5">Title
+<input value="{{sel.title}}" onChange="{{setTitle}}" style="height: 44px; box-sizing: border-box; padding: 0 12px; background: #0A0C12; border: 1px solid #262D3F; border-radius: 10px; color: #E8ECF4; font-size: 14px">
+</label>
+<div style="display: flex; gap: 8px">
+<label style="flex: 1 1 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA3B5">Day
+<input value="{{sel.dayName}}" readOnly="{{yes}}" style="height: 44px; box-sizing: border-box; padding: 0 12px; background: #0A0C12; border: 1px solid #262D3F; border-radius: 10px; color: #E8ECF4; font-size: 14px; width: 100%">
+</label>
+<label style="flex: 1 1 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA3B5">Time
+<input value="{{sel.range}}" readOnly="{{yes}}" style="height: 44px; box-sizing: border-box; padding: 0 12px; background: #0A0C12; border: 1px solid #262D3F; border-radius: 10px; color: #E8ECF4; font-family: 'Geist Mono', monospace; font-size: 13px; width: 100%">
+</label>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #9AA3B5">Seal with profile</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{profileOpts}}" as="p" hint-placeholder-count="5">
+<button onClick="{{p.pick}}" style="{{p.style}}">{{p.name}}</button>
+</sc-for>
+</div>
+</div>
+<span style="font-size: 12px; color: #9AA3B5; line-height: 1.5">{{hint}}</span>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 8px">
+<button style="height: 44px; padding: 0 14px; background: transparent; border: 1px solid #262D3F; border-radius: 12px; color: #CBD2E0; font-size: 14px; cursor: pointer">Delete</button>
+<button style="flex-grow: 1; height: 44px; background: #E8ECF4; border: none; border-radius: 12px; color: #0A0C12; font-size: 14px; font-weight: 600; cursor: pointer">Save to Google</button>
+</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","options":["#6E9BFF","#5FD4C8","#9B8CFF"],"default":"#6E9BFF"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      sel: 'e2',
+      events: [
+        { id: 'e1', day: 0, start: 9, dur: 0.5, title: 'Standup', profile: null },
+        { id: 'e2', day: 0, start: 10, dur: 2, title: 'LeetCode: graphs', profile: 'Interview Prep' },
+        { id: 'e3', day: 0, start: 14, dur: 1, title: 'Mock interview', profile: null },
+        { id: 'e4', day: 0, start: 16, dur: 1.5, title: 'System design reading', profile: 'Study' },
+        { id: 'e5', day: 1, start: 9, dur: 3, title: 'Filmadi sprint work', profile: 'Deep Work' },
+        { id: 'e6', day: 1, start: 13, dur: 1, title: 'Applications', profile: 'Light Work' },
+        { id: 'e7', day: 2, start: 9, dur: 0.5, title: 'Standup', profile: null },
+        { id: 'e8', day: 2, start: 10, dur: 1.5, title: 'Behavioral stories', profile: 'Interview Prep' },
+        { id: 'e9', day: 3, start: 11, dur: 2, title: 'DP practice', profile: 'Interview Prep' },
+        { id: 'e10', day: 3, start: 15, dur: 1, title: 'Recruiter call', profile: null },
+        { id: 'e11', day: 4, start: 9, dur: 0.5, title: 'Standup', profile: null },
+        { id: 'e12', day: 4, start: 13, dur: 2.5, title: 'Portfolio updates', profile: 'Deep Work' }
+      ]
+    };
+  }
+  fmt(h) {
+    const hh = Math.floor(h); const mm = Math.round((h - hh) * 60);
+    const h12 = ((hh + 11) % 12) + 1;
+    return h12 + ':' + String(mm).padStart(2, '0');
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#6E9BFF';
+    const H = 52, START = 8;
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const days = names.map((n, i) => ({ name: n, date: String(28 + i > 30 ? 28 + i - 30 : 28 + i), color: i === 0 ? accent : '#9AA3B5' }));
+    const hours = Array.from({ length: 10 }, (_, i) => ({
+      label: this.fmt(START + i), style: 'position: absolute; right: 8px; top: ' + (i * H - 7) + 'px; font-family: Geist Mono, monospace; font-size: 11px; color: #6B7488;'
+    }));
+    const cols = names.map((_, d) => ({
+      events: this.state.events.filter((e) => e.day === d).map((e) => {
+        const focus = !!e.profile; const on = this.state.sel === e.id;
+        const style = 'position: absolute; left: 4px; right: 4px; top: ' + ((e.start - START) * H + 2) + 'px; height: ' + (e.dur * H - 4) + 'px; box-sizing: border-box; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; border-radius: 8px; cursor: pointer; font-family: inherit; ' +
+          (focus ? 'background: #172240; border: 1px solid ' + (on ? '#E8ECF4' : '#2C4280') + ';' : 'background: #1A1F2C; border: 1px solid ' + (on ? '#E8ECF4' : '#232939') + ';');
+        return { ...e, style, sub: focus ? accent : '#9AA3B5', meta: focus ? 'Seals · ' + e.profile : this.fmt(e.start), pick: () => this.setState({ sel: e.id }) };
+      })
+    }));
+    const cur = this.state.events.find((e) => e.id === this.state.sel) || this.state.events[0];
+    const sel = { ...cur, dayName: names[cur.day] + ' ' + days[cur.day].date, range: this.fmt(cur.start) + ' to ' + this.fmt(cur.start + cur.dur) };
+    const pill = (on) => 'height: 36px; padding: 0 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' + (on ? 'background: ' + accent + '; color: #0A0C12; border: 1px solid ' + accent + '; font-weight: 500;' : 'background: transparent; color: #CBD2E0; border: 1px solid #262D3F;');
+    const setProfile = (p) => this.setState({ events: this.state.events.map((e) => e.id === cur.id ? { ...e, profile: p } : e) });
+    const profileOpts = ['None', 'Interview Prep', 'Deep Work', 'Study', 'Light Work'].map((n) => ({
+      name: n, style: pill((cur.profile || 'None') === n), pick: () => setProfile(n === 'None' ? null : n)
+    }));
+    const hint = cur.profile ? 'Sanctum seals ' + cur.profile + ' automatically at ' + this.fmt(cur.start) + '. Tagged #focus in Google Calendar.' : 'Regular event. Pick a profile to turn it into a focus block.';
+    const setTitle = (ev) => { const v = ev.target.value; this.setState({ events: this.state.events.map((e) => e.id === cur.id ? { ...e, title: v } : e) }); };
+    const addBlock = () => {
+      const id = 'n' + Date.now();
+      this.setState({ sel: id, events: this.state.events.concat([{ id, day: 2, start: 14, dur: 1.5, title: 'New focus block', profile: 'Interview Prep' }]) });
+    };
+    return { accent, days, hours, cols, sel, profileOpts, hint, setTitle, addBlock, yes: true };
+  }
+}
+</script>
+</body>
+</html>

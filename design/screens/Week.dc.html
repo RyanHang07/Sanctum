@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF; border-top: 2px solid transparent; overflow: hidden">
+<dc-import name="Sidebar" active="week" mode="idle" hint-size="220px,720px"></dc-import>
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 32px">
+<div style="display: flex; align-items: baseline; gap: 12px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">{{title}}</h1>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8A93A6"><span style="width: 6px; height: 6px; border-radius: 999px; background: #5FD4C8"></span>Synced with Google Calendar</span>
+</div>
+<div style="display: flex; gap: 6px">
+<div role="group" aria-label="View" style="display: flex; padding: 2px; border: 1px solid #2A3040; border-radius: 6px">
+<span aria-current="page" style="height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; background: #1F2430; color: #E6E9EF; font-size: 12px; font-weight: 500">Week</span>
+<a href="Month.dc.html" style="height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; color: #8A93A6; font-size: 12px; text-decoration: none">Month</a>
+</div>
+<button aria-label="Previous week" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button style="height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">This week</button>
+<button aria-label="Next week" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+<button style="height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New</button>
+</div>
+</div>
+
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; min-height: 0">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+<section style="{{d.col}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 4px 8px">
+<span style="{{d.nameStyle}}">{{d.name}}</span>
+<span style="{{d.dateStyle}}">{{d.date}}</span>
+</div>
+<sc-if value="{{d.hasMark}}" hint-placeholder-val="{{true}}"><div style="{{d.mark}}"><span style="{{d.markDot}}"></span>{{d.markLabel}}</div></sc-if>
+<sc-for list="{{d.items}}" as="t" hint-placeholder-count="3">
+<button onClick="{{t.toggle}}" style="{{t.card}}">
+<sc-if value="{{t.isTask}}" hint-placeholder-val="{{true}}"><span style="{{t.box}}"><sc-if value="{{t.done}}" hint-placeholder-val="{{false}}"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if></span></sc-if>
+<sc-if value="{{t.isEvent}}" hint-placeholder-val="{{false}}"><span style="{{t.bar}}"></span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left">
+<span style="{{t.text}}">{{t.title}}</span>
+<sc-if value="{{t.time}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Geist Mono', monospace; font-size: 10px; color: #8A93A6">{{t.time}}</span></sc-if>
+</span>
+</button>
+</sc-for>
+<button style="height: 28px; margin-top: 2px; display: flex; align-items: center; gap: 6px; padding: 0 6px; background: transparent; border: none; border-radius: 6px; color: #5C6477; font-size: 12px; cursor: pointer; text-align: left">+ Add</button>
+</section>
+</sc-for>
+</div>
+
+<div style="display: flex; gap: 18px; font-size: 12px; color: #8A93A6">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 3px; height: 12px; border-radius: 2px; background: #2F5BFF"></span>Focus block, seals its profile</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 3px; height: 12px; border-radius: 2px; background: #5FD4C8"></span>Calendar event</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; box-sizing: border-box; border: 1.5px solid #3A4155; border-radius: 3px"></span>Task, timed ones sync to Google</span>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"which":{"editor":"enum","options":["last","this"],"default":"last"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const T = (title, o) => ({ kind: 'task', title, ...(o || {}) });
+    const E = (title, time, focus) => ({ kind: focus ? 'focus' : 'event', title, time });
+    const D = (x) => ({ ...x });
+    this.last = [
+      { name: 'Mon', date: '21', mark: 'kept', items: [E('LeetCode: trees', '10:00a', true), T('Weigh-in', { done: true }), T('Job search', { done: true })] },
+      { name: 'Tue', date: '22', mark: 'kept', items: [E('Filmadi sprint work', '9:00a', true), T('Apply: 5 roles', { done: true })] },
+      { name: 'Wed', date: '23', mark: 'broken', markNote: 'Broken 2:14p', items: [E('System design', '1:00p', true), T('Sheets laundry', { done: true })] },
+      { name: 'Thu', date: '24', mark: 'kept', items: [E('DP practice', '11:00a', true), T('Weigh-in', { done: true })] },
+      { name: 'Fri', date: '25', mark: 'kept', items: [E('Portfolio updates', '1:00p', true), T('Apply: 5 roles', { done: true })] },
+      { name: 'Sat', date: '26', mark: 'rest', items: [T('Weekly review', { done: true })] },
+      { name: 'Sun', date: '27', mark: 'kept', items: [E('Behavioral stories', '2:00p', true), T('Plan next week', { done: true })] }
+    ];
+    this.state = {
+      days: [
+        { name: 'Mon', date: '28', today: true, mark: 'today', items: [E('Morning meeting', '9:00a'), E('LeetCode: graphs', '10:00a', true), E('Mock interview', '2:00p'), T('Weigh-in', { done: true }), T('Job search', {}), T('Evening Filmadi mtg', { time: '6:00p' })] },
+        { name: 'Tue', date: '29', items: [E('Filmadi sprint work', '9:00a', true), E('Behavioral stories', '1:00p', true), T('Apply: 5 roles')] },
+        { name: 'Wed', date: '30', items: [E('Morning meeting', '9:00a'), E('Recruiter call', '3:00p'), T('Sheets laundry')] },
+        { name: 'Thu', date: '1', items: [E('DP practice', '11:00a', true), T('Weigh-in', { time: '8:00a' }), T('Reply to emails', { done: true }), T('Prep for Fri meeting')] },
+        { name: 'Fri', date: '2', items: [E('Portfolio updates', '1:00p', true), T('Apply: 5 roles')] },
+        { name: 'Sat', date: '3', items: [T('Weekly review')] },
+        { name: 'Sun', date: '4', items: [T('Plan next week')] }
+      ]
+    };
+  }
+  renderVals() {
+    const last = (this.props.which ?? 'last') === 'last';
+    const src = last ? this.last : this.state.days;
+    const marks = {
+      kept: ['Kept', '#2F5BFF', '#172040', '#1F3482'],
+      broken: ['Broken', '#E5484D', '#2A1418', '#5A2328'],
+      rest: ['Rest day', '#8A93A6', 'transparent', '#2A3040'],
+      today: ['In progress', '#2F5BFF', 'transparent', '#1F3482']
+    };
+    const days = src.map((d, di) => ({
+      ...d,
+      hasMark: !!d.mark,
+      markLabel: d.mark ? (d.markNote || marks[d.mark][0]) : '',
+      mark: d.mark ? 'height: 20px; display: flex; align-items: center; gap: 6px; padding: 0 6px; margin: 0 0 4px; border-radius: 4px; font-size: 11px; color: #E6E9EF; background: ' + marks[d.mark][2] + '; border: 1px solid ' + marks[d.mark][3] + ';' : '',
+      markDot: d.mark ? 'width: 6px; height: 6px; border-radius: 999px; background: ' + marks[d.mark][1] + ';' : '',
+      col: 'display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; border-radius: 8px; min-width: 0; ' + (d.today ? 'background: #12151C; border: 1px solid #2A3040;' : 'border: 1px solid #1A1E28;'),
+      nameStyle: 'font-size: 12px; font-weight: 500; ' + (d.today ? 'color: #7A95FF;' : 'color: #8A93A6;'),
+      dateStyle: 'font-family: Geist Mono, monospace; font-size: 12px; ' + (d.today ? 'color: #E6E9EF;' : 'color: #5C6477;'),
+      items: d.items.map((t, ti) => {
+        const isTask = t.kind === 'task';
+        return {
+          ...t, isTask, isEvent: !isTask, done: !!t.done, time: t.time || '',
+          card: 'display: flex; align-items: flex-start; gap: 7px; width: 100%; box-sizing: border-box; padding: 7px 7px; background: ' + (t.kind === 'focus' ? '#141C31' : '#151922') + '; border: 1px solid ' + (t.kind === 'focus' ? '#24345C' : '#1F2430') + '; border-radius: 6px; cursor: pointer; font-family: inherit;',
+          box: 'width: 12px; height: 12px; flex-shrink: 0; margin-top: 2px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 3px; ' + (t.done ? 'background: #2F5BFF; border: 1px solid #2F5BFF;' : 'border: 1.5px solid #3A4155;'),
+          bar: 'width: 3px; align-self: stretch; flex-shrink: 0; border-radius: 2px; background: ' + (t.kind === 'focus' ? '#2F5BFF' : '#5FD4C8') + ';',
+          text: 'font-size: 12px; line-height: 1.3; ' + (t.done ? 'color: #5C6477; text-decoration: line-through;' : 'color: #E6E9EF;'),
+          toggle: () => {
+            if (!isTask || last) return;
+            this.setState({ days: this.state.days.map((x, i) => i !== di ? x : { ...x, items: x.items.map((y, j) => j === ti ? { ...y, done: !y.done } : y) }) });
+          }
+        };
+      })
+    }));
+    return { days, title: last ? 'Week of Sep 21' : 'Week of Sep 28' };
+  }
+}
+</script>
+</body>
+</html>

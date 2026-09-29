@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum held</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Geist',system-ui,sans-serif;background:#0A0C12;color:#FFFFFF}
+a{color:#FFFFFF}a:hover{color:#D6E4FF}
+button{font-family:inherit}
+@keyframes orbA{0%{transform:translate(0,0) scale(1)}50%{transform:translate(120px,60px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+@keyframes orbB{0%{transform:translate(0,0) scale(1.1)}50%{transform:translate(-140px,-40px) scale(0.95)}100%{transform:translate(0,0) scale(1.1)}}
+@keyframes orbC{0%{transform:translate(0,0)}50%{transform:translate(60px,-90px)}100%{transform:translate(0,0)}}
+@keyframes rise{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
+.oa{animation:orbA 9s ease-in-out infinite}
+.ob{animation:orbB 11s ease-in-out infinite}
+.oc{animation:orbC 13s ease-in-out infinite}
+.rise{animation:rise 900ms cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion: reduce){.oa,.ob,.oc,.rise{animation:none}}
+</style>
+</helmet>
+<div style="position: relative; width: 1120px; height: 720px; overflow: hidden; background: #0A0C12; font-family: 'Geist', system-ui, sans-serif; color: #FFFFFF">
+
+<div class="oa" style="position: absolute; left: -120px; top: -160px; width: 620px; height: 620px; border-radius: 999px; background: {{c1}}; filter: blur(110px); opacity: 0.85"></div>
+<div class="ob" style="position: absolute; right: -160px; top: 40px; width: 640px; height: 640px; border-radius: 999px; background: {{c2}}; filter: blur(120px); opacity: 0.75"></div>
+<div class="oc" style="position: absolute; left: 300px; bottom: -300px; width: 620px; height: 620px; border-radius: 999px; background: {{c3}}; filter: blur(120px); opacity: 0.8"></div>
+<div style="position: absolute; left: 0; top: 0; width: 1120px; height: 720px; background: rgba(10,12,18,0.28)"></div>
+
+<div style="position: relative; width: 1120px; height: 720px; box-sizing: border-box; padding: 28px 36px 32px; display: flex; flex-direction: column">
+<header style="display: flex; align-items: center; gap: 12px">
+<svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M5 23V12.5a8 8 0 0 1 16 0V23" stroke="#FFFFFF" stroke-width="1.6"></path><path d="M2.5 23h21" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"></path><circle cx="13" cy="16" r="2.6" fill="#FFFFFF"></circle></svg>
+<span style="font-size: 15px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase">Sanctum</span>
+</header>
+
+<main style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; text-align: center">
+<span class="rise" style="font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.9)">50 minutes · Interview Prep</span>
+<h1 class="rise" style="margin: 0; font-family: 'Geist', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.035em; font-size: 116px; line-height: 0.95">Sanctum <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; color: rgba(255,255,255,0.88)">held.</span></h1>
+<p class="rise" style="margin: 0; font-size: 18px; color: rgba(255,255,255,0.92)">Streak is now <span style="font-family: 'Geist Mono', monospace">13</span> days straight. Promise kept.</p>
+
+<div class="rise" style="display: flex; gap: 12px; margin-top: 8px">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 22px; min-width: 120px; background: rgba(10,12,18,0.42); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px">
+<span style="font-family: 'Geist Mono', monospace; font-size: 22px">48m</span>
+<span style="font-size: 12px; color: rgba(255,255,255,0.8)">in focus</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 22px; min-width: 120px; background: rgba(10,12,18,0.42); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px">
+<span style="font-family: 'Geist Mono', monospace; font-size: 22px">3</span>
+<span style="font-size: 12px; color: rgba(255,255,255,0.8)">distractions blocked</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 22px; min-width: 120px; background: rgba(10,12,18,0.42); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px">
+<span style="font-family: 'Geist Mono', monospace; font-size: 22px">2h 32m</span>
+<span style="font-size: 12px; color: rgba(255,255,255,0.8)">today, goal hit</span>
+</div>
+</div>
+</main>
+
+<footer style="display: flex; align-items: center; justify-content: space-between">
+<button onClick="{{chime}}" aria-label="Replay the kept sound" style="height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: rgba(10,12,18,0.42); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; color: #FFFFFF; font-size: 13px; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg>
+Play sound
+</button>
+<div style="display: flex; gap: 10px">
+<a href="Main.dc.html" style="height: 44px; display: flex; align-items: center; padding: 0 18px; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; font-size: 14px; text-decoration: none; color: #FFFFFF">Done</a>
+<a href="Session.dc.html" style="height: 44px; display: flex; align-items: center; padding: 0 20px; background: #FFFFFF; border-radius: 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: #0A0C12">Enter again</a>
+</div>
+</footer>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Tide","Glacier","Midnight"],"default":"Tide"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  playChime() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const master = ctx.createGain();
+    master.gain.value = 0.22;
+    master.connect(ctx.destination);
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      const t = ctx.currentTime + i * 0.11;
+      ['sine', 'triangle'].forEach((type, j) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = type;
+        o.frequency.value = j === 0 ? f : f * 2;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(j === 0 ? 0.9 : 0.18, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+        o.connect(g); g.connect(master);
+        o.start(t); o.stop(t + 1.7);
+      });
+    });
+    setTimeout(() => ctx.close(), 2600);
+  }
+  renderVals() {
+    const sets = {
+      Tide: ['#5B8CFF', '#37C8D6', '#8B6CFF'],
+      Glacier: ['#8FB8FF', '#7FE0E8', '#4A5BD9'],
+      Midnight: ['#3D5AFE', '#00B8D4', '#6B3FD1']
+    };
+    const [c1, c2, c3] = sets[this.props.palette ?? 'Tide'] || sets.Tide;
+    return { c1, c2, c3, chime: () => this.playChime() };
+  }
+}
+</script>
+</body>
+</html>

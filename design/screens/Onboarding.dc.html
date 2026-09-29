@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum first run</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<div style="width: 680px; display: flex; flex-direction: column; background: #12151C; border: 1px solid #1F2430; border-radius: 12px; overflow: hidden">
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 24px 0">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+<span style="font-size: 13px; font-weight: 600">Sanctum setup</span>
+</div>
+<span style="font-size: 12px; color: #8A93A6">Step 2 of 6 · Profiles</span>
+</div>
+<div style="display: flex; gap: 4px" aria-hidden="true">
+<sc-for list="{{progress}}" as="p" hint-placeholder-count="6"><span style="{{p}}"></span></sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 18px; padding: 22px 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-weight: 700; font-size: 26px; line-height: 1.15; letter-spacing: -0.03em">Define <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; color: #8C96AB">{{profile}}.</span></h1>
+<p style="margin: 0; font-size: 13px; color: #8A93A6">Pick the work it's for. Sanctum decides what opens and what gets sealed.</p>
+</div>
+
+<div role="tablist" aria-label="Profiles" style="display: flex; align-self: flex-start; padding: 2px; border: 1px solid #2A3040; border-radius: 6px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="{{t.style}}">{{t.name}}</button></sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{types}}" as="w" hint-placeholder-count="9">
+<button onClick="{{w.toggle}}" role="checkbox" aria-checked="{{w.on}}" style="{{w.style}}">
+<span style="{{w.box}}"><sc-if value="{{w.on}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></sc-if></span>
+{{w.name}}
+</button>
+</sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #1F2430; border-radius: 8px; background: #0F1218">
+<span style="font-size: 12px; color: #8A93A6">Opens when you enter</span>
+<span style="font-size: 13px; line-height: 1.5; color: #E6E9EF">{{opens}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #1F2430; border-radius: 8px; background: #0F1218">
+<span style="font-size: 12px; color: #8A93A6">Sealed while you're in</span>
+<span style="font-size: 13px; line-height: 1.5; color: #E6E9EF">{{seals}}</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid #1F2430; background: #0F1218">
+<button style="height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">Back</button>
+<button style="margin-left: auto; height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">Continue<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: 0.7">↵</span></button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      profile: 'Interview Prep',
+      picks: {
+        'Interview Prep': ['DSA practice', 'System design', 'Behavioral prep'],
+        'Deep Work': ['Coding', 'Writing'],
+        'Study': ['Reading & courses'],
+        'Light Work': ['Applications', 'Email & admin']
+      }
+    };
+  }
+  renderVals() {
+    const catalog = {
+      'DSA practice': { open: ['LeetCode', 'NeetCode', 'VS Code'], seal: ['YouTube', 'Reddit'] },
+      'System design': { open: ['Excalidraw', 'Notes'], seal: ['YouTube', 'X'] },
+      'Behavioral prep': { open: ['STAR stories doc'], seal: ['Instagram', 'Discord'] },
+      'Mock interviews': { open: ['Zoom (idle-safe)'], seal: ['Discord', 'Spotify'] },
+      'Applications': { open: ['LinkedIn Jobs', 'Resume folder'], seal: ['X', 'Reddit'] },
+      'Coding': { open: ['VS Code', 'GitHub'], seal: ['Discord', 'Steam'] },
+      'Writing': { open: ['Notes'], seal: ['YouTube', 'X'] },
+      'Reading & courses': { open: ['PDF reader', 'Notes'], seal: ['YouTube', 'Instagram'] },
+      'Email & admin': { open: ['Gmail', 'Calendar'], seal: ['Steam', 'Netflix'] }
+    };
+    const cur = this.state.profile;
+    const picked = this.state.picks[cur] || [];
+    const types = Object.keys(catalog).map((name) => {
+      const on = picked.includes(name);
+      return {
+        name, on,
+        toggle: () => this.setState({ picks: { ...this.state.picks, [cur]: on ? picked.filter((p) => p !== name) : picked.concat([name]) } }),
+        style: 'height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: left; ' + (on ? 'background: #172040; border: 1px solid #1F3482; color: #E6E9EF;' : 'background: transparent; border: 1px solid #1F2430; color: #B8BFCC;'),
+        box: 'width: 14px; height: 14px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 4px; ' + (on ? 'background: #2F5BFF; border: 1px solid #2F5BFF;' : 'border: 1.5px solid #3A4155;')
+      };
+    });
+    const uniq = (a) => a.filter((v, i) => a.indexOf(v) === i);
+    const opens = uniq(picked.flatMap((p) => catalog[p].open));
+    const seals = uniq(picked.flatMap((p) => catalog[p].seal).concat(['Discord', 'YouTube', 'Instagram', 'TikTok']));
+    const tabs = Object.keys(this.state.picks).map((name) => ({
+      name, on: name === cur, pick: () => this.setState({ profile: name }),
+      style: 'height: 28px; padding: 0 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; ' + (name === cur ? 'background: #1F2430; color: #E6E9EF; font-weight: 500;' : 'background: transparent; color: #8A93A6;')
+    }));
+    const progress = [0, 1, 2, 3, 4, 5].map((i) => 'flex: 1 1 0; height: 3px; border-radius: 2px; background: ' + (i < 2 ? '#2F5BFF' : '#1F2430') + ';');
+    return { profile: cur, tabs, types, opens: opens.length ? opens.join(', ') : 'Nothing yet', seals: seals.join(', '), progress };
+  }
+}
+</script>
+</body>
+</html>

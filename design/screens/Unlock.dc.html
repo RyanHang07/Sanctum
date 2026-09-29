@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Break the seal: partner approval</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+button{font-family:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1.2s linear infinite;transform-origin:center}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+</style>
+</helmet>
+<div style="position: relative; width: 1120px; height: 720px; overflow: hidden; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<dc-import name="Home" mode="focus" hint-size="1120px,720px"></dc-import>
+<div style="position: absolute; left: 0; top: 0; width: 1120px; height: 720px; background: rgba(5,6,10,0.72)"></div>
+
+<div role="dialog" aria-label="Break the seal" style="position: absolute; left: 330px; top: 130px; width: 460px; box-sizing: border-box; display: flex; flex-direction: column; background: #12151C; border: 1px solid #2A3040; border-radius: 12px; box-shadow: 0 24px 64px rgba(0,0,0,0.6); overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #1F2430">
+<span style="font-size: 13px; font-weight: 600">Break the seal</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #8A93A6">Interview Prep · 32:14 left</span>
+</div>
+
+<ol style="margin: 0; padding: 14px 18px; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+<li style="display: flex; align-items: center; gap: 10px">
+<span style="{{s.badge}}">{{s.n}}</span>
+<span style="flex-grow: 1; font-size: 13px; color: {{s.color}}">{{s.label}}</span>
+<span style="font-size: 12px; color: #8A93A6">{{s.meta}}</span>
+</li>
+</sc-for>
+</ol>
+
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 18px; border-top: 1px solid #1F2430">
+<sc-if value="{{waiting}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#2A3040" stroke-width="2.5"></circle><path d="M21 12a9 9 0 0 0-9-9" stroke="#2F5BFF" stroke-width="2.5" stroke-linecap="round"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">Waiting on Jordan</span>
+<span style="font-size: 12px; color: #8A93A6">Approval email sent 2 min ago · expires in 28 min</span>
+</div>
+</div>
+<div style="padding: 10px 12px; border: 1px solid #1F2430; border-radius: 8px; background: #0F1218; font-size: 13px; line-height: 1.5; color: #B8BFCC">"Recruiter moved my call up and I need Discord for the shared screen link."</div>
+<span style="font-size: 12px; color: #8A93A6">You stay sealed until Jordan approves. If they deny it or it expires, the seal stands.</span>
+</sc-if>
+
+<sc-if value="{{approved}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #10262A; border: 1px solid #1F4A4A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5FD4C8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">Jordan approved. Seal lifted.</span>
+<span style="font-size: 12px; color: #8A93A6">Grace window: <span style="font-family: 'Geist Mono', monospace; color: #E6E9EF">09:42</span>, then everything reseals</span>
+</div>
+</div>
+<div style="height: 4px; background: #1F2430; border-radius: 999px; overflow: hidden"><div style="width: 97%; height: 100%; background: #5FD4C8"></div></div>
+<span style="font-size: 12px; color: #8A93A6">Your streak is safe. This counts as an approved exit, not a broken seal.</span>
+</sc-if>
+
+<sc-if value="{{denied}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-weight: 700; font-size: 22px; letter-spacing: -0.03em">Jordan said no. <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.12em; color: #8C96AB">The seal stands.</span></h2>
+<div style="padding: 10px 12px; border: 1px solid #1F2430; border-radius: 8px; background: #0F1218; font-size: 13px; color: #B8BFCC">"Use your phone for the link. Finish the set."</div>
+<span style="font-size: 12px; color: #8A93A6">Next request unlocks in 15 min.</span>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid #1F2430; background: #0F1218">
+<sc-if value="{{waiting}}" hint-placeholder-val="{{true}}">
+<button style="height: 32px; padding: 0 10px; background: transparent; border: none; border-radius: 6px; color: #8A93A6; font-size: 13px; cursor: pointer">Resend email</button>
+<button style="margin-left: auto; height: 32px; padding: 0 14px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">Never mind, stay sealed</button>
+</sc-if>
+<sc-if value="{{approved}}" hint-placeholder-val="{{false}}">
+<button style="height: 32px; padding: 0 10px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">Open Discord</button>
+<button style="margin-left: auto; height: 32px; padding: 0 14px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">Reseal now</button>
+</sc-if>
+<sc-if value="{{denied}}" hint-placeholder-val="{{false}}">
+<button style="margin-left: auto; height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: #2F5BFF; border: none; border-radius: 6px; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">Back to work<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: 0.7">↵</span></button>
+</sc-if>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"status":{"editor":"enum","options":["waiting","approved","denied"],"default":"waiting"},"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.props.status ?? 'waiting';
+    const badge = (state) => 'width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 999px; font-family: Geist Mono, monospace; font-size: 11px; ' +
+      (state === 'done' ? 'background: #1F2430; color: #B8BFCC;' : state === 'now' ? 'background: #172040; border: 1px solid #1F3482; color: #E6E9EF; box-sizing: border-box;' : state === 'ok' ? 'background: #10262A; border: 1px solid #1F4A4A; color: #5FD4C8; box-sizing: border-box;' : 'background: #2A1418; border: 1px solid #5A2328; color: #FF8A8E; box-sizing: border-box;');
+    const third = st === 'waiting' ? 'now' : st === 'approved' ? 'ok' : 'no';
+    const steps = [
+      { n: '✓', label: 'Reason given, waited 5 minutes', meta: 'Done', st: 'done' },
+      { n: '✓', label: 'Retyped the paragraph', meta: 'Done', st: 'done' },
+      { n: third === 'now' ? '3' : third === 'ok' ? '✓' : '✕', label: 'Partner approval', meta: third === 'now' ? 'Pending' : third === 'ok' ? 'Approved' : 'Denied', st: third }
+    ].map((s) => ({ ...s, badge: badge(s.st), color: s.st === 'done' ? '#8A93A6' : '#E6E9EF' }));
+    return { steps, waiting: st === 'waiting', approved: st === 'approved', denied: st === 'denied' };
+  }
+}
+</script>
+</body>
+</html>

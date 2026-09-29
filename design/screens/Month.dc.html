@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum month</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+a{color:#7A95FF}a:hover{color:#A9BBFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF; border-top: 2px solid transparent; overflow: hidden">
+<dc-import name="Sidebar" active="week" mode="idle" hint-size="220px,720px"></dc-import>
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 20px 28px 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 32px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">September 2026</h1>
+<div style="display: flex; gap: 6px">
+<div role="group" aria-label="View" style="display: flex; padding: 2px; border: 1px solid #2A3040; border-radius: 6px">
+<a href="Week.dc.html" style="height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; color: #8A93A6; font-size: 12px; text-decoration: none">Week</a>
+<span aria-current="page" style="height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; background: #1F2430; color: #E6E9EF; font-size: 12px; font-weight: 500">Month</span>
+</div>
+<button aria-label="Previous month" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Next month" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid #1F2430; border-radius: 8px; background: #12151C; overflow: hidden">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="5">
+<div style="{{s.cell}}"><span style="font-family: 'Geist Mono', monospace; font-size: 18px; font-weight: 500">{{s.v}}</span><span style="font-size: 12px; color: #8A93A6">{{s.k}}</span></div>
+</sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 0 2px">
+<sc-for list="{{dow}}" as="w" hint-placeholder-count="7"><span style="font-size: 11px; color: #5C6477; padding-left: 6px">{{w}}</span></sc-for>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 4px; min-height: 0">
+<sc-for list="{{cells}}" as="c" hint-placeholder-count="35">
+<button onMouseEnter="{{c.enter}}" onMouseLeave="{{leave}}" aria-label="{{c.aria}}" style="{{c.style}}">
+<span style="display: flex; justify-content: space-between; width: 100%"><span style="{{c.dateStyle}}">{{c.date}}</span><span style="font-size: 10px; color: {{c.labelColor}}">{{c.label}}</span></span>
+<sc-if value="{{c.hasMin}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #B8BFCC">{{c.min}}</span></sc-if>
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: center; gap: 18px; height: 20px; font-size: 12px; color: #8A93A6">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #1C2A52"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #2A4288"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #3F63C4"></span>Kept, shaded by focus time</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 1px solid #E5484D; background: #2A1418"></span>Seal broken, streak reset</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 1px dashed #3A4155"></span>Planned rest day</span>
+<span style="margin-left: auto; color: #B8BFCC">{{hoverText}}</span>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { hover: null };
+  }
+  renderVals() {
+    const rest = [5, 12, 19, 26];
+    const broken = { 3: '11:40a', 23: '2:14p' };
+    const mins = (d) => [0, 95, 140, 60, 180, 125, 0, 150, 110, 160, 135, 200, 0, 0, 170, 120, 145, 190, 130, 0, 0, 115, 150, 40, 155, 165, 0, 175, 102][d] || 0;
+    const cells = [];
+    // Sept 1 2026 is a Tuesday; grid starts Monday Aug 31
+    for (let i = 0; i < 35; i++) {
+      const day = i; // 0 = Aug 31
+      const date = day === 0 ? 31 : day <= 30 ? day : day - 30;
+      const inMonth = day >= 1 && day <= 30;
+      let kind = 'future';
+      if (inMonth && day < 28) kind = rest.includes(day) ? 'rest' : broken[day] ? 'broken' : 'kept';
+      if (day === 28) kind = 'today';
+      if (!inMonth) kind = 'out';
+      const m = kind === 'kept' || kind === 'broken' || kind === 'today' ? (mins(day) || (kind === 'today' ? 102 : 90)) : 0;
+      const shade = m >= 160 ? '#3F63C4' : m >= 120 ? '#2A4288' : '#1C2A52';
+      const style = 'display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; padding: 6px 8px; box-sizing: border-box; border-radius: 6px; cursor: default; font-family: inherit; text-align: left; ' + ({
+        kept: 'background: ' + shade + '; border: 1px solid transparent;',
+        broken: 'background: #2A1418; border: 1px solid #E5484D;',
+        rest: 'background: transparent; border: 1px dashed #3A4155;',
+        today: 'background: #12151C; border: 1px solid #2F5BFF;',
+        future: 'background: #0F1218; border: 1px solid #181C26;',
+        out: 'background: transparent; border: 1px solid transparent;'
+      })[kind];
+      const label = kind === 'broken' ? 'Broken' : kind === 'rest' ? 'Rest' : kind === 'today' ? 'Today' : '';
+      const fmtM = (x) => Math.floor(x / 60) + 'h ' + String(x % 60).padStart(2, '0') + 'm';
+      cells.push({
+        date: String(date), label, style,
+        labelColor: kind === 'broken' ? '#FF8A8E' : kind === 'today' ? '#7A95FF' : '#8A93A6',
+        dateStyle: 'font-family: Geist Mono, monospace; font-size: 11px; color: ' + (kind === 'out' || kind === 'future' ? '#3A4155' : '#E6E9EF') + ';',
+        hasMin: m > 0, min: m ? fmtM(m) : '',
+        aria: 'September ' + date + ': ' + (label || kind),
+        enter: () => this.setState({ hover: kind === 'broken' ? 'Sep ' + date + ': seal broken at ' + broken[day] + ', streak reset' : kind === 'kept' ? 'Sep ' + date + ': kept, ' + fmtM(m) + ' focused' : kind === 'rest' ? 'Sep ' + date + ': planned rest day' : kind === 'today' ? 'Today: ' + fmtM(m) + ' so far' : null })
+      });
+    }
+    const stat = (v, k, last) => ({ v, k, cell: 'display: flex; flex-direction: column; gap: 2px; padding: 12px 14px;' + (last ? '' : ' border-right: 1px solid #1F2430;') });
+    return {
+      cells, dow: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      stats: [stat('5', 'Current streak'), stat('19', 'Longest this month'), stat('22', 'Days kept'), stat('2', 'Seals broken'), stat('58h', 'Focused', true)],
+      leave: () => this.setState({ hover: null }),
+      hoverText: this.state.hover || 'Hover a day for details'
+    };
+  }
+}
+</script>
+</body>
+</html>

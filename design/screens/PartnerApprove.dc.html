@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Partner approval page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0B0D12} button,input{font-family:inherit}</style>
+</helmet>
+<div style="width: 1120px; height: 720px; display: flex; flex-direction: column; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 14px; background: #14171F; border-bottom: 1px solid #1F2430">
+<div style="display: flex; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 999px; background: #2A3040"></span><span style="width: 10px; height: 10px; border-radius: 999px; background: #2A3040"></span><span style="width: 10px; height: 10px; border-radius: 999px; background: #2A3040"></span></div>
+<div style="flex-grow: 1; max-width: 520px; height: 28px; display: flex; align-items: center; padding: 0 10px; background: #0B0D12; border: 1px solid #1F2430; border-radius: 6px; font-size: 12px; color: #8A93A6">[your-app].vercel.app/approve/…</div>
+</div>
+
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; gap: 40px">
+<div style="width: 420px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+<span style="font-size: 13px; font-weight: 600">Sanctum</span>
+<span style="margin-left: auto; font-size: 12px; color: #8A93A6">You're Ryan's accountability partner</span>
+</div>
+<h1 style="margin: 0; font-weight: 700; font-size: 34px; line-height: 1.1; letter-spacing: -0.035em">Ryan wants out <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.12em; color: #8C96AB">early.</span></h1>
+<div style="display: flex; flex-direction: column; border: 1px solid #1F2430; border-radius: 8px; background: #12151C; overflow: hidden">
+<div style="padding: 12px 14px; font-size: 14px; line-height: 1.5">"Recruiter moved my call up and I need Discord for the shared screen link."</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #1F2430">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-right: 1px solid #1F2430"><span style="font-size: 11px; color: #8A93A6">Session</span><span style="font-size: 13px">Interview Prep</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-right: 1px solid #1F2430"><span style="font-size: 11px; color: #8A93A6">Time left</span><span style="font-family: 'Geist Mono', monospace; font-size: 13px">32:14</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 14px"><span style="font-size: 11px; color: #8A93A6">Asks this week</span><span style="font-family: 'Geist Mono', monospace; font-size: 13px">2</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="pin-0" style="font-size: 12px; color: #8A93A6">Your PIN, to confirm it's you</label>
+<div style="display: flex; gap: 8px">
+<sc-for list="{{pin}}" as="p" hint-placeholder-count="6"><input id="{{p.id}}" aria-label="{{p.aria}}" value="{{p.v}}" maxlength="1" inputmode="numeric" readOnly="{{yes}}" style="width: 44px; height: 48px; box-sizing: border-box; text-align: center; background: #12151C; border: 1px solid {{p.line}}; border-radius: 8px; color: #E6E9EF; font-family: 'Geist Mono', monospace; font-size: 20px"></sc-for>
+</div>
+</div>
+
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #8A93A6">Note back (optional)
+<input placeholder="Use your phone for the link. Finish the set." style="height: 36px; box-sizing: border-box; padding: 0 12px; background: #12151C; border: 1px solid #2A3040; border-radius: 6px; color: #E6E9EF; font-size: 13px">
+</label>
+
+<div style="display: flex; gap: 8px">
+<button style="flex: 1 1 0; height: 40px; background: transparent; border: 1px solid #2A3040; border-radius: 8px; color: #E6E9EF; font-size: 14px; font-weight: 500; cursor: pointer">Deny, keep the seal</button>
+<button style="flex: 1 1 0; height: 40px; background: #E6E9EF; border: none; border-radius: 8px; color: #0B0D12; font-size: 14px; font-weight: 600; cursor: pointer">Approve 10 min</button>
+</div>
+<span style="font-size: 12px; color: #5C6477">Link works once and expires in 28 minutes. 3 wrong PINs locks approvals for 30 minutes.</span>
+</div>
+
+<div style="width: 300px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: #8A93A6">The email that brought you here</span>
+<div style="display: flex; flex-direction: column; border: 1px solid #1F2430; border-radius: 8px; background: #F4F5F7; color: #16181D; overflow: hidden">
+<div style="padding: 10px 12px; border-bottom: 1px solid #E1E3E8; font-size: 12px; color: #5A6070">From Sanctum · via Brevo</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 12px">
+<span style="font-size: 15px; font-weight: 600">Ryan wants to break his seal</span>
+<span style="font-size: 13px; line-height: 1.45; color: #3A3F4B">He's 18 minutes into Interview Prep and asked to leave early. Here's his reason and your call.</span>
+<span style="align-self: flex-start; height: 32px; display: flex; align-items: center; padding: 0 12px; background: #16181D; color: #FFFFFF; border-radius: 6px; font-size: 13px; font-weight: 500">Review request</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const v = ['•', '•', '•', '•', '', ''];
+    return { yes: true, pin: v.map((x, i) => ({ id: 'pin-' + i, aria: 'PIN digit ' + (i + 1), v: x, line: i === 4 ? '#2F5BFF' : '#2A3040' })) };
+  }
+}
+</script>
+</body>
+</html>

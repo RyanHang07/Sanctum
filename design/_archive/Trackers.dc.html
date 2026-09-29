@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum trackers setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Geist',system-ui,sans-serif;background:#0A0C12;color:#E8ECF4}
+a{color:#6E9BFF}a:hover{color:#9DBBFF}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1120px; height: 760px; box-sizing: border-box; background: #0A0C12; color: #E8ECF4; font-family: 'Geist', system-ui, sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 28px 32px">
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #9AA3B5; letter-spacing: 0.08em; text-transform: uppercase">Setup · Trackers &amp; check-ins</span>
+<h1 style="margin: 0; font-family: 'Geist', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.035em; font-size: 38px; line-height: 1.08">Track what <span style="font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 1.1em; letter-spacing: -0.01em; color: #8C96AB">matters.</span></h1>
+</div>
+
+<div style="flex-grow: 1; display: flex; gap: 16px; min-height: 0">
+<section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 18px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Trackers</h2>
+<sc-for list="{{trackers}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #0D1017; border: 1px solid #1B2030; border-radius: 12px">
+<span style="font-size: 14px; flex-grow: 1">{{t.name}} <span style="color: #9AA3B5; font-family: 'Geist Mono', monospace; font-size: 12px">{{t.unit}}</span></span>
+<span style="font-size: 12px; color: #9AA3B5">{{t.show}}</span>
+</div>
+</sc-for>
+
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px dashed #2C3346; border-radius: 14px; margin-top: 4px">
+<span style="font-size: 12px; color: #6E9BFF; letter-spacing: 0.08em; text-transform: uppercase">New tracker</span>
+<div style="display: flex; gap: 8px">
+<label style="flex: 2 1 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA3B5">Name
+<input value="Protein" style="height: 44px; box-sizing: border-box; padding: 0 12px; background: #0A0C12; border: 1px solid #262D3F; border-radius: 10px; color: #E8ECF4; font-size: 14px">
+</label>
+<label style="flex: 1 1 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA3B5">Unit
+<input value="g" style="height: 44px; box-sizing: border-box; padding: 0 12px; background: #0A0C12; border: 1px solid #262D3F; border-radius: 10px; color: #E8ECF4; font-size: 14px; width: 100%">
+</label>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #9AA3B5">Type</span>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{types}}" as="o" hint-placeholder-count="3"><button onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #9AA3B5">Show it as</span>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{displays}}" as="o" hint-placeholder-count="3"><button onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button></sc-for>
+</div>
+</div>
+<button style="align-self: flex-start; height: 44px; padding: 0 16px; background: #E8ECF4; border: none; border-radius: 12px; color: #0A0C12; font-size: 14px; font-weight: 600; cursor: pointer">Add tracker</button>
+</div>
+</section>
+
+<section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #11141C; border: 1px solid #1B2030; border-radius: 18px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">Check-in schedule</h2>
+<sc-for list="{{checkins}}" as="c" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #0D1017; border: 1px solid #1B2030; border-radius: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span style="font-size: 14px; font-weight: 500">{{c.name}}</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 14px; color: #6E9BFF">{{c.time}}</span>
+</div>
+<div style="display: flex; gap: 4px">
+<sc-for list="{{c.days}}" as="d" hint-placeholder-count="7"><button onClick="{{d.toggle}}" aria-pressed="{{d.on}}" aria-label="{{d.full}}" style="{{d.style}}">{{d.short}}</button></sc-for>
+</div>
+<span style="font-size: 12px; color: #9AA3B5">Asks for: {{c.asks}}</span>
+</div>
+</sc-for>
+<button style="align-self: flex-start; height: 44px; padding: 0 16px; background: transparent; border: 1px dashed #2C3346; border-radius: 12px; color: #9AA3B5; font-size: 14px; cursor: pointer">+ Add check-in</button>
+<div style="flex-grow: 1"></div>
+<button onClick="{{toggleStartup}}" role="switch" aria-checked="{{startup}}" style="display: flex; align-items: center; gap: 14px; padding: 14px; background: #0D1017; border: 1px solid #1B2030; border-radius: 12px; cursor: pointer; text-align: left; color: #E8ECF4">
+<span style="{{switchTrack}}"><span style="{{switchKnob}}"></span></span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px">Also check in on startup</span>
+<span style="font-size: 12px; color: #9AA3B5">If you missed a scheduled one, it pops up when Sanctum boots.</span>
+</span>
+</button>
+</section>
+</div>
+
+<div style="display: flex; justify-content: space-between">
+<button style="height: 44px; padding: 0 18px; background: transparent; border: 1px solid #262D3F; border-radius: 12px; color: #CBD2E0; font-size: 14px; cursor: pointer">Back</button>
+<button style="height: 48px; padding: 0 24px; background: #6E9BFF; border: none; border-radius: 12px; color: #0A0C12; font-size: 15px; font-weight: 600; cursor: pointer">Continue to calendar</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      type: 'Number', display: 'Both', startup: true,
+      days: { morning: [1, 4], evening: [0, 1, 2, 3, 4, 5, 6] }
+    };
+  }
+  renderVals() {
+    const pill = (on) => 'height: 36px; padding: 0 12px; border-radius: 10px; font-size: 13px; cursor: pointer; ' + (on ? 'background: #172240; color: #E8ECF4; border: 1px solid #6E9BFF;' : 'background: transparent; color: #CBD2E0; border: 1px solid #262D3F;');
+    const types = ['Number', 'Yes / No', 'Scale 1 to 10'].map((l) => ({ label: l, style: pill(this.state.type === l), pick: () => this.setState({ type: l }) }));
+    const displays = ['Chart', 'Table', 'Both'].map((l) => ({ label: l, style: pill(this.state.display === l), pick: () => this.setState({ display: l }) }));
+    const dn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayRow = (key) => dn.map((n, i) => {
+      const on = this.state.days[key].includes(i);
+      return {
+        short: n[0], full: n, on,
+        style: 'width: 36px; height: 36px; border-radius: 999px; font-size: 12px; cursor: pointer; ' + (on ? 'background: #6E9BFF; color: #0A0C12; border: none; font-weight: 600;' : 'background: transparent; color: #9AA3B5; border: 1px solid #262D3F;'),
+        toggle: () => { const cur = this.state.days[key]; this.setState({ days: { ...this.state.days, [key]: on ? cur.filter((x) => x !== i) : cur.concat([i]) } }); }
+      };
+    });
+    const on = this.state.startup;
+    return {
+      trackers: [{ name: 'Weight', unit: 'lb', show: 'Chart + table' }, { name: 'Body fat', unit: '%', show: 'Chart + table' }],
+      types, displays,
+      checkins: [
+        { name: 'Morning weigh-in', time: '8:00 AM', days: dayRow('morning'), asks: 'Weight, Body fat' },
+        { name: 'Evening wrap-up', time: '9:30 PM', days: dayRow('evening'), asks: 'Unchecked daily goals, tomorrow’s top 3' }
+      ],
+      startup: on, toggleStartup: () => this.setState({ startup: !on }),
+      switchTrack: 'width: 44px; height: 26px; flex-shrink: 0; box-sizing: border-box; padding: 3px; border-radius: 999px; display: flex; ' + (on ? 'background: #6E9BFF; justify-content: flex-end;' : 'background: #262D3F; justify-content: flex-start;'),
+      switchKnob: 'width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF;'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum logo motion</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D12}
+button{font-family:inherit}
+@keyframes kLeg{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes kBeam{from{opacity:0;transform:translateY(-4px) scaleX(.6)}to{opacity:1;transform:none}}
+@keyframes kNuki{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kKey{0%{opacity:0;transform:translateY(-5px) scale(.7)}60%{opacity:1;transform:translateY(.6px) scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes kBreathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.84)}}
+@keyframes fadeWord{from{opacity:0;letter-spacing:0.3em}to{opacity:1;letter-spacing:-0.01em}}
+@keyframes ring{0%{opacity:.7;transform:scale(.5)}100%{opacity:0;transform:scale(2)}}
+@keyframes glow{0%,100%{opacity:.2}50%{opacity:.55}}
+.k-leg{transform-box:fill-box;transform-origin:bottom;animation:kLeg .5s cubic-bezier(.3,.8,.2,1) both}
+.k-leg2{animation-delay:.08s}
+.k-beam{transform-box:fill-box;transform-origin:center;animation:kBeam .5s .35s cubic-bezier(.2,.8,.2,1) both}
+.k-nuki{transform-box:fill-box;transform-origin:center;animation:kNuki .4s .6s cubic-bezier(.2,.8,.2,1) both}
+.k-key{transform-box:fill-box;transform-origin:center;animation:kKey .5s .95s cubic-bezier(.3,1.4,.5,1) both}
+.k-breathe{transform-box:fill-box;transform-origin:center;animation:kBreathe 3.2s ease-in-out infinite}
+.a-word{animation:fadeWord .9s 1.3s cubic-bezier(.2,.7,.2,1) both}
+.a-ring{transform-box:fill-box;transform-origin:center;animation:ring 1.4s 1.4s ease-out both}
+.a-ring2{transform-box:fill-box;transform-origin:center;animation:ring 1.4s 1.7s ease-out both}
+.a-glow{animation:glow 3.2s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.k-leg,.k-beam,.k-nuki,.k-key,.k-breathe,.a-word,.a-ring,.a-ring2,.a-glow{animation:none}}
+</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 28px 32px; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">Logo motion</h1>
+<button onClick="{{replay}}" style="height: 32px; padding: 0 12px; background: transparent; border: 1px solid #2A3040; border-radius: 6px; color: #B8BFCC; font-size: 13px; cursor: pointer">Replay all</button>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+
+<section style="display: flex; flex-direction: column; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #0E1016">
+<sc-if value="{{show}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 16px">
+<svg width="96" height="96" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path class="k-beam" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect class="k-nuki" x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect class="k-leg" x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect class="k-leg k-leg2" x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g class="k-key"><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+<span class="a-word" style="font-size: 22px; font-weight: 600">Sanctum</span>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-top: 1px solid #1F2430; background: #12151C">
+<span style="font-size: 13px; font-weight: 500">Boot splash · 2.2s</span>
+<span style="font-size: 12px; color: #8A93A6; line-height: 1.45">Pillars rise, the top beam settles, the crossbar slides in, then the keyhole drops into place. The wordmark follows.</span>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1F3FD9, #2F5BFF 50%, #6A4CFF)">
+<sc-if value="{{show}}" hint-placeholder-val="{{true}}">
+<svg width="140" height="140" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+<circle class="a-ring" cx="20" cy="24.5" r="8" stroke="#FFFFFF" stroke-width="0.6"></circle>
+<circle class="a-ring2" cx="20" cy="24.5" r="8" stroke="#FFFFFF" stroke-width="0.4"></circle>
+<g transform="translate(7 7)"><path class="k-beam" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#FFFFFF"></path><rect class="k-nuki" x="4.4" y="10.8" width="17.2" height="2.4" fill="#FFFFFF"></rect><rect class="k-leg" x="6" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><rect class="k-leg k-leg2" x="16.8" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><g class="k-key"><circle cx="13" cy="16.8" r="2.6" fill="#FFFFFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#FFFFFF"></path></g></g>
+</svg>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-top: 1px solid #1F2430; background: #12151C">
+<span style="font-size: 13px; font-weight: 500">Sanctum held · 2.8s</span>
+<span style="font-size: 12px; color: #8A93A6; line-height: 1.45">Same build, then two rings pulse out from the keyhole as the chime plays over the mesh gradient.</span>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; border: 1px solid #1F2430; border-radius: 8px; overflow: hidden">
+<div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: #0E1016">
+<div style="position: relative; width: 96px; height: 96px; display: flex; align-items: center; justify-content: center">
+<span class="a-glow" style="position: absolute; left: 34px; top: 50px; width: 28px; height: 32px; border-radius: 999px; background: #2F5BFF; filter: blur(12px)"></span>
+<svg width="96" height="96" viewBox="0 0 26 26" fill="none" aria-hidden="true" style="position: relative"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g class="k-breathe"><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+</div>
+<div style="display: flex; align-items: center; gap: 18px">
+<div style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #1F3482; background: #172040; border-radius: 6px; font-size: 12px">
+<svg width="15" height="15" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#E6E9EF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#E6E9EF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#E6E9EF"></rect><g class="k-breathe"><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>Sidebar
+</div>
+<div style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2A2D36">
+<svg width="17" height="17" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="#FFFFFF"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="#FFFFFF"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="#FFFFFF"></rect><g class="k-breathe"><circle cx="13" cy="16.8" r="2.6" fill="#2F5BFF"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="#2F5BFF"></path></g></svg>
+</div>
+<span style="font-size: 12px; color: #5C6477">Tray</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-top: 1px solid #1F2430; background: #12151C">
+<span style="font-size: 13px; font-weight: 500">Sealed idle pulse · 3.2s loop</span>
+<span style="font-size: 12px; color: #8A93A6; line-height: 1.45">Only the keyhole breathes. Slow enough to ignore, visible enough to know you're locked in.</span>
+</div>
+</section>
+</div>
+<span style="font-size: 12px; color: #5C6477">Pure SVG + CSS keyframes (scaleY on the pillars, scaleX on the beams, drop on the keyhole). All motion stops under prefers-reduced-motion.</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { show: true }; }
+  renderVals() {
+    return { show: this.state.show, replay: () => { this.setState({ show: false }); setTimeout(() => this.setState({ show: true }), 30); } };
+  }
+}
+</script>
+</body>
+</html>

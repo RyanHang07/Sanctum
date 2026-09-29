@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum accent options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0B0D12} button{font-family:inherit}</style>
+</helmet>
+<div style="width: 1120px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 28px 32px; background: #0B0D12; font-family: 'Geist', system-ui, sans-serif; color: #E6E9EF">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em">Accent options for "discipline"</h1>
+<span style="font-size: 12px; color: #8A93A6">Same components, only the accent changes</span>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{opts}}" as="o" hint-placeholder-count="5">
+<section style="{{o.card}}">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="{{o.swatch}}"></span><span style="font-size: 14px; font-weight: 600">{{o.name}}</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #8A93A6">{{o.hex}}</span>
+<span style="font-size: 12px; line-height: 1.45; color: #B8BFCC; min-height: 52px">{{o.why}}</span>
+</div>
+
+<div style="{{o.pill}}"><span style="{{o.dot}}"></span><span style="font-size: 12px; font-weight: 500">Sealed</span><span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 12px; color: #8A93A6">38:14</span></div>
+
+<span style="{{o.btn}}">Enter focus</span>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #8A93A6"><span>Interview Prep</span><span>36%</span></div>
+<div style="height: 4px; background: #1F2430; border-radius: 999px; overflow: hidden"><div style="{{o.bar}}"></div></div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px">
+<span style="{{o.check}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="{{o.onText}}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+<span style="color: #5C6477; text-decoration: line-through">NeetCode daily</span>
+</div>
+
+<div style="{{o.block}}"><span style="{{o.blockBar}}"></span><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 12px">LeetCode: graphs</span><span style="font-family: 'Geist Mono', monospace; font-size: 10px; color: #8A93A6">10:00a</span></span></div>
+
+<div style="{{o.mini}}"><span style="font-size: 11px; color: #8A93A6">Compact</span><span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; color: {{o.hex}}">21:36</span></div>
+
+<span style="font-size: 11px; line-height: 1.4; color: #8A93A6">{{o.note}}</span>
+</section>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":720}}'>
+class Component extends DCLogic {
+  mix(hex, bg, t) {
+    const h = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+    const a = h(hex), b = h(bg);
+    return '#' + a.map((v, i) => Math.round(b[i] + (v - b[i]) * t).toString(16).padStart(2, '0')).join('');
+  }
+  renderVals() {
+    const list = [
+      { name: 'Current', hex: '#6E9BFF', onText: '#0B0D12', why: 'Soft periwinkle. Friendly and calm, which is why it reads dull.', note: 'Reference only.' },
+      { name: 'Cobalt', hex: '#2F5BFF', onText: '#FFFFFF', why: 'Uniform blue. Same family, fully saturated. Precise, institutional.', note: 'Easiest switch. Keeps teal for events.' },
+      { name: 'Command red', hex: '#E5484D', onText: '#FFFFFF', why: 'Stop-sign authority. Every glance says "don’t".', note: 'Broken-seal state would move to amber so red stays yours.' },
+      { name: 'Brass', hex: '#C9A24A', onText: '#0B0D12', why: 'Rank insignia. Earned, formal, a bit old-world.', note: 'Most distinctive. Pairs well with the serif payoff.' },
+      { name: 'Steel', hex: '#E6E9EF', onText: '#0B0D12', why: 'No hue at all. Discipline through restraint, like a watch face.', note: 'States shown by weight and fill, not color.' }
+    ];
+    const bg = '#12151C';
+    const opts = list.map((o) => {
+      const tint = this.mix(o.hex, bg, 0.16), line = this.mix(o.hex, bg, 0.45);
+      return {
+        ...o,
+        card: 'display: flex; flex-direction: column; gap: 14px; padding: 14px; background: #12151C; border: 1px solid ' + (o.name === 'Current' ? '#1F2430' : '#2A3040') + '; border-radius: 8px;' + (o.name === 'Current' ? ' opacity: 0.8;' : ''),
+        swatch: 'width: 14px; height: 14px; border-radius: 4px; background: ' + o.hex + ';',
+        pill: 'display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; background: ' + tint + '; border: 1px solid ' + line + ';',
+        dot: 'width: 7px; height: 7px; border-radius: 999px; background: ' + o.hex + ';',
+        btn: 'height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: ' + o.hex + '; color: ' + o.onText + '; font-size: 13px; font-weight: 600;',
+        bar: 'width: 36%; height: 100%; background: ' + o.hex + ';',
+        check: 'width: 15px; height: 15px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: ' + o.hex + ';',
+        block: 'display: flex; gap: 8px; padding: 7px; border-radius: 6px; background: ' + tint + '; border: 1px solid ' + line + ';',
+        blockBar: 'width: 3px; border-radius: 2px; background: ' + o.hex + ';',
+        mini: 'display: flex; align-items: center; height: 36px; padding: 0 10px; border-radius: 10px; background: linear-gradient(90deg, ' + tint + ' 0%, ' + tint + ' 60%, #0F1218 60%); border: 1px solid ' + line + ';'
+      };
+    });
+    return { opts };
+  }
+}
+</script>
+</body>
+</html>

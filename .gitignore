@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.vite
+coverage
+src-tauri/target
+src-tauri/gen/schemas
+graphify-out
+.DS_Store
+*.tsbuildinfo
+src-tauri/.env
