@@ -11,6 +11,7 @@ import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
 import { Wheel } from "../components/Wheel";
+import { QuickAddField } from "../components/QuickAdd";
 import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
@@ -315,14 +316,7 @@ function TodayPanel() {
   const items = useTodayItems();
   const profiles = useStore((s) => s.profiles);
   const toggle = usePlanner((s) => s.toggle);
-  const saveTodo = usePlanner((s) => s.saveTodo);
   const nowKey = useNowKey(items);
-  const [draft, setDraft] = useState("");
-  const add = async () => {
-    const title = draft.trim();
-    if (!title) return;
-    if (await saveTodo({ title, dueDate: todayKey(), dueTime: null, durationMin: null, profileId: null })) setDraft("");
-  };
   return (
     <Panel
       id="today"
@@ -334,18 +328,13 @@ function TodayPanel() {
         </span>
       }
     >
-      <div className="flex h-[38px] shrink-0 items-center gap-[10px] border-b border-line px-[14px]">
-        <PlusIcon className="text-faint" />
-        <input
-          aria-label="Add a task for today"
-          placeholder="Add a task for today"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void add()}
-          className="h-9 grow border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
-        />
-        <span className="font-mono text-[11px] text-faint">↵</span>
-      </div>
+      <QuickAddField
+        date={todayKey()}
+        label="Add a task for today"
+        placeholder="Add a task for today"
+        prefix={<PlusIcon className="shrink-0 text-faint" />}
+        className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft"
+      />
       <div className="flex flex-col overflow-y-auto py-1">
         {items.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing planned today.</p> : null}
         {items.map((t) => {

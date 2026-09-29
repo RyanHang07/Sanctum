@@ -23,6 +23,21 @@ export const addDays = (key: string, n: number) => {
 /** 0 = Sunday ... 6 = Saturday. */
 export const dayOf = (key: string) => fromKey(key).getDay();
 
+/** First day of the month `n` months from the one containing `key`. */
+export function addMonths(key: string, n: number): string {
+  const d = fromKey(key);
+  return toKey(new Date(d.getFullYear(), d.getMonth() + n, 1));
+}
+
+/** Every day shown in a month grid: whole weeks (Monday first) covering the month. */
+export function monthGrid(key: string): string[] {
+  const first = addMonths(key, 0);
+  const last = addDays(addMonths(key, 1), -1);
+  const out: string[] = [];
+  for (let d = weekStart(first); d <= last || out.length % 7 !== 0; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
 /** Monday of the week containing `key`. */
 export const weekStart = (key: string) => addDays(key, -((dayOf(key) + 6) % 7));
 

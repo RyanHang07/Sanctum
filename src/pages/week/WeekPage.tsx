@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Switch } from "../../components/controls";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "../../components/icons";
-import { EventDialog, OneTimeCard, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
+import { EventDialog, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
+import { QuickAddField, QuickAddPanel } from "../../components/QuickAdd";
 import { usePlanner } from "../../state/planner";
 import { useAgenda, useCalendar } from "../../state/calendar";
 import { useStore, type WeekView } from "../../state/store";
-import { addDays, daysLabel, fromKey, shortTime, todayKey, weekKeys, weekStart, type AgendaItem } from "../../lib/planner";
+import { addDays, addMonths, daysLabel, fromKey, monthGrid, shortTime, todayKey, weekKeys, weekStart, type AgendaItem } from "../../lib/planner";
 import type { CalEvent, Routine, Todo } from "../../lib/types";
 
 // Week tab (design/screens/Week.dc.html): 7 day columns of one-time items plus routine cards,
@@ -102,7 +103,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
 }
 
 function DayColumn({ date, items, today, onOpen }: { date: string; items: AgendaItem[]; today: boolean; onOpen: (i: AgendaItem) => void }) {
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<HTMLElement | null>(null);
   const d = fromKey(date);
   return (
     <section
@@ -118,18 +119,16 @@ function DayColumn({ date, items, today, onOpen }: { date: string; items: Agenda
       {items.map((i) => (
         <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />
       ))}
-      {adding ? (
-        <OneTimeCard date={date} onDone={() => setAdding(false)} />
-      ) : (
-        <button
-          type="button"
-          aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}
-          onClick={() => setAdding(true)}
-          className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
-        >
-          <PlusIcon size={11} /> Add
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}
+        aria-expanded={!!adding}
+        onClick={(e) => setAdding(e.currentTarget)}
+        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
+      >
+        <PlusIcon size={11} /> Add
+      </button>
+      {adding ? <QuickAddPanel anchor={adding} date={date} onClose={() => setAdding(null)} /> : null}
     </section>
   );
 }
@@ -274,23 +273,14 @@ function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOp
 }
 
 function QuickAdd({ date, label }: { date: string; label: string }) {
-  const saveTodo = usePlanner((s) => s.saveTodo);
-  const [draft, setDraft] = useState("");
-  const add = async () => {
-    if (draft.trim() && (await saveTodo({ title: draft, dueDate: date, dueTime: null, durationMin: null, profileId: null }))) setDraft("");
-  };
   return (
-    <label className="flex h-[30px] items-center gap-[10px] px-1 text-faint">
-      <span className="box-border h-4 w-4 shrink-0 rounded-[4px] border-[1.5px] border-dashed border-line-input" />
-      <input
-        aria-label={label}
-        value={draft}
-        placeholder="To-do"
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && void add()}
-        className="h-7 min-w-0 grow border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
-      />
-    </label>
+    <QuickAddField
+      date={date}
+      label={label}
+      placeholder="To-do"
+      prefix={<span className="box-border h-4 w-4 shrink-0 rounded-[4px] border-[1.5px] border-dashed border-line-input" />}
+      className="flex h-[30px] cursor-text items-center gap-[10px] rounded-control px-1 text-faint transition-colors duration-ui ease-ui hover:bg-line-soft"
+    />
   );
 }
 
@@ -360,10 +350,76 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   );
 }
 
+// --- Month view: a grid of the month (SPEC 4.12). Clicking a day opens its week. ---
+
+const WEEKDAY_HEADS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_ITEMS = 3;
+
+function MonthCell({ date, items, inMonth, today, onPick }: { date: string; items: AgendaItem[]; inMonth: boolean; today: string; onPick: () => void }) {
+  const d = fromKey(date);
+  const routines = items.filter((i) => i.kind === "routine");
+  const rest = items.filter((i) => i.kind !== "routine");
+  const shown = rest.slice(0, MONTH_ITEMS);
+  const isToday = date === today;
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+      className={`flex min-h-0 min-w-0 flex-col gap-[3px] overflow-hidden rounded-control border p-[6px] text-left whitespace-normal transition-colors duration-ui ease-ui hover:border-line-input hover:bg-panel ${
+        isToday ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40"
+      } ${inMonth ? "" : "opacity-40"}`}
+    >
+      <span className="flex items-center justify-between">
+        <span className={`font-mono text-[11px] ${isToday ? "font-semibold text-sealed-text" : "text-text-2"}`}>{d.getDate()}</span>
+        {routines.length ? (
+          <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-[10px] ${date <= today ? "text-muted" : "text-faint"}`}>
+            <RepeatGlyph className="h-[9px] w-[9px]" />
+            {date <= today ? `${routines.filter((r) => r.done).length}/${routines.length}` : routines.length}
+          </span>
+        ) : null}
+      </span>
+      {shown.map((i) => (
+        <span key={i.key} className="flex min-w-0 items-center gap-[5px]">
+          <span className={`h-[10px] w-[3px] shrink-0 rounded-[2px] ${i.profileId !== null ? "bg-sealed" : i.kind === "event" ? "bg-event" : "bg-check-line"}`} />
+          <span className={`truncate text-[11px] leading-tight ${i.done ? "text-faint line-through" : "text-text"}`}>{i.title}</span>
+        </span>
+      ))}
+      {rest.length > MONTH_ITEMS ? <span className="text-[10px] text-muted">+{rest.length - MONTH_ITEMS} more</span> : null}
+    </button>
+  );
+}
+
+function MonthView({ month, onPick }: { month: string; onPick: (date: string) => void }) {
+  const days = useMemo(() => monthGrid(month), [month]);
+  const agenda = useAgenda(days);
+  const today = todayKey();
+  const m = fromKey(month).getMonth();
+  return (
+    <section aria-label="Month" className="flex min-h-0 grow flex-col gap-[6px]">
+      <div className="grid grid-cols-7 gap-[6px] px-1">
+        {WEEKDAY_HEADS.map((h) => (
+          <span key={h} className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {h}
+          </span>
+        ))}
+      </div>
+      <div className="grid min-h-0 grow grid-cols-7 gap-[6px]" style={{ gridTemplateRows: `repeat(${days.length / 7}, minmax(0, 1fr))` }}>
+        {days.map((d) => (
+          <MonthCell key={d} date={d} items={agenda[d] ?? []} inMonth={fromKey(d).getMonth() === m} today={today} onPick={() => onPick(d)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const monthTitle = (key: string) => fromKey(key).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
 export function WeekPage() {
   const view = useStore((s) => s.settings.weekView);
   const setView = useStore((s) => s.setWeekView);
   const [start, setStart] = useState(() => weekStart(todayKey()));
+  const [month, setMonth] = useState(() => addMonths(todayKey(), 0));
   const [editing, setEditing] = useState<
     { kind: "todo"; todo?: Todo; date: string } | { kind: "routine"; routine?: Routine } | { kind: "event"; event: CalEvent; date: string } | null
   >(null);
@@ -373,6 +429,12 @@ export function WeekPage() {
 
   useEffect(() => void ensure(start, addDays(start, 6)), [start, ensure]);
   useEffect(() => void ensureEvents(start, addDays(start, 6)), [start, ensureEvents]);
+  useEffect(() => {
+    if (view !== "month") return;
+    const grid = monthGrid(month);
+    void ensure(grid[0]!, grid[grid.length - 1]!);
+    void ensureEvents(grid[0]!, grid[grid.length - 1]!);
+  }, [view, month, ensure, ensureEvents]);
 
   const open = (i: AgendaItem) => {
     if (i.kind === "event" && i.event) setEditing({ kind: "event", event: i.event, date: i.date });
@@ -380,18 +442,37 @@ export function WeekPage() {
     else setEditing({ kind: "todo", todo: todos.find((t) => t.id === i.id) ?? pending.find((t) => t.id === i.id), date: i.date });
   };
   const thisWeek = weekStart(todayKey());
+  const thisMonth = addMonths(todayKey(), 0);
   const dated = view === "week" || view === "list";
-  const newItem = () =>
-    view === "routines"
-      ? setEditing({ kind: "routine" })
-      : setEditing({ kind: "todo", date: start <= todayKey() && todayKey() <= addDays(start, 6) ? todayKey() : start });
+  const newItem = () => {
+    if (view === "routines") return setEditing({ kind: "routine" });
+    if (view === "month") return setEditing({ kind: "todo", date: month === thisMonth ? todayKey() : month });
+    setEditing({ kind: "todo", date: start <= todayKey() && todayKey() <= addDays(start, 6) ? todayKey() : start });
+  };
+  const openWeek = (date: string) => {
+    setStart(weekStart(date));
+    setView("week");
+  };
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
       {/* Title and week navigation on the left; New and the view tabs stay put on the right. */}
       <div className="flex h-control items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h1 className="page-title m-0 whitespace-nowrap">{view === "routines" ? "Routines" : view === "month" ? "Month" : rangeTitle(start)}</h1>
+          <h1 className="page-title m-0 whitespace-nowrap">{view === "routines" ? "Routines" : view === "month" ? monthTitle(month) : rangeTitle(start)}</h1>
+          {view === "month" ? (
+            <div className="flex items-center gap-1">
+              <Button variant="quiet" aria-label="Previous month" className="w-control px-0" onClick={() => setMonth(addMonths(month, -1))}>
+                <ChevronRightIcon size={12} className="rotate-180" />
+              </Button>
+              <Button variant={month === thisMonth ? "quiet" : "ghost"} size="sm" onClick={() => setMonth(thisMonth)}>
+                This month
+              </Button>
+              <Button variant="quiet" aria-label="Next month" className="w-control px-0" onClick={() => setMonth(addMonths(month, 1))}>
+                <ChevronRightIcon size={12} />
+              </Button>
+            </div>
+          ) : null}
           {dated ? (
             <div className="flex items-center gap-1">
               <Button variant="quiet" aria-label="Previous week" className="w-control px-0" onClick={() => setStart(addDays(start, -7))}>
@@ -408,11 +489,9 @@ export function WeekPage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          {view !== "month" ? (
-            <Button variant="primary" aria-label={view === "routines" ? "New routine" : "New item"} className="w-[92px]" onClick={newItem}>
-              {view === "routines" ? <RepeatGlyph className="h-3 w-3" /> : <PlusIcon size={12} />} New
-            </Button>
-          ) : null}
+          <Button variant="primary" aria-label={view === "routines" ? "New routine" : "New item"} className="w-[92px]" onClick={newItem}>
+            {view === "routines" ? <RepeatGlyph className="h-3 w-3" /> : <PlusIcon size={12} />} New
+          </Button>
           <ViewSwitch view={view} onChange={setView} />
         </div>
       </div>
@@ -420,11 +499,7 @@ export function WeekPage() {
       {view === "week" ? <WeekView start={start} onOpen={open} /> : null}
       {view === "list" ? <ListView start={start} onOpen={open} /> : null}
       {view === "routines" ? <RoutinesView onOpen={(r) => setEditing({ kind: "routine", routine: r })} /> : null}
-      {view === "month" ? (
-        <div className="flex grow items-center justify-center rounded-panel border border-line bg-panel">
-          <p className="m-0 text-body text-muted">The month view arrives with streaks.</p>
-        </div>
-      ) : null}
+      {view === "month" ? <MonthView month={month} onPick={openWeek} /> : null}
 
       {editing?.kind === "todo" ? <OneTimeDialog initial={editing.todo} date={editing.date} onClose={() => setEditing(null)} /> : null}
       {editing?.kind === "routine" ? <RoutineDialog initial={editing.routine} onClose={() => setEditing(null)} /> : null}
