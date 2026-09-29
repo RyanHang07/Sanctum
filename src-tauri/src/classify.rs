@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn derives_rules_from_profiles() {
-        let r = |kind: &str, value: &str| Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None };
+        let r = |kind: &str, value: &str| Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None, allow: Vec::new() };
         let p = Profile {
             id: 1,
             name: "P".into(),

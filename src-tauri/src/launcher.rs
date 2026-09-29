@@ -66,7 +66,7 @@ mod tests {
     use super::*;
 
     fn rule(id: i64, kind: &str, value: &str, label: Option<&str>) -> Rule {
-        Rule { id, profile_id: 1, kind: kind.into(), value: value.into(), label: label.map(Into::into), path: None }
+        Rule { id, profile_id: 1, kind: kind.into(), value: value.into(), label: label.map(Into::into), path: None, allow: Vec::new() }
     }
 
     #[test]

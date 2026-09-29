@@ -18,6 +18,16 @@ pub struct Rule {
     pub value: String,
     pub label: Option<String>,
     pub path: Option<String>,
+    /// Sealed sites only: pages under the site that stay open (4b).
+    pub allow: Vec<SiteAllow>,
+}
+
+/// An exception under a sealed site: a bare host plus path ("youtube.com/@mitocw").
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteAllow {
+    pub id: i64,
+    pub prefix: String,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -110,6 +120,16 @@ pub fn normalize_domain(input: &str) -> Option<String> {
     valid.then_some(s)
 }
 
+/// A page (or section) under `domain` that stays open while the site is sealed. It must be on
+/// the site or one of its subdomains, and more specific than the whole site.
+pub fn normalize_allow(domain: &str, input: &str) -> Option<String> {
+    let s = normalize_domain(input)?;
+    let host = s.split('/').next().unwrap_or("");
+    let site = domain.split('/').next().unwrap_or(domain);
+    let on_site = host == site || host.ends_with(&format!(".{site}"));
+    (on_site && s != domain && s.len() > site.len()).then_some(s)
+}
+
 fn normalize_rule(rule: NewRule) -> Result<NewRule> {
     let kind = rule.kind.trim().to_string();
     if !KINDS.contains(&kind.as_str()) {
@@ -186,9 +206,22 @@ fn rules_for(conn: &Connection, profile_id: Option<i64>) -> Result<Vec<Rule>> {
             value: r.get(3)?,
             label: r.get(4)?,
             path: r.get(5)?,
+            allow: Vec::new(),
         })
     })?;
-    Ok(rows.collect::<rusqlite::Result<_>>()?)
+    let mut rules: Vec<Rule> = rows.collect::<rusqlite::Result<_>>()?;
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.rule_id, e.prefix FROM site_exceptions e JOIN profile_rules r ON r.id = e.rule_id
+         WHERE ?1 IS NULL OR r.profile_id = ?1 ORDER BY e.prefix",
+    )?;
+    let allows = stmt.query_map([profile_id], |r| Ok((r.get::<_, i64>(1)?, SiteAllow { id: r.get(0)?, prefix: r.get(2)? })))?;
+    for a in allows {
+        let (rule_id, allow) = a?;
+        if let Some(rule) = rules.iter_mut().find(|r| r.id == rule_id) {
+            rule.allow.push(allow);
+        }
+    }
+    Ok(rules)
 }
 
 fn read_profiles(conn: &Connection, id: Option<i64>) -> Result<Vec<Profile>> {
@@ -305,6 +338,30 @@ pub fn remove_rule(conn: &Connection, rule_id: i64) -> Result<Profile> {
         .optional()?
         .ok_or(Error::NotFound)?;
     conn.execute("DELETE FROM profile_rules WHERE id = ?1", [rule_id])?;
+    get(conn, profile_id)
+}
+
+/// Adds a page that stays open under a sealed site.
+pub fn add_site_allow(conn: &Connection, rule_id: i64, input: &str) -> Result<Profile> {
+    let (profile_id, kind, domain): (i64, String, String) = conn
+        .query_row("SELECT profile_id, kind, value FROM profile_rules WHERE id = ?1", [rule_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .optional()?
+        .ok_or(Error::NotFound)?;
+    if kind != "domain" {
+        return Err(Error::Invalid("Only sealed sites take exceptions.".into()));
+    }
+    let prefix = normalize_allow(&domain, input)
+        .ok_or_else(|| Error::Invalid(format!("{} is not a page on {domain}.", input.trim())))?;
+    conn.execute("INSERT OR IGNORE INTO site_exceptions (rule_id, prefix) VALUES (?1, ?2)", params![rule_id, prefix])?;
+    get(conn, profile_id)
+}
+
+pub fn remove_site_allow(conn: &Connection, id: i64) -> Result<Profile> {
+    let profile_id: i64 = conn
+        .query_row("SELECT r.profile_id FROM site_exceptions e JOIN profile_rules r ON r.id = e.rule_id WHERE e.id = ?1", [id], |r| r.get(0))
+        .optional()?
+        .ok_or(Error::NotFound)?;
+    conn.execute("DELETE FROM site_exceptions WHERE id = ?1", [id])?;
     get(conn, profile_id)
 }
 
@@ -425,5 +482,37 @@ mod tests {
         assert_eq!(normalize_domain("X.com").as_deref(), Some("x.com"));
         assert_eq!(normalize_domain("localhost"), None);
         assert_eq!(normalize_domain("two words.com"), None);
+    }
+
+    #[test]
+    fn site_exceptions_stay_under_their_site() {
+        assert_eq!(normalize_allow("youtube.com", "https://www.youtube.com/@mitocw/"), Some("youtube.com/@mitocw".into()));
+        assert_eq!(normalize_allow("youtube.com", "music.youtube.com"), Some("music.youtube.com".into()));
+        assert_eq!(normalize_allow("youtube.com", "youtube.com"), None, "the whole site isn't an exception");
+        assert_eq!(normalize_allow("youtube.com", "notyoutube.com/x"), None);
+        assert_eq!(normalize_allow("reddit.com", "youtube.com/x"), None);
+
+        let mut conn = Connection::open_in_memory().unwrap();
+        db::prepare(&mut conn).unwrap();
+        let p = create(
+            &mut conn,
+            ProfileDraft { name: "Study".into(), rules: vec![NewRule { kind: "domain".into(), value: "youtube.com".into(), ..Default::default() }, NewRule { kind: "app".into(), value: "steam.exe".into(), ..Default::default() }], ..Default::default() },
+        )
+        .unwrap();
+        let site = p.rules.iter().find(|r| r.kind == "domain").unwrap().id;
+        let app = p.rules.iter().find(|r| r.kind == "app").unwrap().id;
+        let p = add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
+        let p = add_site_allow(&conn, site, "https://youtube.com/@mitocw").unwrap(); // no duplicate
+        let allow = &p.rules.iter().find(|r| r.id == site).unwrap().allow;
+        assert_eq!(allow.iter().map(|a| a.prefix.as_str()).collect::<Vec<_>>(), vec!["youtube.com/@mitocw"]);
+        assert!(add_site_allow(&conn, app, "youtube.com/x").is_err());
+        assert!(add_site_allow(&conn, site, "twitch.tv").is_err());
+        let p = remove_site_allow(&conn, allow[0].id).unwrap();
+        assert!(p.rules.iter().find(|r| r.id == site).unwrap().allow.is_empty());
+        // Exceptions go with their rule.
+        add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
+        remove_rule(&conn, site).unwrap();
+        let left: i64 = conn.query_row("SELECT COUNT(*) FROM site_exceptions", [], |r| r.get(0)).unwrap();
+        assert_eq!(left, 0);
     }
 }

@@ -157,6 +157,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
   - Calendar events show in Week, List, and Home's Schedule as teal cards without checkboxes; the Today list stays routines and items
   - A bare `#focus` uses the profile picked on Home; `#focus:<profile>` matches a profile by name ("interview-prep" = "Interview Prep")
   - Paused and anytime routines stay local; turning one off removes its series from Google
+- **4b scope (decided 2026-09-29):** Chromium only (Firefox to the backlog); Comet is the browser to test and polish first; while sealed, profile title keywords also block matching tabs (URL path or tab title), even on sites that aren't sealed
 - **4b site activity (decided 2026-09-29):** the extension also reports the active tab's domain (never the full URL or title) so Activity classifies sites with the existing site rules
 
 ### 4.4 Blocking
