@@ -157,6 +157,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
   - Calendar events show in Week, List, and Home's Schedule as teal cards without checkboxes; the Today list stays routines and items
   - A bare `#focus` uses the profile picked on Home; `#focus:<profile>` matches a profile by name ("interview-prep" = "Interview Prep")
   - Paused and anytime routines stay local; turning one off removes its series from Google
+- **4b site activity (decided 2026-09-29):** the extension also reports the active tab's domain (never the full URL or title) so Activity classifies sites with the existing site rules
 
 ### 4.4 Blocking
 - **Apps:** poll processes every 1s, kill matches. v2: WMI process-start events for instant blocking
@@ -243,6 +244,8 @@ Accounts are optional. Solo users without an account run fully local. An account
 - **Focus row** (**Decided** 2026-09-29): a suggested-session card plus two vertical snap wheels (Profile, Duration) and a large Enter focus. When a profile-linked item is scheduled now, the row pre-fills that profile and the time left in the block (rounded to 30/60/90/120), and a toast at its start offers Enter / Skip. Manual picks stick until the next block
 - **Home layout** (**Decided** 2026-09-29): Schedule, Focus today, and the task list collapse to their headers (remembered), and a Customize menu shows or hides each panel
 - **Quick add** with natural language: "mock interview thu 3pm" creates a timed todo
+  - **Decided 2026-09-29:** clicking any add field (Home's Add a task, Week's per-day Add, List's To-do rows) opens a popover around the input with quick picks for day, time, length, profile, and repeat, plus a live preview of what will be created. Typing understands the same things: "thu", "tomorrow", "10/3", "3pm", "90m", "@interview", "every mon wed", "daily", "weekdays". A repeat makes a routine instead of a one-time item
+- **Month view (decided 2026-09-29, built in 4d):** a month grid; each day shows its routines done/total and its first items and events, then "+N". Clicking a day opens that week. Streak marks join at M5
 - **Two-way Google Calendar sync for todos:**
   - A todo with a time becomes a Google Calendar event (tagged so Sanctum can recognize it)
   - Calendar events show up on their day (as event cards, not checkable todos; see 4.3)

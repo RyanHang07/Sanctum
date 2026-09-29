@@ -13,6 +13,7 @@ import {
   weekKeys,
   weekStart,
 } from "./planner";
+import { addMonths, monthGrid } from "./planner";
 import type { Routine, Todo } from "./types";
 
 const routine = (id: number, title: string, daysMask: number, time: string | null, extra: Partial<Routine> = {}): Routine => ({
@@ -118,5 +119,19 @@ describe("schedule-driven focus", () => {
     const done = items.map((i) => (i.title.startsWith("Work") ? { ...i, done: true } : i));
     expect(suggestFocus(done, at(10, 30))!.item.title).toBe("System design reading");
     expect(suggestFocus(items, at(18, 0))).toBeNull();
+  });
+});
+
+describe("month grid", () => {
+  it("covers whole Monday-first weeks around the month", () => {
+    expect(addMonths("2026-09-29", 0)).toBe("2026-09-01");
+    expect(addMonths("2026-12-15", 1)).toBe("2027-01-01");
+    expect(addMonths("2026-01-31", -1)).toBe("2025-12-01");
+    const sep = monthGrid("2026-09-01");
+    expect([sep[0], sep[sep.length - 1], sep.length]).toEqual(["2026-08-31", "2026-10-04", 35]);
+    // February 2027 starts on a Monday and fits in exactly 4 weeks.
+    const feb = monthGrid("2027-02-01");
+    expect([feb[0], feb.length]).toEqual(["2027-02-01", 28]);
+    expect(monthGrid("2026-08-01").length).toBe(42);
   });
 });

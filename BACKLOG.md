@@ -34,8 +34,8 @@ Raised after the Milestone 1 review (2026-09-29).
 - Later: publish the Google app (verification) at M13 so sign-ins stop expiring every 7 days.
 - Later: drag events between days in Week; edit a whole recurring series from Sanctum (today an edit changes one occurrence).
 
-## 4d Today + Week
-- Chosen 2026-09-29: separate Routines view for recurring items; one-time items in Week. See SPEC 4.12.
+## 4d Today + Week (complete 2026-09-29)
+- Later: a Ctrl K quick-add bar from anywhere (the Home "Search or command" box).
 
 ## Blocking
 - **Instant blocking.** Replace the 1s process poll with WMI process-start events (SPEC 4.4 v2).

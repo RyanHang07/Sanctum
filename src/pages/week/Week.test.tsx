@@ -26,6 +26,13 @@ async function setup() {
 }
 const profileId = (name: string) => useStore.getState().profiles.find((p) => p.name === name)!.id;
 
+/** Types into the open quick-add popover and presses Enter. */
+async function quickAdd(text: string) {
+  const input = within(screen.getByRole("dialog", { name: "Quick add" })).getByLabelText("Quick add");
+  fireEvent.change(input, { target: { value: text } });
+  await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(TUESDAY);
@@ -47,8 +54,7 @@ describe("Week: one-time items", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
     const thursday = screen.getByRole("region", { name: "Thursday, October 1" });
     fireEvent.click(within(thursday).getByRole("button", { name: "Add to Thursday" }));
-    fireEvent.change(within(thursday).getByLabelText("Title"), { target: { value: "Mock interview" } });
-    await act(async () => fireEvent.keyDown(within(thursday).getByLabelText("Title"), { key: "Enter" }));
+    await quickAdd("Mock interview");
     const box = within(thursday).getByRole("checkbox", { name: "Mock interview" });
     expect(box.closest("[data-kind]")).toHaveAttribute("data-kind", "todo");
     await act(async () => fireEvent.click(box));
@@ -141,9 +147,8 @@ describe("Week: list view and header", () => {
     expect(thursday).toHaveTextContent("Repeat");
     expect(within(screen.getByRole("region", { name: "Tuesday list" })).getByText("Today")).toBeInTheDocument();
     // Quick add on a day, like the To-do row in the reference page.
-    const input = within(screen.getByRole("region", { name: "Saturday list" })).getByLabelText("Add a to-do on Saturday");
-    fireEvent.change(input, { target: { value: "Sheets laundry" } });
-    await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+    fireEvent.focus(within(screen.getByRole("region", { name: "Saturday list" })).getByLabelText("Add a to-do on Saturday"));
+    await quickAdd("Sheets laundry");
     expect(within(screen.getByRole("region", { name: "Saturday list" })).getByRole("checkbox", { name: "Sheets laundry" })).toBeInTheDocument();
   });
 
@@ -247,8 +252,8 @@ describe("Home panels", () => {
     const today = screen.getByRole("region", { name: "Today" });
     expect(within(today).getByText("NeetCode daily")).toBeInTheDocument();
     expect(within(today).getByText("Interview Prep")).toBeInTheDocument();
-    fireEvent.change(within(today).getByLabelText("Add a task for today"), { target: { value: "Call Mom" } });
-    await act(async () => fireEvent.keyDown(within(today).getByLabelText("Add a task for today"), { key: "Enter" }));
+    fireEvent.focus(within(today).getByLabelText("Add a task for today"));
+    await quickAdd("Call Mom");
     expect(within(today).getByText("Call Mom")).toBeInTheDocument();
     expect(usePlanner.getState().todos[0]!.dueDate).toBe("2026-09-29");
   });
@@ -262,5 +267,68 @@ describe("Home panels", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Show Focus today" }));
     expect(screen.queryByRole("region", { name: "Focus today" })).toBeNull();
     await waitFor(async () => expect(JSON.parse((await native.getSetting("home_layout"))!)).toEqual({ collapsed: ["schedule"], hidden: ["progress"] }));
+  });
+});
+
+describe("Quick add popover", () => {
+  it("fills picks from what you type, lets a click override, and adds a timed focus item", async () => {
+    await setup();
+    render(<WeekPage />);
+    fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: "Add to Wednesday" }));
+    const panel = screen.getByRole("dialog", { name: "Quick add" });
+    // The column's day is the default.
+    expect(within(within(panel).getByRole("group", { name: "Day" })).getByRole("button", { name: "Tomorrow" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(within(panel).getByLabelText("Quick add"), { target: { value: "Mock interview thu 3pm @interview" } });
+    expect(within(within(panel).getByRole("group", { name: "Time" })).getByRole("button", { name: "3pm" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("quick-preview")).toHaveTextContent("Mock interview · Once · Thu, Oct 1 · 3:00 PM · Interview Prep");
+    // Clicking a length chip adds to what was typed.
+    fireEvent.click(within(within(panel).getByRole("group", { name: "Length" })).getByRole("button", { name: "1.5h" }));
+    await act(async () => fireEvent.click(within(panel).getByRole("button", { name: /^Add/ })));
+    expect(usePlanner.getState().todos.find((t) => t.title === "Mock interview")).toMatchObject({
+      dueDate: "2026-10-01",
+      dueTime: "15:00",
+      durationMin: 90,
+      profileId: profileId("Interview Prep"),
+    });
+    // Stays open and clears for the next one; Esc closes.
+    expect(within(panel).getByLabelText("Quick add")).toHaveValue("");
+    fireEvent.keyDown(within(panel).getByLabelText("Quick add"), { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Quick add" })).toBeNull();
+  });
+
+  it("makes a routine when it repeats", async () => {
+    await setup();
+    render(<WeekPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Add to Monday" }));
+    const panel = screen.getByRole("dialog", { name: "Quick add" });
+    fireEvent.change(within(panel).getByLabelText("Quick add"), { target: { value: "Gym 7am" } });
+    fireEvent.click(within(within(panel).getByRole("group", { name: "Repeat" })).getByRole("button", { name: "Weekdays" }));
+    // Weekday toggles replace the day picks; turning Friday off.
+    fireEvent.click(within(within(panel).getByRole("group", { name: "On" })).getByRole("button", { name: "Fri" }));
+    expect(screen.getByTestId("quick-preview")).toHaveTextContent("Gym · Routine · Mon Tue Wed Thu · 7:00 AM");
+    await act(async () => fireEvent.click(within(panel).getByRole("button", { name: /Add routine/ })));
+    expect(usePlanner.getState().routines.find((r) => r.title === "Gym")).toMatchObject({ daysMask: 0b0011110, time: "07:00" });
+  });
+});
+
+describe("Month view", () => {
+  it("shows the month grid with routine progress and items, and opens a week from a day", async () => {
+    await setup();
+    await act(async () => void (await usePlanner.getState().saveRoutine({ title: "Stretch", daysMask: 127, time: null, durationMin: null, profileId: null, active: true })));
+    await act(async () => void (await usePlanner.getState().saveTodo({ title: "Pay rent", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null })));
+    render(<WeekPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Month" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("September 2026");
+    const today = screen.getByRole("button", { name: "Tuesday, September 29" });
+    expect(within(today).getByTestId("month-routines")).toHaveTextContent("0/1");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next month" })));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("October 2026");
+    const oct1 = screen.getByRole("button", { name: "Thursday, October 1" });
+    expect(oct1).toHaveTextContent("Pay rent");
+    // Future days show how many routines, not progress.
+    expect(within(oct1).getByTestId("month-routines")).toHaveTextContent(/^1$/);
+    fireEvent.click(oct1);
+    expect(screen.getByRole("tab", { name: "Week" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
   });
 });

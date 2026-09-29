@@ -23,67 +23,6 @@ const RepeatGlyph = ({ className = "" }: { className?: string }) => (
 );
 export { RepeatGlyph };
 
-const dayLabel = (date: string) => fromKey(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
-/** Inline card on a day in Week: title first, details optional. Enter adds, Esc closes. */
-export function OneTimeCard({ date, onDone }: { date: string; onDone: () => void }) {
-  const saveTodo = usePlanner((s) => s.saveTodo);
-  const [title, setTitle] = useState("");
-  const [time, setTime] = useState<string | null>(null);
-  const [length, setLength] = useState<number | null>(null);
-  const [profile, setProfile] = useState<number | null>(null);
-  const [more, setMore] = useState(false);
-
-  const add = async () => {
-    if (!title.trim()) return;
-    if (await saveTodo({ title, dueDate: date, dueTime: time, durationMin: length, profileId: profile })) {
-      setTitle("");
-      setTime(null);
-      setLength(null);
-      setProfile(null);
-      onDone();
-    }
-  };
-
-  return (
-    <div
-      role="group"
-      aria-label={`Add to ${dayLabel(date)}`}
-      onKeyDown={(e) => e.key === "Escape" && onDone()}
-      className="flex animate-rise-in flex-col gap-2 rounded-panel border border-line-input bg-raised p-2 shadow-toast"
-    >
-      <input
-        aria-label="Title"
-        autoFocus
-        value={title}
-        placeholder="One-time item"
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && void add()}
-        className="h-8 w-full rounded-control border border-line-input bg-panel px-2 text-body text-text outline-none placeholder:text-faint focus:border-sealed"
-      />
-      {more ? (
-        <div className="flex flex-col gap-2">
-          <TimeField value={time} onChange={setTime} />
-          <LengthField value={length} onChange={setLength} />
-          <ProfileField value={profile} onChange={setProfile} />
-        </div>
-      ) : (
-        <button type="button" onClick={() => setMore(true)} className="self-start text-[11px] text-muted transition-colors duration-ui ease-ui hover:text-text">
-          + Time, length, profile
-        </button>
-      )}
-      <div className="flex justify-end gap-1">
-        <Button variant="quiet" size="sm" onClick={onDone}>
-          Cancel
-        </Button>
-        <Button variant="primary" size="sm" disabled={!title.trim()} onClick={() => void add()}>
-          Add
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /** Calendars you can add events to from Sanctum (not Sanctum's own, which is for items). */
 function useWritableCalendars() {
   const connected = useCalendar((s) => !!s.status?.connected);

@@ -1,5 +1,27 @@
 # Changelog
 
+## 4d (complete): quick add and Month (2026-09-29)
+
+### Added
+- **Quick add popover.** Clicking any add field (Home's "Add a task for today", Week's per-day **Add**, List's To-do rows) opens a popover over it with the text box and quick picks:
+  - Repeat (Once, Daily, Weekdays, Every <day>, then weekday toggles)
+  - Day (Today, Tomorrow, the next five days, or the column's day)
+  - Time, Length, and Profile
+  - A live preview ("Mock interview · Once · Thu, Oct 1 · 3:00 PM · 90 min · Interview Prep").
+  Enter adds and keeps it open, cleared, for the next one; Esc or clicking away closes it. A repeat makes a routine instead of a one-time item.
+- **Typed quick add** (`src/lib/quickAdd.ts`) fills the same picks. It reads:
+  - Days: today, tomorrow, thu, next thu, 10/3
+  - Times: 3pm, 3:30pm, 15:00, noon, "at 3"
+  - Lengths: 90m, 1.5h, 1h30, "for 45 min"
+  - Profiles: @interview (prefix match)
+  - Repeats: daily, weekdays, weekends, "every mon wed and fri"
+  Anything it doesn't understand stays in the title, and a clicked pick wins over typed text.
+- **Month view.** The month as a Monday-first grid with previous / This month / next. Each day shows its routines done/total (a plain count for future days) and its first three items and events, then "+N more". Clicking a day opens that week. Streak marks join at M5.
+
+### Changed
+- The inline "+ Add" card in Week is replaced by the quick-add popover. **New** now works in Month too.
+- Tests: 119 frontend (quick add parsing, the popover's picks, override, and routine path, the month grid, and Month navigation).
+
 ## 4c: Google Calendar (2026-09-29)
 
 ### Added
