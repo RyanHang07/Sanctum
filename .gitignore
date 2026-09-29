@@ -9,3 +9,4 @@ graphify-out
 .DS_Store
 *.tsbuildinfo
 src-tauri/.env
+extension/.key.pem

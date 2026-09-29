@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sealed · Sanctum</title>
+    <link rel="icon" href="icons/32.png" />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="blocked.css" />
+  </head>
+  <body>
+    <!-- design/screens/SiteBlocked.dc.html -->
+    <main class="card">
+      <div class="brand">
+        <img src="icons/32.png" width="20" height="20" alt="" />
+        <span class="name">Sanctum</span>
+        <span class="chip" id="chip" hidden><span class="dot"></span><span id="until"></span></span>
+      </div>
+      <h1><span id="what">This site</span> stays <em>sealed.</em></h1>
+      <p id="body">You're sealed in. Scrolling is how mid happens.</p>
+      <div class="actions">
+        <button type="button" class="primary" id="back">Go back</button>
+        <button type="button" class="ghost" id="open">Open Sanctum</button>
+      </div>
+      <span class="foot">Blocked by the Sanctum extension. Only the site's name is logged, as an attempt.</span>
+    </main>
+    <script type="module" src="blocked.js"></script>
+  </body>
+</html>

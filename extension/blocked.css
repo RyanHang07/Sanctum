@@ -1,0 +1,128 @@
+/* The sealed-site page (design/screens/SiteBlocked.dc.html). Colors come from tokens.css. */
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--app);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chip {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--sealed-line);
+  background: var(--sealed-tint);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.chip[hidden] {
+  display: none;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sealed);
+}
+
+h1 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+h1 em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.12em;
+  letter-spacing: -0.01em;
+  color: var(--payoff);
+}
+
+p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 120ms, background-color 120ms, border-color 120ms, color 120ms;
+}
+
+.primary {
+  border: none;
+  background: var(--sealed);
+  color: var(--on-sealed);
+  font-weight: 600;
+}
+
+.primary:hover {
+  filter: brightness(1.1);
+}
+
+.ghost {
+  border: 1px solid var(--line-input);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.ghost:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.foot {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--faint);
+}

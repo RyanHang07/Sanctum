@@ -223,7 +223,7 @@ mod tests {
     }
 
     fn rule(kind: &str, value: &str) -> Rule {
-        Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None }
+        Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None, allow: Vec::new() }
     }
 
     fn profile(allowlist: bool, rules: Vec<Rule>) -> Profile {
