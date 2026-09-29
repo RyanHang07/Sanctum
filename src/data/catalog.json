@@ -1,0 +1,43 @@
+{
+  "_note": "Work-type catalog (SPEC 4.11 step 2). Onboarding (M5) builds profiles from it; dev builds seed the four sample profiles from it. Item ids are referenced by workTypes.open/seal and alwaysSeal.",
+  "items": {
+    "leetcode": { "label": "LeetCode", "url": "https://leetcode.com/problemset/" },
+    "neetcode": { "label": "NeetCode", "url": "https://neetcode.io/practice" },
+    "excalidraw": { "label": "Excalidraw", "url": "https://excalidraw.com/" },
+    "github": { "label": "GitHub", "url": "https://github.com/" },
+    "linkedin-jobs": { "label": "LinkedIn Jobs", "url": "https://www.linkedin.com/jobs/" },
+    "gmail": { "label": "Gmail", "url": "https://mail.google.com/" },
+    "google-calendar": { "label": "Google Calendar", "url": "https://calendar.google.com/" },
+    "vscode": { "label": "VS Code", "app": "code.exe" },
+    "notion": { "label": "Notion", "app": "notion.exe" },
+    "zoom": { "label": "Zoom", "app": "zoom.exe" },
+
+    "youtube": { "label": "YouTube", "domains": ["youtube.com"] },
+    "reddit": { "label": "Reddit", "domains": ["reddit.com"] },
+    "x": { "label": "X", "domains": ["x.com", "twitter.com"] },
+    "instagram": { "label": "Instagram", "domains": ["instagram.com"] },
+    "tiktok": { "label": "TikTok", "domains": ["tiktok.com"] },
+    "netflix": { "label": "Netflix", "domains": ["netflix.com"] },
+    "discord": { "label": "Discord", "apps": ["discord.exe"], "domains": ["discord.com"] },
+    "spotify": { "label": "Spotify", "apps": ["spotify.exe"], "domains": ["open.spotify.com"] },
+    "steam": { "label": "Steam", "apps": ["steam.exe"], "domains": ["store.steampowered.com"] }
+  },
+  "workTypes": {
+    "DSA practice": { "open": ["leetcode", "neetcode", "vscode"], "seal": ["youtube", "reddit"] },
+    "System design": { "open": ["excalidraw", "notion"], "seal": ["youtube", "x"] },
+    "Behavioral prep": { "open": ["notion"], "seal": ["instagram", "discord"] },
+    "Mock interviews": { "open": ["zoom"], "seal": ["discord", "spotify"] },
+    "Applications": { "open": ["linkedin-jobs"], "seal": ["x", "reddit"] },
+    "Coding": { "open": ["vscode", "github"], "seal": ["discord", "steam"] },
+    "Writing": { "open": ["notion"], "seal": ["youtube", "x"] },
+    "Reading & courses": { "open": ["notion"], "seal": ["youtube", "instagram"] },
+    "Email & admin": { "open": ["gmail", "google-calendar"], "seal": ["steam", "netflix"] }
+  },
+  "alwaysSeal": ["discord", "youtube", "instagram", "tiktok"],
+  "sampleProfiles": [
+    { "name": "Interview Prep", "minutes": 60, "workTypes": ["DSA practice", "System design", "Behavioral prep"] },
+    { "name": "Deep Work", "minutes": 90, "workTypes": ["Coding", "Writing"] },
+    { "name": "Study", "minutes": 60, "workTypes": ["Reading & courses"] },
+    { "name": "Light Work", "minutes": 30, "workTypes": ["Applications", "Email & admin"] }
+  ]
+}

@@ -1,0 +1,222 @@
+// Shapes shared with the Rust backend (src-tauri/src/profiles.rs, apps.rs, launcher.rs).
+
+export type RuleKind = "app" | "domain" | "title" | "launch_app" | "launch_url";
+
+export interface Rule {
+  id: number;
+  profileId: number;
+  kind: RuleKind;
+  /** app/launch_app: lowercase exe name. domain: bare host. title: keyword. launch_url: absolute URL. */
+  value: string;
+  label: string | null;
+  /** launch_app: last known launch target (.lnk or .exe). */
+  path: string | null;
+}
+
+export interface Profile {
+  id: number;
+  name: string;
+  allowlistMode: boolean;
+  defaultMinutes: number;
+  workTypes: string[];
+  createdAt: number;
+  rules: Rule[];
+}
+
+export interface NewRule {
+  kind: RuleKind;
+  value: string;
+  label?: string | null;
+  path?: string | null;
+}
+
+export interface ProfileDraft {
+  name: string;
+  defaultMinutes?: number;
+  allowlistMode?: boolean;
+  workTypes?: string[];
+  rules?: NewRule[];
+}
+
+export interface ProfilePatch {
+  name?: string;
+  defaultMinutes?: number;
+  allowlistMode?: boolean;
+}
+
+export interface InstalledApp {
+  name: string;
+  /** Lowercase exe name. */
+  exe: string;
+  /** .lnk or .exe to open. Also used for the icon. */
+  launch: string;
+  /** Has a window open right now. */
+  running: boolean;
+}
+
+export interface LaunchReport {
+  opened: string[];
+  focused: string[];
+  missing: string[];
+  failed: string[];
+}
+
+/** A running focus session (src-tauri/src/session.rs). */
+export interface SessionView {
+  id: number;
+  profileId: number | null;
+  profileName: string;
+  plannedMinutes: number;
+  startedAt: number;
+  endsAt: number;
+  remainingMs: number;
+  elapsedMs: number;
+  attempts: number;
+  /** Enforced app and keyword rules. */
+  sealedCount: number;
+  /** Sanctum was down for more than a minute; the session can't finish as completed. */
+  broken: boolean;
+  /** Idle right now: the countdown is paused and the end moves later (SPEC 4.8). */
+  idle: boolean;
+}
+
+/** Shown on the Sanctum held page when a session completes. */
+export interface HeldStats {
+  sessionId: number;
+  profileId: number | null;
+  profileName: string;
+  plannedMinutes: number;
+  focusMinutes: number;
+  attempts: number;
+  broken: boolean;
+}
+
+/** Payload for the intercept window (src-tauri/src/engine.rs). */
+export interface Intercept {
+  /** "app" / "allowlist": sealed-app overlay. "title": corner nudge. "welcome": back from idle. */
+  kind: "app" | "allowlist" | "title" | "welcome";
+  label: string;
+  attempts: number;
+  profileName: string;
+  elapsedMs: number;
+  remainingMs: number;
+  backTo: string | null;
+  keyword: string | null;
+  /** "welcome": the window you were on when idle began. */
+  title?: string | null;
+  idleMs?: number | null;
+  /** "welcome": the seal's end after the idle extension. */
+  endsAt?: number | null;
+}
+
+export type Category = "productive" | "neutral" | "distracting";
+export const CATEGORIES: readonly Category[] = ["productive", "neutral", "distracting"];
+
+/** Activity classification rule (src-tauri/src/classify.rs). */
+export interface ClassRule {
+  id: number;
+  matchKind: "exe" | "title" | "domain";
+  pattern: string;
+  category: Category;
+  /** "catalog": seeded default. "user": added or changed in Setup. */
+  source: "catalog" | "user";
+}
+
+export interface ActivitySummary {
+  productiveMin: number;
+  neutralMin: number;
+  distractingMin: number;
+  idleMin: number;
+}
+
+/** A recurring item (src-tauri/src/planner.rs). */
+export interface Routine {
+  id: number;
+  title: string;
+  sort: number;
+  profileId: number | null;
+  active: boolean;
+  /** Bit 0 = Sunday ... bit 6 = Saturday (Date.getDay order). 127 = every day. */
+  daysMask: number;
+  /** "HH:MM", or null for anytime. */
+  time: string | null;
+  durationMin: number | null;
+}
+
+export type RoutineDraft = Omit<Routine, "id" | "sort"> & { id?: number };
+
+/** A one-time item on a date. */
+export interface Todo {
+  id: number;
+  title: string;
+  /** "YYYY-MM-DD" */
+  dueDate: string;
+  dueTime: string | null;
+  durationMin: number | null;
+  profileId: number | null;
+  done: boolean;
+}
+
+export type TodoDraft = Omit<Todo, "id" | "done"> & { id?: number };
+
+export interface RoutineCheck {
+  routineId: number;
+  date: string;
+}
+
+/** Google Calendar connection (src-tauri/src/gcal/mod.rs). */
+export interface GcalStatus {
+  /** Built with an OAuth client (src-tauri/.env). */
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  /** The sign-in expired (every 7 days while the Google app is in Testing). */
+  needsReconnect: boolean;
+  syncing: boolean;
+  connecting: boolean;
+  lastSyncAt: number | null;
+  error: string | null;
+}
+
+export interface GcalCalendar {
+  id: string;
+  summary: string;
+  primary: boolean;
+  /** Sanctum's own calendar, where routines and timed items go. */
+  sanctum: boolean;
+  writable: boolean;
+  /** Shown in Sanctum. */
+  selected: boolean;
+}
+
+/** One occurrence of an event on a selected calendar. Dates and times are local. */
+export interface CalEvent {
+  calendarId: string;
+  calendarName: string;
+  eventId: string;
+  title: string;
+  date: string;
+  /** Last day it covers (inclusive). */
+  endDate: string;
+  /** "HH:MM", null when all-day. */
+  time: string | null;
+  durationMin: number | null;
+  startMs: number;
+  endMs: number;
+  allDay: boolean;
+  /** Other people invited (not you, not rooms). */
+  attendees: number;
+  recurring: boolean;
+  htmlLink: string | null;
+  writable: boolean;
+}
+
+export interface EventDraft {
+  calendarId: string;
+  eventId?: string;
+  title: string;
+  date: string;
+  /** null = all day. */
+  time: string | null;
+  durationMin: number | null;
+}

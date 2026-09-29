@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the main, tray panel, and compact timer windows",
+  "windows": [
+    "main",
+    "tray-panel",
+    "compact",
+    "intercept"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "autostart:default"
+  ]
+}

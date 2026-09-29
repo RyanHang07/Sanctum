@@ -1,0 +1,21 @@
+{
+  "_note": "Tokens the design screens use (or need) that are not in design/tokens.json yet. Promote them into tokens.json when the design is updated.",
+  "color": {
+    "locked": "#4A5266",
+    "toast": "#1A1F2B",
+    "check-line": "#3A4155",
+    "broken": "#E5484D",
+    "scrim": "rgba(5, 6, 10, 0.66)"
+  },
+  "shadow": {
+    "toast": "0 12px 32px rgba(0, 0, 0, 0.45)",
+    "dialog": "0 24px 64px rgba(0, 0, 0, 0.55)"
+  },
+  "size": {
+    "sidebar-rail": 60
+  },
+  "motion": {
+    "duration": { "ui": "120ms", "enter": "180ms" },
+    "easing": { "ui": "cubic-bezier(0.2, 0, 0, 1)" }
+  }
+}

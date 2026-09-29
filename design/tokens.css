@@ -1,0 +1,52 @@
+/* Sanctum design tokens v2 (dark first) */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap");
+
+:root {
+  --app: #0B0D12;
+  --sidebar: #0E1016;
+  --panel: #12151C;
+  --panel-footer: #0F1218;
+  --raised: #171B24;
+  --line: #1F2430;
+  --line-soft: #181C26;
+  --line-input: #2A3040;
+  --text: #E6E9EF;
+  --text-2: #B8BFCC;
+  --muted: #8A93A6;
+  --faint: #5C6477;
+  --payoff: #8C96AB;
+
+  /* state colors: the only color in the UI */
+  --sealed: #2F5BFF;          /* cobalt: fills, borders, icons */
+  --sealed-text: #7A95FF;     /* cobalt as text on dark */
+  --sealed-text-hover: #A9BBFF;
+  --on-sealed: #FFFFFF;       /* text on cobalt fills */
+  --sealed-tint: #172040;
+  --sealed-line: #1F3482;
+  --event: #5FD4C8;
+  --event-tint: #10262A;
+  --event-line: #1F4A4A;
+  --open: #5C6477;
+
+  /* Sanctum held mesh gradient only */
+  --held-1: #1F3FD9;
+  --held-2: #2F5BFF;
+  --held-3: #6A4CFF;
+  --held-4: #12A8C9;
+
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-serif: "Instrument Serif", Georgia, serif;
+
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-dialog: 12px;
+  --control-h: 32px;
+  --row-h: 34px;
+  --sidebar-w: 220px;
+}
+
+/* Moments only: Home headline, sealed dialogs, held dialog, onboarding titles */
+.headline { font-family: var(--font-sans); font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+.headline em { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; color: var(--payoff); }
+.page-title { font-family: var(--font-sans); font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }
