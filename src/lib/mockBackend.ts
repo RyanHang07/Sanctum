@@ -58,7 +58,7 @@ interface MockState {
   browsers: BrowserStatus;
   guard: { installed: boolean; decline: boolean; restarts: number[] };
   notes: Note[];
-  cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[] };
+  cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[]; invitesEmailed?: string[] };
 }
 
 let state: MockState;
@@ -319,6 +319,12 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   cloud_create_invite: () => {
     state.cloud.invite = { link: `http://localhost:5174/invite/mock${state.nextId++}`, expiresAt: new Date(Date.now() + 48 * 3_600_000).toISOString() };
+    return handlers.cloud_partner!({});
+  },
+  cloud_email_invite: ({ email }: { email: string }) => {
+    if (!state.cloud.invite) throw "Make an invite link first.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw "That doesn't look like an email address.";
+    state.cloud.invitesEmailed = [...(state.cloud.invitesEmailed ?? []), email.trim()];
     return handlers.cloud_partner!({});
   },
   cloud_cancel_invite: () => {

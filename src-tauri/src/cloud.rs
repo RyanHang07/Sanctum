@@ -364,12 +364,19 @@ pub fn partner_name(app: &AppHandle) -> Option<String> {
 
 /// Level 3 with a partner: files the request and emails them. Returns its id.
 pub fn create_unlock_request(app: &AppHandle, reason: &str) -> Result<String, String> {
-    let state = &app.state::<Shared>().cloud;
+    let shared = app.state::<Shared>();
+    let state = &shared.cloud;
+    // The partner's approve screen shows the session and its time left.
+    let view = shared.engine.view();
+    let profile = view.as_ref().map(|v| v.profile_name.clone());
+    let ends_at = view.as_ref().and_then(|v| chrono::DateTime::from_timestamp_millis(v.ends_at)).map(|t| t.to_rfc3339());
+    let minutes_in = view.as_ref().map(|v| v.elapsed_ms / 60_000);
     let (req, me) = authed(state, state.http.post(format!("{URL}/rest/v1/unlock_requests")))?;
-    let rows = send(req.header("Prefer", "return=representation").json(&json!({ "user_id": me, "reason": reason, "level": 3 })))?;
+    let body = json!({ "user_id": me, "reason": reason, "level": 3, "profile_name": profile, "ends_at": ends_at });
+    let rows = send(req.header("Prefer", "return=representation").json(&body))?;
     let id = rows.get(0).and_then(|r| r["id"].as_str()).ok_or("The request didn't come back.")?.to_string();
     if let Ok((req, _)) = authed(state, state.http.post(format!("{URL}/functions/v1/notify"))) {
-        let _ = send(req.json(&json!({ "kind": "unlock_request", "detail": reason })));
+        let _ = send(req.json(&json!({ "kind": "unlock_request", "detail": reason, "requestId": id, "profile": profile, "minutesIn": minutes_in })));
     }
     Ok(id)
 }
@@ -487,6 +494,21 @@ pub async fn cloud_create_invite(app: AppHandle) -> Result<PartnerStatus, String
         send(req)?;
         let (req, _) = authed(state, state.http.post(format!("{URL}/rest/v1/invites")))?;
         send(req.header("Prefer", "return=minimal").json(&json!({ "user_id": me })))?;
+        partner_status(state)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Has Sanctum email the open invite link to your partner-to-be (at most 5 a day).
+#[tauri::command]
+pub async fn cloud_email_invite(app: AppHandle, email: String) -> Result<PartnerStatus, String> {
+    blocking(app, move |state| {
+        let status = partner_status(state)?;
+        let link = status.invite.as_ref().map(|i| i.link.clone()).ok_or("Make an invite link first.")?;
+        let token = link.rsplit('/').next().unwrap_or_default().to_string();
+        let (req, _) = authed(state, state.http.post(format!("{URL}/functions/v1/invite")))?;
+        send(req.json(&json!({ "action": "email", "token": token, "email": email.trim() })))?;
         partner_status(state)
     })
     .await

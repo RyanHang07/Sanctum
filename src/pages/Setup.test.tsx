@@ -318,6 +318,23 @@ describe("Streak settings", () => {
   });
 });
 
+describe("Email the invite", () => {
+  it("emails the open invite link to a friend", async () => {
+    await renderSetup(false);
+    await openTab("Partner");
+    const account = within(await screen.findByRole("region", { name: "Account" }));
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Continue with Google" })));
+    await act(async () => fireEvent.click(await account.findByRole("button", { name: "Invite a partner" })));
+    const field = await account.findByLabelText("Partner's email");
+    fireEvent.change(field, { target: { value: "not an email" } });
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Email it" })));
+    expect(screen.getByText(/That doesn't look like an email address/)).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: "alex@example.com" } });
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Email it" })));
+    expect(account.getByText(/Sent to alex@example.com/)).toBeInTheDocument();
+  });
+});
+
 describe("Browser extension", () => {
   it("shows setup steps until a browser connects, then its status", async () => {
     await renderSetup(false);
