@@ -36,6 +36,7 @@ import type {
   Tracker,
   TrackerDraft,
   TrackerEntry,
+  UpdateInfo,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
 import { bus } from "./bus";
@@ -161,6 +162,10 @@ export const native = {
   checkinAnswer: (id: number, date: string, outcome: "logged" | "skipped" | "snoozed") => call<void>("checkin_answer", { id, date, outcome }),
   nextCheckin: () => call<NextCheckin | null>("next_checkin"),
 
+  appVersion: () => call<string>("app_version"),
+  updateCheck: () => call<UpdateInfo | null>("update_check"),
+  updateInstall: () => call<void>("update_install"),
+  diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),
   guardInstall: () => call<GuardStatus>("guard_install"),
   guardUninstall: () => call<GuardStatus>("guard_uninstall"),

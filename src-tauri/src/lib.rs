@@ -12,6 +12,7 @@ mod gcal;
 pub mod guard;
 mod ladder;
 mod unlock;
+mod updates;
 mod launcher;
 mod planner;
 mod profiles;
@@ -584,6 +585,7 @@ pub fn run() {
         // Must be registered first: a second launch focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![AUTOSTART_ARG]),
@@ -591,6 +593,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            updates::install_panic_hook(&dir);
             // Dev builds keep their own database so sample data never reaches a real install.
             let db_path = dir.join(if cfg!(debug_assertions) { "sanctum-dev.db" } else { "sanctum.db" });
             let conn = db::open(&db_path)?;
@@ -709,6 +712,10 @@ pub fn run() {
             distraction_suggestions,
             browser::browser_status,
             guard_status,
+            updates::update_check,
+            updates::update_install,
+            updates::app_version,
+            updates::diagnostics,
             guard_install,
             guard_uninstall,
             cloud::cloud_status,

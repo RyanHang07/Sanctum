@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { call, supabase } from "./supabase";
+import { call, configured, supabase } from "./supabase";
 
 // The accountability partner's page (SPEC 4.6): accept an invite and set a PIN, see who you
 // hold the key for, approve or deny their early unlocks, release them when they ask, reset your PIN.
@@ -312,6 +312,14 @@ export function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (!configured) {
+    return (
+      <Card>
+        <Headline lead="Not set up yet." payoff="Almost there." />
+        <p className="muted">Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for this page. See docs/self-hosting.md in the Sanctum repo.</p>
+      </Card>
+    );
+  }
   if (session === undefined) return <Card>{null}</Card>;
   if (!session) {
     return (

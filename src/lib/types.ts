@@ -315,6 +315,8 @@ export interface StatsOverview {
 
 /** The optional Sanctum account (src-tauri/src/cloud.rs, SPEC 4.6). */
 export interface CloudStatus {
+  /** The build has a Supabase project (docs/self-hosting.md). */
+  configured: boolean;
   signedIn: boolean;
   email: string | null;
   connecting: boolean;
@@ -428,4 +430,10 @@ export interface GuardStatus {
   /** Times the guard brought Sanctum back mid-seal. */
   restarts: number;
   lastRestartAt: number | null;
+}
+
+/** A newer release on GitHub (src-tauri/src/updates.rs). */
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
 }

@@ -10,3 +10,6 @@ graphify-out
 *.tsbuildinfo
 src-tauri/.env
 extension/.key.pem
+.env
+.env.*
+!.env.example

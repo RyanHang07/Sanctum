@@ -1,0 +1,54 @@
+name: Release
+
+# Push a tag like v0.2.0 (matching the version in tauri.conf.json and Cargo.toml) to build the
+# Windows installer and publish it, with latest.json for the in-app updater.
+# The installer is not code-signed (decided 2026-09-30); Windows SmartScreen will warn once.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm test
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs updates so only published builds install (not Windows code signing).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Optional: the official build's services (docs/self-hosting.md). Unset = off.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SANCTUM_SUPABASE_URL: ${{ vars.SANCTUM_SUPABASE_URL }}
+          SANCTUM_SUPABASE_KEY: ${{ vars.SANCTUM_SUPABASE_KEY }}
+          SANCTUM_PARTNER_URL: ${{ vars.SANCTUM_PARTNER_URL }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Sanctum ${{ github.ref_name }}
+          releaseBody: |
+            Download the `-setup.exe` below and run it. It installs for your user only, no admin needed.
+
+            Sanctum isn't code-signed, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+            See the README for loading the browser extension and turning on Protection.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          # Update artifacts need the private key, so only releases make them.
+          args: --config {"bundle":{"createUpdaterArtifacts":true}}

@@ -10,6 +10,7 @@ import { AccountSection } from "./setup/Account";
 import { Row, Section } from "./setup/parts";
 import { DistractionsTab } from "./setup/Distractions";
 import { TrackersTab } from "./setup/Trackers";
+import { AboutSection } from "./setup/About";
 import { useStore, type SetupTab } from "../state/store";
 import { opensOf, ruleLabel } from "../lib/rules";
 import { hasDay, WEEKDAYS } from "../lib/planner";
@@ -145,6 +146,7 @@ function PreferencesSection() {
         <Switch label="Sounds" checked={settings.sounds} onChange={setSounds} />
       </Row>
     </Section>
+    <AboutSection />
     </>
   );
 }

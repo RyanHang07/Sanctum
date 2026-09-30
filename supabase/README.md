@@ -1,7 +1,7 @@
 # Sanctum cloud (M6)
 
-The optional account and accountability partner (SPEC 4.6, 5.2), on the Supabase project
-`Sanctum` (`phihiaeejhdnfavtianf`, free plan, us-west-1).
+The optional account and accountability partner (SPEC 4.6, 5.2), on your own Supabase
+project. Setup steps: docs/self-hosting.md.
 
 - `migrations/`: the schema, applied in order. Every table has RLS; `pins` has no policies
   (Edge Functions only).

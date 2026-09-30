@@ -416,9 +416,14 @@ pub struct BrowserStatus {
     pub browsers: Vec<BrowserInfo>,
 }
 
-/// The unpacked extension to load (dev builds use the repo copy; installers ship it in M13).
-fn extension_dir() -> PathBuf {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("extension");
+/// The unpacked extension to load: the repo copy in dev builds, the installer's copy (bundle
+/// resources, tauri.conf.json) in release builds.
+fn extension_dir(app: &AppHandle) -> PathBuf {
+    let dir = if cfg!(debug_assertions) {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("extension")
+    } else {
+        app.path().resource_dir().map(|r| r.join("extension")).unwrap_or_default()
+    };
     let dir = dir.canonicalize().unwrap_or(dir);
     // canonicalize() adds a \\?\ prefix that people shouldn't have to paste.
     PathBuf::from(dir.display().to_string().trim_start_matches(r"\\?\"))
@@ -444,13 +449,13 @@ pub fn browser_status(app: AppHandle, shared: TauriState<Shared>) -> Result<Brow
             }
         })
         .collect();
-    Ok(BrowserStatus { extension_dir: extension_dir().display().to_string(), extension_id: EXTENSION_ID.into(), browsers })
+    Ok(BrowserStatus { extension_dir: extension_dir(&app).display().to_string(), extension_id: EXTENSION_ID.into(), browsers })
 }
 
 #[tauri::command]
 pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
-    app.opener().open_path(extension_dir().display().to_string(), None::<&str>).map_err(|e| e.to_string())
+    app.opener().open_path(extension_dir(&app).display().to_string(), None::<&str>).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
