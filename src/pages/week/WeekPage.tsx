@@ -87,7 +87,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
         aria-checked={item.done}
         aria-label={item.title}
         onClick={() => void toggle(item)}
-        className={`mt-px box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
+        className={`check-pop mt-px box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
           item.done ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line hover:border-muted"
         }`}
       >

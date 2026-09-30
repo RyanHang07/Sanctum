@@ -113,3 +113,12 @@
 @media (prefers-reduced-motion: reduce) {
   .mark-breathe { animation: none; }
 }
+
+/* Subtle transitions (decided 2026-09-30): pages and tabs rise in, checkboxes pop when ticked,
+   list rows ease in. 120-180ms, and the reduced-motion rule above shortens them to nothing. */
+@keyframes page-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes check-pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes row-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
+.page-in { animation: page-in 180ms cubic-bezier(0.2, 0, 0, 1) both; }
+.check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1); }
+.row-in { animation: row-in 160ms cubic-bezier(0.2, 0, 0, 1) both; }

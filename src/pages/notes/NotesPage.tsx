@@ -74,7 +74,7 @@ function Rendered({ body, onToggle, onEdit }: { body: string; onToggle: (line: n
                     e.stopPropagation();
                     onToggle(i);
                   }}
-                  className={`mt-[4px] box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] transition-colors duration-ui ease-ui ${
+                  className={`check-pop mt-[4px] box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] transition-colors duration-ui ease-ui ${
                     done ? "border border-sealed bg-sealed text-sealed-on" : "border-[1.5px] border-check-line hover:border-sealed"
                   }`}
                 >

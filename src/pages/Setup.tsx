@@ -198,7 +198,7 @@ export function Setup() {
         </div>
         <SetupTabs tab={tab} onChange={setTab} />
       </div>
-      <div className="min-h-0 grow overflow-y-auto pr-1">
+      <div key={tab} className="page-in min-h-0 grow overflow-y-auto pr-1">
         {tab === "profiles" ? (
           <div className="flex max-w-[640px] flex-col gap-4">
             <ProfilesSection />

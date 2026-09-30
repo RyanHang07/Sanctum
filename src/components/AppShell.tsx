@@ -135,7 +135,9 @@ export function AppShell() {
     <div data-state={appState} className={`relative box-border flex h-full w-full overflow-hidden border-t-2 bg-app ${TOP_RULE[appState]}`}>
       <Sidebar pillMeta={pillMeta} />
       <main className="relative min-w-0 grow">
-        <Page tab={activeTab} />
+        <div key={activeTab} className="page-in h-full">
+          <Page tab={activeTab} />
+        </div>
         <Toast />
         <BlockPrompt />
       </main>
