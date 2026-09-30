@@ -57,6 +57,7 @@ export function resetMockBackend() {
       ["activity_retention_days", "30"],
       ["passive_apps", "zoom.exe, teams.exe, ms-teams.exe, webex.exe, ciscocollabhost.exe"],
       ["private_apps", "1password.exe, bitwarden.exe, keepassxc.exe, keepass.exe"],
+      ["allowlist_always_allowed", "claude.exe, spotify.exe, comet.exe, chrome.exe, msedge.exe, brave.exe, firefox.exe, windowsterminal.exe, snippingtool.exe"],
     ]),
     profiles: [],
     nextId: 1,

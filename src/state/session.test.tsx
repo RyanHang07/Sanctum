@@ -146,6 +146,14 @@ describe("intercept overlay", () => {
     vi.useRealTimers();
   });
 
+  it("warns before closing an app outside the allowlist", () => {
+    render(<SealedAppCard p={{ ...payload, kind: "flag", label: "Steam", attempts: 1 }} onBack={() => {}} onBreak={() => {}} />);
+    const card = screen.getByRole("alertdialog", { name: "Steam is outside the allowlist" });
+    expect(card).toHaveTextContent("Steam isn't part of this session.");
+    expect(card).toHaveTextContent("Minimized. Bring it back and it closes.");
+    expect(card).toHaveTextContent("1st attempt this sessionAllowlist mode");
+  });
+
   it("shows a corner nudge for title keywords", () => {
     render(<TitleNudge p={{ ...payload, kind: "title", label: "Funny cats - YouTube Shorts", keyword: "shorts" }} />);
     expect(screen.getByRole("status")).toHaveTextContent("“shorts” stays sealed.Minimized Funny cats - YouTube Shorts");

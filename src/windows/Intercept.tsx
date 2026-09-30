@@ -35,7 +35,7 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
   return (
     <div
       role="alertdialog"
-      aria-label={`${p.label} is sealed`}
+      aria-label={p.kind === "flag" ? `${p.label} is outside the allowlist` : `${p.label} is sealed`}
       className="flex w-[420px] animate-rise-in flex-col overflow-hidden rounded-dialog border border-sealed-line bg-panel shadow-dialog"
     >
       <div className="flex flex-col gap-[14px] px-[22px] pb-[18px] pt-[22px]">
@@ -43,17 +43,31 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
           <LockIcon size={18} />
         </div>
         <div className="flex flex-col gap-[6px]">
-          <h1 className="headline m-0 text-[24px]">
-            {p.label} stays <em>sealed.</em>
-          </h1>
-          <p className="m-0 text-body leading-normal text-text-2">
-            {minutesIn(p.elapsedMs)} minutes into {p.profileName}, <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to
-            go. You don't need it. You need the reps.
-          </p>
+          {p.kind === "flag" ? (
+            <>
+              <h1 className="headline m-0 text-[24px]">
+                {p.label} isn't part of <em>this session.</em>
+              </h1>
+              <p className="m-0 text-body leading-normal text-text-2">
+                Minimized. Bring it back and it closes. {minutesIn(p.elapsedMs)} minutes into {p.profileName},{" "}
+                <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="headline m-0 text-[24px]">
+                {p.label} stays <em>sealed.</em>
+              </h1>
+              <p className="m-0 text-body leading-normal text-text-2">
+                {minutesIn(p.elapsedMs)} minutes into {p.profileName}, <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to
+                go. You don't need it. You need the reps.
+              </p>
+            </>
+          )}
         </div>
         <div className="flex gap-4 text-meta text-muted">
           <span>{ordinal(p.attempts)} attempt this session</span>
-          {p.kind === "allowlist" ? <span>Allowlist mode</span> : null}
+          {p.kind === "allowlist" || p.kind === "flag" ? <span>Allowlist mode</span> : null}
           <span>Logged to stats</span>
         </div>
       </div>

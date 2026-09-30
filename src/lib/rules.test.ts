@@ -1,4 +1,4 @@
-import { classifySealInput, normalizeAllow, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
+import { classifySealInput, exeList, normalizeAllow, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
 import type { Profile, Rule } from "./types";
 
 const rule = (kind: Rule["kind"], value: string, label: string | null = null): Rule => ({
@@ -12,6 +12,11 @@ const rule = (kind: Rule["kind"], value: string, label: string | null = null): R
 });
 
 describe("rule inputs", () => {
+  it("reads exe lists like blocker::parse_always", () => {
+    expect(exeList("Claude.exe, spotify.exe; notes.txt\nclaude.exe")).toEqual(["claude.exe", "spotify.exe"]);
+    expect(exeList("")).toEqual([]);
+  });
+
   it("normalizes site exceptions like the Rust side", () => {
     expect(normalizeAllow("youtube.com", "https://www.youtube.com/@mitocw/")).toBe("youtube.com/@mitocw");
     expect(normalizeAllow("youtube.com", "music.youtube.com")).toBe("music.youtube.com");
