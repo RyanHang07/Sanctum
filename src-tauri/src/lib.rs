@@ -625,6 +625,7 @@ pub fn run() {
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &cfg)?.build()?;
             }
             tray::create(app.handle())?;
+            tray::spawn_pulse(app.handle().clone());
             engine::resume_on_startup(app.handle());
             engine::spawn_loop(app.handle().clone());
             activity::spawn(app.handle().clone());

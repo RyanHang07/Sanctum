@@ -11,6 +11,7 @@ import { HeldPage } from "../pages/HeldPage";
 import { Onboarding } from "../pages/onboarding/Onboarding";
 import { TrackersPage } from "../pages/trackers/TrackersPage";
 import { CheckinDialog } from "./CheckinDialog";
+import { BootSplash } from "./BootSplash";
 import { useTrackers } from "../state/trackers";
 import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
@@ -131,6 +132,7 @@ export function AppShell() {
       <BreakSealDialog />
       <CheckinDialog />
       {import.meta.env.DEV ? <DevStateToggle /> : null}
+      <BootSplash />
     </div>
   );
 }

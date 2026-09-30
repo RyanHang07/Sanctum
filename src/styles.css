@@ -85,6 +85,9 @@
 @keyframes held-nuki { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes held-key { 0% { opacity: 0; transform: translateY(-5px) scale(0.7); } 60% { opacity: 1; transform: translateY(0.6px) scale(1.04); } 100% { opacity: 1; transform: none; } }
 @keyframes held-ring { from { opacity: 0.55; transform: scale(0.4); } to { opacity: 0; transform: scale(2.6); } }
+@keyframes mark-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.84); } }
+@keyframes splash-word { from { opacity: 0; letter-spacing: 0.3em; } to { opacity: 1; letter-spacing: -0.01em; } }
+@keyframes splash-out { to { opacity: 0; visibility: hidden; } }
 @keyframes held-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 .held-blob-a { animation: held-blob-a 14s ease-in-out infinite; }
@@ -102,3 +105,11 @@
 .held-r1 { animation: held-rise 0.8s 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .held-r2 { animation: held-rise 0.8s 1.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .held-r3 { animation: held-rise 0.8s 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Logo motion (design/screens/LogoMotion.dc.html): the sealed idle pulse and the boot splash. */
+.mark-breathe { transform-box: fill-box; transform-origin: center; animation: mark-breathe 3.2s ease-in-out infinite; }
+.splash-word { animation: splash-word 0.9s 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.splash-out { animation: splash-out 0.35s 2.2s ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .mark-breathe { animation: none; }
+}

@@ -12,21 +12,38 @@ export const MARK_PATHS = {
   keyStem: "M12 17.97L11.1 24H14.9L14 17.97Z",
 } as const;
 
-export function AnimatedMark({ size = 96, rings = false, label = "Sanctum" }: { size?: number; rings?: boolean; label?: string }) {
+/**
+ * "build": the pieces assemble (boot splash, held page). "breathe": only the keyhole pulses,
+ * the sealed idle loop (sidebar). `keyClass` colors the keyhole, e.g. cobalt on the dark mark.
+ */
+export function AnimatedMark({
+  size = 96,
+  rings = false,
+  label = "Sanctum",
+  mode = "build",
+  keyClass = "",
+}: {
+  size?: number;
+  rings?: boolean;
+  label?: string;
+  mode?: "build" | "breathe";
+  keyClass?: string;
+}) {
   const p = MARK_PATHS;
+  const build = mode === "build";
   return (
-    <svg width={size} height={size} viewBox="0 0 26 26" fill="none" role="img" aria-label={label} className="overflow-visible">
-      <path className="held-beam" d={p.beam} fill="currentColor" />
-      <rect className="held-nuki" {...p.nuki} fill="currentColor" />
-      <rect className="held-leg" {...p.legLeft} fill="currentColor" />
-      <rect className="held-leg held-leg-2" {...p.legRight} fill="currentColor" />
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none" role="img" aria-label={label} className="shrink-0 overflow-visible">
+      <path className={build ? "held-beam" : undefined} d={p.beam} fill="currentColor" />
+      <rect className={build ? "held-nuki" : undefined} {...p.nuki} fill="currentColor" />
+      <rect className={build ? "held-leg" : undefined} {...p.legLeft} fill="currentColor" />
+      <rect className={build ? "held-leg held-leg-2" : undefined} {...p.legRight} fill="currentColor" />
       {rings ? (
         <>
           <circle className="held-ring" cx={p.keyCircle.cx} cy={p.keyCircle.cy} r={3} stroke="currentColor" strokeWidth={0.5} />
           <circle className="held-ring held-ring-2" cx={p.keyCircle.cx} cy={p.keyCircle.cy} r={3} stroke="currentColor" strokeWidth={0.5} />
         </>
       ) : null}
-      <g className="held-key">
+      <g className={`${build ? "held-key" : "mark-breathe"} ${keyClass}`}>
         <circle {...p.keyCircle} fill="currentColor" />
         <path d={p.keyStem} fill="currentColor" />
       </g>
