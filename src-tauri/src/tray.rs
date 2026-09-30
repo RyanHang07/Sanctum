@@ -1,5 +1,6 @@
-//! System tray (SPEC 4.0.1). Left click toggles the tray panel window (stubbed until M12),
-//! right click opens the native menu. Quit is disabled while sealed.
+//! System tray (SPEC 4.0.1). Left click toggles the tray panel window, right click opens the
+//! native menu. Quit is disabled while sealed. While sealed, the keyhole breathes
+//! (LogoMotion.dc.html, "Sealed idle pulse", 3.2 s loop).
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -31,8 +32,60 @@ fn build_menu(app: &AppHandle, sealed: bool) -> tauri::Result<Menu<tauri::Wry>> 
     Menu::with_items(app, &[&open, &focus, &sep, &quit])
 }
 
+const ICON: &[u8] = include_bytes!("../icons/tray/32x32.png");
+const PULSE_FRAMES: usize = 16;
+const PULSE_MS: u64 = 3200;
+
+/// Fades only the cobalt keyhole pixels, so the torii stays solid. `opacity` in 0..=1.
+pub fn fade_keyhole(rgba: &[u8], opacity: f32) -> Vec<u8> {
+    let mut out = rgba.to_vec();
+    for px in out.chunks_exact_mut(4) {
+        let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
+        if b - r > 80 && b - g > 60 {
+            px[3] = (px[3] as f32 * opacity).round() as u8;
+        }
+    }
+    out
+}
+
+/// Opacity through one breath: 1, down to 0.45 halfway, back to 1.
+pub fn breath(frame: usize, frames: usize) -> f32 {
+    let t = frame as f32 / frames as f32;
+    0.725 + 0.275 * (2.0 * std::f32::consts::PI * t).cos()
+}
+
+/// Animates the tray icon while sealed; restores it when the seal ends.
+pub fn spawn_pulse(app: AppHandle) {
+    std::thread::Builder::new()
+        .name("sanctum-tray-pulse".into())
+        .spawn(move || {
+            let Ok(decoded) = image::load_from_memory(ICON) else { return };
+            let base = decoded.to_rgba8();
+            let (w, h) = base.dimensions();
+            let frames: Vec<Vec<u8>> = (0..PULSE_FRAMES).map(|i| fade_keyhole(base.as_raw(), breath(i, PULSE_FRAMES))).collect();
+            let mut i = 0;
+            let mut pulsing = false;
+            loop {
+                std::thread::sleep(Duration::from_millis(PULSE_MS / PULSE_FRAMES as u64));
+                let Some(shared) = app.try_state::<Shared>() else { continue };
+                let sealed = shared.sealed();
+                let Some(tray) = app.tray_by_id(TRAY_ID) else { continue };
+                if sealed {
+                    let _ = tray.set_icon(Some(Image::new_owned(frames[i].clone(), w, h)));
+                    i = (i + 1) % PULSE_FRAMES;
+                    pulsing = true;
+                } else if pulsing {
+                    let _ = tray.set_icon(Image::from_bytes(ICON).ok());
+                    pulsing = false;
+                    i = 0;
+                }
+            }
+        })
+        .expect("tray pulse thread");
+}
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let icon = Image::from_bytes(include_bytes!("../icons/tray/32x32.png"))?;
+    let icon = Image::from_bytes(ICON)?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .tooltip("Sanctum")
@@ -105,4 +158,21 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
     }
     let _ = w.show();
     let _ = w.set_focus();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_keyhole_breathes() {
+        // white torii pixel, cobalt keyhole pixel, transparent
+        let px = [255, 255, 255, 255, 47, 91, 255, 255, 0, 0, 0, 0];
+        let out = fade_keyhole(&px, 0.45);
+        assert_eq!(&out[0..4], &[255, 255, 255, 255]);
+        assert_eq!(&out[4..8], &[47, 91, 255, 115]);
+        assert_eq!(&out[8..12], &[0, 0, 0, 0]);
+        assert!((breath(0, 16) - 1.0).abs() < 1e-6);
+        assert!((breath(8, 16) - 0.45).abs() < 1e-6);
+    }
 }

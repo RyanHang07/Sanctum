@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import pkg from "../../package.json";
 import { Mark } from "./Mark";
+import { AnimatedMark } from "./AnimatedMark";
 import { LockIcon, PanelIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
 import { TABS, type AppState, type TabId, isTabLocked } from "../state/appState";
 import { useStore } from "../state/store";
@@ -70,6 +71,7 @@ function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: (
  */
 export function Sidebar({ pillMeta }: { pillMeta?: string }) {
   const appState = useStore((s) => s.appState);
+  const sealed = appState === "sealed";
   const activeTab = useStore((s) => s.activeTab);
   const navigate = useStore((s) => s.navigate);
   const displayName = useStore((s) => s.settings.displayName);
@@ -85,7 +87,13 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
       }`}
     >
       <div className={`flex h-7 items-center gap-[10px] ${collapsed ? "justify-center" : "pl-2"}`}>
-        <Mark size={18} />
+        {sealed ? (
+          <span className="flex text-text">
+            <AnimatedMark size={18} mode="breathe" label="Sanctum, sealed" keyClass="text-sealed" />
+          </span>
+        ) : (
+          <Mark size={18} />
+        )}
         {collapsed ? null : (
           <>
             <span className="grow whitespace-nowrap text-[14px] font-semibold tracking-[-0.01em]">Sanctum</span>
