@@ -214,6 +214,7 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 - Returning from idle shows a quick "welcome back" with what you were doing
 
 ### 4.9 Stats Dashboard
+- **Decided 2026-09-29:** its own sidebar tab, **Stats**, built with the streaks in M5 (onboarding follows). First cut: focus time by day and week against the goal, attempts and what tempted you, and productive vs distracting time. No design screen exists; it reuses Month.dc.html (heatmap, summary row) and Tracking.dc.html (charts).
 - Today / week / month views
 - Focus minutes vs idle vs distracted
 - Top apps and top sites by time, blocked attempts count
@@ -222,10 +223,12 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 - "What have I been up to" summary card: plain-language recap generated locally from the day's data
 
 ### 4.10 Streaks + Stakes (**Decided**)
-- The streak breaks only when: a seal is broken (ended early without approval, force-quit, tamper), OR a non-rest day passes with no completed session
+- ~~The streak breaks only when: a seal is broken (ended early without approval, force-quit, tamper), OR a non-rest day passes with no completed session~~
+- **Changed 2026-09-29 (your call):** a day is **Kept** only when focus minutes reach the daily goal and no seal was broken that day. A non-rest day that misses the goal, or has a broken seal, breaks the streak. Today counts once it's kept and never breaks the streak while in progress
 - **Planned rest days** (chosen in Setup > Preferences, e.g. Saturdays) never break the streak and count toward its length
 - Stakes: **streak resets**, and **partner is notified** if one is set
-- Streak lives **only on Home** (chip with the last 7 days: kept, broken, rest, today). History: marks under each day in **Week** (Kept / Broken with time / Rest day / In progress) and a **Month** view (heatmap shaded by focus minutes, broken days outlined, rest days dashed, hover for details, summary row: current, longest, kept, broken, focused)
+- **Changed 2026-09-29:** a new **Stats** tab holds the full streak, heatmap, and stats (4.9). Home keeps the 7-day chip, which opens Stats. Week and Month day marks come later.
+- ~~Streak lives **only on Home**~~ (chip with the last 7 days: kept, broken, rest, today). History: marks under each day in **Week** (Kept / Broken with time / Rest day / In progress) and a **Month** view (heatmap shaded by focus minutes, broken days outlined, rest days dashed, hover for details, summary row: current, longest, kept, broken, focused)
 - Broken session = session ended early without completing the friction ladder (e.g. app force-killed, watchdog detected tamper)
 
 ### 4.11 Onboarding (first run)
