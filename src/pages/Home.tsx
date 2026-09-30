@@ -550,9 +550,9 @@ export function Home() {
         <span className="text-body text-muted">{formatDate(new Date())}</span>
         <div className="flex items-center gap-2">
           {show("streak") ? <StreakChip /> : null}
-          {/* Command bar (Ctrl K) is a later milestone. */}
           <button
             type="button"
+            onClick={useStore.getState().openCommand}
             className="flex h-control w-[200px] items-center gap-2 rounded-control border border-line bg-panel px-[10px] text-body text-muted transition-colors duration-ui ease-ui hover:border-line-input hover:text-text-2"
           >
             <SearchIcon />
