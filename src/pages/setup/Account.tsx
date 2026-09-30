@@ -61,7 +61,21 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
 function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p: PartnerStatus) => void; onError: (e: string) => void }) {
   const sealed = useStore((s) => s.appState === "sealed");
   const [copied, setCopied] = useState(false);
+  const [to, setTo] = useState("");
+  const [emailed, setEmailed] = useState<string | null>(null);
   const run = (f: () => Promise<PartnerStatus>) => void f().then(onChange).catch((e) => onError(errorText(e)));
+  const emailInvite = () => {
+    const address = to.trim();
+    if (!address) return;
+    void native
+      .cloudEmailInvite(address)
+      .then((next) => {
+        onChange(next);
+        setEmailed(address);
+        setTo("");
+      })
+      .catch((e) => onError(errorText(e)));
+  };
 
   let partner;
   if (p.partner) {
@@ -105,7 +119,24 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
             Cancel
           </Button>
         </div>
-        <span className="text-[11px] text-muted">{hoursLeft(p.invite.expiresAt)}. Works once. Your friend signs in and sets their own PIN.</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="email"
+            aria-label="Partner's email"
+            placeholder="Or email it: friend@example.com"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && emailInvite()}
+            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+          />
+          <Button variant="ghost" size="sm" disabled={!to.trim()} onClick={emailInvite}>
+            Email it
+          </Button>
+        </div>
+        <span className="text-[11px] text-muted">
+          {emailed ? `Sent to ${emailed}. ` : ""}
+          {hoursLeft(p.invite.expiresAt)}. Works once. Your friend signs in and sets their own PIN.
+        </span>
       </div>
     );
   } else {

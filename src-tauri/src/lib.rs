@@ -731,6 +731,7 @@ pub fn run() {
             cloud::cloud_partner,
             cloud::cloud_create_invite,
             cloud::cloud_cancel_invite,
+            cloud::cloud_email_invite,
             cloud::cloud_request_removal,
             browser::browser_open_extension_dir,
             list_installed_apps,

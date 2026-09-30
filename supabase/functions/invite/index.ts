@@ -1,7 +1,12 @@
-// The partner opens an invite link (SPEC 4.6): "peek" shows who sent it, "accept" links them
-// and sets their PIN (hashed here with argon2id; nobody can read it back).
+// Partner invites (SPEC 4.6). The partner opens the link: "peek" shows who sent it, "accept"
+// links them and sets their PIN (hashed here with argon2id; nobody can read it back). The
+// sender can also have Sanctum email the link: "email", at most 5 a day.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { admin, caller, cors, fail, hashPin, json, validPin } from "../_shared/util.ts";
+import { admin, caller, cors, fail, hashPin, json, partnerSite, sendEmail, validPin } from "../_shared/util.ts";
+import { renderEmail } from "../_shared/email.ts";
+
+const EMAILS_PER_DAY = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -9,18 +14,35 @@ Deno.serve(async (req) => {
   const user = await caller(req, db);
   if (!user) return fail("Sign in first.", 401);
 
-  const { action, token, pin } = await req.json().catch(() => ({}));
+  const { action, token, pin, email } = await req.json().catch(() => ({}));
   if (typeof token !== "string" || !token) return fail("That invite link is incomplete.");
 
   const { data: invite } = await db.from("invites").select("token, user_id, expires_at, used_at").eq("token", token).maybeSingle();
   if (!invite) return fail("That invite doesn't exist.", 404);
   if (invite.used_at) return fail("That invite was already used.", 410);
   if (new Date(invite.expires_at).getTime() < Date.now()) return fail("That invite expired. Ask for a new one.", 410);
-  if (invite.user_id === user.id) return fail("You can't be your own partner.");
 
   const { data: inviter } = await db.from("profiles_user").select("email, display_name").eq("id", invite.user_id).maybeSingle();
-  const { data: existingPin } = await db.from("pins").select("user_id").eq("user_id", user.id).maybeSingle();
   const from = inviter?.display_name || inviter?.email || "Someone";
+
+  if (action === "email") {
+    if (invite.user_id !== user.id) return fail("That's not your invite.", 403);
+    const to = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (!EMAIL_RE.test(to) || to.length > 254) return fail("That doesn't look like an email address.");
+    if (to === (inviter?.email ?? "").toLowerCase()) return fail("Invite someone other than yourself.");
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    const { count } = await db.from("notifications").select("id", { count: "exact", head: true }).eq("recipient_id", user.id).eq("kind", "invite_sent").gte("created_at", since);
+    if ((count ?? 0) >= EMAILS_PER_DAY) return fail("That's enough invite emails for today. Copy the link instead.", 429);
+    const site = partnerSite();
+    if (!site) return fail("Invite emails need the partner page's address (PARTNER_APP_URL).");
+    const sent = await sendEmail(to, renderEmail("invite", { who: from, link: `${site}/invite/${token}` }));
+    if (!sent) return fail("The email didn't send. Copy the link instead.", 502);
+    await db.from("notifications").insert({ recipient_id: user.id, kind: "invite_sent", payload: { to } });
+    return json({ ok: true, sent: true });
+  }
+
+  if (invite.user_id === user.id) return fail("You can't be your own partner.");
+  const { data: existingPin } = await db.from("pins").select("user_id").eq("user_id", user.id).maybeSingle();
 
   if (action === "peek") return json({ from, email: inviter?.email ?? null, needsPin: !existingPin });
   if (action !== "accept") return fail("Unknown action.");

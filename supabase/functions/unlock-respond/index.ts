@@ -1,8 +1,10 @@
 // The partner approves or denies an early unlock with their PIN (SPEC 4.5). Requests expire
 // after 30 minutes; 3 wrong PINs lock approvals for 30 minutes. All checked here, server-side.
+// The person sealed in also gets an email with the answer, in case Sanctum is closed.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { argon2Verify } from "npm:hash-wasm@4";
-import { admin, caller, cors, fail, json } from "../_shared/util.ts";
+import { admin, caller, cors, fail, json, sendEmail } from "../_shared/util.ts";
+import { renderEmail } from "../_shared/email.ts";
 
 const TTL_MS = 30 * 60_000;
 const LOCK_MS = 30 * 60_000;
@@ -57,5 +59,10 @@ Deno.serve(async (req) => {
     .update({ status: approve ? "approved" : "denied", note: text || null, resolved_at: new Date().toISOString() })
     .eq("id", requestId)
     .eq("status", "pending");
+  const [{ data: sealedIn }, { data: me }] = await Promise.all([
+    db.from("profiles_user").select("email").eq("id", request.user_id).maybeSingle(),
+    db.from("profiles_user").select("display_name, email").eq("id", user.id).maybeSingle(),
+  ]);
+  await sendEmail(sealedIn?.email ?? "", renderEmail("unlock_decided", { partner: me?.display_name || me?.email || "Your partner", approved: approve, note: text || undefined })).catch(() => false);
   return json({ ok: true, status: approve ? "approved" : "denied" });
 });

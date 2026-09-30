@@ -35,3 +35,21 @@ export function hashPin(pin: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   return argon2id({ password: pin, salt, parallelism: 1, iterations: 2, memorySize: 19456, hashLength: 32, outputType: "encoded" });
 }
+
+import type { Email } from "./email.ts";
+
+/** Sends through Brevo when BREVO_API_KEY and BREVO_SENDER are set. Returns whether it went. */
+export async function sendEmail(to: string, email: Email): Promise<boolean> {
+  const key = Deno.env.get("BREVO_API_KEY");
+  const sender = Deno.env.get("BREVO_SENDER");
+  if (!key || !sender || !to) return false;
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ sender: { email: sender, name: "Sanctum" }, to: [{ email: to }], subject: email.subject, htmlContent: email.html, textContent: email.text }),
+  });
+  return res.ok;
+}
+
+/** The deployed partner page, without a trailing slash ("" when unset). */
+export const partnerSite = () => (Deno.env.get("PARTNER_APP_URL") ?? "").replace(/\/+$/, "");

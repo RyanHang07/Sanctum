@@ -185,6 +185,7 @@ export const native = {
   cloudSignOut: () => call<CloudStatus>("cloud_sign_out"),
   cloudPartner: () => call<PartnerStatus>("cloud_partner"),
   cloudCreateInvite: () => call<PartnerStatus>("cloud_create_invite"),
+  cloudEmailInvite: (email: string) => call<PartnerStatus>("cloud_email_invite", { email }),
   cloudCancelInvite: () => call<PartnerStatus>("cloud_cancel_invite"),
   cloudRequestRemoval: (cancel: boolean) => call<PartnerStatus>("cloud_request_removal", { cancel }),
   browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
