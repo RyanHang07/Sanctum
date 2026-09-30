@@ -12,6 +12,7 @@ import { Onboarding } from "../pages/onboarding/Onboarding";
 import { TrackersPage } from "../pages/trackers/TrackersPage";
 import { CheckinDialog } from "./CheckinDialog";
 import { BootSplash } from "./BootSplash";
+import { CommandBar } from "./CommandBar";
 import { useTrackers } from "../state/trackers";
 import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
@@ -54,6 +55,11 @@ function useShortcuts() {
       if (!e.ctrlKey || e.altKey || e.metaKey) return;
       const s = useStore.getState();
       if (s.closeDialogOpen || s.held || document.querySelector("[role=dialog]")) return;
+      if (e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        s.openCommand();
+        return;
+      }
       const tab = TABS.find((t) => t.hotkey === e.key);
       if (tab) {
         e.preventDefault();
@@ -131,6 +137,7 @@ export function AppShell() {
       <CloseDialog />
       <BreakSealDialog />
       <CheckinDialog />
+      <CommandBar />
       {import.meta.env.DEV ? <DevStateToggle /> : null}
       <BootSplash />
     </div>

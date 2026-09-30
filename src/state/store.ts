@@ -191,6 +191,10 @@ export interface Store {
   unallowPage: (id: number) => Promise<void>;
   setupTab: SetupTab;
   openSetup: (tab: SetupTab) => void;
+  /** The Ctrl K command bar. */
+  commandOpen: boolean;
+  openCommand: () => void;
+  closeCommand: () => void;
   launchProfile: (id: number) => Promise<LaunchReport | null>;
 }
 
@@ -616,6 +620,9 @@ export const useStore = create<Store>()((set, get) => {
         get().showNotice({ lead: errorText(e) });
       }
     },
+    commandOpen: false,
+    openCommand: () => set({ commandOpen: true }),
+    closeCommand: () => set({ commandOpen: false }),
     setupTab: "profiles",
     openSetup: (setupTab) => {
       set({ setupTab, editingProfileId: null });
