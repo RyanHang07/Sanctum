@@ -17,30 +17,40 @@ const PROTECTED: &[&str] = &[
     "magnify.exe", "osk.exe", "tabtip.exe", "msedgewebview2.exe", "sanctum.exe", "sanctum-bridge.exe",
 ];
 
-/// What Setup > Always open starts with: the apps allowlist mode should never close. Browsers
+/// What Setup > Always open starts with: the apps allowlist mode always lets start. Browsers
 /// stay because sites inside them are the extension's job. Editable; a profile can still seal
-/// one by name.
-pub const DEFAULT_ALWAYS: &[&str] = &[
-    "claude.exe", "spotify.exe", "comet.exe", "chrome.exe", "msedge.exe", "brave.exe", "firefox.exe",
-    "windowsterminal.exe", "snippingtool.exe",
+/// one by name. Each batch is added once, so a later batch reaches existing installs without
+/// bringing back anything you removed.
+pub const DEFAULT_ALWAYS: &[&[&str]] = &[
+    &[
+        "claude.exe", "spotify.exe", "comet.exe", "chrome.exe", "msedge.exe", "brave.exe", "firefox.exe",
+        "windowsterminal.exe", "snippingtool.exe",
+    ],
+    &[
+        // Screenshots, shells, dev tools, and the small utilities work leans on.
+        "lightshot.exe", "sharex.exe", "screenclippinghost.exe", "powershell.exe", "pwsh.exe", "cmd.exe",
+        "docker desktop.exe", "notepad.exe", "calculatorapp.exe", "1password.exe", "bitwarden.exe",
+    ],
 ];
 pub const ALWAYS_KEY: &str = "allowlist_always_allowed";
+const ALWAYS_SEEDED_KEY: &str = "always_allowed_seeded";
 
-/// Adds the defaults to the always-open list once, keeping anything already there.
+/// Adds each default batch not added yet, keeping anything already there.
 pub fn seed_always(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     use crate::db;
-    if db::get_setting(conn, "always_allowed_seeded")?.is_some() {
+    let done: usize = db::get_setting(conn, ALWAYS_SEEDED_KEY)?.and_then(|v| v.parse().ok()).unwrap_or(0);
+    if done >= DEFAULT_ALWAYS.len() {
         return Ok(());
     }
     let current = db::get_setting(conn, ALWAYS_KEY)?.unwrap_or_default();
     let mut list: Vec<String> = current.split([',', ';', '\n']).map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
-    for d in DEFAULT_ALWAYS {
+    for d in DEFAULT_ALWAYS[done..].iter().flat_map(|batch| batch.iter()) {
         if !list.iter().any(|e| e == d) {
             list.push(d.to_string());
         }
     }
     db::set_setting(conn, ALWAYS_KEY, &list.join(", "))?;
-    db::set_setting(conn, "always_allowed_seeded", "1")
+    db::set_setting(conn, ALWAYS_SEEDED_KEY, &DEFAULT_ALWAYS.len().to_string())
 }
 
 pub fn is_protected(exe: &str) -> bool {
@@ -398,6 +408,14 @@ mod tests {
         crate::db::set_setting(&conn, ALWAYS_KEY, "claude.exe").unwrap();
         seed_always(&conn).unwrap();
         assert_eq!(crate::db::get_setting(&conn, ALWAYS_KEY).unwrap().as_deref(), Some("claude.exe"));
+
+        // An install seeded with the first batch gets the new one, without what it removed.
+        crate::db::set_setting(&conn, ALWAYS_SEEDED_KEY, "1").unwrap();
+        crate::db::set_setting(&conn, ALWAYS_KEY, "claude.exe").unwrap();
+        seed_always(&conn).unwrap();
+        let list = parse_always(&crate::db::get_setting(&conn, ALWAYS_KEY).unwrap().unwrap());
+        assert!(list.contains("lightshot.exe") && list.contains("docker desktop.exe") && list.contains("powershell.exe"));
+        assert!(!list.contains("spotify.exe"));
     }
 
     #[test]
