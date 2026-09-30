@@ -27,7 +27,7 @@ fn user_source() -> String {
 }
 
 /// Browsers, where a site shows up in the window title rather than the exe.
-const BROWSERS: &[&str] = &[
+pub const BROWSERS: &[&str] = &[
     "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "opera_gx.exe", "vivaldi.exe", "arc.exe",
     "comet.exe", "zen.exe", "librewolf.exe", "waterfox.exe", "iexplore.exe",
 ];

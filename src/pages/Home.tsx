@@ -156,7 +156,7 @@ function FocusPanel() {
               <span data-testid="focus-note" title={profileNote(profile)} className="flex min-w-0 items-center gap-[6px] px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-2">
                 <LockIcon size={10} className="shrink-0 text-sealed" />
                 <span className="truncate">
-                  {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
+                  {joinNames(closing)} {profile.allowlistMode ? (closing.length === 1 ? "minimizes" : "minimize") : closing.length === 1 ? "closes" : "close"} when you enter
                 </span>
               </span>
             ) : (

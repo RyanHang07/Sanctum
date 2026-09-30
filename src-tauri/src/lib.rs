@@ -508,6 +508,7 @@ pub fn run() {
             let db_path = dir.join(if cfg!(debug_assertions) { "sanctum-dev.db" } else { "sanctum.db" });
             let conn = db::open(&db_path)?;
             classify::seed_from_catalog(&conn)?;
+            blocker::seed_always(&conn)?;
 
             init_autostart(app.handle(), &conn)?;
             let start_in_tray = std::env::args().any(|a| a == AUTOSTART_ARG)

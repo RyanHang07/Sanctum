@@ -1,5 +1,16 @@
 # Changelog
 
+## Allowlist mode, safer (2026-09-29)
+
+### Changed
+- **Apps outside the allowlist are flagged before they're closed.** The first time one is seen during a seal, its windows are minimized, an attempt is logged, and the overlay says "<App> isn't part of this session." It closes only if you bring it back to the front after 5 seconds. Left minimized, it keeps running (music keeps playing). Apps a profile seals by name still close on sight.
+- **Always open** (Setup > Preferences) is now one list for every profile, shown as chips with Add app. It replaces the Always allowed text field. It starts with Claude, Spotify, Comet, Chrome, Edge, Brave, Firefox, Windows Terminal, and Snipping Tool, and anything you had there is kept. It only applies to allowlist mode.
+- Home's warning reads "minimizes when you enter" for allowlist profiles.
+
+### Fixed
+- Allowlist mode could close Sanctum itself when run from a terminal or editor, because closing any process that runs Sanctum (in dev: the terminal, npm, cargo) takes it down. Sanctum's own process and everything above it are now never touched.
+- Tests: 130 frontend and 65 Rust.
+
 ## 4b: browser extension (2026-09-29)
 
 ### Added

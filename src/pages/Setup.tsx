@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { Button } from "../components/Button";
 import { MiniSelect, Switch } from "../components/controls";
-import { ChevronRightIcon } from "../components/icons";
+import { ChevronRightIcon, XIcon } from "../components/icons";
 import { ProfileDetail } from "./setup/ProfileDetail";
 import { ActivitySection, ActivityRulesSection } from "./setup/Activity";
 import { ConnectionsSection } from "./setup/Connections";
 import { BrowsersSection } from "./setup/Browsers";
-import { AppListField, Row, Section } from "./setup/parts";
+import { Row, Section } from "./setup/parts";
+import { AppPicker } from "./setup/AppPicker";
 import { useStore } from "../state/store";
-import { opensOf, ruleLabel, sealsOf } from "../lib/rules";
+import { exeList, opensOf, ruleLabel, sealsOf } from "../lib/rules";
 import type { CloseAction, OnLogin } from "../state/appState";
 
 function ProfilesSection() {
@@ -81,6 +83,53 @@ const CLOSE: { value: CloseAction; label: string }[] = [
   { value: "quit", label: "Quit Sanctum" },
 ];
 
+/**
+ * The universal allowlist: apps allowlist mode never closes, whatever the profile. Starts with
+ * Claude, Spotify, browsers, and terminals. Sanctum and File Explorer are always kept.
+ */
+function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => void }) {
+  const [picking, setPicking] = useState(false);
+  const list = exeList(saved);
+  const save = (next: string[]) => onSave(next.join(", "));
+  return (
+    <div className="flex flex-col gap-2 border-b border-line-soft px-[14px] py-[10px]">
+      <div className="flex items-center gap-[10px]">
+        <span className="flex min-w-0 grow flex-col gap-[2px]">
+          <span className="text-body">Always open</span>
+          <span className="text-[11px] text-muted">Allowlist mode never closes these. Sanctum and File Explorer always stay.</span>
+        </span>
+        <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>
+          Add app
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {list.length === 0 ? <span className="text-meta text-faint">Nothing else stays open.</span> : null}
+        {list.map((exe) => (
+          <span key={exe} className="group flex h-6 items-center gap-1 rounded-[4px] border border-line-input pl-[7px] pr-[3px] font-mono text-[11px] text-text-2">
+            {exe}
+            <button
+              type="button"
+              aria-label={`Remove ${exe} from Always open`}
+              onClick={() => save(list.filter((e) => e !== exe))}
+              className="flex h-4 w-4 items-center justify-center rounded-[3px] text-faint transition-colors duration-ui ease-ui hover:bg-raised hover:text-text"
+            >
+              <XIcon size={10} />
+            </button>
+          </span>
+        ))}
+      </div>
+      {picking ? (
+        <AppPicker
+          title="Keep an app open"
+          added={new Set(list)}
+          onClose={() => setPicking(false)}
+          onPick={(a) => save([...list.filter((e) => e !== a.exe), a.exe])}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
   const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed } = useStore();
@@ -95,9 +144,7 @@ function PreferencesSection() {
       <Row label="Go compact when focus starts">
         <Switch label="Go compact when focus starts" checked={settings.compactOnFocus} onChange={setCompactOnFocus} />
       </Row>
-      <Row label="Always allowed" hint="Never closed in allowlist mode">
-        <AppListField label="Always allowed" saved={settings.alwaysAllowed} placeholder="1password.exe, keepassxc.exe" onSave={setAlwaysAllowed} />
-      </Row>
+      <AlwaysOpen saved={settings.alwaysAllowed} onSave={setAlwaysAllowed} />
       <Row label="Sounds" hint="Enter, blocked, held, and seal broken">
         <Switch label="Sounds" checked={settings.sounds} onChange={setSounds} />
       </Row>

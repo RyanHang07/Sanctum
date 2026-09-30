@@ -18,6 +18,16 @@ export function normalizeDomain(input: string): string | null {
   return ok ? s : null;
 }
 
+/** "a.exe, B.EXE; notes" -> ["a.exe", "b.exe"]. Mirrors blocker::parse_always. */
+export function exeList(text: string): string[] {
+  const out: string[] = [];
+  for (const s of text.split(/[,;\n]/)) {
+    const e = s.trim().toLowerCase();
+    if (e.endsWith(".exe") && !out.includes(e)) out.push(e);
+  }
+  return out;
+}
+
 /**
  * A page (or section) under a sealed site that stays open. Mirrors profiles::normalize_allow:
  * on the site or a subdomain, and narrower than the whole site.

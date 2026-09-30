@@ -193,6 +193,20 @@ describe("Profile detail", () => {
   });
 });
 
+describe("Always open", () => {
+  it("starts with the essentials and saves removals", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    const prefs = within(screen.getByRole("region", { name: "Preferences" }));
+    expect(prefs.getByText("spotify.exe")).toBeInTheDocument();
+    expect(prefs.getByText("comet.exe")).toBeInTheDocument();
+    fireEvent.click(prefs.getByRole("button", { name: "Remove spotify.exe from Always open" }));
+    expect(prefs.queryByText("spotify.exe")).toBeNull();
+    await waitFor(async () => expect(await native.getSetting("allowlist_always_allowed")).not.toContain("spotify.exe"));
+    expect(await native.getSetting("allowlist_always_allowed")).toContain("claude.exe");
+  });
+});
+
 describe("Browser extension", () => {
   it("shows setup steps until a browser connects, then its status", async () => {
     await renderSetup(false);
