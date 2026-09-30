@@ -1,5 +1,23 @@
 # Changelog
 
+## M5 (complete): onboarding and streak marks (2026-09-29)
+
+### Added
+- **First-run setup** (Onboarding.dc.html, SPEC 4.11). It opens on a fresh install (no profiles and never finished), and Setup > Preferences > **Run setup again** reopens it. Six steps:
+  1. Welcome: your name for Home.
+  2. Profiles: work types per profile, with a live list of what opens and what's sealed. A profile with nothing picked is skipped.
+  3. Goals: daily focus goal, idle threshold, and rest days.
+  4. Calendar: connect Google (skippable).
+  5. Browser: extension status with load-unpacked steps, plus Always open (skippable).
+  6. Ready: a summary, then **Start using Sanctum**.
+
+  Installs that already have profiles count as set up.
+- **Streak marks in Week** (Week.dc.html): Kept, Broken with the time, Missed, Rest day, or In progress under each day.
+- **Streak dots in Month.**
+
+### Changed
+- Tests: 143 frontend.
+
 ## M5 (part 1): Stats and streaks (2026-09-29)
 
 ### Added

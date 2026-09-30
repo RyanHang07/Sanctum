@@ -86,6 +86,8 @@ export interface Store {
   session: SessionView | null;
   /** Set when a session completes: shows the Sanctum held page. */
   held: HeldStats | null;
+  /** First-run setup is showing (SPEC 4.11). */
+  onboarding: boolean;
   endEarlyOpen: boolean;
   focusTodayMin: number;
   /** What the schedule points at right now (Home's suggested card). */
@@ -130,6 +132,11 @@ export interface Store {
   /** Saves one of the activity settings in SETTING_KEYS. */
   setActivitySetting: <K extends TextSetting>(key: K, value: Settings[K]) => void;
   setDailyGoal: (min: number) => void;
+  openOnboarding: () => void;
+  /** Reloads what setup changed and returns to Home. */
+  closeOnboarding: () => Promise<void>;
+  /** Opens setup on a first run: never finished, and no profiles yet. */
+  checkOnboarding: () => Promise<void>;
   setRestDays: (mask: number) => void;
   toggleSidebar: () => void;
   setWeekView: (v: WeekView) => void;
@@ -212,6 +219,7 @@ export const useStore = create<Store>()((set, get) => {
     sealedAt: null,
     session: null,
     held: null,
+    onboarding: false,
     endEarlyOpen: false,
     focusTodayMin: 0,
     suggestion: null,
@@ -300,6 +308,18 @@ export const useStore = create<Store>()((set, get) => {
       set({ settings: { ...get().settings, sounds } });
       setSoundsEnabled(sounds);
       void native.setSetting("sounds", sounds ? "1" : "0");
+    },
+    openOnboarding: () => set({ onboarding: true }),
+    closeOnboarding: async () => {
+      await get().loadSettings();
+      await get().loadProfiles();
+      set({ onboarding: false, activeTab: "today" });
+    },
+    checkOnboarding: async () => {
+      if ((await native.getSetting("onboarded")) === "1") return;
+      if ((await native.listProfiles()).length === 0) set({ onboarding: true });
+      // Installs from before onboarding already have profiles: count them as set up.
+      else await native.setSetting("onboarded", "1");
     },
     setDailyGoal: (dailyGoalMin) => {
       set({ settings: { ...get().settings, dailyGoalMin } });

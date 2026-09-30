@@ -89,7 +89,7 @@ const CLOSE: { value: CloseAction; label: string }[] = [
  * The universal allowlist: apps allowlist mode always lets start, whatever the profile. Starts
  * with Claude, Spotify, browsers, and terminals. Apps already running when a seal begins stay.
  */
-function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => void }) {
+export function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => void }) {
   const [picking, setPicking] = useState(false);
   const list = exeList(saved);
   const save = (next: string[]) => onSave(next.join(", "));
@@ -134,7 +134,7 @@ function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => v
 
 const GOALS = [30, 60, 90, 120, 150, 180, 240, 300].map((m) => ({ value: m, label: minutes(m) }));
 
-function RestDays({ mask, onChange }: { mask: number; onChange: (mask: number) => void }) {
+export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: number) => void }) {
   return (
     <div role="group" aria-label="Rest days" className="flex shrink-0 gap-[3px]">
       {WEEKDAYS.map((d) => {
@@ -160,9 +160,16 @@ function RestDays({ mask, onChange }: { mask: number; onChange: (mask: number) =
 
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed, setDailyGoal, setRestDays } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed, setDailyGoal, setRestDays, openOnboarding } = useStore();
   return (
-    <Section title="Preferences">
+    <Section
+      title="Preferences"
+      action={
+        <Button variant="quiet" size="sm" onClick={openOnboarding}>
+          Run setup again
+        </Button>
+      }
+    >
       <Row label="Daily focus goal" hint="A day keeps the streak when you reach it and no seal breaks">
         <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
       </Row>

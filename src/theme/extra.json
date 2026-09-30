@@ -7,6 +7,7 @@
     "broken": "#E5484D",
     "broken-tint": "#2A1418",
     "broken-text": "#FF8A8E",
+    "broken-line": "#5A2328",
     "heat": { "1": "#1C2A52", "2": "#2A4288", "3": "#3F63C4" },
     "scrim": "rgba(5, 6, 10, 0.66)"
   },

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { StreakDot, StreakMark, useDayStats } from "../../components/StreakMark";
+import type { DayStat } from "../../lib/types";
 import { Button } from "../../components/Button";
 import { Switch } from "../../components/controls";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "../../components/icons";
@@ -102,7 +104,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   );
 }
 
-function DayColumn({ date, items, today, onOpen }: { date: string; items: AgendaItem[]; today: boolean; onOpen: (i: AgendaItem) => void }) {
+function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
   const d = fromKey(date);
   return (
@@ -116,6 +118,7 @@ function DayColumn({ date, items, today, onOpen }: { date: string; items: Agenda
         <span className={`text-meta font-semibold ${today ? "text-sealed-text" : "text-text"}`}>{d.toLocaleDateString("en-US", { weekday: "short" })}</span>
         <span className={`font-mono text-[11px] ${today ? "text-sealed-text" : "text-muted"}`}>{d.getDate()}</span>
       </div>
+      <StreakMark day={stat} />
       {items.map((i) => (
         <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />
       ))}
@@ -157,13 +160,14 @@ function SyncStatus() {
 function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) => void }) {
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
+  const stats = useDayStats(days[0]!, days[6]!);
   const today = todayKey();
   return (
     <>
       {/* The day under the pointer (or being edited) widens; the rest step back. */}
       <div className="group/week flex min-h-0 grow gap-2">
         {days.map((d) => (
-          <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} onOpen={onOpen} />
+          <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} />
         ))}
       </div>
       <div className="flex gap-[18px] text-meta text-muted">
@@ -355,7 +359,7 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
 const WEEKDAY_HEADS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_ITEMS = 3;
 
-function MonthCell({ date, items, inMonth, today, onPick }: { date: string; items: AgendaItem[]; inMonth: boolean; today: string; onPick: () => void }) {
+function MonthCell({ date, items, inMonth, today, stat, onPick }: { date: string; items: AgendaItem[]; inMonth: boolean; today: string; stat?: DayStat; onPick: () => void }) {
   const d = fromKey(date);
   const routines = items.filter((i) => i.kind === "routine");
   const rest = items.filter((i) => i.kind !== "routine");
@@ -371,7 +375,10 @@ function MonthCell({ date, items, inMonth, today, onPick }: { date: string; item
       } ${inMonth ? "" : "opacity-40"}`}
     >
       <span className="flex items-center justify-between">
-        <span className={`font-mono text-[11px] ${isToday ? "font-semibold text-sealed-text" : "text-text-2"}`}>{d.getDate()}</span>
+        <span className="flex items-center gap-[5px]">
+          <span className={`font-mono text-[11px] ${isToday ? "font-semibold text-sealed-text" : "text-text-2"}`}>{d.getDate()}</span>
+          {inMonth ? <StreakDot day={stat} /> : null}
+        </span>
         {routines.length ? (
           <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-[10px] ${date <= today ? "text-muted" : "text-faint"}`}>
             <RepeatGlyph className="h-[9px] w-[9px]" />
@@ -393,6 +400,7 @@ function MonthCell({ date, items, inMonth, today, onPick }: { date: string; item
 function MonthView({ month, onPick }: { month: string; onPick: (date: string) => void }) {
   const days = useMemo(() => monthGrid(month), [month]);
   const agenda = useAgenda(days);
+  const stats = useDayStats(days[0]!, days[days.length - 1]!);
   const today = todayKey();
   const m = fromKey(month).getMonth();
   return (
@@ -406,7 +414,7 @@ function MonthView({ month, onPick }: { month: string; onPick: (date: string) =>
       </div>
       <div className="grid min-h-0 grow grid-cols-7 gap-[6px]" style={{ gridTemplateRows: `repeat(${days.length / 7}, minmax(0, 1fr))` }}>
         {days.map((d) => (
-          <MonthCell key={d} date={d} items={agenda[d] ?? []} inMonth={fromKey(d).getMonth() === m} today={today} onPick={() => onPick(d)} />
+          <MonthCell key={d} date={d} items={agenda[d] ?? []} inMonth={fromKey(d).getMonth() === m} today={today} stat={stats[d]} onPick={() => onPick(d)} />
         ))}
       </div>
     </section>
