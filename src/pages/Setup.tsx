@@ -84,8 +84,8 @@ const CLOSE: { value: CloseAction; label: string }[] = [
 ];
 
 /**
- * The universal allowlist: apps allowlist mode never closes, whatever the profile. Starts with
- * Claude, Spotify, browsers, and terminals. Sanctum and File Explorer are always kept.
+ * The universal allowlist: apps allowlist mode always lets start, whatever the profile. Starts
+ * with Claude, Spotify, browsers, and terminals. Apps already running when a seal begins stay.
  */
 function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => void }) {
   const [picking, setPicking] = useState(false);
@@ -96,7 +96,7 @@ function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => v
       <div className="flex items-center gap-[10px]">
         <span className="flex min-w-0 grow flex-col gap-[2px]">
           <span className="text-body">Always open</span>
-          <span className="text-[11px] text-muted">Allowlist mode never closes these. Sanctum and File Explorer always stay.</span>
+          <span className="text-[11px] text-muted">Allowlist mode always lets these start. Apps already open when you enter stay open.</span>
         </span>
         <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>
           Add app

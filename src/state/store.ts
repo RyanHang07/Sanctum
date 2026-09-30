@@ -25,7 +25,7 @@ export interface Settings {
   displayName: string;
   compactOnFocus: boolean;
   sounds: boolean;
-  /** Exe names allowlist mode never closes (comma-separated). */
+  /** Exe names allowlist mode always lets start (comma-separated). */
   alwaysAllowed: string;
   dailyGoalMin: number;
   /** Minutes without input before you count as idle (SPEC 4.8). */

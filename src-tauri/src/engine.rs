@@ -70,8 +70,7 @@ pub fn record_external_attempt(app: &AppHandle, what: &str, kind: &str) -> Optio
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Intercept {
-    /// "app" / "allowlist": the sealed-app overlay. "flag": outside the allowlist, minimized
-    /// and closing if it comes back. "title": the corner nudge.
+    /// "app" / "allowlist": the sealed-app overlay. "title": the corner nudge.
     pub kind: &'static str,
     pub label: String,
     pub attempts: i64,
@@ -157,7 +156,8 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, 
     {
         let mut b = engine.blocker.lock().unwrap();
         b.set_rules(seal);
-        // First sweep closes what the focus row warned about; it isn't an attempt.
+        // First sweep closes what the focus row warned about; it isn't an attempt. Allowlist
+        // mode leaves what's already running alone.
         b.block_apps();
     }
     let view = active.view();
@@ -309,16 +309,11 @@ fn tick(app: &AppHandle, n: u64) {
         let conn = shared.db.lock().ok()?;
         session::record_attempt(&conn, id, exe, kind, now).ok()
     };
-    for b in &blocked {
-        let attempts = match b.action {
-            blocker::Action::Closed | blocker::Action::Flagged => record(&b.exe, b.kind),
-            // Closing a flagged app that came back isn't a new attempt; say so anyway.
-            blocker::Action::Enforced => engine.active.lock().unwrap().as_ref().map(|a| a.attempts),
-            blocker::Action::Failed => None,
-        };
-        if let (Some(attempts), None) = (attempts, &intercept) {
-            let kind = if b.action == blocker::Action::Flagged { "flag" } else { b.kind };
-            intercept = Some(make_intercept(&shared, kind, app_name(&shared, &b.exe), attempts, None));
+    for b in blocked.iter().filter(|b| b.closed) {
+        if let Some(attempts) = record(&b.exe, b.kind) {
+            if intercept.is_none() {
+                intercept = Some(make_intercept(&shared, b.kind, app_name(&shared, &b.exe), attempts, None));
+            }
         }
     }
     if let Some(hit) = title {
