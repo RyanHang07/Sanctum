@@ -33,6 +33,8 @@ pub struct Active {
     pub idle_ms: i64,
     /// When the current idle stretch began (last input), if idle now.
     pub idle_since: Option<i64>,
+    /// Broken by tampering (clock, guard, extension); the partner already heard.
+    pub tampered: bool,
     anchor_wall: i64,
     anchor_mono: Instant,
 }
@@ -168,12 +170,19 @@ pub fn start(conn: &Connection, profile_id: i64, profile_name: &str, minutes: i6
         idle_ms: 0,
         idle_since: None,
         anchor_wall: now,
+        tampered: false,
         anchor_mono: Instant::now(),
     })
 }
 
 pub fn save_idle(conn: &Connection, id: i64, idle_ms: i64) -> rusqlite::Result<()> {
     conn.execute("UPDATE sessions SET idle_ms = ?1 WHERE id = ?2", params![idle_ms, id])?;
+    Ok(())
+}
+
+/// Marks a running session broken (tamper): it can no longer finish as completed.
+pub fn mark_broken(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<()> {
+    conn.execute("UPDATE sessions SET broken_at = COALESCE(broken_at, ?1) WHERE id = ?2", params![now, id])?;
     Ok(())
 }
 
@@ -275,6 +284,7 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
                 idle_ms,
                 idle_since: None,
                 anchor_wall: now,
+                tampered: false,
                 anchor_mono: Instant::now(),
             }))
         }

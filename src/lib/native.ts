@@ -54,6 +54,7 @@ export const EVENTS = {
   browser: "sanctum://browser",
   cloud: "sanctum://cloud",
   checkin: "sanctum://checkin",
+  tamper: "sanctum://tamper",
 } as const;
 
 /** True when running inside the Tauri webview (false in `vite` in a browser and in tests). */

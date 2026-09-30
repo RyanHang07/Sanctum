@@ -28,6 +28,10 @@ export function connectNativeEvents(): () => void {
     // Edits made in Google changed routines or items.
     onNative(EVENTS.planner, () => void usePlanner.getState().reload()),
     onNative<CheckinDue>(EVENTS.checkin, (d) => void useTrackers.getState().showDue(d)),
+    // Tampering broke the seal (M12): say why. The seal stays on until its planned end.
+    onNative<{ kind: string; detail: string }>(EVENTS.tamper, (t) =>
+      store().showNotice({ lead: "The seal is broken.", rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end.` }),
+    ),
   ];
   // Check-ins queue while sealed; one that came due shows when the seal ends.
   const offSeal = useStore.subscribe((s, prev) => {

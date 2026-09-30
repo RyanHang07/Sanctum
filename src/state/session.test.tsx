@@ -162,6 +162,17 @@ describe("session lifecycle", () => {
     expect(await within(again).findByText(/Emergency unlock back/)).toBeInTheDocument();
   });
 
+  it("tampering breaks the seal, says why, and keeps it on", async () => {
+    await sealed();
+    render(<AppShell />);
+    // Let startup's session load land first.
+    await act(async () => await new Promise((r) => setTimeout(r, 0)));
+    await act(async () => mockControls.tamper("clock", "the system clock was set forward 60 min"));
+    expect(screen.getByRole("status")).toHaveTextContent(/The seal is broken\.\s*The system clock was set forward 60 min\. It stays on until the planned end\./);
+    expect(screen.getByTestId("session-bar")).toHaveTextContent("Seal broken, the streak resets");
+    expect(useStore.getState().appState).toBe("sealed");
+  });
+
   it("completing a session shows the held page with stats; Done returns Home", async () => {
     // Midday, so the hour of focus lands inside today whenever the suite runs.
     const noon = new Date();

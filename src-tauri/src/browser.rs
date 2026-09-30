@@ -42,6 +42,11 @@ pub const BROWSERS: &[(&str, &str, &str)] = &[
     ("Brave", "brave.exe", "BraveSoftware\\Brave-Browser"),
 ];
 
+/// "Comet" for comet.exe.
+fn browser_label(exe: &str) -> &str {
+    BROWSERS.iter().find(|b| b.1 == exe).map_or(exe, |b| b.0)
+}
+
 /// Where the bridge finds this Sanctum: `%APPDATA%\<identifier>\bridge(-dev).json`.
 pub fn token_file(app_data: &Path) -> PathBuf {
     app_data.join(if cfg!(debug_assertions) { "bridge-dev.json" } else { "bridge.json" })
@@ -65,6 +70,8 @@ struct Inner {
     missing: HashMap<String, Instant>,
     /// Browsers already logged as an attempt for the current gap.
     logged: Vec<String>,
+    /// Browsers whose extension was connected when the seal started (tamper if it goes quiet).
+    at_seal: Vec<String>,
 }
 
 pub struct State {
@@ -131,6 +138,7 @@ pub fn push_rules(app: &AppHandle) {
     inner.missing.clear();
     inner.logged.clear();
     inner.conns.retain(|_, c| send_line(&mut c.stream, &msg).is_ok());
+    inner.at_seal = if view.is_some() { inner.conns.values().map(|c| c.exe.clone()).collect() } else { Vec::new() };
 }
 
 fn emit_status(app: &AppHandle) {
@@ -286,6 +294,13 @@ fn watch(app: &AppHandle, sys: &mut sysinfo::System) {
         }
         let since = *inner.missing.entry(exe.clone()).or_insert_with(Instant::now);
         if since.elapsed() < GRACE {
+            continue;
+        }
+        // Its extension was on when the seal started and the browser is still open without it.
+        if inner.at_seal.contains(&exe) && since.elapsed() >= crate::tamper::EXTENSION_GRACE {
+            drop(inner);
+            crate::tamper::break_seal(app, "extension", format!("the {} extension was turned off", browser_label(&exe)));
+            winutil::minimize_windows_of(&pids);
             continue;
         }
         let first = !inner.logged.contains(&exe);
