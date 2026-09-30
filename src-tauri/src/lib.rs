@@ -16,6 +16,7 @@ mod planner;
 mod profiles;
 mod session;
 mod stats;
+mod trackers;
 mod tray;
 mod winutil;
 
@@ -51,6 +52,7 @@ pub struct Shared {
     pub browser: browser::State,
     pub cloud: cloud::State,
     pub unlock: unlock::State,
+    pub checkins: trackers::State,
 }
 
 impl Shared {
@@ -575,12 +577,14 @@ pub fn run() {
                 browser: browser::State::new(),
                 cloud: cloud::State::new(),
                 unlock: unlock::State::default(),
+                checkins: trackers::State::new(),
             });
             tray::create(app.handle())?;
             engine::resume_on_startup(app.handle());
             engine::spawn_loop(app.handle().clone());
             activity::spawn(app.handle().clone());
             gcal::spawn(app.handle().clone());
+            trackers::spawn(app.handle().clone());
             // The browser extension (4b). A failure here leaves app blocking untouched.
             if let Err(e) = browser::register(&dir) {
                 eprintln!("browser bridge registration failed: {e}");
@@ -693,6 +697,18 @@ pub fn run() {
             remove_class_rule,
             activity_summary,
             stats::stats_overview,
+            trackers::list_trackers,
+            trackers::save_tracker,
+            trackers::delete_tracker,
+            trackers::tracker_entries,
+            trackers::log_entries,
+            trackers::delete_tracker_entry,
+            trackers::list_checkins_cmd,
+            trackers::save_checkin_cmd,
+            trackers::delete_checkin_cmd,
+            trackers::checkin_pending,
+            trackers::checkin_answer,
+            trackers::next_checkin,
             list_routines,
             save_routine,
             delete_routine,

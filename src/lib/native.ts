@@ -4,6 +4,8 @@ import type {
   ActivitySummary,
   BrowserStatus,
   CalEvent,
+  Checkin,
+  CheckinDue,
   CloudStatus,
   Category,
   ClassRule,
@@ -16,6 +18,8 @@ import type {
   LadderView,
   LaunchReport,
   NewDistraction,
+  NewEntry,
+  NextCheckin,
   NewRule,
   Profile,
   ProfileDraft,
@@ -28,6 +32,9 @@ import type {
   StatsOverview,
   Todo,
   TodoDraft,
+  Tracker,
+  TrackerDraft,
+  TrackerEntry,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
 import { bus } from "./bus";
@@ -45,6 +52,7 @@ export const EVENTS = {
   planner: "sanctum://planner",
   browser: "sanctum://browser",
   cloud: "sanctum://cloud",
+  checkin: "sanctum://checkin",
 } as const;
 
 /** True when running inside the Tauri webview (false in `vite` in a browser and in tests). */
@@ -137,6 +145,19 @@ export const native = {
   gcalSaveEvent: (draft: EventDraft) => call<void>("gcal_save_event", { draft }),
   gcalDeleteEvent: (calendarId: string, eventId: string) => call<void>("gcal_delete_event", { calendarId, eventId }),
   gcalOpen: (url: string) => call<void>("gcal_open", { url }),
+
+  listTrackers: () => call<Tracker[]>("list_trackers"),
+  saveTracker: (draft: TrackerDraft) => call<Tracker>("save_tracker", { draft }),
+  deleteTracker: (id: number) => call<void>("delete_tracker", { id }),
+  trackerEntries: (from: number, to: number) => call<TrackerEntry[]>("tracker_entries", { from, to }),
+  logEntries: (items: NewEntry[], checkinId: number | null = null) => call<TrackerEntry[]>("log_entries", { items, checkinId }),
+  deleteTrackerEntry: (id: number) => call<void>("delete_tracker_entry", { id }),
+  listCheckins: () => call<Checkin[]>("list_checkins_cmd"),
+  saveCheckin: (checkin: Checkin) => call<Checkin>("save_checkin_cmd", { checkin }),
+  deleteCheckin: (id: number) => call<void>("delete_checkin_cmd", { id }),
+  checkinPending: () => call<CheckinDue | null>("checkin_pending"),
+  checkinAnswer: (id: number, date: string, outcome: "logged" | "skipped" | "snoozed") => call<void>("checkin_answer", { id, date, outcome }),
+  nextCheckin: () => call<NextCheckin | null>("next_checkin"),
 
   browserStatus: () => call<BrowserStatus>("browser_status"),
 

@@ -9,7 +9,9 @@ import { useScheduleFocus } from "../state/schedule";
 import { Home, enterFocus } from "../pages/Home";
 import { HeldPage } from "../pages/HeldPage";
 import { Onboarding } from "../pages/onboarding/Onboarding";
-import { EmptyPage } from "../pages/EmptyPage";
+import { TrackersPage } from "../pages/trackers/TrackersPage";
+import { CheckinDialog } from "./CheckinDialog";
+import { useTrackers } from "../state/trackers";
 import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
 import { WeekPage } from "../pages/week/WeekPage";
@@ -21,7 +23,7 @@ import { connectNativeEvents } from "../state/events";
 import { SAMPLE_EVENT } from "../pages/placeholders";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { seedDevPlanner, seedDevProfiles, seedDevStats } from "../lib/devSeed";
+import { seedDevPlanner, seedDevProfiles, seedDevStats, seedDevTrackers } from "../lib/devSeed";
 import { usePlanner } from "../state/planner";
 
 const TOP_RULE: Record<AppState, string> = {
@@ -39,7 +41,7 @@ function Page({ tab }: { tab: TabId }) {
     case "stats":
       return <StatsPage />;
     case "trackers":
-      return <EmptyPage title="Trackers" />;
+      return <TrackersPage />;
     case "setup":
       return <Setup />;
   }
@@ -83,7 +85,11 @@ function useNativeEvents() {
       .then(() => useStore.getState().checkOnboarding())
       .then(() => useStore.getState().loadDistractions())
       .then(() => seedDevPlanner())
-      .finally(() => usePlanner.getState().reload());
+      .finally(() => usePlanner.getState().reload())
+      // A check-in missed before startup, when "Check in on startup" is on.
+      .then(() => seedDevTrackers())
+      .then(() => useTrackers.getState().load())
+      .then(() => useTrackers.getState().checkPending());
     // Keep the Rust side (tray menu, close handling) in sync with the store on startup.
     void native.setAppState(useStore.getState().appState);
     return disconnect;
@@ -123,6 +129,7 @@ export function AppShell() {
       </main>
       <CloseDialog />
       <BreakSealDialog />
+      <CheckinDialog />
       {import.meta.env.DEV ? <DevStateToggle /> : null}
     </div>
   );

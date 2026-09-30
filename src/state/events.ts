@@ -1,8 +1,9 @@
 import { EVENTS, onNative } from "../lib/native";
-import type { GcalStatus, HeldStats, SessionView } from "../lib/types";
+import type { CheckinDue, GcalStatus, HeldStats, SessionView } from "../lib/types";
 import { useCalendar } from "./calendar";
 import { usePlanner } from "./planner";
 import { useStore } from "./store";
+import { useTrackers } from "./trackers";
 
 /** Coming back to the window syncs with Google, at most this often. */
 const FOCUS_SYNC_MS = 30_000;
@@ -26,7 +27,12 @@ export function connectNativeEvents(): () => void {
     onNative<GcalStatus>(EVENTS.gcal, (s) => useCalendar.getState().applyStatus(s)),
     // Edits made in Google changed routines or items.
     onNative(EVENTS.planner, () => void usePlanner.getState().reload()),
+    onNative<CheckinDue>(EVENTS.checkin, (d) => void useTrackers.getState().showDue(d)),
   ];
+  // Check-ins queue while sealed; one that came due shows when the seal ends.
+  const offSeal = useStore.subscribe((s, prev) => {
+    if (prev.appState === "sealed" && s.appState !== "sealed") void useTrackers.getState().checkPending();
+  });
   void useCalendar.getState().load();
   let lastSync = 0;
   const onFocus = () => {
@@ -37,6 +43,7 @@ export function connectNativeEvents(): () => void {
   window.addEventListener("focus", onFocus);
   return () => {
     window.removeEventListener("focus", onFocus);
+    offSeal();
     offs.forEach((p) => void p.then((off) => off()));
   };
 }

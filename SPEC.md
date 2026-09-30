@@ -266,8 +266,10 @@ Accounts are optional. Solo users without an account run fully local. An account
 - **Systems strip:** quick cards for Journal, Fitness, LeetCode showing the latest stat
 
 ### 4.13 Trackers + scheduled check-ins
-- **Trackers** are user-defined in setup: name, unit, type (number, yes/no, scale 1 to 10), display (chart, table, or both), optional goal
-- Seeded trackers: Weight (lb) and Body fat (%)
+- **Trackers** are user-defined in Setup > Trackers: name, unit, type (number, yes/no, scale 1 to 10, or **text**, a short note), display (chart, table, or both; text is always a list), optional goal. The type is fixed once a tracker has entries
+- ~~Seeded trackers: Weight (lb) and Body fat (%)~~ Nothing is seeded (**Decided** 2026-09-29: fully custom). New tracker offers templates (Weight, Body fat, Sleep, Mood, Workout, Journal) to start from
+- **Goal review** (a check-in option): today's open tasks (check off, or move one-time items to tomorrow) and tomorrow's top 3, which become items for tomorrow
+- While Sanctum is in the tray, a due check-in brings the window forward, always on top, until it's logged, skipped, or snoozed. Closing it snoozes 15 minutes
 - **Check-in modal:** a centered, always-on-top modal that appears at scheduled times (e.g. 8:00 AM Mon/Thu weigh-in, 9:30 PM daily wrap-up). Each check-in has its own days, time, and list of trackers to ask for. Actions: Log, Snooze 15m, Skip today
 - **On startup option:** if a scheduled check-in was missed, it pops up when Sanctum boots
 - Check-ins never appear during a sealed session; they queue until it ends
@@ -288,8 +290,9 @@ Accounts are optional. Solo users without an account run fully local. An account
 - `daily_goals(id, name, sort, profile_id nullable, active)`
 - `daily_goal_checks(goal_id, date, done_at)`
 - `todos(id, title, due_date, due_time nullable, duration_min, repeat_rule nullable, done_at, gcal_event_id nullable, gcal_etag, updated_at)`
-- `trackers(id, name, unit, kind[number|bool|scale], display[chart|table|both], goal nullable)`
-- `tracker_entries(id, tracker_id, value, logged_at, source[checkin|manual])`
+- `trackers(id, name, unit, kind[number|bool|scale|text], display[chart|table|both], goal nullable, sort, created_at)`
+- `tracker_entries(id, tracker_id, value nullable, text nullable, logged_at, source[checkin|manual], checkin_id nullable)`
+- `checkin_log(checkin_id, date, outcome[logged|skipped], at)`: one row per check-in per day once answered
 - `checkins(id, name, time, days_mask, tracker_ids json, include_goal_review bool)`
 - `settings(key, value)` (includes `checkin_on_startup`, `daily_reset_time`, `gcal_sync_token`)
 
