@@ -437,3 +437,19 @@ export interface UpdateInfo {
   version: string;
   notes: string | null;
 }
+
+/** A free-form note (src-tauri/src/notes.rs). */
+export interface Note {
+  id: number;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NoteDraft {
+  id?: number;
+  title: string;
+  body: string;
+}

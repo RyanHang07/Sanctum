@@ -3,6 +3,7 @@ import { SearchIcon } from "./icons";
 import { useStore, type SetupTab } from "../state/store";
 import { useTrackers } from "../state/trackers";
 import { usePlanner } from "../state/planner";
+import { noteTitle, useNotes } from "../state/notes";
 import { TABS } from "../state/appState";
 import { native } from "../lib/native";
 import { guessDistraction } from "../lib/rules";
@@ -54,18 +55,51 @@ export function commandsFor(query: string): Command[] {
     }
   }
   out.push({ id: "log", group: "Trackers", label: "Log a tracker entry", run: () => useTrackers.getState().openLog() });
+  out.push({
+    id: "new-note",
+    group: "Notes",
+    label: "New note",
+    run: async () => {
+      s.navigate("notes");
+      await useNotes.getState().create();
+    },
+  });
   out.push({ id: "sidebar", group: "App", label: s.settings.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar", hint: "Ctrl B", run: () => s.toggleSidebar() });
   if (!sealed) out.push({ id: "onboarding", group: "App", label: "Run setup again", run: () => s.openOnboarding() });
 
   const text = query.trim();
   const q = text.toLowerCase();
   const matched = q ? out.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q)) : out;
+  // Notes whose title or text match, when you've typed something.
+  if (q) {
+    for (const n of useNotes.getState().notes.filter((n) => `${n.title}
+${n.body}`.toLowerCase().includes(q)).slice(0, 5)) {
+      matched.push({
+        id: `note:${n.id}`,
+        group: "Notes",
+        label: `Open note: ${noteTitle(n)}`,
+        run: () => {
+          useNotes.getState().open(n.id);
+          s.navigate("notes");
+        },
+      });
+    }
+  }
   if (text) {
     matched.push({
       id: "add-task",
       group: "Act on it",
       label: `Add “${text}” for today`,
       run: () => usePlanner.getState().saveTodo({ title: text, dueDate: todayKey(), dueTime: null, durationMin: null, profileId: null }),
+    });
+    matched.push({
+      id: "save-note",
+      group: "Act on it",
+      label: `Save “${text}” as a note`,
+      run: async () => {
+        await useNotes.getState().create(text);
+        s.navigate("notes");
+      },
     });
     const kind = guessDistraction(text);
     if (kind) {
