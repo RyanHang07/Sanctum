@@ -274,6 +274,18 @@ describe("Home panels", () => {
   });
 });
 
+describe("Week key", () => {
+  it("keeps the key behind one button", async () => {
+    await setup();
+    render(<WeekPage />);
+    expect(screen.queryByRole("list", { name: "Key" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Key" }));
+    expect(within(screen.getByRole("list", { name: "Key" })).getByText("Calendar event")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide key" }));
+    expect(screen.queryByRole("list", { name: "Key" })).toBeNull();
+  });
+});
+
 describe("Quick add popover", () => {
   it("fills picks from what you type, lets a click override, and adds a timed focus item", async () => {
     await setup();

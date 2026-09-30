@@ -79,7 +79,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   return (
     <div
       data-kind={item.kind}
-      className={`group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
+      className={`row-in group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
     >
       <button
         type="button"
@@ -110,7 +110,7 @@ function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: 
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-      className={`flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
+      className={`group/day flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
         today ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40 hover:bg-panel"
       }`}
     >
@@ -127,7 +127,7 @@ function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: 
         aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}
         aria-expanded={!!adding}
         onClick={(e) => setAdding(e.currentTarget)}
-        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
+        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-faint opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:opacity-100 group-hover/day:opacity-100 aria-expanded:opacity-100"
       >
         <PlusIcon size={11} /> Add
       </button>
@@ -156,6 +156,43 @@ function SyncStatus() {
   );
 }
 
+/** What the marks mean, behind one button so the week itself stays quiet. */
+function WeekKey() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-[18px]">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="h-6 rounded-control px-[6px] text-meta text-muted transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
+      >
+        {open ? "Hide key" : "Key"}
+      </button>
+      {open ? (
+        <div role="list" aria-label="Key" className="page-in flex gap-[18px]">
+          <span role="listitem" className="flex items-center gap-[6px]">
+            <span className="h-3 w-[3px] rounded-[2px] bg-sealed" />
+            Focus block, seals its profile
+          </span>
+          <span role="listitem" className="flex items-center gap-[6px]">
+            <RepeatGlyph className="h-3 w-3" />
+            Routine, edit in Routines
+          </span>
+          <span role="listitem" className="flex items-center gap-[6px]">
+            <span className="box-border h-[10px] w-[10px] rounded-[3px] border-[1.5px] border-check-line" />
+            One-time item
+          </span>
+          <span role="listitem" className="flex items-center gap-[6px]">
+            <span className="h-3 w-[3px] rounded-[2px] bg-event" />
+            Calendar event
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) => void }) {
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
@@ -169,23 +206,8 @@ function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
           <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} />
         ))}
       </div>
-      <div className="flex gap-[18px] text-meta text-muted">
-        <span className="flex items-center gap-[6px]">
-          <span className="h-3 w-[3px] rounded-[2px] bg-sealed" />
-          Focus block, seals its profile
-        </span>
-        <span className="flex items-center gap-[6px]">
-          <RepeatGlyph className="h-3 w-3" />
-          Routine, edit in Routines
-        </span>
-        <span className="flex items-center gap-[6px]">
-          <span className="box-border h-[10px] w-[10px] rounded-[3px] border-[1.5px] border-check-line" />
-          One-time item
-        </span>
-        <span className="flex items-center gap-[6px]">
-          <span className="h-3 w-[3px] rounded-[2px] bg-event" />
-          Calendar event
-        </span>
+      <div className="flex items-center gap-[18px] text-meta text-muted">
+        <WeekKey />
         <SyncStatus />
       </div>
     </>
