@@ -38,6 +38,18 @@ Raised after the Milestone 1 review (2026-09-29).
 ## 4d Today + Week (complete 2026-09-29)
 - Later: a Ctrl K quick-add bar from anywhere (the Home "Search or command" box).
 
+## M5 onboarding (noted 2026-09-29)
+- **Browser extension step.**
+  - List the installed browsers from `browser_status`.
+  - For each: open `chrome://extensions` (can't be deep-linked; show the steps), copy the folder path, turn on Developer mode, Load unpacked, then Details > Allow in Incognito.
+  - Watch `sanctum://browser` and tick each browser off as it connects.
+  - After M13, this becomes a Chrome Web Store / Edge Add-ons install link.
+- **Always open step.**
+  - Start from the seeded defaults (`blocker::DEFAULT_ALWAYS`).
+  - Show apps running right now that aren't on the list as suggestions (editors, Docker, chat) with one-tap add.
+  - Say plainly: allowlist mode only stops new launches; what's open when you enter stays.
+- **Try a seal.** An optional 1-minute test seal on a sample site, so the blocked page and an attempt show once before real use.
+
 ## Blocking
 - **Instant blocking.** Replace the 1s process poll with WMI process-start events (SPEC 4.4 v2).
 - **Elevated apps** can't be closed from the user-level app; the elevated watchdog service (M8) should do it.

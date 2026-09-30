@@ -236,6 +236,10 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 5. Optional: create account + invite an accountability partner
 6. Enable autostart (on by default) and install the watchdog service (needs one admin prompt)
 
+Added 2026-09-29 (at M5 these become steps; see BACKLOG "M5 onboarding"):
+- **Browser extension:** after profiles, detect installed Chromium browsers. For each one, walk through loading the extension and turning on Allow in Incognito, and show it connect live. Skippable; Setup > Browser extension offers it later.
+- **Always open:** show the pre-filled list (Claude, music, browsers, terminals, screenshot tools, Docker, password managers). Offer running apps as one-tap additions, and explain that allowlist mode leaves apps already open alone and only stops new launches.
+
 Accounts are optional. Solo users without an account run fully local. An account is required only for the partner feature and cloud summary sync.
 
 ### 4.12 Today + Week data (replaces my Notion page; UI per 4.0)
