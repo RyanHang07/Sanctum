@@ -42,6 +42,28 @@ impl Engine {
     pub fn session_ids(&self) -> Option<(i64, Option<i64>)> {
         self.active.lock().unwrap().as_ref().map(|a| (a.id, a.profile_id))
     }
+    pub fn view(&self) -> Option<SessionView> {
+        self.active.lock().unwrap().as_ref().map(Active::view)
+    }
+}
+
+/// Logs an attempt caught outside the engine's own sweep (the browser extension). Returns
+/// the session's new attempt count.
+pub fn record_external_attempt(app: &AppHandle, what: &str, kind: &str) -> Option<i64> {
+    let shared = app.state::<Shared>();
+    let id = shared.engine.active.lock().unwrap().as_ref()?.id;
+    let attempts = {
+        let conn = shared.db.lock().ok()?;
+        session::record_attempt(&conn, id, what, kind, session::now_ms()).ok()?
+    };
+    let view = {
+        let mut guard = shared.engine.active.lock().unwrap();
+        let active = guard.as_mut().filter(|a| a.id == id)?;
+        active.attempts = attempts;
+        active.view()
+    };
+    let _ = app.emit(EV_TICK, view);
+    Some(attempts)
 }
 
 /// What the intercept window shows.
@@ -68,6 +90,7 @@ fn set_sealed(app: &AppHandle, sealed: bool) {
     let shared = app.state::<Shared>();
     *shared.app_state.lock().unwrap() = if sealed { AppState::Sealed } else { AppState::Open };
     let _ = tray::refresh(app, sealed);
+    crate::browser::push_rules(app);
 }
 
 /// Friendly name for an exe from the app scan (when it has run), else the exe stem.

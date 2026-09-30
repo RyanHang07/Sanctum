@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AppState } from "../state/appState";
 import type {
   ActivitySummary,
+  BrowserStatus,
   CalEvent,
   Category,
   ClassRule,
@@ -35,6 +36,7 @@ export const EVENTS = {
   enterFocus: "sanctum://enter-focus",
   gcal: "sanctum://gcal",
   planner: "sanctum://planner",
+  browser: "sanctum://browser",
 } as const;
 
 /** True when running inside the Tauri webview (false in `vite` in a browser and in tests). */
@@ -71,6 +73,8 @@ export const native = {
   deleteProfile: (id: number) => call<void>("delete_profile", { id }),
   addRule: (profileId: number, rule: NewRule) => call<Profile>("add_rule", { profileId, rule }),
   removeRule: (ruleId: number) => call<Profile>("remove_rule", { ruleId }),
+  addSiteAllow: (ruleId: number, prefix: string) => call<Profile>("add_site_allow", { ruleId, prefix }),
+  removeSiteAllow: (id: number) => call<Profile>("remove_site_allow", { id }),
   listInstalledApps: (refresh = false) => call<InstalledApp[]>("list_installed_apps", { refresh }),
   appIcon: (path: string) => call<string | null>("app_icon", { path }),
   launchProfile: (id: number) => call<LaunchReport>("launch_profile", { id }),
@@ -112,6 +116,9 @@ export const native = {
   gcalSaveEvent: (draft: EventDraft) => call<void>("gcal_save_event", { draft }),
   gcalDeleteEvent: (calendarId: string, eventId: string) => call<void>("gcal_delete_event", { calendarId, eventId }),
   gcalOpen: (url: string) => call<void>("gcal_open", { url }),
+
+  browserStatus: () => call<BrowserStatus>("browser_status"),
+  browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
 };
 
 export async function onNative<T>(event: string, handler: (payload: T) => void): Promise<() => void> {

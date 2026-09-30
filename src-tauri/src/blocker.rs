@@ -14,7 +14,7 @@ const PROTECTED: &[&str] = &[
     "explorer.exe", "taskmgr.exe", "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe",
     "shellexperiencehost.exe", "textinputhost.exe", "applicationframehost.exe", "lockapp.exe",
     "runtimebroker.exe", "systemsettings.exe", "securityhealthsystray.exe", "dllhost.exe", "narrator.exe",
-    "magnify.exe", "osk.exe", "tabtip.exe", "msedgewebview2.exe", "sanctum.exe",
+    "magnify.exe", "osk.exe", "tabtip.exe", "msedgewebview2.exe", "sanctum.exe", "sanctum-bridge.exe",
 ];
 
 pub fn is_protected(exe: &str) -> bool {

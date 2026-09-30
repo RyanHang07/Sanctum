@@ -18,6 +18,19 @@ export function normalizeDomain(input: string): string | null {
   return ok ? s : null;
 }
 
+/**
+ * A page (or section) under a sealed site that stays open. Mirrors profiles::normalize_allow:
+ * on the site or a subdomain, and narrower than the whole site.
+ */
+export function normalizeAllow(domain: string, input: string): string | null {
+  const s = normalizeDomain(input);
+  if (!s) return null;
+  const host = s.split("/")[0] ?? "";
+  const site = domain.split("/")[0] ?? domain;
+  const onSite = host === site || host.endsWith(`.${site}`);
+  return onSite && s !== domain && s.length > site.length ? s : null;
+}
+
 /** Anything URL-shaped becomes an absolute https URL; everything else is rejected. */
 export function normalizeUrl(input: string): string | null {
   const s = input.trim();

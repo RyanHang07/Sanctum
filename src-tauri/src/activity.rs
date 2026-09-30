@@ -249,7 +249,12 @@ pub fn spawn(app: AppHandle) {
                     let pid = sysinfo::Pid::from_u32(f.pid);
                     sys.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, ProcessRefreshKind::nothing());
                     let exe = sys.process(pid)?.name().to_string_lossy().to_lowercase();
-                    Some(Sample { exe, title: f.title })
+                    // The extension knows the tab's real domain; titles only hint at it (4b).
+                    let title = match shared.browser.active_domain(&exe) {
+                        Some(domain) if !f.title.to_lowercase().contains(&domain) => format!("{} — {domain}", f.title),
+                        _ => f.title,
+                    };
+                    Some(Sample { exe, title })
                 });
                 let idle_ms = winutil::idle_ms();
                 let event = {

@@ -1,5 +1,28 @@
 # Changelog
 
+## 4b: browser extension (2026-09-29)
+
+### Added
+- **Sanctum's Chromium extension** (`extension/`, Manifest V3, pinned ID `iiapijigajhpjklfkokmjobdfconijag`).
+  - While sealed it blocks the profile's sites and their subdomains with `declarativeNetRequest`, and moves tabs that are already open to a packaged blocked page (SiteBlocked.dc.html) with the seal's countdown.
+  - Title keywords also block tabs whose path or title matches them.
+  - When the seal ends, the page says "You're open again."
+- **Allow exceptions.** Each sealed site in a profile's Seals panel gets **Allow a page**, for a subdomain or path that stays open, such as `youtube.com/@mitocw` (migration `0007_browser`, table `site_exceptions`).
+- **Native messaging bridge** (`src-tauri/src/bridge.rs`, `browser.rs`).
+  - At startup Sanctum copies itself to `sanctum-bridge.exe` in app data and registers it per-user, with no admin, for Comet, Chrome, Edge, and Brave.
+  - The browser starts that copy, which relays to the running Sanctum over a localhost socket guarded by a token file.
+  - Rules go out when a seal starts, resumes, or ends.
+- **Sites blocked in the browser count as attempts** (kind `site`, with only the site or keyword recorded).
+- **Missing extension mid-seal.** If a browser that has had the extension runs without it for 5 seconds during a seal with sites or keywords, the gap is logged once as an attempt (kind `extension`). That browser's windows stay minimized until the extension is back.
+- **Activity knows the real site.** The extension reports the focused tab's domain (never the URL or title), so browser time is classified by site rules even when the title doesn't name the site.
+- **Setup > Browser extension** lists each installed browser with its status (connected and version, not loaded, not allowed in private windows, or running without it). It also gives load-unpacked steps with the folder path, Copy path, and Open folder.
+
+### Fixed
+- A crash at launch when the compact timer's window moved before setup finished.
+
+### Changed
+- Tests: 127 frontend (extension matching, site exceptions, the Browser extension section) and 63 Rust (rules message, native message framing, site exceptions).
+
 ## 4d (complete): quick add and Month (2026-09-29)
 
 ### Added

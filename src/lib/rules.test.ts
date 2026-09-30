@@ -1,4 +1,4 @@
-import { classifySealInput, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
+import { classifySealInput, normalizeAllow, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
 import type { Profile, Rule } from "./types";
 
 const rule = (kind: Rule["kind"], value: string, label: string | null = null): Rule => ({
@@ -8,9 +8,18 @@ const rule = (kind: Rule["kind"], value: string, label: string | null = null): R
   value,
   label,
   path: null,
+  allow: [],
 });
 
 describe("rule inputs", () => {
+  it("normalizes site exceptions like the Rust side", () => {
+    expect(normalizeAllow("youtube.com", "https://www.youtube.com/@mitocw/")).toBe("youtube.com/@mitocw");
+    expect(normalizeAllow("youtube.com", "music.youtube.com")).toBe("music.youtube.com");
+    expect(normalizeAllow("youtube.com", "youtube.com")).toBeNull();
+    expect(normalizeAllow("youtube.com", "notyoutube.com/x")).toBeNull();
+    expect(normalizeAllow("reddit.com", "youtube.com/x")).toBeNull();
+  });
+
   it("normalizes domains like the Rust side", () => {
     expect(normalizeDomain("https://www.YouTube.com/")).toBe("youtube.com");
     expect(normalizeDomain("reddit.com/r/all/")).toBe("reddit.com/r/all");

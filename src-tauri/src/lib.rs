@@ -1,6 +1,8 @@
 mod activity;
 mod apps;
 mod blocker;
+pub mod bridge;
+mod browser;
 mod classify;
 mod db;
 mod engine;
@@ -41,6 +43,7 @@ pub struct Shared {
     pub engine: engine::Engine,
     pub activity: activity::State,
     pub gcal: gcal::State,
+    pub browser: browser::State,
 }
 
 impl Shared {
@@ -356,6 +359,18 @@ fn remove_rule(shared: State<Shared>, rule_id: i64) -> Result<profiles::Profile,
     with_db(&shared, |c| profiles::remove_rule(c, rule_id))
 }
 
+#[tauri::command]
+fn add_site_allow(shared: State<Shared>, rule_id: i64, prefix: String) -> Result<profiles::Profile, String> {
+    unsealed(&shared)?;
+    with_db(&shared, |c| profiles::add_site_allow(c, rule_id, &prefix))
+}
+
+#[tauri::command]
+fn remove_site_allow(shared: State<Shared>, id: i64) -> Result<profiles::Profile, String> {
+    unsealed(&shared)?;
+    with_db(&shared, |c| profiles::remove_site_allow(c, id))
+}
+
 fn installed_apps(shared: &Shared, refresh: bool) -> Vec<apps::InstalledApp> {
     let mut cache = shared.apps.lock().unwrap();
     if refresh || cache.is_none() {
@@ -507,12 +522,21 @@ pub fn run() {
                 engine: engine::Engine::new(),
                 activity: activity::State::new(),
                 gcal: gcal::State::new(),
+                browser: browser::State::new(),
             });
             tray::create(app.handle())?;
             engine::resume_on_startup(app.handle());
             engine::spawn_loop(app.handle().clone());
             activity::spawn(app.handle().clone());
             gcal::spawn(app.handle().clone());
+            // The browser extension (4b). A failure here leaves app blocking untouched.
+            if let Err(e) = browser::register(&dir) {
+                eprintln!("browser bridge registration failed: {e}");
+            }
+            if let Err(e) = browser::start(app.handle(), &dir) {
+                eprintln!("browser bridge server failed: {e}");
+            }
+            browser::spawn_watch(app.handle().clone());
 
             // On login, open Home by default; "Start in tray" keeps the window hidden.
             if !start_in_tray {
@@ -546,9 +570,11 @@ pub fn run() {
                 let Some(w) = window.app_handle().get_webview_window("compact") else { return };
                 let Some(geo) = compact_geometry(&w) else { return };
                 let (x0, y0) = compact_anchor(&geo);
-                if let Ok(conn) = window.app_handle().state::<Shared>().db.lock() {
+                // Windows move while they're created, before setup has managed Shared.
+                let Some(shared) = window.app_handle().try_state::<Shared>() else { return };
+                if let Ok(conn) = shared.db.lock() {
                     let _ = db::set_setting(&conn, "compact_offset", &format!("{},{}", pos.x - x0, pos.y - y0));
-                }
+                };
             }
             _ => {}
         })
@@ -567,6 +593,10 @@ pub fn run() {
             delete_profile,
             add_rule,
             remove_rule,
+            add_site_allow,
+            remove_site_allow,
+            browser::browser_status,
+            browser::browser_open_extension_dir,
             list_installed_apps,
             app_icon,
             launch_profile,
