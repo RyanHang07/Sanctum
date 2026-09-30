@@ -8,7 +8,8 @@
   - A new app opened from Start, the taskbar, or the desktop that isn't in the profile's launch set or Always open closes as it opens. The overlay shows it, and it counts as an attempt.
   - Apps sealed by name still close, running or not.
 - **Always open** (Setup > Preferences) is one list for every profile, shown as chips with Add app. It replaces the Always allowed text field.
-  - It starts with Claude, Spotify, Comet, Chrome, Edge, Brave, Firefox, Windows Terminal, and Snipping Tool, and keeps anything you had there.
+  - It starts with Claude, Spotify, Comet, Chrome, Edge, Brave, Firefox, Windows Terminal, Snipping Tool, Lightshot, ShareX, PowerShell, Command Prompt, Docker Desktop, Notepad, Calculator, 1Password, and Bitwarden, and keeps anything you had there.
+  - New defaults arrive in batches, each added once, so a later batch reaches existing installs without bringing back anything you removed.
   - These can always start in allowlist mode.
 - In allowlist mode the Seals list is no longer dimmed, since those seals still apply.
 
