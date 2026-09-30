@@ -1,53 +1,65 @@
-// The sealed-site page: says what's sealed and for how long, and logs the block once.
+// The sealed-site page (design/screens/SiteBlocked.dc.html): what's sealed and for how long,
+// a way back to the page you were on, and the block logged once as an attempt.
+
+import { countdown, siteLabel } from "./rules.js";
 
 const params = new URLSearchParams(location.search);
 const site = params.get("site") ?? "";
 const keyword = params.get("keyword");
 
 const $ = (id) => document.getElementById(id);
-$("what").textContent = keyword ? `“${keyword}”` : site || "This site";
-document.title = `${keyword ? keyword : site} · Sealed`;
+document.title = `${keyword ? `“${keyword}”` : site || "Sealed"} · Sanctum`;
 
 void chrome.runtime.sendMessage({ type: "blocked", site, keyword });
 
 const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-function countdown(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+let state = null;
+
+function headline(lead, payoff) {
+  const h = document.querySelector("h1");
+  h.replaceChildren(`${lead} `, Object.assign(document.createElement("em"), { textContent: payoff }));
 }
 
-let rules = null;
-
 function render() {
-  if (!rules) return;
-  if (!rules.sealed) {
+  if (!state) return;
+  const { rules, connected, back } = state;
+  const backLabel = back ? siteLabel(back) : null;
+  if (!rules?.sealed) {
     // The seal is over: offer the site back.
     $("chip").hidden = true;
-    document.querySelector("h1").innerHTML = "";
-    document.querySelector("h1").append("You're open again. ", Object.assign(document.createElement("em"), { textContent: "Go on." }));
+    headline("You're open", "again.");
     $("body").textContent = site ? `${site} opens normally now.` : "Sites open normally now.";
     $("back").textContent = site ? `Open ${site}` : "Go back";
     return;
   }
+  headline(keyword ? `Pages about “${keyword}”` : `${site || "This site"} stays`, keyword ? "stay sealed." : "sealed.");
+  $("back").textContent = backLabel ? `Back to ${backLabel}` : "Close this tab";
+  const body = $("body");
   if (rules.endsAt) {
     $("chip").hidden = false;
     $("until").textContent = `Sealed until ${clock(rules.endsAt)}`;
-    const body = $("body");
-    body.textContent = `You're in ${rules.profile ?? "a focus session"} for `;
-    body.append(Object.assign(document.createElement("span"), { className: "mono", textContent: countdown(rules.endsAt - Date.now()) }));
-    body.append(keyword ? ` more. Pages about “${keyword}” wait until then.` : " more. Scrolling is how mid happens.");
+    body.replaceChildren(
+      `You're in ${rules.profile ?? "a focus session"} for `,
+      Object.assign(document.createElement("span"), { className: "mono", textContent: countdown(rules.endsAt - Date.now()) }),
+      keyword ? " more. They open again when it ends." : " more. Scrolling is how mid happens.",
+    );
+  } else {
+    body.textContent = "You're sealed in. Scrolling is how mid happens.";
   }
+  $("offline").hidden = connected;
 }
 
 async function refresh() {
-  rules = await chrome.runtime.sendMessage({ type: "rules?" }).catch(() => null);
+  state = await chrome.runtime.sendMessage({ type: "state?" }).catch(() => null);
   render();
 }
 
 $("back").addEventListener("click", () => {
+  const rules = state?.rules;
   if (rules && !rules.sealed && site) location.href = `https://${site}`;
-  else if (history.length > 1) history.back();
-  else location.href = "about:blank";
+  else if (state?.back) location.href = state.back;
+  else window.close();
 });
 $("open").addEventListener("click", () => void chrome.runtime.sendMessage({ type: "open-sanctum" }));
 

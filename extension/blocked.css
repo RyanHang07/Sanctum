@@ -126,3 +126,31 @@ button {
   font-size: 12px;
   color: var(--faint);
 }
+
+.offline {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.offline[hidden] {
+  display: none;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.card {
+  animation: rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
+}

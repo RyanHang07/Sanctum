@@ -1,5 +1,29 @@
 # Changelog
 
+## Partner page, emails, extension (2026-09-30)
+
+### Added
+- **One email template** (`supabase/functions/_shared/email.ts`).
+  - A light, branded card per the design, with a preview line, an HTML part, and a plain-text part.
+  - It covers the unlock request (reason, session, and a Review request button), seal broken, emergency unlock, and streak lost.
+  - Two are new: **email the invite** (Setup › Partner › Email it, 5 a day) and **unlock decided**, which reaches you even when Sanctum is closed.
+  - Supabase sign-in and confirm templates are generated from the same file (`npm run email:templates`).
+  - `/emails` on the partner dev server previews every email.
+- **Partner page** (PartnerApprove.dc.html), phone-first.
+  - `/approve/<id>` is a full-screen request: headline, reason, Session / Time left / Asks this week, 6-box PIN, a note, "Deny, keep the seal" / "Approve, end it", and a clear result.
+  - The dashboard links pending requests there. Invite and PIN reset use the PIN boxes too.
+  - `/demo/approve` shows the screen with sample data in dev.
+- **Unlock requests carry their session** (cloud migration `20260930140000_request_details`: `profile_name`, `ends_at`).
+- **Extension 0.2.0.**
+  - The blocked page says "Back to <the page you were on>", and keyword blocks get their own headline.
+  - It shows a note when Sanctum isn't answering, and uses the source mark.
+  - A **toolbar popup** shows sealed or open, a live countdown, the profile, what's sealed, and whether Sanctum is connected.
+  - If Sanctum stays unreachable past a session's planned end, the extension lifts the seal itself.
+  - `npm run ext:preview` shows the pages outside Chrome.
+
+### Changed
+- Tests: 190 frontend and 90 Rust.
+
 ## Polish: notes, calmer screens, motion (2026-09-30)
 
 ### Added

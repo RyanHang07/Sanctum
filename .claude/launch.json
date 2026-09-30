@@ -20,6 +20,15 @@
         "dev"
       ],
       "port": 5174
+    },
+    {
+      "name": "extension",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "ext:preview"
+      ],
+      "port": 5175
     }
   ]
 }

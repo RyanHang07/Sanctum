@@ -100,7 +100,10 @@
       "../extension/blocked.js": "extension/blocked.js",
       "../extension/tokens.css": "extension/tokens.css",
       "../extension/fonts/": "extension/fonts/",
-      "../extension/icons/": "extension/icons/"
+      "../extension/icons/": "extension/icons/",
+      "../extension/popup.html": "extension/popup.html",
+      "../extension/popup.js": "extension/popup.js",
+      "../extension/popup.css": "extension/popup.css"
     },
     "createUpdaterArtifacts": false,
     "publisher": "Sanctum contributors",

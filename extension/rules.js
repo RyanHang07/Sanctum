@@ -80,3 +80,32 @@ export function netRules(rules) {
   }
   return out;
 }
+
+/** "https://www.neetcode.io/practice" -> "neetcode.io": the label for "Back to …". */
+export function siteLabel(url) {
+  return hostOf(url);
+}
+
+/** A page worth going back to: a web page that isn't sealed right now. */
+export function allowedPage(url, rules) {
+  return !!hostOf(url) && !blockedSite(url, rules) && !keywordHit(url, "", rules);
+}
+
+/** mm:ss or h:mm:ss until `endsAt`. */
+export function countdown(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/** The popup's summary line: "3 sites and 1 keyword sealed". */
+export function sealedSummary(rules) {
+  const n = (rules?.sites ?? []).length;
+  const k = (rules?.keywords ?? []).length;
+  const parts = [];
+  if (n) parts.push(`${n} ${n === 1 ? "site" : "sites"}`);
+  if (k) parts.push(`${k} ${k === 1 ? "keyword" : "keywords"}`);
+  return parts.length ? `${parts.join(" and ")} sealed` : "Apps only; no sites sealed";
+}

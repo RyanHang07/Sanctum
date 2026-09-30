@@ -1,0 +1,116 @@
+/* The toolbar popup. Colors come from tokens.css. */
+body {
+  margin: 0;
+  width: 300px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+.popup {
+  display: flex;
+  flex-direction: column;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.name {
+  font-weight: 600;
+}
+.pill {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line-input);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--open);
+}
+body[data-state="sealed"] .pill {
+  border-color: var(--sealed-line);
+  background: var(--sealed-tint);
+  color: var(--text);
+}
+body[data-state="sealed"] .pill .dot {
+  background: var(--sealed);
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+}
+.body[hidden] {
+  display: none;
+}
+.timer-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.timer {
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.muted {
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-footer);
+}
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--faint);
+}
+/* Connected is a fact, not a state: neutral, never the event teal or the sealed cobalt. */
+body[data-connected="yes"] .conn .dot {
+  background: var(--text-2);
+}
+button {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-input);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--muted);
+  background: var(--line);
+}
