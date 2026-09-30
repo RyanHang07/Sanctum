@@ -6,7 +6,7 @@ import { usePlanner } from "../state/planner";
 import { useAgenda, useCalendar } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { native } from "../lib/native";
+import { EVENTS, native, onNative } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
@@ -16,7 +16,8 @@ import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { blockTimes, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { addDays, blockTimes, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import type { DayStatus, StatsOverview } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -47,18 +48,55 @@ function useSealPreview(profileId: number | undefined): string[] {
   return names;
 }
 
+const MARK: Record<DayStatus, string> = {
+  kept: "bg-sealed",
+  broken: "bg-broken",
+  missed: "bg-line-input",
+  rest: "border border-dashed border-check-line",
+  today: "border border-sealed",
+  future: "bg-line",
+  none: "bg-line",
+};
+
+/** The streak and the last 7 days (SPEC 4.10). Opens Stats. */
 function StreakChip() {
-  // Streaks arrive in Milestone 5. Seven empty marks, today outlined.
+  const navigate = useStore((s) => s.navigate);
+  const session = useStore((s) => s.session);
+  const [o, setO] = useState<StatsOverview | null>(null);
+  useEffect(() => {
+    let live = true;
+    const today = todayKey();
+    const load = () =>
+      void native
+        .statsOverview(addDays(today, -6), today)
+        .then((v) => live && setO(v))
+        .catch(() => undefined);
+    load();
+    const off = onNative(EVENTS.held, load);
+    const t = setInterval(load, 60_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+      void off.then((f) => f());
+    };
+    // A session starting or ending changes today.
+  }, [session?.id]);
+  const n = o?.currentStreak ?? 0;
   return (
-    <div aria-label="0 day streak" className="flex h-control items-center gap-[10px] rounded-control border border-line bg-panel px-[10px] text-meta text-text">
-      <span className="font-mono font-medium">0</span>
+    <button
+      type="button"
+      aria-label={`${n} day streak. Open Stats`}
+      onClick={() => navigate("stats")}
+      className="flex h-control items-center gap-[10px] rounded-control border border-line bg-panel px-[10px] text-meta text-text transition-colors duration-ui ease-ui hover:border-line-input"
+    >
+      <span className="font-mono font-medium">{n}</span>
       <span className="text-muted">day streak</span>
       <span className="flex gap-[3px]" aria-hidden="true">
-        {Array.from({ length: 7 }, (_, i) => (
-          <span key={i} className={`box-border h-3 w-[6px] rounded-[2px] ${i === 6 ? "border border-sealed" : "bg-line"}`} />
+        {(o?.days ?? []).map((d) => (
+          <span key={d.date} data-status={d.status} className={`box-border h-3 w-[6px] rounded-[2px] ${MARK[d.status]}`} />
         ))}
       </span>
-    </div>
+    </button>
   );
 }
 

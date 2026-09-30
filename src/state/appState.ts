@@ -2,7 +2,7 @@
 export type AppState = "open" | "sealed" | "event";
 export const APP_STATES: readonly AppState[] = ["open", "sealed", "event"];
 
-export type TabId = "today" | "week" | "trackers" | "setup";
+export type TabId = "today" | "week" | "stats" | "trackers" | "setup";
 
 export interface TabDef {
   id: TabId;
@@ -16,7 +16,8 @@ export interface TabDef {
 export const TABS: readonly TabDef[] = [
   { id: "today", label: "Today", key: "Ctrl 1", hotkey: "1" },
   { id: "week", label: "Week", key: "Ctrl 2", hotkey: "2" },
-  { id: "trackers", label: "Trackers", key: "Ctrl 3", hotkey: "3" },
+  { id: "stats", label: "Stats", key: "Ctrl 3", hotkey: "3" },
+  { id: "trackers", label: "Trackers", key: "Ctrl 4", hotkey: "4" },
   { id: "setup", label: "Setup", key: "Ctrl ,", hotkey: "," },
 ];
 

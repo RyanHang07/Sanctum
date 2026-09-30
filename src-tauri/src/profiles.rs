@@ -501,7 +501,7 @@ mod tests {
         .unwrap();
         let site = p.rules.iter().find(|r| r.kind == "domain").unwrap().id;
         let app = p.rules.iter().find(|r| r.kind == "app").unwrap().id;
-        let p = add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
+        add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
         let p = add_site_allow(&conn, site, "https://youtube.com/@mitocw").unwrap(); // no duplicate
         let allow = &p.rules.iter().find(|r| r.id == site).unwrap().allow;
         assert_eq!(allow.iter().map(|a| a.prefix.as_str()).collect::<Vec<_>>(), vec!["youtube.com/@mitocw"]);

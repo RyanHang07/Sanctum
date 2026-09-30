@@ -10,6 +10,7 @@ import { Home, enterFocus } from "../pages/Home";
 import { HeldPage } from "../pages/HeldPage";
 import { EmptyPage } from "../pages/EmptyPage";
 import { Setup } from "../pages/Setup";
+import { StatsPage } from "../pages/stats/StatsPage";
 import { WeekPage } from "../pages/week/WeekPage";
 import { TABS, type AppState, type TabId } from "../state/appState";
 import { useStore } from "../state/store";
@@ -19,7 +20,7 @@ import { connectNativeEvents } from "../state/events";
 import { SAMPLE_EVENT } from "../pages/placeholders";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { seedDevPlanner, seedDevProfiles } from "../lib/devSeed";
+import { seedDevPlanner, seedDevProfiles, seedDevStats } from "../lib/devSeed";
 import { usePlanner } from "../state/planner";
 
 const TOP_RULE: Record<AppState, string> = {
@@ -34,6 +35,8 @@ function Page({ tab }: { tab: TabId }) {
       return <Home />;
     case "week":
       return <WeekPage />;
+    case "stats":
+      return <StatsPage />;
     case "trackers":
       return <EmptyPage title="Trackers" />;
     case "setup":
@@ -71,6 +74,7 @@ function useNativeEvents() {
   useEffect(() => {
     const disconnect = connectNativeEvents();
     void useStore.getState().loadSettings();
+    seedDevStats();
     // A session may have resumed after a restart; Rust decides.
     void useStore.getState().loadSession();
     void seedDevProfiles()

@@ -4,9 +4,10 @@
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
 import { normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules } from "./catalog";
-import type { ActivitySummary, BrowserStatus, CalEvent, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import type { ActivitySummary, BrowserStatus, CalEvent, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
+import { dayStatus, streaks } from "./stats";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser" };
 
@@ -21,6 +22,14 @@ const SAMPLE_APPS: InstalledApp[] = [
   { name: "Visual Studio Code", exe: "code.exe", launch: "C:\\Mock\\Visual Studio Code.lnk", running: true },
   { name: "Zoom", exe: "zoom.exe", launch: "C:\\Mock\\Zoom.lnk", running: false },
 ];
+
+interface MockDay {
+  focusMin: number;
+  brokenAt?: number | null;
+  attempts?: number;
+  productiveMin?: number;
+  distractingMin?: number;
+}
 
 interface MockState {
   settings: Map<string, string>;
@@ -39,6 +48,9 @@ interface MockState {
   timer: ReturnType<typeof setInterval> | null;
   /** [startedAt, focusedMs] of finished sessions. */
   finished: [number, number][];
+  /** Extra per-day history for Stats (dev preview and tests). */
+  statsDays: Record<string, MockDay>;
+  tempted: { what: string; kind: string; count: number }[];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
   browsers: BrowserStatus;
 }
@@ -72,6 +84,8 @@ export function resetMockBackend() {
     checks: [],
     timer: null,
     finished: [],
+    statsDays: {},
+    tempted: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     browsers: {
       extensionDir: "C:\\Mock\\Sanctum\\extension",
@@ -238,6 +252,7 @@ const handlers: Record<string, (a: any) => unknown> = {
     finishSession();
     bus.emit(EV.session, null);
   },
+  stats_overview: ({ from, to }: { from: string; to: string }) => statsOverview(from, to),
   focus_minutes_since: ({ since }) => {
     // Finished sessions only; the UI adds the running one from its ticks.
     const done = state.finished.filter(([s]) => s >= since).reduce((a, [, ms]) => a + ms, 0);
@@ -444,6 +459,75 @@ const gcalHandlers: Record<string, (a: any) => unknown> = {
   gcal_open: () => undefined,
 };
 
+function statsOverview(from: string, to: string): StatsOverview {
+  const reset = state.settings.get("daily_reset_time") ?? "04:00";
+  const today = todayKey(new Date(), reset);
+  const goalMin = Number(state.settings.get("daily_goal_min")) || 120;
+  const restMask = Number(state.settings.get("rest_days_mask")) || 0;
+  const days: Record<string, Required<MockDay> & { sessions: number }> = {};
+  const day = (k: string) => (days[k] ??= { focusMin: 0, brokenAt: null, attempts: 0, productiveMin: 0, distractingMin: 0, sessions: 0 });
+  for (const [k, d] of Object.entries(state.statsDays)) Object.assign(day(k), { ...d, brokenAt: d.brokenAt ?? null, sessions: d.focusMin ? 1 : 0 });
+  for (const [start, ms] of state.finished) {
+    const d = day(todayKey(new Date(start), reset));
+    d.focusMin += Math.floor(ms / 60_000);
+    d.sessions += 1;
+  }
+  if (state.session) {
+    const d = day(today);
+    d.focusMin += Math.floor(view().elapsedMs / 60_000);
+    d.attempts += state.session.attempts;
+    d.sessions += 1;
+  }
+  const keys = Object.keys(days).filter((k) => days[k]!.sessions > 0).sort();
+  const started = keys[0] ?? null;
+  const statusOf = (k: string): DayStatus => {
+    const d = days[k];
+    const rest = (restMask & (1 << fromKey(k).getDay())) !== 0;
+    const when = k < today ? -1 : k === today ? 0 : 1;
+    return dayStatus(d?.focusMin ?? 0, !!d?.brokenAt, rest, goalMin, when, started === null || k < started);
+  };
+  const history: DayStatus[] = [];
+  for (let k = [started ?? from, from].sort()[0]!; k <= today; k = addDays(k, 1)) history.push(statusOf(k));
+  const [currentStreak, longestStreak] = streaks(history);
+  const list: StatsOverview["days"] = [];
+  for (let k = from; k <= to; k = addDays(k, 1)) {
+    const d = days[k];
+    list.push({
+      date: k,
+      status: statusOf(k),
+      focusMin: d?.focusMin ?? 0,
+      sessions: d?.sessions ?? 0,
+      attempts: d?.attempts ?? 0,
+      brokenAt: d?.brokenAt ?? null,
+      productiveMin: d?.productiveMin ?? 0,
+      distractingMin: d?.distractingMin ?? 0,
+    });
+  }
+  const sum = (f: (x: (typeof list)[number]) => number) => list.reduce((a, x) => a + f(x), 0);
+  const count = (s: DayStatus) => list.filter((x) => x.status === s).length;
+  const productiveMin = sum((x) => x.productiveMin);
+  const distractingMin = sum((x) => x.distractingMin);
+  return {
+    from,
+    to,
+    goalMin,
+    restMask,
+    currentStreak,
+    longestStreak,
+    days: list,
+    kept: count("kept"),
+    broken: count("broken"),
+    missed: count("missed"),
+    focusMin: sum((x) => x.focusMin),
+    attempts: sum((x) => x.attempts),
+    tempted: clone(state.tempted),
+    productiveMin,
+    neutralMin: Math.round(productiveMin * 0.4),
+    distractingMin,
+    idleMin: Math.round(productiveMin * 0.15),
+  };
+}
+
 function view(): SessionView {
   const s = state.session!;
   const now = Date.now();
@@ -482,6 +566,11 @@ function tick() {
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
+  /** Per-day history for Stats: date key -> focus, a broken seal, attempts, activity. */
+  statsDays(days: Record<string, MockDay>, tempted: MockState["tempted"] = []) {
+    Object.assign(state.statsDays, days);
+    state.tempted = tempted;
+  },
   /** The extension connects (or drops) in a browser. */
   extension(exe: string, patch: { connected?: boolean; incognito?: boolean | null; missing?: boolean }) {
     const b = state.browsers.browsers.find((x) => x.exe === exe);

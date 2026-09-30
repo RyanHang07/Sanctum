@@ -12,7 +12,7 @@ beforeEach(() => useStore.setState(initial, true));
 
 describe("state machine", () => {
   it("locks every tab except Today while sealed", () => {
-    expect(TABS.filter((t) => isTabLocked("sealed", t.id)).map((t) => t.id)).toEqual(["week", "trackers", "setup"]);
+    expect(TABS.filter((t) => isTabLocked("sealed", t.id)).map((t) => t.id)).toEqual(["week", "stats", "trackers", "setup"]);
     expect(isTabLocked("sealed", "today")).toBe(false);
   });
 

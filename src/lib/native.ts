@@ -19,6 +19,7 @@ import type {
   RoutineCheck,
   RoutineDraft,
   SessionView,
+  StatsOverview,
   Todo,
   TodoDraft,
 } from "./types";
@@ -93,6 +94,7 @@ export const native = {
   setClassRuleCategory: (id: number, category: Category) => call<void>("set_class_rule_category", { id, category }),
   removeClassRule: (id: number) => call<void>("remove_class_rule", { id }),
   activitySummary: (since: number) => call<ActivitySummary>("activity_summary", { since }),
+  statsOverview: (from: string, to: string) => call<StatsOverview>("stats_overview", { from, to }),
 
   listRoutines: () => call<Routine[]>("list_routines"),
   saveRoutine: (draft: RoutineDraft) => call<Routine>("save_routine", { draft }),
