@@ -1,5 +1,28 @@
 # Changelog
 
+## M8: protection (2026-09-30)
+
+### Added
+- **Sanctum Guard**, a Windows service (`guard.rs`, run as `sanctum.exe --guard run`).
+  - It installs from **Setup > Distractions > Protection**, or from onboarding's browser step, with one admin prompt.
+  - It runs from a copy under `%ProgramData%\Sanctum\guard`, so rebuilds and updates never fight a locked exe.
+  - Windows restarts it if it's killed.
+- **Hosts file blocking while sealed.**
+  - Every whole-domain flagged site (plus www. and m.) goes into a marked section of the hosts file, so it's blocked in every browser, even without the extension.
+  - The section comes out when the seal ends, when the service stops, and on uninstall. DNS is flushed on each change.
+  - Links, keywords, and sites with Allow pages stay with the extension.
+- **Watchdog.**
+  - If Sanctum's process is gone mid-seal, the guard relaunches it into your desktop session within seconds, and the seal resumes.
+  - Each restart is logged in `tamper_events` (migration `0010_guard`) and shown in the Protection panel.
+  - It relaunches at most 5 times in 10 minutes.
+- The Protection panel shows whether the guard is on and how many sites are blocked right now. It offers Repair, and Turn off, which is refused while sealed.
+
+### Fixed
+- A test for the page shown when a session finishes failed when run just after midnight. Its clock is now fixed at midday.
+
+### Changed
+- Tests: 168 frontend and 86 Rust.
+
 ## M11: trackers and check-ins (2026-09-29)
 
 ### Added

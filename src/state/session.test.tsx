@@ -163,19 +163,28 @@ describe("session lifecycle", () => {
   });
 
   it("completing a session shows the held page with stats; Done returns Home", async () => {
-    await sealed();
-    render(<AppShell />);
-    act(() => mockControls.block());
-    await act(async () => mockControls.fastForward(60 * 60_000));
-    const page = screen.getByTestId("held-page");
-    expect(page).toHaveTextContent("Interview Prep · 60 min");
-    expect(page).toHaveTextContent("Sanctum held.");
-    expect(page).toHaveTextContent("Promise kept.");
-    expect(page).toHaveTextContent(/1\s*attempt blocked/);
-    expect(page).toHaveTextContent(/1h\s*today of 2h/);
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByTestId("held-page")).toBeNull();
-    expect(useStore.getState().appState).toBe("open");
+    // Midday, so the hour of focus lands inside today whenever the suite runs.
+    const noon = new Date();
+    noon.setHours(12, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(noon);
+    try {
+      await sealed();
+      render(<AppShell />);
+      act(() => mockControls.block());
+      await act(async () => mockControls.fastForward(60 * 60_000));
+      const page = screen.getByTestId("held-page");
+      expect(page).toHaveTextContent("Interview Prep · 60 min");
+      expect(page).toHaveTextContent("Sanctum held.");
+      expect(page).toHaveTextContent("Promise kept.");
+      expect(page).toHaveTextContent(/1\s*attempt blocked/);
+      expect(page).toHaveTextContent(/1h\s*today of 2h/);
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(screen.queryByTestId("held-page")).toBeNull();
+      expect(useStore.getState().appState).toBe("open");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("Enter again on the held page starts the same session", async () => {

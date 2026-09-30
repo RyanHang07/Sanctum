@@ -163,7 +163,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 
 ### 4.4 Blocking
 - **Apps:** poll processes every 1s, kill matches. v2: WMI process-start events for instant blocking
-- **Sites (baseline):** watchdog service writes a marked block section into `C:\Windows\System32\drivers\etc\hosts` and removes it after the session
+- **Sites (baseline):** watchdog service writes a marked block section into `C:\Windows\System32\drivers\etc\hosts` and removes it after the session. **Built 2026-09-30 (M8):** every whole-domain flagged site (plus www. and m.) goes in while sealed; links, keywords, and sites with Allow pages stay with the extension. The service ("Sanctum Guard") is a copy of sanctum.exe under %ProgramData%\Sanctum\guard, installed from Setup > Distractions > Protection (or onboarding's browser step) with one UAC prompt, and can't be removed while sealed
 - **Sites (precise):** extension uses `declarativeNetRequest` for per-URL rules (e.g. block `youtube.com` but allow `youtube.com/watch?v=<allowed>`)
 - **Extension scope:** blocking only. It receives rules from the desktop app via native messaging and never reports page titles, URLs, or history back. Nothing from the extension reaches the partner
 - **Title keywords:** if foreground window title matches a blocked keyword, minimize it and show a nudge
@@ -307,7 +307,7 @@ Accounts are optional. Solo users without an account run fully local. An account
 - `notifications(id, recipient_id, kind, payload jsonb, read_at)`
 
 ## 6. Security + Tamper Resistance
-- Watchdog service relaunches the app if its process dies mid-session and logs it as a tamper event (counts as broken session)
+- Watchdog service relaunches the app if its process dies mid-session and logs it as a tamper event. ~~(counts as broken session)~~ **Decided** 2026-09-30: the seal resumes and isn't broken; the restart is logged (`tamper_events`) and shown in Setup. At most 5 relaunches in 10 minutes
 - Session state persisted to SQLite every 10s so reboots resume the session
 - Settings that loosen blocking (remove rule, shorten session, disable autostart) are locked during active sessions
 - PIN verification and lockouts are server-side only

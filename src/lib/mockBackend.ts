@@ -4,7 +4,7 @@
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
 import { guessDistraction, normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules, catalogDistractions } from "./catalog";
-import type { ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import type { GuardStatus, ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
@@ -55,6 +55,7 @@ interface MockState {
   tempted: { what: string; kind: string; count: number }[];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
   browsers: BrowserStatus;
+  guard: { installed: boolean; decline: boolean; restarts: number[] };
   cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[] };
 }
 
@@ -96,6 +97,7 @@ export function resetMockBackend() {
     tempted: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
+    guard: { installed: false, decline: false, restarts: [] },
     browsers: {
       extensionDir: "C:\\Mock\\Sanctum\\extension",
       extensionId: "iiapijigajhpjklfkokmjobdfconijag",
@@ -250,6 +252,17 @@ const handlers: Record<string, (a: any) => unknown> = {
     return [...used, ...common].filter((s) => !flagged.has(`${s.kind}:${s.value}`));
   },
   browser_status: (): BrowserStatus => clone(state.browsers),
+  guard_status: (): GuardStatus => guardStatus(),
+  guard_install: (): GuardStatus => {
+    if (state.guard.decline) throw "Windows didn't allow it. Protection needs one admin approval.";
+    state.guard.installed = true;
+    return guardStatus();
+  },
+  guard_uninstall: (): GuardStatus => {
+    if (state.session) throw "Protection stays on while you're sealed.";
+    state.guard.installed = false;
+    return guardStatus();
+  },
 
   cloud_status: (): CloudStatus => ({ signedIn: !!state.cloud.email, email: state.cloud.email, connecting: false, error: null }),
   cloud_sign_in_google: () => {
@@ -592,6 +605,13 @@ const gcalHandlers: Record<string, (a: any) => unknown> = {
   gcal_open: () => undefined,
 };
 
+function guardStatus(): GuardStatus {
+  const g = state.guard;
+  const on = g.installed && !!state.session;
+  const blocked = state.distractions.filter((d) => d.kind === "site" && !d.value.includes("/") && !d.allow.length).length;
+  return { installed: g.installed, running: g.installed, hostsBlocked: on ? blocked : 0, restarts: g.restarts.length, lastRestartAt: g.restarts.at(-1) ?? null };
+}
+
 function statsOverview(from: string, to: string): StatsOverview {
   const reset = state.settings.get("daily_reset_time") ?? "04:00";
   const today = todayKey(new Date(), reset);
@@ -774,6 +794,11 @@ export const mockControls = {
   statsDays(days: Record<string, MockDay>, tempted: MockState["tempted"] = []) {
     Object.assign(state.statsDays, days);
     state.tempted = tempted;
+  },
+  /** Protection: the next install is declined at the UAC prompt, or the guard brought Sanctum back. */
+  guard(patch: { decline?: boolean; restartedAt?: number }) {
+    if (patch.decline !== undefined) state.guard.decline = patch.decline;
+    if (patch.restartedAt) state.guard.restarts.push(patch.restartedAt);
   },
   /** The extension connects (or drops) in a browser. */
   extension(exe: string, patch: { connected?: boolean; incognito?: boolean | null; missing?: boolean }) {

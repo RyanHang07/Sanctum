@@ -3,6 +3,7 @@ import { Button } from "../../components/Button";
 import { AppIcon } from "../../components/controls";
 import { GlobeIcon, LockIcon, PlusIcon, TextIcon, XIcon } from "../../components/icons";
 import { AppPicker } from "./AppPicker";
+import { ProtectionSection } from "./Protection";
 import { native } from "../../lib/native";
 import { useInstalledApps } from "../../lib/installedApps";
 import { distractionLabel, guessDistraction } from "../../lib/rules";
@@ -230,6 +231,7 @@ export function DistractionsTab() {
         })}
       </div>
       <div className="flex flex-col gap-4">
+        <ProtectionSection />
         <Suggestions refreshKey={distractions.length} />
       </div>
       {picking ? (

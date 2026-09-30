@@ -9,6 +9,7 @@ mod db;
 mod distractions;
 mod engine;
 mod gcal;
+pub mod guard;
 mod ladder;
 mod unlock;
 mod launcher;
@@ -423,6 +424,38 @@ fn locked_while_sealed(shared: &Shared) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn guard_status(shared: State<Shared>) -> Result<guard::GuardStatus, String> {
+    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    Ok(guard::status(&conn))
+}
+
+/// Installs or updates the guard service: one UAC prompt.
+#[tauri::command]
+async fn guard_install(app: AppHandle) -> Result<guard::GuardStatus, String> {
+    let db = app.state::<Shared>().db_path.clone();
+    let code = tauri::async_runtime::spawn_blocking(move || guard::run_elevated("install", &db)).await.map_err(|e| e.to_string())??;
+    if code != guard::EXIT_OK {
+        return Err(guard::last_error().map_or_else(|| "Protection couldn't be installed.".into(), |e| format!("Protection couldn't be installed: {e}")));
+    }
+    guard_status(app.state::<Shared>())
+}
+
+/// Removes the guard. Never while sealed (the elevated process checks again).
+#[tauri::command]
+async fn guard_uninstall(app: AppHandle) -> Result<guard::GuardStatus, String> {
+    if app.state::<Shared>().sealed() {
+        return Err("Protection stays on while you're sealed.".into());
+    }
+    let db = app.state::<Shared>().db_path.clone();
+    let code = tauri::async_runtime::spawn_blocking(move || guard::run_elevated("uninstall", &db)).await.map_err(|e| e.to_string())??;
+    match code {
+        guard::EXIT_OK => guard_status(app.state::<Shared>()),
+        guard::EXIT_SEALED => Err("Protection stays on while you're sealed.".into()),
+        _ => Err(guard::last_error().unwrap_or_else(|| "Protection couldn't be removed.".into())),
+    }
+}
+
 fn installed_apps(shared: &Shared, refresh: bool) -> Vec<apps::InstalledApp> {
     let mut cache = shared.apps.lock().unwrap();
     if refresh || cache.is_none() {
@@ -560,6 +593,10 @@ pub fn run() {
             let db_path = dir.join(if cfg!(debug_assertions) { "sanctum-dev.db" } else { "sanctum.db" });
             let conn = db::open(&db_path)?;
             classify::seed_from_catalog(&conn)?;
+            // The guard brought Sanctum back mid-seal: log it (the seal resumes below).
+            if std::env::args().any(|a| a == guard::RESTART_ARG) {
+                let _ = guard::log_restart(&conn, session::now_ms());
+            }
 
             init_autostart(app.handle(), &conn)?;
             let start_in_tray = std::env::args().any(|a| a == AUTOSTART_ARG)
@@ -667,6 +704,9 @@ pub fn run() {
             remove_distraction_allow,
             distraction_suggestions,
             browser::browser_status,
+            guard_status,
+            guard_install,
+            guard_uninstall,
             cloud::cloud_status,
             cloud::cloud_sign_in_google,
             cloud::cloud_sign_in_email,

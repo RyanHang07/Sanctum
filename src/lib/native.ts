@@ -14,6 +14,7 @@ import type {
   EventDraft,
   GcalCalendar,
   GcalStatus,
+  GuardStatus,
   InstalledApp,
   LadderView,
   LaunchReport,
@@ -158,6 +159,10 @@ export const native = {
   checkinPending: () => call<CheckinDue | null>("checkin_pending"),
   checkinAnswer: (id: number, date: string, outcome: "logged" | "skipped" | "snoozed") => call<void>("checkin_answer", { id, date, outcome }),
   nextCheckin: () => call<NextCheckin | null>("next_checkin"),
+
+  guardStatus: () => call<GuardStatus>("guard_status"),
+  guardInstall: () => call<GuardStatus>("guard_install"),
+  guardUninstall: () => call<GuardStatus>("guard_uninstall"),
 
   browserStatus: () => call<BrowserStatus>("browser_status"),
 
