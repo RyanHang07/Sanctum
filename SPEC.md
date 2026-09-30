@@ -159,6 +159,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
   - Paused and anytime routines stay local; turning one off removes its series from Google
 - **4b scope (decided 2026-09-29):** Chromium only (Firefox to the backlog); Comet is the browser to test and polish first; while sealed, profile title keywords also block matching tabs (URL path or tab title), even on sites that aren't sealed
 - **4b site activity (decided 2026-09-29):** the extension also reports the active tab's domain (never the full URL or title) so Activity classifies sites with the existing site rules
+- **4b bridge (built 2026-09-29):** the native messaging host is a copy of sanctum.exe run in relay mode, which talks to the running app over a localhost socket guarded by a token file. A browser that has had the extension and runs without it during a seal with sites or keywords is minimized and logged once. Private windows get a Setup warning for now; closing them is in the backlog.
 
 ### 4.4 Blocking
 - **Apps:** poll processes every 1s, kill matches. v2: WMI process-start events for instant blocking

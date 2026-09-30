@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { Setup } from "./Setup";
 import { Toast } from "../components/Toast";
 import { launchNotice, useStore } from "../state/store";
-import { resetMockBackend } from "../lib/mockBackend";
+import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
 import { sampleProfiles } from "../lib/catalog";
 
@@ -110,6 +110,26 @@ describe("Profile detail", () => {
     expect(seals.getByText("Title keyword")).toBeInTheDocument();
   });
 
+  it("keeps pages under a sealed site open", async () => {
+    await openDeepWork();
+    const seal = screen.getByLabelText("Add a site or a title keyword");
+    fireEvent.change(seal, { target: { value: "youtube.com" } });
+    await act(async () => fireEvent.keyDown(seal, { key: "Enter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Allow a page on youtube.com" }));
+    const input = screen.getByLabelText("Page on youtube.com to allow");
+    fireEvent.change(input, { target: { value: "twitch.tv/x" } });
+    await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+    expect(screen.getByRole("status")).toHaveTextContent("twitch.tv/x is not a page on youtube.com.");
+
+    fireEvent.change(input, { target: { value: "https://www.youtube.com/@mitocw" } });
+    await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+    expect(screen.getByText("youtube.com/@mitocw")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Page on youtube.com to allow")).toBeNull();
+
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Stop allowing youtube.com/@mitocw" })));
+    expect(screen.queryByText("youtube.com/@mitocw")).toBeNull();
+  });
+
   it("marks apps that aren't installed and shows a lettered tile for them", async () => {
     const p = await openDeepWork();
     await act(async () => void (await useStore.getState().addRule(p.id, { kind: "launch_app", value: "cursor.exe", label: "Cursor" })));
@@ -170,6 +190,28 @@ describe("Profile detail", () => {
     await act(async () => void (await useStore.getState().updateProfile(p.id, { defaultMinutes: 30 })));
     expect(profile("Deep Work").defaultMinutes).toBe(90);
     expect(useStore.getState().notice?.lead).toBe("Profiles are locked while you're sealed.");
+  });
+});
+
+describe("Browser extension", () => {
+  it("shows setup steps until a browser connects, then its status", async () => {
+    await renderSetup(false);
+    const section = within(await screen.findByRole("region", { name: "Browser extension" }));
+    expect(section.getByText("Comet")).toBeInTheDocument();
+    expect(section.queryByText("Edge")).toBeNull(); // not installed
+    expect(section.getAllByText("Extension not loaded.")).toHaveLength(2);
+    expect(section.getByTestId("extension-dir")).toHaveTextContent("extension");
+
+    await act(async () => mockControls.extension("comet.exe", { connected: true, incognito: false }));
+    expect(await section.findByText(/Not allowed in private windows/)).toBeInTheDocument();
+    expect(section.queryByTestId("extension-dir")).toBeNull();
+    fireEvent.click(section.getByRole("button", { name: "Load in another browser" }));
+    expect(section.getByTestId("extension-dir")).toBeInTheDocument();
+
+    await act(async () => mockControls.extension("comet.exe", { incognito: true }));
+    expect(await section.findByText("v0.1.0 · Seals sites and keywords")).toBeInTheDocument();
+    await act(async () => mockControls.extension("comet.exe", { connected: false, missing: true }));
+    expect(await section.findByText(/Its windows stay minimized/)).toBeInTheDocument();
   });
 });
 

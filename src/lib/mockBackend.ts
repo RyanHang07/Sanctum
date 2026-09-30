@@ -2,13 +2,13 @@
 // (`npm run dev` in a browser, and Vitest). Mirrors the validation in profiles.rs closely
 // enough to exercise the UI; the Rust tests are the source of truth.
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
-import { normalizeDomain } from "./rules";
+import { normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules } from "./catalog";
-import type { ActivitySummary, CalEvent, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import type { ActivitySummary, BrowserStatus, CalEvent, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 
-const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal" };
+const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser" };
 
 const DURATIONS = [30, 60, 90, 120];
 
@@ -40,6 +40,7 @@ interface MockState {
   /** [startedAt, focusedMs] of finished sessions. */
   finished: [number, number][];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
+  browsers: BrowserStatus;
 }
 
 let state: MockState;
@@ -71,6 +72,16 @@ export function resetMockBackend() {
     timer: null,
     finished: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
+    browsers: {
+      extensionDir: "C:\\Mock\\Sanctum\\extension",
+      extensionId: "iiapijigajhpjklfkokmjobdfconijag",
+      browsers: [
+        { name: "Comet", exe: "comet.exe", installed: true, registered: true, connected: false, version: null, incognito: null, missing: false },
+        { name: "Chrome", exe: "chrome.exe", installed: true, registered: true, connected: false, version: null, incognito: null, missing: false },
+        { name: "Edge", exe: "msedge.exe", installed: false, registered: false, connected: false, version: null, incognito: null, missing: false },
+        { name: "Brave", exe: "brave.exe", installed: false, registered: false, connected: false, version: null, incognito: null, missing: false },
+      ],
+    },
   };
 }
 resetMockBackend();
@@ -103,7 +114,7 @@ function normalizeRule(r: NewRule): NewRule {
 function addRuleTo(p: Profile, rule: NewRule) {
   const r = normalizeRule(rule);
   if (p.rules.some((x) => x.kind === r.kind && x.value === r.value)) return;
-  const full: Rule = { id: state.nextId++, profileId: p.id, kind: r.kind, value: r.value, label: r.label ?? null, path: r.path ?? null };
+  const full: Rule = { id: state.nextId++, profileId: p.id, kind: r.kind, value: r.value, label: r.label ?? null, path: r.path ?? null, allow: [] };
   p.rules.push(full);
 }
 
@@ -167,6 +178,23 @@ const handlers: Record<string, (a: any) => unknown> = {
     p.rules = p.rules.filter((r) => r.id !== ruleId);
     return clone(p);
   },
+  add_site_allow: ({ ruleId, prefix }: { ruleId: number; prefix: string }) => {
+    const p = state.profiles.find((x) => x.rules.some((r) => r.id === ruleId));
+    const rule = p?.rules.find((r) => r.id === ruleId);
+    if (!p || !rule) throw "That profile no longer exists.";
+    if (rule.kind !== "domain") throw "Only sealed sites take exceptions.";
+    const s = normalizeAllow(rule.value, prefix);
+    if (!s) throw `${prefix.trim()} is not a page on ${rule.value}.`;
+    if (!rule.allow.some((a) => a.prefix === s)) rule.allow.push({ id: state.nextId++, prefix: s });
+    return clone(p);
+  },
+  remove_site_allow: ({ id }: { id: number }) => {
+    const p = state.profiles.find((x) => x.rules.some((r) => r.allow.some((a) => a.id === id)));
+    if (!p) throw "That profile no longer exists.";
+    for (const r of p.rules) r.allow = r.allow.filter((a) => a.id !== id);
+    return clone(p);
+  },
+  browser_status: (): BrowserStatus => clone(state.browsers),
 
   get_session: () => (state.session ? view() : null),
   preview_seal: ({ profileId }) => {
@@ -453,6 +481,13 @@ function tick() {
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
+  /** The extension connects (or drops) in a browser. */
+  extension(exe: string, patch: { connected?: boolean; incognito?: boolean | null; missing?: boolean }) {
+    const b = state.browsers.browsers.find((x) => x.exe === exe);
+    if (!b) return;
+    Object.assign(b, patch, patch.connected ? { version: "0.1.0" } : patch.connected === false ? { version: null, incognito: null } : {});
+    bus.emit(EV.browser, null);
+  },
   /** A meeting with other people running now, on the connected calendar (In event state). */
   meetingNow(minutesLeft = 30, title = "Mock interview") {
     if (!state.gcal.email) gcalHandlers.gcal_connect!({});

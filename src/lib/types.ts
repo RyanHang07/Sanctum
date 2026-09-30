@@ -11,6 +11,35 @@ export interface Rule {
   label: string | null;
   /** launch_app: last known launch target (.lnk or .exe). */
   path: string | null;
+  /** domain: pages under the site that stay open while it's sealed (4b). */
+  allow: SiteAllow[];
+}
+
+/** A bare host plus path under a sealed site ("youtube.com/@mitocw"). */
+export interface SiteAllow {
+  id: number;
+  prefix: string;
+}
+
+/** Setup > Browser extension (src-tauri/src/browser.rs). */
+export interface BrowserInfo {
+  name: string;
+  exe: string;
+  installed: boolean;
+  /** The bridge is registered with this browser. */
+  registered: boolean;
+  connected: boolean;
+  version: string | null;
+  /** Allowed in private windows. Null until the extension says hello. */
+  incognito: boolean | null;
+  /** Running without its extension during a seal that needs it. */
+  missing: boolean;
+}
+
+export interface BrowserStatus {
+  extensionDir: string;
+  extensionId: string;
+  browsers: BrowserInfo[];
 }
 
 export interface Profile {

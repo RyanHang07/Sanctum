@@ -163,6 +163,8 @@ export interface Store {
   deleteProfile: (id: number) => Promise<boolean>;
   addRule: (profileId: number, rule: NewRule) => Promise<Profile | null>;
   removeRule: (ruleId: number) => Promise<Profile | null>;
+  addSiteAllow: (ruleId: number, prefix: string) => Promise<Profile | null>;
+  removeSiteAllow: (id: number) => Promise<Profile | null>;
   launchProfile: (id: number) => Promise<LaunchReport | null>;
 }
 
@@ -537,6 +539,20 @@ export const useStore = create<Store>()((set, get) => {
     removeRule: (ruleId) =>
       guarded(async () => {
         const p = await native.removeRule(ruleId);
+        replace(p);
+        return p;
+      }),
+
+    addSiteAllow: (ruleId, prefix) =>
+      guarded(async () => {
+        const p = await native.addSiteAllow(ruleId, prefix);
+        replace(p);
+        return p;
+      }),
+
+    removeSiteAllow: (id) =>
+      guarded(async () => {
+        const p = await native.removeSiteAllow(id);
         replace(p);
         return p;
       }),

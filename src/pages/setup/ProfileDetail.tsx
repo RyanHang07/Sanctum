@@ -37,6 +37,8 @@ function RulePanel({
   onAddApp,
   onSubmit,
   onRemove,
+  onAllow,
+  onRemoveAllow,
 }: {
   title: string;
   rules: Rule[];
@@ -48,8 +50,22 @@ function RulePanel({
   /** Returns true when the input was accepted and should clear. */
   onSubmit: (text: string) => Promise<boolean>;
   onRemove: (rule: Rule) => void;
+  /** Sealed sites: add a page that stays open. Returns true when accepted. */
+  onAllow?: (rule: Rule, text: string) => Promise<boolean>;
+  onRemoveAllow?: (id: number) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [allowing, setAllowing] = useState<number | null>(null);
+  const [allowDraft, setAllowDraft] = useState("");
+  const submitAllow = async (r: Rule) => {
+    if (!allowDraft.trim()) return setAllowing(null);
+    if (onAllow && (await onAllow(r, allowDraft))) {
+      setAllowDraft("");
+      setAllowing(null);
+    }
+  };
+  const iconButton =
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100";
   const submit = async () => {
     if (draft.trim() && (await onSubmit(draft))) setDraft("");
   };
@@ -66,21 +82,57 @@ function RulePanel({
       <div className={`flex min-h-0 grow flex-col overflow-y-auto py-1 ${note ? "opacity-55" : ""}`}>
         {rules.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-faint">{empty}</p> : null}
         {rules.map((r) => (
-          <div key={r.id} className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
-            <RuleIcon rule={r} apps={apps} />
-            <span className="min-w-0 truncate text-body text-text">{ruleLabel(r)}</span>
-            <span className="min-w-0 grow truncate font-mono text-[11px] text-faint">
-              {ruleMeta(r)}
-              {notInstalled(r, apps) ? " · not installed" : ""}
-            </span>
-            <button
-              type="button"
-              aria-label={`Remove ${ruleLabel(r)}`}
-              onClick={() => onRemove(r)}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100"
-            >
-              <XIcon />
-            </button>
+          <div key={r.id} className="flex shrink-0 flex-col">
+            <div className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
+              <RuleIcon rule={r} apps={apps} />
+              <span className="min-w-0 truncate text-body text-text">{ruleLabel(r)}</span>
+              <span className="min-w-0 grow truncate font-mono text-[11px] text-faint">
+                {ruleMeta(r)}
+                {notInstalled(r, apps) ? " · not installed" : ""}
+              </span>
+              {onAllow && r.kind === "domain" ? (
+                <button
+                  type="button"
+                  aria-label={`Allow a page on ${r.value}`}
+                  onClick={() => {
+                    setAllowDraft("");
+                    setAllowing(allowing === r.id ? null : r.id);
+                  }}
+                  className={`h-6 shrink-0 rounded-control px-2 text-meta text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100 ${allowing === r.id ? "opacity-100" : ""}`}
+                >
+                  Allow a page
+                </button>
+              ) : null}
+              <button type="button" aria-label={`Remove ${ruleLabel(r)}`} onClick={() => onRemove(r)} className={iconButton}>
+                <XIcon />
+              </button>
+            </div>
+            {r.allow.map((a) => (
+              <div key={a.id} className="group flex h-7 shrink-0 items-center gap-2 pl-[40px] pr-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
+                <span className="text-meta text-faint">allows</span>
+                <span className="min-w-0 grow truncate font-mono text-[11px] text-text-2">{a.prefix}</span>
+                <button type="button" aria-label={`Stop allowing ${a.prefix}`} onClick={() => onRemoveAllow?.(a.id)} className={iconButton}>
+                  <XIcon />
+                </button>
+              </div>
+            ))}
+            {allowing === r.id ? (
+              <div className="flex h-8 shrink-0 items-center gap-2 pl-[40px] pr-[14px]">
+                <input
+                  autoFocus
+                  aria-label={`Page on ${r.value} to allow`}
+                  placeholder={`${r.value.split("/")[0]}/@channel stays open`}
+                  value={allowDraft}
+                  onChange={(e) => setAllowDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void submitAllow(r);
+                    if (e.key === "Escape") setAllowing(null);
+                  }}
+                  className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+                />
+                <span className="font-mono text-[11px] text-faint">↵</span>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -124,7 +176,7 @@ function NameField({ profile }: { profile: Profile }) {
 }
 
 export function ProfileDetail({ profile }: { profile: Profile }) {
-  const { editProfile, updateProfile, deleteProfile, addRule, removeRule, launchProfile, showNotice } = useStore();
+  const { editProfile, updateProfile, deleteProfile, addRule, removeRule, addSiteAllow, removeSiteAllow, launchProfile, showNotice } = useStore();
   const apps = useInstalledApps();
   const [picker, setPicker] = useState<"opens" | "seals" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -231,6 +283,8 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
           onAddApp={() => setPicker("seals")}
           onSubmit={addSeal}
           onRemove={(r) => void removeRule(r.id)}
+          onAllow={async (r, text) => !!(await addSiteAllow(r.id, text))}
+          onRemoveAllow={(id) => void removeSiteAllow(id)}
         />
       </div>
 

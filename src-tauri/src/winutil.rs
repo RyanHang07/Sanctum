@@ -87,6 +87,17 @@ mod imp {
         }
     }
 
+    /// Minimizes every app window belonging to these processes.
+    pub fn minimize_windows_of(pids: &[u32]) {
+        for h in app_windows().into_iter().filter(|h| pids.contains(&pid_of(*h))) {
+            unsafe {
+                if !IsIconic(h).as_bool() {
+                    let _ = ShowWindow(h, SW_MINIMIZE);
+                }
+            }
+        }
+    }
+
     pub fn focus(hwnd: isize) -> bool {
         unsafe {
             let h = HWND(hwnd as *mut _);
@@ -132,6 +143,7 @@ mod imp {
         0
     }
     pub fn minimize(_hwnd: isize) {}
+    pub fn minimize_windows_of(_pids: &[u32]) {}
     pub fn focus(_hwnd: isize) -> bool {
         false
     }

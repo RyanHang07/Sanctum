@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "../components/icons";
 import { ProfileDetail } from "./setup/ProfileDetail";
 import { ActivitySection, ActivityRulesSection } from "./setup/Activity";
 import { ConnectionsSection } from "./setup/Connections";
+import { BrowsersSection } from "./setup/Browsers";
 import { AppListField, Row, Section } from "./setup/parts";
 import { useStore } from "../state/store";
 import { opensOf, ruleLabel, sealsOf } from "../lib/rules";
@@ -121,6 +122,7 @@ export function Setup() {
         </div>
         <div className="flex flex-col gap-4">
           <ConnectionsSection />
+          <BrowsersSection />
           <ActivitySection />
           <ActivityRulesSection />
         </div>
