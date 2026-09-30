@@ -36,7 +36,7 @@ describe("design tokens", () => {
       tint: "#172040",
       line: "#1F3482",
     });
-    expect(colors.event).toMatchObject({ DEFAULT: "#5FD4C8", tint: "#10262A", line: "#1F4A4A" });
+    expect(colors.event).toMatchObject({ DEFAULT: "#FF8A6B", tint: "#2A1712", line: "#5A2E24" });
     expect(colors.held).toEqual({ "1": "#1F3FD9", "2": "#2F5BFF", "3": "#6A4CFF", "4": "#12A8C9" });
     for (const name of Object.keys(tokens.color)) expect(colors, name).toHaveProperty(name);
   });

@@ -11,7 +11,7 @@ import { Row, Section } from "./parts";
 // calendars Sanctum reads (SPEC 4.3).
 
 function SyncDot({ tone }: { tone: "event" | "broken" | "open" }) {
-  const bg = tone === "event" ? "bg-event" : tone === "broken" ? "bg-broken" : "bg-open";
+  const bg = tone === "event" ? "bg-event" : tone === "broken" ? "bg-broken" : "bg-faint";
   return <span aria-hidden="true" className={`h-[6px] w-[6px] shrink-0 rounded-full ${bg}`} />;
 }
 

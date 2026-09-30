@@ -23,3 +23,7 @@ export function netRules(rules: Rules | null | undefined): Array<{
   action: { type: string; redirect?: { extensionPath: string } };
   condition: { requestDomains?: string[]; urlFilter?: string; resourceTypes: string[] };
 }>;
+export function siteLabel(url: string): string | null;
+export function allowedPage(url: string, rules: Rules): boolean;
+export function countdown(ms: number): string;
+export function sealedSummary(rules: Rules | null | undefined): string;

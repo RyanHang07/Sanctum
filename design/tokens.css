@@ -23,10 +23,10 @@
   --on-sealed: #FFFFFF;       /* text on cobalt fills */
   --sealed-tint: #172040;
   --sealed-line: #1F3482;
-  --event: #5FD4C8;
-  --event-tint: #10262A;
-  --event-line: #1F4A4A;
-  --open: #5C6477;
+  --event: #FF8A6B;
+  --event-tint: #2A1712;
+  --event-line: #5A2E24;
+  --open: #E6E9EF;
 
   /* Sanctum held mesh gradient only */
   --held-1: #1F3FD9;
