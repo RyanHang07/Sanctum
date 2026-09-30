@@ -7,11 +7,11 @@
   - Open is now bright (`#E6E9EF`) instead of gray, and its pill is brighter too. Sealed stays cobalt.
   - In event is now coral (`#FF8A6B`) instead of teal. That covers the pill, the top rule, the event bar, calendar events, and the extension tokens.
   - Dots for "off" or "not connected" are now neutral (`faint`), not the Open color.
-- **The focus row** replaces the two scroll wheels with one large panel.
-  - A length dial: a ring in quarters (click one for 30, 60, 90, or 120, or scroll over it).
-  - Beside it, a sentence to fill in: "Seal [Interview Prep ▾]" / "for [− 60 min +] ends 1:33 PM".
-  - The profile list shows what each one opens. The length steps with the arrow keys or − / +.
-  - What closes when you enter sits under the sentence, and Enter focus stays large on the right.
+- **One card for all three states**, replacing the wheels.
+  - Open: "Seal [Interview Prep ▾] for [− 60 min +]" and a large Enter focus. The profile list shows what each one opens.
+  - Sealed: "Sealed in [Interview Prep] for [32:14]" with Compact and End early.
+  - In event: "In [Mock interview] for [18:00]" with Queue focus.
+  - Each has the same size, a progress line when time is running, and one line of detail below.
 - Tests: 190 frontend and 90 Rust.
 
 ## Partner page, emails, extension (2026-09-30)
