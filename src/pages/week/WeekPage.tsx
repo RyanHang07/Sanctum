@@ -139,7 +139,6 @@ function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: 
 /** "Synced with Google Calendar" (Week.dc.html), or a way to connect or reconnect. */
 function SyncStatus() {
   const status = useCalendar((s) => s.status);
-  const navigate = useStore((s) => s.navigate);
   if (!status?.configured) return null;
   if (status.connected && !status.needsReconnect) {
     return (
@@ -150,7 +149,7 @@ function SyncStatus() {
     );
   }
   return (
-    <button type="button" onClick={() => navigate("setup")} className="ml-auto flex items-center gap-[6px] text-muted transition-colors duration-ui ease-ui hover:text-text">
+    <button type="button" onClick={() => useStore.getState().openSetup("calendar")} className="ml-auto flex items-center gap-[6px] text-muted transition-colors duration-ui ease-ui hover:text-text">
       <span className={`h-[6px] w-[6px] rounded-full ${status.needsReconnect ? "bg-broken" : "bg-open"}`} />
       {status.needsReconnect ? "Reconnect Google Calendar in Setup" : "Connect Google Calendar in Setup"}
     </button>

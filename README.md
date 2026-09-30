@@ -25,8 +25,8 @@ Sanctum isn't code-signed, so Windows SmartScreen may show "Windows protected yo
 
 Then, in the app:
 
-1. **Browser extension** (Setup › Connections › Browser extension). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**. Chrome, Edge, Brave, and Comet are supported.
-2. **Protection** (Setup › Distractions › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service, which blocks flagged sites in every browser while sealed and reopens Sanctum if it's closed mid-seal.
+1. **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**. Chrome, Edge, Brave, and Comet are supported.
+2. **Protection** (Setup › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service, which blocks flagged sites in every browser while sealed and reopens Sanctum if it's closed mid-seal.
 
 ## Build from source
 

@@ -11,6 +11,7 @@ import { Row, Section } from "./setup/parts";
 import { DistractionsTab } from "./setup/Distractions";
 import { TrackersTab } from "./setup/Trackers";
 import { AboutSection } from "./setup/About";
+import { ProtectionSection } from "./setup/Protection";
 import { useStore, type SetupTab } from "../state/store";
 import { opensOf, ruleLabel } from "../lib/rules";
 import { hasDay, WEEKDAYS } from "../lib/planner";
@@ -151,32 +152,46 @@ function PreferencesSection() {
   );
 }
 
-const TABS: { id: SetupTab; label: string; blurb: string }[] = [
-  { id: "profiles", label: "Profiles", blurb: "What each kind of work opens, and how long it runs." },
-  { id: "distractions", label: "Distractions", blurb: "What every focus session blocks." },
-  { id: "trackers", label: "Trackers", blurb: "What you track, and when check-ins ask for it." },
-  { id: "tracking", label: "Activity", blurb: "What Sanctum notices while you work. It stays on this PC." },
-  { id: "connections", label: "Connections", blurb: "Your calendar, your partner, and your browsers." },
-  { id: "general", label: "General", blurb: "Your goal, your rest days, and how the app behaves." },
+// One job per section (decided 2026-09-30): a list on the left, grouped by what it's for,
+// and one section at a time on the right with a line saying what it does.
+const TABS: { id: SetupTab; label: string; blurb: string; group: string }[] = [
+  { id: "profiles", group: "Focus", label: "Profiles", blurb: "What each kind of work opens, and how long it runs." },
+  { id: "distractions", group: "Focus", label: "Distractions", blurb: "What every focus session blocks: apps close, sites and links are blocked, keywords block matching windows and tabs." },
+  { id: "protection", group: "Focus", label: "Protection", blurb: "Blocks sites in every browser and keeps Sanctum open while you're sealed." },
+  { id: "trackers", group: "Tracking", label: "Trackers", blurb: "What you track, and when check-ins ask for it." },
+  { id: "tracking", group: "Tracking", label: "Activity", blurb: "What Sanctum notices while you work. It stays on this PC." },
+  { id: "calendar", group: "Connections", label: "Calendar", blurb: "Two-way sync with Google Calendar." },
+  { id: "browser", group: "Connections", label: "Browser", blurb: "The extension that seals sites and tabs." },
+  { id: "partner", group: "Connections", label: "Partner", blurb: "An optional account, and a friend who holds the key." },
+  { id: "general", group: "App", label: "General", blurb: "Your goal, rest days, and how the app behaves." },
 ];
 
-function SetupTabs({ tab, onChange }: { tab: SetupTab; onChange: (t: SetupTab) => void }) {
+function SetupNav({ tab, onChange }: { tab: SetupTab; onChange: (t: SetupTab) => void }) {
+  let group = "";
   return (
-    <div role="tablist" aria-label="Setup" className="flex rounded-control border border-line-input p-[2px]">
-      {TABS.map((t) => (
-        <button
-          key={t.id}
-          role="tab"
-          aria-selected={tab === t.id}
-          onClick={() => onChange(t.id)}
-          className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
-            tab === t.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <nav aria-label="Setup sections" className="flex w-[176px] shrink-0 flex-col">
+      <div role="tablist" aria-label="Setup" aria-orientation="vertical" className="flex flex-col gap-px">
+        {TABS.map((t) => {
+          const header = t.group !== group ? t.group : null;
+          group = t.group;
+          return (
+            <div key={t.id} className="flex flex-col">
+              {header ? <span className={`px-[10px] pb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint ${t.id === TABS[0]!.id ? "" : "pt-4"}`}>{header}</span> : null}
+              <button
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => onChange(t.id)}
+                className={`flex h-8 items-center rounded-control px-[10px] text-left text-body transition-colors duration-ui ease-ui ${
+                  tab === t.id ? "bg-raised font-medium text-text" : "text-text-2 hover:bg-line-soft hover:text-text"
+                }`}
+              >
+                {t.label}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -187,43 +202,60 @@ export function Setup() {
   useEffect(() => void loadDistractions(), [loadDistractions]);
   const setTab = (setupTab: SetupTab) => useStore.setState({ setupTab });
   if (editing) return <ProfileDetail profile={editing} />;
-  const current = TABS.find((t) => t.id === tab)!;
+  const current = TABS.find((t) => t.id === tab) ?? TABS[0]!;
+  const narrow = "flex max-w-[640px] flex-col gap-4";
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
-      <div className="flex h-control items-center justify-between gap-3">
-        <div className="flex min-w-0 items-baseline gap-3">
-          <h1 className="page-title m-0">Setup</h1>
-          <span className="truncate text-body text-muted">{current.blurb}</span>
-        </div>
-        <SetupTabs tab={tab} onChange={setTab} />
+      <div className="flex h-control shrink-0 items-center">
+        <h1 className="page-title m-0">Setup</h1>
       </div>
-      <div key={tab} className="page-in min-h-0 grow overflow-y-auto pr-1">
-        {tab === "profiles" ? (
-          <div className="flex max-w-[640px] flex-col gap-4">
-            <ProfilesSection />
+      <div className="flex min-h-0 grow gap-6">
+        <SetupNav tab={current.id} onChange={setTab} />
+        <div key={current.id} role="tabpanel" aria-label={current.label} className="page-in flex min-h-0 min-w-0 grow flex-col gap-4 overflow-y-auto pr-1">
+          <div className="flex shrink-0 flex-col gap-[2px]">
+            <h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{current.label}</h2>
+            <p className="m-0 text-body text-muted">{current.blurb}</p>
           </div>
-        ) : null}
-        {tab === "distractions" ? <DistractionsTab /> : null}
-        {tab === "trackers" ? <TrackersTab /> : null}
-        {tab === "tracking" ? (
-          <div className="flex max-w-[640px] flex-col gap-4">
-            <ActivitySection />
-            <ActivityRulesSection />
-          </div>
-        ) : null}
-        {tab === "connections" ? (
-          <div className="flex max-w-[640px] flex-col gap-4">
-            <ConnectionsSection />
-            <AccountSection />
-            <BrowsersSection />
-          </div>
-        ) : null}
-        {tab === "general" ? (
-          <div className="flex max-w-[640px] flex-col gap-4">
-            <PreferencesSection />
-          </div>
-        ) : null}
+          {current.id === "profiles" ? (
+            <div className={narrow}>
+              <ProfilesSection />
+            </div>
+          ) : null}
+          {current.id === "distractions" ? <DistractionsTab /> : null}
+          {current.id === "protection" ? (
+            <div className={narrow}>
+              <ProtectionSection />
+            </div>
+          ) : null}
+          {current.id === "trackers" ? <TrackersTab /> : null}
+          {current.id === "tracking" ? (
+            <div className={narrow}>
+              <ActivitySection />
+              <ActivityRulesSection />
+            </div>
+          ) : null}
+          {current.id === "calendar" ? (
+            <div className={narrow}>
+              <ConnectionsSection />
+            </div>
+          ) : null}
+          {current.id === "browser" ? (
+            <div className={narrow}>
+              <BrowsersSection />
+            </div>
+          ) : null}
+          {current.id === "partner" ? (
+            <div className={narrow}>
+              <AccountSection />
+            </div>
+          ) : null}
+          {current.id === "general" ? (
+            <div className={narrow}>
+              <PreferencesSection />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

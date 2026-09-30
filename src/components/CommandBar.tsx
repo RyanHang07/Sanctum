@@ -23,9 +23,12 @@ export interface Command {
 const SETUP_TABS: { id: SetupTab; label: string }[] = [
   { id: "profiles", label: "Profiles" },
   { id: "distractions", label: "Distractions" },
+  { id: "protection", label: "Protection" },
   { id: "trackers", label: "Trackers and check-ins" },
   { id: "tracking", label: "Activity" },
-  { id: "connections", label: "Connections" },
+  { id: "calendar", label: "Calendar" },
+  { id: "browser", label: "Browser extension" },
+  { id: "partner", label: "Account and partner" },
   { id: "general", label: "General" },
 ];
 
