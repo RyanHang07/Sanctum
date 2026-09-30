@@ -1,5 +1,36 @@
 # Changelog
 
+## M12: tray, motion, tamper, command bar, polish (2026-09-30)
+
+### Added
+- **Tamper breaks the seal** (`tamper.rs`, migration `0011_tamper`).
+  - The seal breaks if the clock jumps by more than 2 minutes, or if the guard stays stopped for 20 seconds. Clock jumps are measured against uptime, so sleep doesn't count.
+  - It also breaks if a browser whose extension was connected at seal start keeps running without it for 90 seconds.
+  - Each break is logged, and the partner is emailed once.
+  - The window explains why. The seal stays on until its planned end.
+- **Tray panel** (Tray.dc.html).
+  - It shows a state pill and the pulsing mark.
+  - Sealed: timer, progress, and until-time, with Compact timer and Open Sanctum.
+  - Open: profile and length pickers with Enter focus, which is sent to the main window.
+  - It lists today's next three items (checkable) with a done count, an add-a-task field, and the next check-in.
+  - Break the seal or Quit.
+- **Logo motion** (LogoMotion.dc.html).
+  - A 2.2 s boot splash plays once per launch.
+  - While sealed, the keyhole breathes on the sidebar mark and on the tray icon, whose frames are faded from the icon's own cobalt pixels.
+  - Everything stops under reduced motion.
+- **Ctrl K command bar.**
+  - Go to any tab or Setup section.
+  - Enter focus with any profile, or break the seal and open the compact timer while sealed.
+  - Log a tracker entry, and toggle the sidebar.
+  - Act on what you typed: add it as a task for today, or flag it as a distraction.
+  - The Home "Search or command" button opens it too.
+
+### Changed
+- **Home:** the In event bar now matches the Sealed bar, so the layout no longer shifts between states. It shows a countdown, "In event · title · Ends", a teal progress bar, and the same height.
+- **Home:** the Enter focus label and its shortcut sit centered together, a little higher. "Next check-in" no longer wraps.
+- **Week:** card titles hyphenate instead of breaking mid-word, and day columns hide their scrollbars.
+- Tests: 175 frontend and 88 Rust.
+
 ## M8: protection (2026-09-30)
 
 ### Added

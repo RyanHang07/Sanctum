@@ -115,13 +115,13 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - **Offline indicator:** a subtle "Offline" tag in the sidebar state pill and the tray panel. Nothing else changes
 - **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to the solo 30 min cooldown
 - **Google Calendar offline:** edits queue locally and sync on reconnect; last edit wins on conflicts
-- **Clock changes:** session timers use a monotonic clock. If the Windows system clock jumps (forward or back) during a session, treat it as tampering: the seal breaks, the streak resets, and the partner is notified
+- **Clock changes:** session timers use a monotonic clock. If the Windows system clock jumps (forward or back) during a session, treat it as tampering: the seal breaks, the streak resets, and the partner is notified. **Built 2026-09-30 (M12):** a jump is more than 2 minutes of wall-clock change beyond GetTickCount64 (which counts through sleep, so waking a laptop never counts). A broken seal stays on until its planned end
 
 ### 4.0.4 Release, startup, extension, uninstall (**Decided**)
 - **v1 is a public release.** Ship a signed Windows installer (Tauri bundler, NSIS), code-signed with an OV/EV certificate so SmartScreen doesn't block it, and auto-updates via `tauri-plugin-updater` with signed update manifests hosted on GitHub Releases. Add a crash/error reporter and an opt-in, anonymous usage ping only
 - **On login:** open the centered Home window by default. Setup > Preferences > On login: Open Home / Start in tray
 - **Browser extension:** Chromium only for v1 (Chrome, Edge, Brave, Arc, Opera from one Manifest V3 build). Publish to the Chrome Web Store and Edge Add-ons. No Firefox yet
-- **Uninstall during a session = tamper.** If the watchdog sees the app, the watchdog service, or the extension being removed or disabled while sealed, the seal breaks, the streak resets, and the partner is notified. The extension heartbeats to the app every 30s; a missed heartbeat while sealed counts as disabled
+- **Uninstall during a session = tamper.** If the watchdog sees the app, the watchdog service, or the extension being removed or disabled while sealed, the seal breaks, the streak resets, and the partner is notified. The extension heartbeats to the app every 30s; a missed heartbeat while sealed counts as disabled. **Built 2026-09-30 (M12):** only what was on when the seal started counts. The guard stopped for 20 s (Windows restarts a killed guard in 2) or a browser running without its extension for 90 s breaks the seal; closing the browser doesn't. Removing protection from Setup is refused while sealed
 
 ### 4.1 Startup + Window
 - Autostart on login (`tauri-plugin-autostart`), single instance only

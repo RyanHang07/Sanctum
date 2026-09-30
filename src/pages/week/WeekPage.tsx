@@ -58,11 +58,11 @@ function EventCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
       data-kind="event"
       onClick={onOpen}
       title={item.event?.calendarName}
-      className="flex w-full shrink-0 items-start gap-2 whitespace-normal rounded-control border border-line bg-panel px-2 py-[7px] text-left transition-colors duration-ui ease-ui hover:border-line-input"
+      className="flex w-full shrink-0 items-start gap-[6px] whitespace-normal rounded-control border border-line bg-panel py-[7px] pl-[6px] pr-[5px] text-left transition-colors duration-ui ease-ui hover:border-line-input"
     >
       <span aria-hidden="true" className={`w-[3px] shrink-0 self-stretch rounded-[2px] ${item.profileId !== null ? "bg-sealed" : "bg-event"}`} />
       <span className="flex min-w-0 grow flex-col gap-[2px]">
-        <span className="line-clamp-3 break-words text-meta leading-snug text-text">{item.title}</span>
+        <span className="line-clamp-3 hyphens-auto break-words text-meta leading-snug text-text">{item.title}</span>
         <span className="truncate font-mono text-[10px] text-muted">{item.time ? shortTime(item.time) : "all day"}</span>
       </span>
     </button>
@@ -79,7 +79,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   return (
     <div
       data-kind={item.kind}
-      className={`group flex items-start gap-2 rounded-control border border-l-2 border-line bg-panel px-2 py-[7px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
+      className={`group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
     >
       <button
         type="button"
@@ -94,7 +94,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
         {item.done ? <CheckIcon size={8} /> : null}
       </button>
       <button type="button" onClick={onOpen} className="flex min-w-0 grow flex-col gap-[2px] whitespace-normal text-left">
-        <span className={`line-clamp-3 break-words text-meta leading-snug ${item.done ? "text-faint line-through" : "text-text"}`}>{item.title}</span>
+        <span className={`line-clamp-3 hyphens-auto break-words text-meta leading-snug ${item.done ? "text-faint line-through" : "text-text"}`}>{item.title}</span>
         <span className="flex items-center gap-1 font-mono text-[10px] text-muted">
           {routine ? <RepeatGlyph className="h-[10px] w-[10px]" /> : null}
           {item.time ? shortTime(item.time) : routine ? "anytime" : ""}
@@ -110,7 +110,7 @@ function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: 
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-      className={`flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
+      className={`flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
         today ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40 hover:bg-panel"
       }`}
     >
