@@ -24,7 +24,7 @@
 - Allowlist mode, new-launch blocking, and the Always open list (in Setup and onboarding).
 
 ### Changed
-- Tests: 149 frontend and 79 Rust (including one that runs the migration on a profile with seals).
+- Tests: 149 frontend and 76 Rust (including one that runs the migration on a profile with seals).
 
 ## M7: break the seal (2026-09-29)
 
