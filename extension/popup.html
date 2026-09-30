@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sanctum</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <!-- The toolbar popup: the seal at a glance (Tray.dc.html, in the browser). -->
+    <main class="popup">
+      <header class="head">
+        <img src="icons/mark.svg" width="16" height="16" alt="" />
+        <span class="name">Sanctum</span>
+        <span class="pill" id="pill"><span class="dot"></span><span id="state">Open</span></span>
+      </header>
+      <section class="body" id="sealed" hidden>
+        <div class="timer-row">
+          <span class="timer mono" id="timer">0:00</span>
+          <span class="muted" id="until"></span>
+        </div>
+        <span class="muted" id="profile"></span>
+        <span class="small" id="summary"></span>
+      </section>
+      <section class="body" id="open" hidden>
+        <span>Nothing is sealed.</span>
+        <span class="muted">Start focus in Sanctum and the sites you flagged are blocked here.</span>
+      </section>
+      <footer class="foot">
+        <span class="conn"><span class="dot" id="conn-dot"></span><span id="conn">Checking…</span></span>
+        <button type="button" id="open-app">Open Sanctum</button>
+      </footer>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

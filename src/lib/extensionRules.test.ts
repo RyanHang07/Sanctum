@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { bare, blockedSite, hostOf, keywordHit, netRules } from "../../extension/rules.js";
+import { allowedPage, bare, blockedSite, countdown, hostOf, keywordHit, netRules, sealedSummary, siteLabel } from "../../extension/rules.js";
 
 // The browser extension's matching (extension/rules.js, 4b).
 
@@ -69,5 +69,25 @@ describe("extension assets", () => {
     const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.permissions).toContain("nativeMessaging");
+  });
+});
+
+describe("extension pages", () => {
+  it("remembers pages worth going back to", () => {
+    expect(allowedPage("https://neetcode.io/practice", rules)).toBe(true);
+    expect(allowedPage("https://www.youtube.com/watch?v=1", rules)).toBe(false);
+    expect(allowedPage("https://www.youtube.com/@mitocw/videos", rules)).toBe(true);
+    expect(allowedPage("https://example.com/shorts/1", rules)).toBe(false);
+    expect(allowedPage("chrome://newtab", rules)).toBe(false);
+    expect(siteLabel("https://www.neetcode.io/practice")).toBe("neetcode.io");
+  });
+
+  it("counts down and summarizes the seal", () => {
+    expect(countdown(32 * 60_000 + 14_000)).toBe("32:14");
+    expect(countdown(75 * 60_000)).toBe("1:15:00");
+    expect(countdown(-5)).toBe("0:00");
+    expect(sealedSummary(rules)).toBe("3 sites and 2 keywords sealed");
+    expect(sealedSummary({ sealed: true, sites: [{ domain: "x.com" }], keywords: [] })).toBe("1 site sealed");
+    expect(sealedSummary({ sealed: true, sites: [], keywords: [] })).toBe("Apps only; no sites sealed");
   });
 });

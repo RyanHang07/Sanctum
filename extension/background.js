@@ -2,7 +2,7 @@
 // native messaging host, seals sites with declarativeNetRequest, blocks tabs matching the
 // profile's keywords, and reports the active tab's domain (never the full URL) for Activity.
 
-import { blockedSite, hostOf, keywordHit, netRules } from "./rules.js";
+import { allowedPage, blockedSite, hostOf, keywordHit, netRules } from "./rules.js";
 
 const HOST = "app.sanctum.bridge";
 const RETRY_MS = 5_000;
@@ -12,6 +12,17 @@ let port = null;
 /** The latest rules from Sanctum. Kept across worker restarts, so a seal survives Sanctum being briefly unreachable. */
 let rules = { sealed: false, sites: [], keywords: [] };
 let lastDomain = undefined;
+/** Heard from Sanctum since the port opened (the bridge alone doesn't count). */
+let connected = false;
+/** Tab id -> the last page in it that wasn't sealed, for the blocked page's "Back to …". */
+let back = {};
+
+async function rememberBack(tab) {
+  if (!tab.id || !tab.url || tab.url.startsWith(BLOCKED_PAGE) || !allowedPage(tab.url, rules)) return;
+  if (back[tab.id] === tab.url) return;
+  back[tab.id] = tab.url;
+  await chrome.storage.session.set({ back });
+}
 
 const send = (msg) => {
   try {
@@ -39,12 +50,14 @@ function connect() {
   port.onMessage.addListener((msg) => void onMessage(msg));
   port.onDisconnect.addListener(() => {
     port = null;
+    connected = false;
     setTimeout(connect, RETRY_MS);
   });
   void hello();
 }
 
 async function onMessage(msg) {
+  connected = true;
   if (msg.type === "rules") {
     rules = msg;
     await chrome.storage.session.set({ rules });
@@ -92,16 +105,23 @@ async function reportActive() {
 
 chrome.tabs.onUpdated.addListener((_id, change, tab) => {
   if (change.url || change.title) void checkTab(tab);
+  if (change.url || change.status === "complete") void rememberBack(tab);
   if (tab.active && (change.url || change.status === "complete")) void reportActive();
 });
 chrome.tabs.onActivated.addListener(() => void reportActive());
+chrome.tabs.onRemoved.addListener((id) => {
+  delete back[id];
+  void chrome.storage.session.set({ back });
+});
 chrome.windows.onFocusChanged.addListener(() => void reportActive());
 
 // The blocked page reports each block, so Sanctum can count it as an attempt.
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "blocked") send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
   if (msg?.type === "rules?") return Promise.resolve(rules);
+  // The blocked page and the popup: the seal, whether Sanctum is there, and where to go back to.
+  if (msg?.type === "state?") return Promise.resolve({ rules, connected, back: sender?.tab?.id ? back[sender.tab.id] ?? null : null });
   return undefined;
 });
 
@@ -110,11 +130,17 @@ chrome.alarms.create("heartbeat", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name !== "heartbeat") return;
   send({ type: "ping" });
+  // Sanctum gone past the session's planned end: lift the seal here rather than hold it forever.
+  if (!connected && rules.sealed && rules.endsAt && Date.now() > rules.endsAt + 2 * 60_000) {
+    rules = { sealed: false, sites: [], keywords: [] };
+    void chrome.storage.session.set({ rules }).then(applyRules);
+  }
   lastDomain = undefined;
   void reportActive();
 });
 
-chrome.storage.session.get("rules").then((stored) => {
+chrome.storage.session.get(["rules", "back"]).then((stored) => {
   if (stored.rules) rules = stored.rules;
+  if (stored.back) back = stored.back;
   connect();
 });

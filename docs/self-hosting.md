@@ -73,9 +73,20 @@ In the Supabase dashboard, **Authentication**:
 
    Without it, invite links point at `http://localhost:5174` (`npm run dev` in `partner/`).
 
-### 4. Email (optional)
+### 4. Sign-in emails
 
-Partner notifications (a broken seal, an unlock request, an emergency unlock) are stored either way. To email them, set these **Edge Function secrets** in the Supabase dashboard (Edge Functions › Secrets), never in the repo:
+Under **Authentication › Email Templates**, paste the files from `supabase/templates/` so sign-in emails match the rest of Sanctum:
+
+| Template | File | Subject |
+|---|---|---|
+| Magic Link | `magic_link.html` | Your Sanctum sign-in link |
+| Confirm signup | `confirmation.html` | Confirm your email for Sanctum |
+
+They're generated from `supabase/functions/_shared/email.ts`; run `npm run email:templates` after changing it.
+
+### 5. Email (optional)
+
+Partner notifications (a broken seal, an unlock request, an emergency unlock) are stored either way. Emailing them, emailing invites, and telling you when your partner answers all need these **Edge Function secrets** in the Supabase dashboard (Edge Functions › Secrets), never in the repo:
 
 - `BREVO_API_KEY`: a Brevo API key (not an SMTP key).
 - `BREVO_SENDER`: a sender address verified in Brevo.
