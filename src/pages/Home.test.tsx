@@ -4,13 +4,18 @@ import { useStore } from "../state/store";
 import { connectNativeEvents } from "../state/events";
 import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
-import { sampleProfiles } from "../lib/catalog";
+import { catalogDistractions, sampleProfiles } from "../lib/catalog";
 
 const initial = useStore.getState();
 
+/** The sample profiles, and the four common distractions onboarding starts with. */
 async function withSampleProfiles() {
   for (const d of sampleProfiles()) await native.createProfile(d);
+  for (const g of catalogDistractions().filter((g) => ["Discord", "YouTube", "Instagram", "TikTok"].includes(g.label))) {
+    for (const item of g.items) await native.addDistraction(item);
+  }
   await act(() => useStore.getState().loadProfiles());
+  await act(() => useStore.getState().loadDistractions());
 }
 
 let disconnect = () => {};
@@ -44,7 +49,7 @@ describe("Home", () => {
     expect(options("Length").map((o) => o.textContent)).toEqual(["30 min", "60 min", "90 min", "120 min"]);
     expect(options("Profile").map((o) => o.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
     expect(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { selected: true })).toHaveTextContent("Interview Prep");
-    expect(screen.getByTestId("focus-row")).toHaveTextContent("Opens LeetCode, NeetCode, VS Code, Excalidraw, Notion · seals 8");
+    expect(screen.getByTestId("focus-row")).toHaveTextContent(`Opens LeetCode, NeetCode, VS Code, Excalidraw, Notion · seals ${useStore.getState().distractions.length}`);
     // A calm, normal-size button with the note above it.
     expect(screen.getByRole("button", { name: /Enter focus/ })).not.toContainElement(screen.getByTestId("focus-note"));
     // As tall as the wheel boxes beside it.
@@ -74,7 +79,7 @@ describe("Home", () => {
   it("warns which open apps will close before entering", async () => {
     await withSampleProfiles();
     render(<Home />);
-    // Mock backend: Discord is running and Interview Prep seals it.
+    // Mock backend: Discord is running and flagged.
     expect(await screen.findByText("Discord closes when you enter")).toBeInTheDocument();
   });
 

@@ -1,5 +1,31 @@
 # Changelog
 
+## Distractions replace per-profile seals and allowlist mode (2026-09-29)
+
+### Changed
+- **One Distractions list for every focus session** (migration `0008_distractions`, `distractions.rs`).
+  - Apps close, sites and links are blocked in the browser, and keywords block any window or tab with them in the title.
+  - Flagged also means distracting in Activity and Stats; flags are checked before any other rule.
+  - Existing profile seals and their Allow pages moved into the list automatically.
+- **Profiles only open things now:** the launch set, length, and work types. The profile page shows a Seals card that points to Distractions.
+- **Setup is split into tabs:** Profiles, Distractions, Tracking, Connections, and General. Each has a one-line explanation, and General holds a "Goal and streak" section.
+
+### Added
+- **Setup > Distractions:**
+  - One field that takes a site, a link (`reddit.com/r/all`), or a keyword, and says which it read.
+  - **Add an app** from the installed-app picker.
+  - Allow a page on any flagged site.
+  - **From your week:** your most-used apps and sites over the last 7 days, not already flagged or known productive, each with a Flag button.
+  - **Common distractions**, one click each.
+  - Adding works mid-seal and takes effect at once. Unflagging and allowing pages wait until the seal ends.
+- **Onboarding** gains a Distractions step, so it now has 7 steps. The common four start picked, and it has a field and an app picker.
+
+### Removed
+- Allowlist mode, new-launch blocking, and the Always open list (in Setup and onboarding).
+
+### Changed
+- Tests: 149 frontend and 79 Rust (including one that runs the migration on a profile with seals).
+
 ## M7: break the seal (2026-09-29)
 
 ### Added

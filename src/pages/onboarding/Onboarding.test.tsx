@@ -26,11 +26,11 @@ describe("Onboarding", () => {
     expect(await native.getSetting("onboarded")).toBe("1");
   });
 
-  it("walks the six steps and creates the picked profiles", async () => {
+  it("walks the seven steps, creates the picked profiles, and flags distractions", async () => {
     await act(() => useStore.getState().loadSettings());
     useStore.setState({ onboarding: true });
     render(<Onboarding />);
-    expect(screen.getByText("Step 1 of 6 · Welcome")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 7 · Welcome")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("Optional"), { target: { value: "Ryan" } });
     await next();
 
@@ -41,7 +41,19 @@ describe("Onboarding", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Mock interviews" }));
     fireEvent.click(screen.getByRole("tab", { name: "Study" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Reading & courses" }));
-    expect(screen.getAllByText("Nothing yet")).toHaveLength(2);
+    expect(screen.getByText("Nothing yet")).toBeInTheDocument();
+    await next();
+
+    // Distractions: the common four start picked; drop TikTok, add Reddit and a keyword.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Name your distractions.");
+    expect(screen.getByRole("checkbox", { name: "Discord" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("checkbox", { name: "TikTok" }));
+    const field = screen.getByLabelText("Add a site, link, or keyword");
+    fireEvent.change(field, { target: { value: "reddit.com" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    fireEvent.change(field, { target: { value: "shorts" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(screen.getByText("Also: reddit.com, shorts")).toBeInTheDocument();
     await next();
 
     // Goals.
@@ -53,20 +65,24 @@ describe("Onboarding", () => {
     expect(screen.getByRole("button", { name: "Connect Google Calendar" })).toBeInTheDocument();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Skip" })));
     expect(await screen.findByRole("region", { name: "Browser extension" })).toBeInTheDocument();
-    expect(screen.getByText("claude.exe")).toBeInTheDocument();
     await next();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("You're set. Stay in it.");
+    expect(screen.getByText(/Discord, YouTube, Instagram, reddit.com, shorts/)).toBeInTheDocument();
     await next();
 
     const profiles = await native.listProfiles();
     expect(profiles.map((p) => p.name)).toEqual(["Interview Prep", "Deep Work", "Light Work"]);
     expect(profiles[0]!.workTypes).toContain("Mock interviews");
+    const flags = (await native.listDistractions()).map((d) => `${d.kind}:${d.value}`);
+    expect(flags).toEqual(expect.arrayContaining(["app:discord.exe", "site:reddit.com", "keyword:shorts"]));
+    expect(flags.some((f) => f.includes("tiktok"))).toBe(false);
     expect(await native.getSetting("daily_goal_min")).toBe("90");
     expect(await native.getSetting("rest_days_mask")).toBe("1");
     expect(await native.getSetting("display_name")).toBe("Ryan");
     expect(await native.getSetting("onboarded")).toBe("1");
     expect(useStore.getState().onboarding).toBe(false);
     expect(useStore.getState().profiles).toHaveLength(3);
+    expect(useStore.getState().distractions.length).toBe(flags.length);
   });
 });

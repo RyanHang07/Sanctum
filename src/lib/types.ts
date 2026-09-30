@@ -1,24 +1,48 @@
 // Shapes shared with the Rust backend (src-tauri/src/profiles.rs, apps.rs, launcher.rs).
 
-export type RuleKind = "app" | "domain" | "title" | "launch_app" | "launch_url";
+/** What a profile opens. What gets sealed is the one Distractions list. */
+export type RuleKind = "launch_app" | "launch_url";
 
 export interface Rule {
   id: number;
   profileId: number;
   kind: RuleKind;
-  /** app/launch_app: lowercase exe name. domain: bare host. title: keyword. launch_url: absolute URL. */
+  /** launch_app: lowercase exe name. launch_url: absolute URL. */
   value: string;
   label: string | null;
   /** launch_app: last known launch target (.lnk or .exe). */
   path: string | null;
-  /** domain: pages under the site that stay open while it's sealed (4b). */
-  allow: SiteAllow[];
 }
 
-/** A bare host plus path under a sealed site ("youtube.com/@mitocw"). */
-export interface SiteAllow {
+/** One entry in the Distractions list (src-tauri/src/distractions.rs): blocked in every seal, counted as distracting. */
+export type DistractionKind = "app" | "site" | "keyword";
+
+export interface Distraction {
   id: number;
-  prefix: string;
+  kind: DistractionKind;
+  /** app: lowercase exe. site: bare host plus optional path. keyword: lowercase text. */
+  value: string;
+  label: string | null;
+  /** app: where it was found, for its icon. */
+  path: string | null;
+  /** site: pages that stay open ("youtube.com/@mitocw"). */
+  allow: { id: number; prefix: string }[];
+}
+
+export interface NewDistraction {
+  /** "auto" works it out from the text. */
+  kind: DistractionKind | "auto";
+  value: string;
+  label?: string | null;
+  path?: string | null;
+}
+
+export interface DistractionSuggestion {
+  kind: DistractionKind;
+  value: string;
+  label: string;
+  /** Minutes in front over the last week; null for the common distractions. */
+  minutes: number | null;
 }
 
 /** Setup > Browser extension (src-tauri/src/browser.rs). */
@@ -45,7 +69,6 @@ export interface BrowserStatus {
 export interface Profile {
   id: number;
   name: string;
-  allowlistMode: boolean;
   defaultMinutes: number;
   workTypes: string[];
   createdAt: number;
@@ -62,7 +85,6 @@ export interface NewRule {
 export interface ProfileDraft {
   name: string;
   defaultMinutes?: number;
-  allowlistMode?: boolean;
   workTypes?: string[];
   rules?: NewRule[];
 }
@@ -70,7 +92,6 @@ export interface ProfileDraft {
 export interface ProfilePatch {
   name?: string;
   defaultMinutes?: number;
-  allowlistMode?: boolean;
 }
 
 export interface InstalledApp {

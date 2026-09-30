@@ -63,7 +63,7 @@ fn rule_matches(r: &ClassRule, exe: &str, title: &str) -> bool {
     }
 }
 
-/// Rules implied by a profile: what it opens is productive, what it seals is distracting.
+/// Rules implied by a profile: what it opens is productive.
 pub fn profile_rules(p: &Profile) -> Vec<ClassRule> {
     let host = |url: &str| url.split("://").nth(1).unwrap_or(url).trim_start_matches("www.").split('/').next().unwrap_or("").to_string();
     p.rules
@@ -72,9 +72,6 @@ pub fn profile_rules(p: &Profile) -> Vec<ClassRule> {
             let (kind, pattern, category) = match r.kind.as_str() {
                 "launch_app" => ("exe", r.value.clone(), "productive"),
                 "launch_url" => ("domain", host(&r.value), "productive"),
-                "app" => ("exe", r.value.clone(), "distracting"),
-                "domain" => ("domain", r.value.clone(), "distracting"),
-                "title" => ("title", r.value.clone(), "distracting"),
                 _ => return None,
             };
             Some(ClassRule { id: 0, match_kind: kind.into(), pattern, category: category.into(), source: "profile".into() })
@@ -85,7 +82,9 @@ pub fn profile_rules(p: &Profile) -> Vec<ClassRule> {
 /// Everything classification needs, loaded once and refreshed periodically.
 #[derive(Clone, Debug, Default)]
 pub struct Classifier {
-    /// The running session's profile rules (checked first).
+    /// Distractions (flagged = distracting, checked first).
+    pub flags: Vec<ClassRule>,
+    /// The running session's profile rules.
     pub session: Vec<ClassRule>,
     /// Rules from Setup (seeded from the catalog, editable).
     pub user: Vec<ClassRule>,
@@ -95,7 +94,7 @@ pub struct Classifier {
 
 impl Classifier {
     pub fn classify(&self, exe: &str, title: &str) -> &'static str {
-        for layer in [&self.session, &self.user, &self.profiles] {
+        for layer in [&self.flags, &self.session, &self.user, &self.profiles] {
             // Within a layer, an exact app rule beats a title or site match.
             let hit = layer
                 .iter()
@@ -278,12 +277,15 @@ mod tests {
     #[test]
     fn layers_win_in_order() {
         let c = Classifier {
+            flags: vec![rule("title", "shorts", "distracting")],
             session: vec![rule("domain", "youtube.com", "productive")],
             user: vec![rule("domain", "youtube.com", "distracting"), rule("exe", "code.exe", "productive"), rule("title", "netflix", "distracting")],
             profiles: vec![rule("exe", "discord.exe", "distracting")],
         };
         // The session's profile says YouTube is work right now.
         assert_eq!(c.classify("chrome.exe", "System design lecture - YouTube"), "productive");
+        // A flag beats everything.
+        assert_eq!(c.classify("chrome.exe", "Shorts - YouTube"), "distracting");
         assert_eq!(c.classify("code.exe", "netflix-clone.ts - Code"), "productive"); // exe beats title within a layer
         assert_eq!(c.classify("vlc.exe", "Netflix Originals.mkv"), "distracting");
         assert_eq!(c.classify("discord.exe", "Friends"), "distracting");
@@ -294,21 +296,19 @@ mod tests {
 
     #[test]
     fn derives_rules_from_profiles() {
-        let r = |kind: &str, value: &str| Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None, allow: Vec::new() };
+        let r = |kind: &str, value: &str| Rule { id: 0, profile_id: 1, kind: kind.into(), value: value.into(), label: None, path: None };
         let p = Profile {
             id: 1,
             name: "P".into(),
-            allowlist_mode: false,
             default_minutes: 60,
             work_types: vec![],
             created_at: 0,
-            rules: vec![r("launch_app", "code.exe"), r("launch_url", "https://www.leetcode.com/problemset/"), r("domain", "reddit.com"), r("title", "Shorts")],
+            rules: vec![r("launch_app", "code.exe"), r("launch_url", "https://www.leetcode.com/problemset/")],
         };
         let c = Classifier { profiles: profile_rules(&p), ..Default::default() };
         assert_eq!(c.classify("code.exe", "x"), "productive");
         assert_eq!(c.classify("msedge.exe", "Two Sum - LeetCode"), "productive");
-        assert_eq!(c.classify("msedge.exe", "r/all - Reddit"), "distracting");
-        assert_eq!(c.classify("vlc.exe", "Shorts compilation"), "distracting");
+        assert_eq!(c.classify("msedge.exe", "r/all - Reddit"), "neutral");
     }
 
     #[test]

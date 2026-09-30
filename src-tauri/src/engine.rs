@@ -4,7 +4,7 @@
 
 use crate::blocker::{self, Blocker, SealSet, SystemBlocker};
 use crate::session::{self, Active, HeldStats, SessionView};
-use crate::{db, profiles, tray, winutil, AppState, Shared};
+use crate::{distractions, profiles, tray, winutil, AppState, Shared};
 use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -103,15 +103,23 @@ fn app_name(shared: &Shared, exe: &str) -> String {
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }
 
-fn seal_set(shared: &Shared, profile: &profiles::Profile) -> SealSet {
-    let always = shared
-        .db
-        .lock()
-        .ok()
-        .and_then(|c| db::get_setting(&c, blocker::ALWAYS_KEY).ok().flatten())
-        .unwrap_or_default();
-    let browser = if profile.allowlist_mode { winutil::default_browser_exe() } else { None };
-    SealSet::from_profile(profile, browser, blocker::parse_always(&always))
+/// The Distractions list, minus what this profile opens.
+fn seal_set(shared: &Shared, profile: Option<&profiles::Profile>) -> SealSet {
+    let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
+    SealSet::new(&flags, profile)
+}
+
+/// A flag added mid-seal takes effect right away: apps close, the extension hears.
+pub fn refresh_seal(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let Some(profile_id) = shared.engine.session_ids().map(|s| s.1) else { return };
+    let profile = profile_id.and_then(|id| load_profile(&shared, id).ok());
+    let seal = seal_set(&shared, profile.as_ref());
+    if let Some(a) = shared.engine.active.lock().unwrap().as_mut() {
+        a.sealed_count = seal.enforced_count() as i64;
+    }
+    shared.engine.blocker.lock().unwrap().set_rules(seal);
+    crate::browser::push_rules(app);
 }
 
 fn load_profile(shared: &Shared, id: i64) -> Result<profiles::Profile, String> {
@@ -127,7 +135,7 @@ pub fn get_session(shared: State<Shared>) -> Option<SessionView> {
 #[tauri::command]
 pub fn preview_seal(shared: State<Shared>, profile_id: i64) -> Result<Vec<String>, String> {
     let profile = load_profile(&shared, profile_id)?;
-    let seal = seal_set(&shared, &profile);
+    let seal = seal_set(&shared, Some(&profile));
     let exes = shared.engine.blocker.lock().unwrap().preview(&seal);
     Ok(exes.iter().map(|e| app_name(&shared, e)).collect())
 }
@@ -147,7 +155,7 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, 
         return Err("Focus length must be one of 30, 60, 90, or 120 minutes.".into());
     }
     let profile = load_profile(&shared, profile_id)?;
-    let seal = seal_set(&shared, &profile);
+    let seal = seal_set(&shared, Some(&profile));
     let mut active = {
         let conn = shared.db.lock().map_err(|e| e.to_string())?;
         session::start(&conn, profile.id, &profile.name, minutes, session::now_ms()).map_err(|e| e.to_string())?
@@ -256,11 +264,8 @@ pub fn resume_on_startup(app: &AppHandle) {
         session::resume(&conn, session::now_ms()).ok().flatten()
     };
     let Some(mut active) = resumed else { return };
-    let seal = active
-        .profile_id
-        .and_then(|id| load_profile(&shared, id).ok())
-        .map(|p| seal_set(&shared, &p))
-        .unwrap_or_default();
+    let profile = active.profile_id.and_then(|id| load_profile(&shared, id).ok());
+    let seal = seal_set(&shared, profile.as_ref());
     active.sealed_count = seal.enforced_count() as i64;
     shared.engine.blocker.lock().unwrap().set_rules(seal);
     *shared.engine.active.lock().unwrap() = Some(active);

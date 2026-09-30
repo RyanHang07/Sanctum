@@ -7,7 +7,8 @@ use std::fmt;
 
 pub const DURATIONS: [i64; 4] = [30, 60, 90, 120];
 pub const DEFAULT_MINUTES: i64 = 60;
-const KINDS: [&str; 5] = ["app", "domain", "title", "launch_app", "launch_url"];
+/// What a profile opens. What it seals lives in the one Distractions list (distractions.rs).
+const KINDS: [&str; 2] = ["launch_app", "launch_url"];
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -18,16 +19,6 @@ pub struct Rule {
     pub value: String,
     pub label: Option<String>,
     pub path: Option<String>,
-    /// Sealed sites only: pages under the site that stay open (4b).
-    pub allow: Vec<SiteAllow>,
-}
-
-/// An exception under a sealed site: a bare host plus path ("youtube.com/@mitocw").
-#[derive(Serialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SiteAllow {
-    pub id: i64,
-    pub prefix: String,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -35,7 +26,6 @@ pub struct SiteAllow {
 pub struct Profile {
     pub id: i64,
     pub name: String,
-    pub allowlist_mode: bool,
     pub default_minutes: i64,
     pub work_types: Vec<String>,
     pub created_at: i64,
@@ -60,8 +50,6 @@ pub struct ProfileDraft {
     #[serde(default)]
     pub default_minutes: Option<i64>,
     #[serde(default)]
-    pub allowlist_mode: bool,
-    #[serde(default)]
     pub work_types: Vec<String>,
     #[serde(default)]
     pub rules: Vec<NewRule>,
@@ -72,7 +60,6 @@ pub struct ProfileDraft {
 pub struct ProfilePatch {
     pub name: Option<String>,
     pub default_minutes: Option<i64>,
-    pub allowlist_mode: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -132,6 +119,9 @@ pub fn normalize_allow(domain: &str, input: &str) -> Option<String> {
 
 fn normalize_rule(rule: NewRule) -> Result<NewRule> {
     let kind = rule.kind.trim().to_string();
+    if ["app", "domain", "title"].contains(&kind.as_str()) {
+        return Err(Error::Invalid("Seals live in Distractions now, for every profile.".into()));
+    }
     if !KINDS.contains(&kind.as_str()) {
         return Err(Error::Invalid(format!("Unknown rule kind: {kind}.")));
     }
@@ -140,14 +130,13 @@ fn normalize_rule(rule: NewRule) -> Result<NewRule> {
         return Err(Error::Invalid("A rule needs a value.".into()));
     }
     let value = match kind.as_str() {
-        "app" | "launch_app" => {
+        "launch_app" => {
             let exe = raw.to_lowercase();
             if !exe.ends_with(".exe") || exe.contains(['/', '\\']) {
                 return Err(Error::Invalid(format!("{raw} is not an app name.")));
             }
             exe
         }
-        "domain" => normalize_domain(raw).ok_or_else(|| Error::Invalid(format!("{raw} is not a site.")))?,
         "launch_url" => {
             let lower = raw.to_lowercase();
             if !(lower.starts_with("https://") || lower.starts_with("http://")) || !raw.contains('.') {
@@ -206,39 +195,25 @@ fn rules_for(conn: &Connection, profile_id: Option<i64>) -> Result<Vec<Rule>> {
             value: r.get(3)?,
             label: r.get(4)?,
             path: r.get(5)?,
-            allow: Vec::new(),
         })
     })?;
-    let mut rules: Vec<Rule> = rows.collect::<rusqlite::Result<_>>()?;
-    let mut stmt = conn.prepare(
-        "SELECT e.id, e.rule_id, e.prefix FROM site_exceptions e JOIN profile_rules r ON r.id = e.rule_id
-         WHERE ?1 IS NULL OR r.profile_id = ?1 ORDER BY e.prefix",
-    )?;
-    let allows = stmt.query_map([profile_id], |r| Ok((r.get::<_, i64>(1)?, SiteAllow { id: r.get(0)?, prefix: r.get(2)? })))?;
-    for a in allows {
-        let (rule_id, allow) = a?;
-        if let Some(rule) = rules.iter_mut().find(|r| r.id == rule_id) {
-            rule.allow.push(allow);
-        }
-    }
-    Ok(rules)
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 fn read_profiles(conn: &Connection, id: Option<i64>) -> Result<Vec<Profile>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, allowlist_mode, default_minutes, work_types, created_at FROM profiles
+        "SELECT id, name, default_minutes, work_types, created_at FROM profiles
          WHERE ?1 IS NULL OR id = ?1 ORDER BY id",
     )?;
     let mut profiles = stmt
         .query_map([id], |r| {
-            let types: String = r.get(4)?;
+            let types: String = r.get(3)?;
             Ok(Profile {
                 id: r.get(0)?,
                 name: r.get(1)?,
-                allowlist_mode: r.get::<_, i64>(2)? != 0,
-                default_minutes: r.get(3)?,
+                default_minutes: r.get(2)?,
                 work_types: serde_json::from_str(&types).unwrap_or_default(),
-                created_at: r.get(5)?,
+                created_at: r.get(4)?,
                 rules: Vec::new(),
             })
         })?
@@ -280,11 +255,10 @@ pub fn create(conn: &mut Connection, draft: ProfileDraft) -> Result<Profile> {
     let tx = conn.transaction()?;
     let name = unique_name(&tx, &draft.name)?;
     tx.execute(
-        "INSERT INTO profiles (name, allowlist_mode, default_minutes, work_types, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO profiles (name, default_minutes, work_types, created_at)
+         VALUES (?1, ?2, ?3, ?4)",
         params![
             name,
-            draft.allowlist_mode as i64,
             minutes,
             serde_json::to_string(&draft.work_types).unwrap_or_else(|_| "[]".into()),
             now_ms()
@@ -313,9 +287,6 @@ pub fn update(conn: &Connection, id: i64, patch: ProfilePatch) -> Result<Profile
     if let Some(m) = patch.default_minutes {
         conn.execute("UPDATE profiles SET default_minutes = ?1 WHERE id = ?2", params![check_minutes(m)?, id])?;
     }
-    if let Some(a) = patch.allowlist_mode {
-        conn.execute("UPDATE profiles SET allowlist_mode = ?1 WHERE id = ?2", params![a as i64, id])?;
-    }
     get(conn, id)
 }
 
@@ -338,30 +309,6 @@ pub fn remove_rule(conn: &Connection, rule_id: i64) -> Result<Profile> {
         .optional()?
         .ok_or(Error::NotFound)?;
     conn.execute("DELETE FROM profile_rules WHERE id = ?1", [rule_id])?;
-    get(conn, profile_id)
-}
-
-/// Adds a page that stays open under a sealed site.
-pub fn add_site_allow(conn: &Connection, rule_id: i64, input: &str) -> Result<Profile> {
-    let (profile_id, kind, domain): (i64, String, String) = conn
-        .query_row("SELECT profile_id, kind, value FROM profile_rules WHERE id = ?1", [rule_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .optional()?
-        .ok_or(Error::NotFound)?;
-    if kind != "domain" {
-        return Err(Error::Invalid("Only sealed sites take exceptions.".into()));
-    }
-    let prefix = normalize_allow(&domain, input)
-        .ok_or_else(|| Error::Invalid(format!("{} is not a page on {domain}.", input.trim())))?;
-    conn.execute("INSERT OR IGNORE INTO site_exceptions (rule_id, prefix) VALUES (?1, ?2)", params![rule_id, prefix])?;
-    get(conn, profile_id)
-}
-
-pub fn remove_site_allow(conn: &Connection, id: i64) -> Result<Profile> {
-    let profile_id: i64 = conn
-        .query_row("SELECT r.profile_id FROM site_exceptions e JOIN profile_rules r ON r.id = e.rule_id WHERE e.id = ?1", [id], |r| r.get(0))
-        .optional()?
-        .ok_or(Error::NotFound)?;
-    conn.execute("DELETE FROM site_exceptions WHERE id = ?1", [id])?;
     get(conn, profile_id)
 }
 
@@ -396,11 +343,9 @@ mod tests {
                 default_minutes: Some(90),
                 work_types: vec!["DSA practice".into()],
                 rules: vec![
-                    rule("domain", "https://www.YouTube.com/"),
-                    rule("app", "Discord.exe"),
+                    rule("launch_app", "Code.exe"),
                     rule("launch_url", "https://leetcode.com/problemset/"),
-                    rule("title", "Shorts"),
-                    rule("domain", "youtube.com"), // duplicate after normalizing
+                    rule("launch_app", "code.exe"), // duplicate after normalizing
                 ],
                 ..Default::default()
             },
@@ -412,12 +357,7 @@ mod tests {
         let values: Vec<_> = p.rules.iter().map(|r| (r.kind.as_str(), r.value.as_str())).collect();
         assert_eq!(
             values,
-            vec![
-                ("domain", "youtube.com"),
-                ("app", "discord.exe"),
-                ("launch_url", "https://leetcode.com/problemset/"),
-                ("title", "Shorts"),
-            ]
+            vec![("launch_app", "code.exe"), ("launch_url", "https://leetcode.com/problemset/")]
         );
     }
 
@@ -441,19 +381,22 @@ mod tests {
         let p = update(
             &conn,
             p.id,
-            ProfilePatch { default_minutes: Some(120), allowlist_mode: Some(true), name: Some(" Deep Study ".into()) },
+            ProfilePatch { default_minutes: Some(120), name: Some(" Deep Study ".into()) },
         )
         .unwrap();
-        assert_eq!((p.default_minutes, p.allowlist_mode, p.name.as_str()), (120, true, "Deep Study"));
+        assert_eq!((p.default_minutes, p.name.as_str()), (120, "Deep Study"));
     }
 
     #[test]
     fn rejects_bad_rules() {
         let mut conn = fresh();
         let p = create(&mut conn, ProfileDraft { name: "X".into(), ..Default::default() }).unwrap();
-        for (kind, value) in [("app", "discord"), ("domain", "not a site"), ("launch_url", "leetcode.com"), ("bogus", "x"), ("title", "  ")] {
+        for (kind, value) in [("launch_app", "discord"), ("launch_url", "leetcode.com"), ("bogus", "x")] {
             assert!(add_rule(&conn, p.id, rule(kind, value)).is_err(), "{kind} {value}");
         }
+        // Seals live in Distractions now.
+        let err = add_rule(&conn, p.id, rule("app", "discord.exe")).unwrap_err();
+        assert!(err.to_string().contains("Distractions"));
     }
 
     #[test]
@@ -469,7 +412,7 @@ mod tests {
         assert_eq!(p.rules[0].label.as_deref(), Some("VS Code"));
         let p = remove_rule(&conn, p.rules[0].id).unwrap();
         assert!(p.rules.is_empty());
-        add_rule(&conn, p.id, rule("app", "steam.exe")).unwrap();
+        add_rule(&conn, p.id, rule("launch_url", "https://leetcode.com/")).unwrap();
         delete(&conn, p.id).unwrap();
         assert!(matches!(get(&conn, p.id), Err(Error::NotFound)));
         let left: i64 = conn.query_row("SELECT COUNT(*) FROM profile_rules", [], |r| r.get(0)).unwrap();
@@ -491,28 +434,5 @@ mod tests {
         assert_eq!(normalize_allow("youtube.com", "youtube.com"), None, "the whole site isn't an exception");
         assert_eq!(normalize_allow("youtube.com", "notyoutube.com/x"), None);
         assert_eq!(normalize_allow("reddit.com", "youtube.com/x"), None);
-
-        let mut conn = Connection::open_in_memory().unwrap();
-        db::prepare(&mut conn).unwrap();
-        let p = create(
-            &mut conn,
-            ProfileDraft { name: "Study".into(), rules: vec![NewRule { kind: "domain".into(), value: "youtube.com".into(), ..Default::default() }, NewRule { kind: "app".into(), value: "steam.exe".into(), ..Default::default() }], ..Default::default() },
-        )
-        .unwrap();
-        let site = p.rules.iter().find(|r| r.kind == "domain").unwrap().id;
-        let app = p.rules.iter().find(|r| r.kind == "app").unwrap().id;
-        add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
-        let p = add_site_allow(&conn, site, "https://youtube.com/@mitocw").unwrap(); // no duplicate
-        let allow = &p.rules.iter().find(|r| r.id == site).unwrap().allow;
-        assert_eq!(allow.iter().map(|a| a.prefix.as_str()).collect::<Vec<_>>(), vec!["youtube.com/@mitocw"]);
-        assert!(add_site_allow(&conn, app, "youtube.com/x").is_err());
-        assert!(add_site_allow(&conn, site, "twitch.tv").is_err());
-        let p = remove_site_allow(&conn, allow[0].id).unwrap();
-        assert!(p.rules.iter().find(|r| r.id == site).unwrap().allow.is_empty());
-        // Exceptions go with their rule.
-        add_site_allow(&conn, site, "youtube.com/@mitocw").unwrap();
-        remove_rule(&conn, site).unwrap();
-        let left: i64 = conn.query_row("SELECT COUNT(*) FROM site_exceptions", [], |r| r.get(0)).unwrap();
-        assert_eq!(left, 0);
     }
 }
