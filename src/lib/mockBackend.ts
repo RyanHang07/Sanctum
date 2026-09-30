@@ -4,12 +4,12 @@
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
 import { normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules } from "./catalog";
-import type { ActivitySummary, BrowserStatus, CalEvent, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import type { ActivitySummary, BrowserStatus, CalEvent, CloudStatus, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { dayStatus, streaks } from "./stats";
 
-const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser" };
+const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
 const DURATIONS = [30, 60, 90, 120];
 
@@ -53,6 +53,7 @@ interface MockState {
   tempted: { what: string; kind: string; count: number }[];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
   browsers: BrowserStatus;
+  cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[] };
 }
 
 let state: MockState;
@@ -87,6 +88,7 @@ export function resetMockBackend() {
     statsDays: {},
     tempted: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
+    cloud: { email: null, partner: null, invite: null, partnerOf: [] },
     browsers: {
       extensionDir: "C:\\Mock\\Sanctum\\extension",
       extensionId: "iiapijigajhpjklfkokmjobdfconijag",
@@ -210,6 +212,42 @@ const handlers: Record<string, (a: any) => unknown> = {
     return clone(p);
   },
   browser_status: (): BrowserStatus => clone(state.browsers),
+
+  cloud_status: (): CloudStatus => ({ signedIn: !!state.cloud.email, email: state.cloud.email, connecting: false, error: null }),
+  cloud_sign_in_google: () => {
+    state.cloud.email = "you@gmail.com";
+    bus.emit(EV.cloud, null);
+    return handlers.cloud_status!({});
+  },
+  cloud_sign_in_email: ({ email }: { email: string }) => {
+    if (!email.includes("@")) throw "That doesn't look like an email address.";
+    state.cloud.email = email.trim().toLowerCase();
+    bus.emit(EV.cloud, null);
+    return handlers.cloud_status!({});
+  },
+  cloud_cancel_sign_in: () => undefined,
+  cloud_sign_out: () => {
+    state.cloud = { email: null, partner: null, invite: null, partnerOf: [] };
+    return handlers.cloud_status!({});
+  },
+  cloud_partner: (): PartnerStatus => {
+    if (!state.cloud.email) throw "Sign in first.";
+    const c = state.cloud;
+    return clone({ email: c.email, partner: c.partner, invite: c.partner ? null : c.invite, partnerOf: c.partnerOf });
+  },
+  cloud_create_invite: () => {
+    state.cloud.invite = { link: `http://localhost:5174/invite/mock${state.nextId++}`, expiresAt: new Date(Date.now() + 48 * 3_600_000).toISOString() };
+    return handlers.cloud_partner!({});
+  },
+  cloud_cancel_invite: () => {
+    state.cloud.invite = null;
+    return handlers.cloud_partner!({});
+  },
+  cloud_request_removal: ({ cancel }: { cancel: boolean }) => {
+    if (!cancel && state.session) throw "Partner changes wait until the seal ends.";
+    if (state.cloud.partner) state.cloud.partner.status = cancel ? "active" : "removal_requested";
+    return handlers.cloud_partner!({});
+  },
 
   get_session: () => (state.session ? view() : null),
   preview_seal: ({ profileId }) => {
@@ -566,6 +604,12 @@ function tick() {
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
+  /** Someone accepted the invite. */
+  partnerJoins(email = "friend@example.com", name: string | null = "Alex") {
+    state.cloud.partner = { email, name, status: "active", since: new Date().toISOString() };
+    state.cloud.invite = null;
+    bus.emit(EV.cloud, null);
+  },
   /** Per-day history for Stats: date key -> focus, a broken seal, attempts, activity. */
   statsDays(days: Record<string, MockDay>, tempted: MockState["tempted"] = []) {
     Object.assign(state.statsDays, days);

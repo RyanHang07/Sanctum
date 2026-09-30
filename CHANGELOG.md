@@ -1,5 +1,31 @@
 # Changelog
 
+## M6: optional account and accountability partner (2026-09-29)
+
+### Added
+- **Supabase project "Sanctum"** (free plan, us-west-1).
+  - The schema from SPEC 5.2, with row-level security on every table (`supabase/migrations/`).
+  - PINs have no client access at all.
+  - A user can only *ask* to remove their partner; the partner releases them.
+  - Tested with throwaway users in a transaction that was rolled back.
+- **Edge Functions** (`supabase/functions/`), all behind sign-in:
+  - `invite`: peek at an invite, or accept it and set a PIN, hashed with argon2id server-side.
+  - `pin-set`: reset the PIN.
+  - `notify`: stores a partner notification and emails it through Brevo once `BREVO_API_KEY` and `BREVO_SENDER` are set as Supabase secrets. Limited to 20 a day.
+- **Desktop account** (`src-tauri/src/cloud.rs`).
+  - Sign in with Google or an email link, both PKCE through a loopback on port 54917.
+  - The refresh token is kept in Windows Credential Manager.
+  - Setup > **Account**: sign in, create a single-use 48-hour invite link (copy or cancel), see your partner, ask to remove them (locked while sealed), and see whose partner you are.
+- **A broken seal notifies the partner.**
+- **Partner web page** (`partner/`, Vite + React, deploys to Vercel):
+  - Sign in with Google or an email link.
+  - Accept an invite and set a PIN.
+  - See who you hold the key for, and release them or step down.
+  - Reset your PIN.
+
+### Changed
+- Tests: 144 frontend and 70 Rust.
+
 ## M5 (complete): onboarding and streak marks (2026-09-29)
 
 ### Added

@@ -193,6 +193,31 @@ describe("Profile detail", () => {
   });
 });
 
+describe("Account", () => {
+  it("signs in, invites a partner, and asks to remove them", async () => {
+    await renderSetup(false);
+    const account = within(await screen.findByRole("region", { name: "Account" }));
+    expect(account.getByText(/Optional. An account lets a friend/)).toBeInTheDocument();
+    fireEvent.change(account.getByLabelText("Email for a sign-in link"), { target: { value: "me@example.com" } });
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Email me a link" })));
+    expect(await account.findByText("Signed in as me@example.com")).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Invite a partner" })));
+    expect(account.getByTestId("invite-link")).toHaveTextContent("/invite/");
+    expect(account.getByText(/Expires in 48 hours/)).toBeInTheDocument();
+
+    await act(async () => mockControls.partnerJoins("alex@example.com", "Alex"));
+    expect(await account.findByText("Partner: Alex")).toBeInTheDocument();
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Ask to remove" })));
+    expect(account.getByText("Waiting for Alex to release you")).toBeInTheDocument();
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Keep partner" })));
+    expect(account.getByText("Partner: Alex")).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(account.getByRole("button", { name: "Sign out" })));
+    expect(await account.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
+  });
+});
+
 describe("Streak settings", () => {
   it("saves the daily goal and rest days", async () => {
     await act(() => useStore.getState().loadSettings());

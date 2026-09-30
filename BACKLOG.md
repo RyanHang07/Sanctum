@@ -50,6 +50,19 @@ Raised after the Milestone 1 review (2026-09-29).
   - Say plainly: allowlist mode only stops new launches; what's open when you enter stays.
 - **Try a seal.** An optional 1-minute test seal on a sample site, so the blocked page and an attempt show once before real use.
 
+## M6 follow-ups (noted 2026-09-29)
+- **You, in the Supabase dashboard** (Authentication):
+  - Add Redirect URLs `http://127.0.0.1:54917/**` and `http://localhost:5174/**`, plus the Vercel URL once deployed.
+  - Enable the Google provider with an OAuth client. Its authorized redirect URI is `https://phihiaeejhdnfavtianf.supabase.co/auth/v1/callback`.
+  - Supabase's built-in email only reaches the project's team members. For partners' email links, set Brevo as custom SMTP.
+- **Brevo:** secrets `BREVO_API_KEY`, `BREVO_SENDER`, `PARTNER_APP_URL`.
+- **Vercel:** deploy `partner/` (see partner/README.md), then build the app with `SANCTUM_PARTNER_URL`.
+- **Later:**
+  - An account + partner step in onboarding.
+  - `streak_lost` notifications when a missed day resets the streak.
+  - Daily summary and streak sync.
+  - Notifications list in the app.
+
 ## Blocking
 - **Instant blocking.** Replace the 1s process poll with WMI process-start events (SPEC 4.4 v2).
 - **Elevated apps** can't be closed from the user-level app; the elevated watchdog service (M8) should do it.

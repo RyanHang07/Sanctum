@@ -4,6 +4,7 @@ import type {
   ActivitySummary,
   BrowserStatus,
   CalEvent,
+  CloudStatus,
   Category,
   ClassRule,
   EventDraft,
@@ -15,6 +16,7 @@ import type {
   Profile,
   ProfileDraft,
   ProfilePatch,
+  PartnerStatus,
   Routine,
   RoutineCheck,
   RoutineDraft,
@@ -38,6 +40,7 @@ export const EVENTS = {
   gcal: "sanctum://gcal",
   planner: "sanctum://planner",
   browser: "sanctum://browser",
+  cloud: "sanctum://cloud",
 } as const;
 
 /** True when running inside the Tauri webview (false in `vite` in a browser and in tests). */
@@ -120,6 +123,16 @@ export const native = {
   gcalOpen: (url: string) => call<void>("gcal_open", { url }),
 
   browserStatus: () => call<BrowserStatus>("browser_status"),
+
+  cloudStatus: () => call<CloudStatus>("cloud_status"),
+  cloudSignInGoogle: () => call<CloudStatus>("cloud_sign_in_google"),
+  cloudSignInEmail: (email: string) => call<CloudStatus>("cloud_sign_in_email", { email }),
+  cloudCancelSignIn: () => call<void>("cloud_cancel_sign_in"),
+  cloudSignOut: () => call<CloudStatus>("cloud_sign_out"),
+  cloudPartner: () => call<PartnerStatus>("cloud_partner"),
+  cloudCreateInvite: () => call<PartnerStatus>("cloud_create_invite"),
+  cloudCancelInvite: () => call<PartnerStatus>("cloud_cancel_invite"),
+  cloudRequestRemoval: (cancel: boolean) => call<PartnerStatus>("cloud_request_removal", { cancel }),
   browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
 };
 

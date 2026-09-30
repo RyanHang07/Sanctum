@@ -291,3 +291,26 @@ export interface StatsOverview {
   distractingMin: number;
   idleMin: number;
 }
+
+/** The optional Sanctum account (src-tauri/src/cloud.rs, SPEC 4.6). */
+export interface CloudStatus {
+  signedIn: boolean;
+  email: string | null;
+  connecting: boolean;
+  error: string | null;
+}
+
+export interface Partner {
+  email: string | null;
+  name: string | null;
+  status: "active" | "removal_requested";
+  since: string;
+}
+
+export interface PartnerStatus {
+  email: string | null;
+  partner: Partner | null;
+  invite: { link: string; expiresAt: string } | null;
+  /** People who chose you as their partner. */
+  partnerOf: string[];
+}
