@@ -8,6 +8,7 @@ import { BlockPrompt } from "./BlockPrompt";
 import { useScheduleFocus } from "../state/schedule";
 import { Home, enterFocus } from "../pages/Home";
 import { HeldPage } from "../pages/HeldPage";
+import { Onboarding } from "../pages/onboarding/Onboarding";
 import { EmptyPage } from "../pages/EmptyPage";
 import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
@@ -79,6 +80,7 @@ function useNativeEvents() {
     void useStore.getState().loadSession();
     void seedDevProfiles()
       .finally(() => useStore.getState().loadProfiles())
+      .then(() => useStore.getState().checkOnboarding())
       .then(() => seedDevPlanner())
       .finally(() => usePlanner.getState().reload());
     // Keep the Rust side (tray menu, close handling) in sync with the store on startup.
@@ -93,6 +95,7 @@ export function AppShell() {
   const durationMin = useStore((s) => s.durationMin);
   const session = useStore((s) => s.session);
   const held = useStore((s) => s.held);
+  const onboarding = useStore((s) => s.onboarding);
   const meeting = useStore((s) => s.meeting);
   const now = useNow(15_000);
   useShortcuts();
@@ -100,6 +103,7 @@ export function AppShell() {
   useScheduleFocus();
 
   if (held) return <HeldPage held={held} />;
+  if (onboarding) return <Onboarding />;
 
   const pillMeta =
     appState === "sealed"

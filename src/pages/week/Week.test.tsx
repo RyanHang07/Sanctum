@@ -7,7 +7,7 @@ import { useStore } from "../../state/store";
 import { usePlanner } from "../../state/planner";
 import { connectNativeEvents } from "../../state/events";
 import { checkSchedule, resetPrompted } from "../../state/schedule";
-import { resetMockBackend } from "../../lib/mockBackend";
+import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { sampleProfiles } from "../../lib/catalog";
 import { WEEKDAYS_MASK } from "../../lib/planner";
@@ -330,5 +330,28 @@ describe("Month view", () => {
     fireEvent.click(oct1);
     expect(screen.getByRole("tab", { name: "Week" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
+  });
+});
+
+describe("Streak marks", () => {
+  it("marks each day in Week and dots each day in Month", async () => {
+    await setup();
+    mockControls.statsDays({
+      "2026-09-26": { focusMin: 130 },
+      "2026-09-27": { focusMin: 30 },
+      "2026-09-28": { focusMin: 150, brokenAt: new Date(2026, 8, 28, 14, 14).getTime() },
+    });
+    await act(async () => render(<WeekPage />));
+    const monday = screen.getByRole("region", { name: "Monday, September 28" });
+    expect(await within(monday).findByTestId("streak-mark")).toHaveTextContent("Broken 2:14p");
+    const tuesday = screen.getByRole("region", { name: "Tuesday, September 29" });
+    expect(within(tuesday).getByTestId("streak-mark")).toHaveTextContent("In progress");
+    expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).queryByTestId("streak-mark")).toBeNull();
+
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Month" })));
+    const dots = await screen.findAllByTestId("streak-dot");
+    const status = (d: string) => dots.find((x) => x.closest("button")?.getAttribute("aria-label")?.includes(d))?.getAttribute("data-status");
+    expect(status("September 26")).toBe("kept");
+    expect(status("September 27")).toBe("missed");
   });
 });

@@ -22,6 +22,7 @@ export function seedDevProfiles(): Promise<void> {
       for (const draft of sampleProfiles()) await native.createProfile(draft);
     }
     await native.setSetting("dev_seeded", "1");
+    await native.setSetting("onboarded", "1");
   })();
   return running;
 }
