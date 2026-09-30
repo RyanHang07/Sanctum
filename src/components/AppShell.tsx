@@ -10,6 +10,8 @@ import { Home, enterFocus } from "../pages/Home";
 import { HeldPage } from "../pages/HeldPage";
 import { Onboarding } from "../pages/onboarding/Onboarding";
 import { TrackersPage } from "../pages/trackers/TrackersPage";
+import { NotesPage } from "../pages/notes/NotesPage";
+import { useNotes } from "../state/notes";
 import { CheckinDialog } from "./CheckinDialog";
 import { BootSplash } from "./BootSplash";
 import { CommandBar } from "./CommandBar";
@@ -44,6 +46,8 @@ function Page({ tab }: { tab: TabId }) {
       return <StatsPage />;
     case "trackers":
       return <TrackersPage />;
+    case "notes":
+      return <NotesPage />;
     case "setup":
       return <Setup />;
   }
@@ -96,7 +100,8 @@ function useNativeEvents() {
       // A check-in missed before startup, when "Check in on startup" is on.
       .then(() => seedDevTrackers())
       .then(() => useTrackers.getState().load())
-      .then(() => useTrackers.getState().checkPending());
+      .then(() => useTrackers.getState().checkPending())
+      .then(() => useNotes.getState().load());
     // Keep the Rust side (tray menu, close handling) in sync with the store on startup.
     void native.setAppState(useStore.getState().appState);
     return disconnect;

@@ -8,6 +8,7 @@ import type { GuardStatus, ActivitySummary, BrowserStatus, CalEvent, Distraction
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
+import type { Note, NoteDraft } from "./types";
 import { dayStatus, streaks } from "./stats";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
@@ -56,6 +57,7 @@ interface MockState {
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
   browsers: BrowserStatus;
   guard: { installed: boolean; decline: boolean; restarts: number[] };
+  notes: Note[];
   cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[] };
 }
 
@@ -98,6 +100,7 @@ export function resetMockBackend() {
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
     guard: { installed: false, decline: false, restarts: [] },
+    notes: [],
     browsers: {
       extensionDir: "C:\\Mock\\Sanctum\\extension",
       extensionId: "iiapijigajhpjklfkokmjobdfconijag",
@@ -252,6 +255,28 @@ const handlers: Record<string, (a: any) => unknown> = {
     return [...used, ...common].filter((s) => !flagged.has(`${s.kind}:${s.value}`));
   },
   browser_status: (): BrowserStatus => clone(state.browsers),
+  list_notes: () => clone([...state.notes].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id)),
+  save_note: ({ draft }: { draft: NoteDraft }) => {
+    const now = Math.max(Date.now(), ...state.notes.map((n) => n.updatedAt + 1));
+    if (draft.id !== undefined) {
+      const n = state.notes.find((x) => x.id === draft.id);
+      if (!n) throw "That note no longer exists.";
+      Object.assign(n, { title: draft.title.slice(0, 200), body: draft.body, updatedAt: now });
+      return clone(n);
+    }
+    const n: Note = { id: state.nextId++, title: draft.title.slice(0, 200), body: draft.body, pinned: false, createdAt: now, updatedAt: now };
+    state.notes.push(n);
+    return clone(n);
+  },
+  pin_note: ({ id, pinned }: { id: number; pinned: boolean }) => {
+    const n = state.notes.find((x) => x.id === id);
+    if (!n) throw "That note no longer exists.";
+    n.pinned = pinned;
+    return clone(n);
+  },
+  delete_note: ({ id }: { id: number }) => {
+    state.notes = state.notes.filter((n) => n.id !== id);
+  },
   app_version: () => "0.1.0",
   update_check: () => null,
   update_install: () => {

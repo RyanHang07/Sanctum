@@ -14,6 +14,7 @@ mod ladder;
 mod unlock;
 mod updates;
 mod launcher;
+mod notes;
 mod planner;
 mod profiles;
 mod session;
@@ -712,6 +713,10 @@ pub fn run() {
             distraction_suggestions,
             browser::browser_status,
             guard_status,
+            notes::list_notes,
+            notes::save_note,
+            notes::pin_note,
+            notes::delete_note,
             updates::update_check,
             updates::update_install,
             updates::app_version,

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import pkg from "../../package.json";
 import { Mark } from "./Mark";
 import { AnimatedMark } from "./AnimatedMark";
-import { LockIcon, PanelIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
+import { LockIcon, NotesIcon, PanelIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
 import { TABS, type AppState, type TabId, isTabLocked } from "../state/appState";
 import { useStore } from "../state/store";
 
@@ -11,6 +11,7 @@ const TAB_ICONS: Record<TabId, ReactNode> = {
   week: <WeekIcon />,
   stats: <StatsIcon />,
   trackers: <TrackersIcon />,
+  notes: <NotesIcon />,
   setup: <SetupIcon />,
 };
 
