@@ -204,10 +204,10 @@ function FocusPanel() {
                 {profile ? profileNote(profile, distractionCount) : "Focus"}
               </span>
             )}
-            {/* The label sits at the button's exact center; the shortcut hangs just under it. */}
+            {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
             <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
-              <span data-testid="enter-label" className="leading-none">Enter focus</span>
-              <span className="absolute left-1/2 top-[calc(50%+14px)] -translate-x-1/2 leading-none">
+              <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
+              <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
                 <Kbd onFill>Ctrl ↵</Kbd>
               </span>
             </Button>
@@ -265,22 +265,39 @@ function SessionBar() {
   );
 }
 
-/** The meeting holding focus (SPEC 4.0, In event): time left, a link to it, and Queue focus. */
+/**
+ * The meeting holding focus (SPEC 4.0, In event): the same bar as Sealed, in the event color,
+ * so Home's layout doesn't shift between states. Time left, progress, and Queue focus.
+ */
 function EventBar() {
   const meeting = useStore((s) => s.meeting);
   const queued = useStore((s) => s.focusQueued);
   const setQueued = useStore((s) => s.setFocusQueued);
   const profile = useStore(selectedProfile);
-  const now = useNow(15_000);
+  const now = useNow(1_000);
+  // The dev toggle has no meeting: a sample 60-minute one, 18 minutes from its end.
+  const sample = useMemo(() => ({ startMs: Date.now() - 42 * 60_000, endMs: Date.now() + 18 * 60_000 }), []);
   const e = meeting ? meetingLabels(meeting, now) : SAMPLE_EVENT;
+  const { startMs, endMs } = meeting ?? sample;
+  const left = Math.max(0, endMs - now);
+  const progress = endMs > startMs ? (now - startMs) / (endMs - startMs) : 0;
   return (
-    <div data-testid="event-bar" className="flex items-center gap-[14px] rounded-panel border border-event-line bg-panel px-4 py-[14px]">
-      <span className="h-2 w-2 shrink-0 rounded-full bg-event ring-4 ring-event-tint" />
-      <div className="flex min-w-0 grow flex-col gap-[3px]">
-        <span className="truncate text-[14px] font-medium text-text">{e.title}</span>
+    <div data-testid="event-bar" className="flex items-center gap-6 rounded-panel border border-event-line bg-panel px-4 py-[14px]">
+      <span role="timer" aria-label={`${e.left} left`} className="min-w-[108px] font-mono text-[32px] font-medium tracking-[-0.03em] text-text">
+        {countdown(left)}
+      </span>
+      <div className="flex min-w-0 grow flex-col gap-2">
+        <div className="flex justify-between gap-3 text-meta text-muted">
+          <span className="truncate">
+            <span className="font-medium text-event">In event</span> · {e.title}
+          </span>
+          <span className="shrink-0">Ends {e.until}</span>
+        </div>
+        <div className="h-1 overflow-hidden rounded-full bg-line">
+          <div className="h-full bg-event transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, Math.max(0, progress) * 100)}%` }} />
+        </div>
         <span className="truncate text-meta text-muted">
-          {e.range} · <span className="font-mono text-text-2">{e.left}</span> left ·{" "}
-          {queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}
+          {e.range} · {e.left} left · {queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}
         </span>
       </div>
       {meeting?.htmlLink ? (
@@ -465,9 +482,9 @@ function ProgressPanel() {
         <div className="h-1 overflow-hidden rounded-full bg-line">
           <div className="h-full bg-sealed" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
         </div>
-        <div className="flex justify-between text-meta">
-          <span className="text-muted">Next check-in</span>
-          <span className="text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
+        <div className="flex justify-between gap-3 text-meta">
+          <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
+          <span className="min-w-0 truncate text-right text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
         </div>
       </div>
     </Panel>
