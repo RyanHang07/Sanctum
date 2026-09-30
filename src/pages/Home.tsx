@@ -4,7 +4,7 @@ import { durationsMin } from "../theme/tokens";
 import { selectedProfile, useStore, type HomePanel } from "../state/store";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
-import { useAgenda, useCalendar } from "../state/calendar";
+import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
 import { EVENTS, native, onNative } from "../lib/native";
@@ -350,12 +350,6 @@ function useTodayAgenda(): AgendaItem[] {
   return useAgenda(days)[today] ?? [];
 }
 
-/** The Today list is what you check off: routines and items, not calendar events. */
-function useTodayItems(): AgendaItem[] {
-  const all = useTodayAgenda();
-  return useMemo(() => all.filter((i) => i.kind !== "event"), [all]);
-}
-
 /** The item a running seal belongs to: its block is now and its profile is the session's. */
 function useNowKey(items: AgendaItem[]): string | null {
   const session = useStore((s) => s.session);
@@ -369,16 +363,18 @@ function useNowKey(items: AgendaItem[]): string | null {
   );
 }
 
-function TodayPanel() {
-  const items = useTodayItems();
+function TodayPanel({ strip }: { strip: boolean }) {
+  const all = useTodayAgenda();
+  const items = useMemo(() => all.filter((i) => i.kind !== "event"), [all]);
   const profiles = useStore((s) => s.profiles);
   const toggle = usePlanner((s) => s.toggle);
   const nowKey = useNowKey(items);
+  const now = useNow();
   return (
     <Panel
       id="today"
       title="Today"
-      className="grow"
+      className="h-full"
       meta={
         <span className="font-mono text-meta text-muted">
           {items.filter((t) => t.done).length}/{items.length}
@@ -392,17 +388,29 @@ function TodayPanel() {
         prefix={<PlusIcon className="shrink-0 text-faint" />}
         className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft"
       />
-      <div className="flex flex-col overflow-y-auto py-1">
-        {items.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing planned today.</p> : null}
-        {items.map((t) => {
-          const now = t.key === nowKey;
+      <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
+        {all.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing planned today.</p> : null}
+        {all.map((t) => {
+          if (t.kind === "event") {
+            const times = blockTimes(t);
+            const past = times ? times.endsAt <= now : false;
+            return (
+              <div key={t.key} data-kind="event" className="flex h-row shrink-0 items-center gap-[10px] border-l-2 border-l-transparent px-[14px]">
+                <span aria-hidden="true" className={`ml-[6px] mr-[5px] h-4 w-[3px] shrink-0 rounded-[2px] ${past ? "bg-line-input" : t.profileId !== null ? "bg-sealed" : "bg-event"}`} />
+                <span className={`min-w-0 grow truncate text-body ${past ? "text-faint" : "text-text-2"}`}>{t.title}</span>
+                <span className="shrink-0 text-[11px] text-faint">Calendar</span>
+                <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
+              </div>
+            );
+          }
+          const current = t.key === nowKey;
           const tag = profiles.find((p) => p.id === t.profileId)?.name;
           return (
             <div
               key={t.key}
-              data-now={now || undefined}
+              data-now={current || undefined}
               className={`flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
-                now ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
+                current ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
               }`}
             >
               <button
@@ -411,14 +419,14 @@ function TodayPanel() {
                 aria-checked={t.done}
                 aria-label={t.title}
                 onClick={() => void toggle(t)}
-                className={`box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
+                className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
                   t.done ? "border border-sealed bg-sealed hover:brightness-110" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
                 }`}
               >
                 {t.done ? <CheckIcon /> : null}
               </button>
-              <span className={`min-w-0 grow truncate text-body ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
-              {now ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
+              <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
+              {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
               {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
               {t.kind === "routine" ? <RepeatGlyph className="h-3 w-3 shrink-0 text-faint" /> : null}
               <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : ""}</span>
@@ -426,38 +434,13 @@ function TodayPanel() {
           );
         })}
       </div>
+      {strip ? <FocusStrip /> : null}
     </Panel>
   );
 }
 
-function SchedulePanel() {
-  const items = useTodayAgenda().filter((i) => i.time);
-  const synced = useCalendar((s) => !!s.status?.connected);
-  const now = useNow();
-  return (
-    <Panel id="schedule" title="Schedule" meta={<span className="text-[11px] text-muted">{synced ? "Google Calendar" : "Today"}</span>}>
-      <div className="flex flex-col overflow-y-auto p-[6px]">
-        {items.length === 0 ? <p className="m-0 px-2 py-2 text-meta text-faint">Nothing timed today.</p> : null}
-        {items.map((i) => {
-          const t = blockTimes(i)!;
-          const past = t.endsAt <= now;
-          const current = t.startsAt <= now && now < t.endsAt;
-          return (
-            <div key={i.key} className={`flex h-control shrink-0 items-center gap-[10px] rounded-control px-2 ${current ? "bg-raised" : ""}`}>
-              <span className="w-[40px] shrink-0 font-mono text-[11px] text-muted">{shortTime(i.time!)}</span>
-              <span
-                className={`h-4 w-[3px] shrink-0 rounded-[2px] ${past ? "bg-line-input" : i.profileId !== null ? "bg-sealed" : i.kind === "event" ? "bg-event" : "bg-check-line"}`}
-              />
-              <span className={`truncate text-body ${past || i.done ? "text-faint" : "text-text"} ${current ? "font-medium" : ""}`}>{i.title}</span>
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
-  );
-}
-
-function ProgressPanel() {
+/** Focus today against the goal, and the next check-in: one line under the list. */
+function FocusStrip() {
   const done = useStore((s) => s.focusTodayMin);
   const live = useStore((s) => s.session);
   const goal = useStore((s) => s.settings.dailyGoalMin);
@@ -469,31 +452,24 @@ function ProgressPanel() {
   // Finished sessions from the backend, plus the running one as it ticks.
   const total = done + (live ? Math.floor(live.elapsedMs / 60_000) : 0);
   return (
-    <Panel
-      id="progress"
-      title="Focus today"
-      meta={
-        <span className="font-mono text-meta text-text">
-          {minutes(total)} / {minutes(goal)}
-        </span>
-      }
-    >
-      <div className="flex flex-col gap-3 p-[14px]">
-        <div className="h-1 overflow-hidden rounded-full bg-line">
-          <div className="h-full bg-sealed" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
-        </div>
-        <div className="flex justify-between gap-3 text-meta">
-          <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
-          <span className="min-w-0 truncate text-right text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
-        </div>
+    <div data-testid="focus-strip" className="flex h-10 shrink-0 items-center gap-3 border-t border-line bg-panel-footer px-[14px] text-meta">
+      <span className="shrink-0 text-muted">Focus today</span>
+      <div className="h-1 w-[120px] shrink-0 overflow-hidden rounded-full bg-line">
+        <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
       </div>
-    </Panel>
+      <span className="shrink-0 font-mono text-text">
+        {minutes(total)} / {minutes(goal)}
+      </span>
+      <span className="ml-auto flex min-w-0 items-center gap-[6px]">
+        <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
+        <span className="truncate text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
+      </span>
+    </div>
   );
 }
 
 const PANELS: { id: HomePanel; label: string }[] = [
   { id: "today", label: "Today list" },
-  { id: "schedule", label: "Schedule" },
   { id: "progress", label: "Focus today" },
   { id: "streak", label: "Streak" },
   { id: "hint", label: "Empty schedule hint" },
@@ -542,7 +518,6 @@ export function Home() {
   const meeting = useStore((s) => s.meeting);
   const [a, b] = homeHeadline(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT);
   const show = (p: HomePanel) => !hidden.includes(p);
-  const side = show("schedule") || show("progress");
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
@@ -571,19 +546,11 @@ export function Home() {
       {appState === "sealed" && <SessionBar />}
       {appState === "event" && <EventBar />}
 
-      <div className="flex min-h-0 grow items-start gap-4">
-        {show("today") ? (
-          <div className="flex h-full min-w-0 grow flex-col">
-            <TodayPanel />
-          </div>
-        ) : null}
-        {side ? (
-          <aside className={`flex shrink-0 flex-col gap-4 ${show("today") ? "w-[250px]" : "grow"}`}>
-            {show("schedule") ? <SchedulePanel /> : null}
-            {show("progress") ? <ProgressPanel /> : null}
-          </aside>
-        ) : null}
-      </div>
+      {show("today") ? (
+        <div className="flex min-h-0 grow flex-col">
+          <TodayPanel strip={show("progress")} />
+        </div>
+      ) : null}
     </div>
   );
 }

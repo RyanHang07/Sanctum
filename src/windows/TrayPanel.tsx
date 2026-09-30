@@ -219,7 +219,7 @@ export function TrayPanel() {
               aria-checked={i.done}
               aria-label={i.title}
               onClick={() => void toggle(i)}
-              className={`box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] ${
+              className={`check-pop box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] ${
                 i.done ? "border border-sealed bg-sealed text-sealed-on" : "border-[1.5px] border-check-line hover:border-sealed"
               }`}
             >

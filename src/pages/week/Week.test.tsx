@@ -261,12 +261,16 @@ describe("Home panels", () => {
   it("collapses panels and hides them via Customize, and remembers it", async () => {
     await setup();
     render(<Home />);
-    fireEvent.click(screen.getByRole("button", { name: "Collapse Schedule" }));
-    expect(within(screen.getByRole("region", { name: "Schedule" })).queryByText("Nothing timed today.")).toBeNull();
+    // One list for the day: no separate Schedule panel.
+    expect(screen.queryByRole("region", { name: "Schedule" })).toBeNull();
+    expect(screen.getByTestId("focus-strip")).toHaveTextContent("Focus today");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Today" }));
+    expect(screen.queryByLabelText("Add a task for today")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show Today" }));
     fireEvent.click(screen.getByRole("button", { name: "Customize" }));
     fireEvent.click(screen.getByRole("switch", { name: "Show Focus today" }));
-    expect(screen.queryByRole("region", { name: "Focus today" })).toBeNull();
-    await waitFor(async () => expect(JSON.parse((await native.getSetting("home_layout"))!)).toEqual({ collapsed: ["schedule"], hidden: ["progress"] }));
+    expect(screen.queryByTestId("focus-strip")).toBeNull();
+    await waitFor(async () => expect(JSON.parse((await native.getSetting("home_layout"))!)).toEqual({ collapsed: [], hidden: ["progress"] }));
   });
 });
 
