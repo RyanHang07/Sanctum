@@ -16,8 +16,13 @@ export function connectNativeEvents(): () => void {
   const store = useStore.getState;
   const offs = [
     onNative(EVENTS.closeRequested, () => store().openCloseDialog()),
-    onNative(EVENTS.enterFocus, () => {
+    // From the tray menu, or the tray panel with its own picks.
+    onNative<{ profileId: number; minutes: number } | null>(EVENTS.enterFocus, (pick) => {
       store().navigate("today");
+      if (pick) {
+        store().selectProfile(pick.profileId);
+        store().setDuration(pick.minutes);
+      }
       void store().enterFocus();
     }),
     onNative<SessionView | null>(EVENTS.session, (s) => store().applySession(s)),

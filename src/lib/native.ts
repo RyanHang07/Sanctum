@@ -179,6 +179,13 @@ export const native = {
   browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
 };
 
+/** Sends an event to every Sanctum window (the tray panel tells the main window things). */
+export async function broadcast(event: string, payload: unknown = null): Promise<void> {
+  if (!inTauri()) return void bus.emit(event, payload);
+  const { emit } = await import("@tauri-apps/api/event");
+  await emit(event, payload);
+}
+
 export async function onNative<T>(event: string, handler: (payload: T) => void): Promise<() => void> {
   if (!inTauri()) return bus.on(event, handler as (p: unknown) => void);
   const { listen } = await import("@tauri-apps/api/event");
