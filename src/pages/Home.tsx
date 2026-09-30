@@ -8,10 +8,10 @@ import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
 import { EVENTS, native, onNative } from "../lib/native";
-import { profileNote } from "../lib/rules";
+import { profileNote, ruleLabel } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
-import { Wheel } from "../components/Wheel";
+import { LengthDial, LengthStepper, ProfileMenu } from "../components/FocusControls";
 import { QuickAddField } from "../components/QuickAdd";
 import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
@@ -161,6 +161,7 @@ function FocusPanel() {
   const suggestion = useStore((s) => s.suggestion);
   const closing = useSealPreview(profile?.id);
   const distractionCount = useStore((s) => s.distractions.length);
+  const now = useNow(30_000);
 
   const pickProfile = (id: number) => {
     useStore.getState().selectProfile(id);
@@ -170,11 +171,13 @@ function FocusPanel() {
     useStore.getState().setDuration(m);
     useStore.getState().markManualFocus();
   };
-  const profileOptions = useMemo(() => profiles.map((p) => ({ value: p.id, label: p.name })), [profiles]);
-  const durationOptions = useMemo(() => durationsMin.map((m) => ({ value: m, label: `${m} min` })), []);
+  const choices = useMemo(
+    () => profiles.map((p) => ({ id: p.id, name: p.name, note: p.rules.length ? `Opens ${p.rules.map(ruleLabel).join(", ")}` : "Opens nothing" })),
+    [profiles],
+  );
 
   return (
-    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
+    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-4">
       <SuggestedCard s={suggestion} />
       {profiles.length === 0 ? (
         <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
@@ -184,33 +187,39 @@ function FocusPanel() {
           </button>
         </div>
       ) : (
-        <div className="flex items-end justify-between gap-6">
-          <div className="flex items-end gap-3">
-            <Wheel label="Profile" options={profileOptions} value={profile?.id ?? null} onChange={pickProfile} className="w-[220px] shrink-0" />
-            <Wheel label="Length" options={durationOptions} value={duration} onChange={pickDuration} className="w-[112px] shrink-0" mono />
-          </div>
-          {/* Labeled like the wheels: the note sits where their labels do, the button matches their boxes. */}
-          <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
+        // A sentence to fill in beside a dial: "Seal Interview Prep for 60 min".
+        <div className="flex items-center gap-6">
+          <LengthDial value={duration} options={durationsMin} onChange={pickDuration} />
+          <div className="flex min-w-0 grow flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-3 text-[20px] font-semibold tracking-[-0.02em] text-muted">
+              <span className="w-[42px] shrink-0">Seal</span>
+              <ProfileMenu value={profile?.id ?? null} options={choices} onChange={pickProfile} />
+            </div>
+            <div className="flex min-w-0 items-center gap-3 text-[20px] font-semibold tracking-[-0.02em] text-muted">
+              <span className="w-[42px] shrink-0">for</span>
+              <LengthStepper value={duration} options={durationsMin} onChange={pickDuration} />
+              <span className="truncate text-meta font-normal tracking-normal text-muted">ends {clock(now + duration * 60_000)}</span>
+            </div>
             {profile && closing.length ? (
-              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-2">
-                <LockIcon size={10} className="shrink-0 text-sealed" />
+              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] text-meta text-text-2">
+                <LockIcon size={11} className="shrink-0 text-sealed" />
                 <span className="truncate">
                   {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
                 </span>
               </span>
             ) : (
-              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate text-meta text-muted">
                 {profile ? profileNote(profile, distractionCount) : "Focus"}
               </span>
             )}
-            {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
-            <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
-              <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
-              <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
-                <Kbd onFill>Ctrl ↵</Kbd>
-              </span>
-            </Button>
           </div>
+          {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
+          <Button variant="primary" size="cta" className="relative w-[200px] shrink-0" disabled={!profile} onClick={() => void enterFocus()}>
+            <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
+            <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
+              <Kbd onFill>Ctrl ↵</Kbd>
+            </span>
+          </Button>
         </div>
       )}
     </section>

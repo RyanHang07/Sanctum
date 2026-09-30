@@ -40,7 +40,7 @@ export function ProtectionSection() {
       title="Protection"
       action={
         <span className="flex items-center gap-[6px] text-meta text-muted">
-          <span className={`h-[6px] w-[6px] rounded-full ${on && status?.running ? "bg-sealed" : "bg-open"}`} />
+          <span className={`h-[6px] w-[6px] rounded-full ${on && status?.running ? "bg-sealed" : "bg-faint"}`} />
           {state}
         </span>
       }

@@ -1,5 +1,19 @@
 # Changelog
 
+## State colors and the focus row (2026-09-30)
+
+### Changed
+- **State colors, palette D.**
+  - Open is now bright (`#E6E9EF`) instead of gray, and its pill is brighter too. Sealed stays cobalt.
+  - In event is now coral (`#FF8A6B`) instead of teal. That covers the pill, the top rule, the event bar, calendar events, and the extension tokens.
+  - Dots for "off" or "not connected" are now neutral (`faint`), not the Open color.
+- **The focus row** replaces the two scroll wheels with one large panel.
+  - A length dial: a ring in quarters (click one for 30, 60, 90, or 120, or scroll over it).
+  - Beside it, a sentence to fill in: "Seal [Interview Prep ▾]" / "for [− 60 min +] ends 1:33 PM".
+  - The profile list shows what each one opens. The length steps with the arrow keys or − / +.
+  - What closes when you enter sits under the sentence, and Enter focus stays large on the right.
+- Tests: 190 frontend and 90 Rust.
+
 ## Partner page, emails, extension (2026-09-30)
 
 ### Added

@@ -16,7 +16,7 @@ const TAB_ICONS: Record<TabId, ReactNode> = {
 };
 
 const PILL: Record<AppState, { label: string; box: string; dot: string }> = {
-  open: { label: "Open", box: "border-line bg-transparent text-text-2", dot: "bg-open" },
+  open: { label: "Open", box: "border-line-input bg-transparent text-text", dot: "bg-open ring-[3px] ring-line" },
   sealed: {
     label: "Sealed",
     box: "border-sealed-line bg-sealed-tint text-text",

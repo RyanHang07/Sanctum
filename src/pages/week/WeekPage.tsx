@@ -150,7 +150,7 @@ function SyncStatus() {
   }
   return (
     <button type="button" onClick={() => useStore.getState().openSetup("calendar")} className="ml-auto flex items-center gap-[6px] text-muted transition-colors duration-ui ease-ui hover:text-text">
-      <span className={`h-[6px] w-[6px] rounded-full ${status.needsReconnect ? "bg-broken" : "bg-open"}`} />
+      <span className={`h-[6px] w-[6px] rounded-full ${status.needsReconnect ? "bg-broken" : "bg-faint"}`} />
       {status.needsReconnect ? "Reconnect Google Calendar in Setup" : "Connect Google Calendar in Setup"}
     </button>
   );

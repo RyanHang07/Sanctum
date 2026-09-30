@@ -353,7 +353,7 @@ The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed sessi
 | muted | `#8A93A6` | labels, meta |
 | faint | `#5C6477` | hints, shortcuts |
 | sealed | `#2F5BFF` (tint `#172040`, line `#1F3482`, text-on-dark `#7A95FF`, on-fill text `#FFFFFF`) | focus state + primary buttons |
-| event | `#5FD4C8` (tint `#10262A`, line `#1F4A4A`) | calendar event state |
+| event | `#FF8A6B` coral (tint `#2A1712`, line `#5A2E24`; was teal `#5FD4C8`, changed 2026-09-30) | calendar event state |
 | held mesh | `#1F3FD9` / `#2F5BFF` / `#6A4CFF` / `#12A8C9` | Sanctum held page only |
 
 Radius 6 controls, 8 panels, 12 dialogs. 32px controls, 34px list rows, 1px borders, shadows only on dialogs. The UI is monochrome; color only ever means a state.

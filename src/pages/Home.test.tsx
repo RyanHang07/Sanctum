@@ -45,14 +45,18 @@ describe("Home", () => {
     await withSampleProfiles();
     render(<Home />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Keep your promises. Or stay mid.");
-    const options = (name: string) => within(screen.getByRole("listbox", { name })).getAllByRole("option");
-    expect(options("Length").map((o) => o.textContent)).toEqual(["30 min", "60 min", "90 min", "120 min"]);
-    expect(options("Profile").map((o) => o.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
-    expect(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { selected: true })).toHaveTextContent("Interview Prep");
+    // A sentence to fill in: "Seal Interview Prep for 60 min", beside the length dial.
+    const row = within(screen.getByTestId("focus-row"));
+    expect(row.getByRole("button", { name: "Profile: Interview Prep" })).toHaveAttribute("aria-haspopup", "listbox");
+    expect(row.getByRole("spinbutton", { name: "Length" })).toHaveAttribute("aria-valuenow", "60");
+    expect(row.getByTestId("length-dial")).toHaveTextContent("60min");
+    fireEvent.click(row.getByRole("button", { name: "Profile: Interview Prep" }));
+    const options = within(screen.getByRole("listbox", { name: "Profile" })).getAllByRole("option");
+    expect(options.map((o) => o.firstElementChild?.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[0]).toHaveTextContent("Opens LeetCode, NeetCode");
     expect(screen.getByTestId("focus-row")).toHaveTextContent(`Opens LeetCode, NeetCode, VS Code, Excalidraw, Notion · seals ${useStore.getState().distractions.length}`);
-    // A calm, normal-size button with the note above it.
     expect(screen.getByRole("button", { name: /Enter focus/ })).not.toContainElement(screen.getByTestId("focus-note"));
-    // As tall as the wheel boxes beside it.
     expect(screen.getByRole("button", { name: /Enter focus/ }).className).toContain("h-[82px]");
     expect(screen.getByRole("button", { name: /Enter focus/ })).toBeEnabled();
   });
@@ -60,17 +64,25 @@ describe("Home", () => {
   it("switching profile applies its default duration", async () => {
     await withSampleProfiles();
     render(<Home />);
-    fireEvent.click(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { name: "Deep Work" }));
-    expect(within(screen.getByRole("listbox", { name: "Length" })).getByRole("option", { selected: true })).toHaveTextContent("90 min");
-    // Arrow keys step the wheel.
-    fireEvent.keyDown(screen.getByRole("listbox", { name: "Length" }), { key: "ArrowDown" });
+    fireEvent.click(screen.getByRole("button", { name: /^Profile:/ }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { name: /Deep Work/ }));
+    expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
+    const length = screen.getByRole("spinbutton", { name: "Length" });
+    expect(length).toHaveAttribute("aria-valuenow", "90");
+    // Arrow keys and the − / + buttons step it; the dial's quarters set it.
+    fireEvent.keyDown(length, { key: "ArrowUp" });
     expect(useStore.getState().durationMin).toBe(120);
+    expect(screen.getByRole("button", { name: "Longer" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Shorter" }));
+    expect(useStore.getState().durationMin).toBe(90);
+    fireEvent.click(screen.getByTestId("length-dial").querySelector('[data-minutes="30"]')!);
+    expect(useStore.getState().durationMin).toBe(30);
   });
 
   it("has an empty state with Enter focus disabled when there are no profiles", async () => {
     await act(() => useStore.getState().loadProfiles());
     render(<Home />);
-    expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Profile:/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Enter focus/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Create one in Setup" }));
     expect(useStore.getState().activeTab).toBe("setup");
