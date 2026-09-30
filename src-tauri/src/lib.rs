@@ -579,6 +579,11 @@ pub fn run() {
                 unlock: unlock::State::default(),
                 checkins: trackers::State::new(),
             });
+            // Windows are created here, not by Tauri, so no page can call a command before
+            // Shared is managed (that panics inside WebView2 and aborts the app).
+            for cfg in app.config().app.windows.clone() {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), &cfg)?.build()?;
+            }
             tray::create(app.handle())?;
             engine::resume_on_startup(app.handle());
             engine::spawn_loop(app.handle().clone());

@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Sanctum",
         "url": "index.html",
         "width": 1120,
@@ -26,6 +27,7 @@
       },
       {
         "label": "tray-panel",
+        "create": false,
         "title": "Sanctum",
         "url": "index.html#/tray",
         "width": 340,
@@ -41,6 +43,7 @@
       },
       {
         "label": "compact",
+        "create": false,
         "title": "Sanctum timer",
         "url": "index.html#/compact",
         "width": 300,
@@ -56,6 +59,7 @@
       },
       {
         "label": "intercept",
+        "create": false,
         "title": "Sanctum",
         "url": "index.html#/intercept",
         "width": 480,
