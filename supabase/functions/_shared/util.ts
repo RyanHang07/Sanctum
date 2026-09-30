@@ -1,6 +1,7 @@
 // Shared by Sanctum's Edge Functions (SPEC 4.6). The service role key never leaves Supabase.
 import { createClient, type SupabaseClient, type User } from "npm:@supabase/supabase-js@2";
 import { argon2id } from "npm:hash-wasm@4";
+import type { Email } from "./email.ts";
 
 export const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -35,8 +36,6 @@ export function hashPin(pin: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   return argon2id({ password: pin, salt, parallelism: 1, iterations: 2, memorySize: 19456, hashLength: 32, outputType: "encoded" });
 }
-
-import type { Email } from "./email.ts";
 
 /** Sends through Brevo when BREVO_API_KEY and BREVO_SENDER are set. Returns whether it went. */
 export async function sendEmail(to: string, email: Email): Promise<boolean> {
