@@ -14,6 +14,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0007_browser", include_str!("../migrations/0007_browser.sql")),
     ("0008_distractions", include_str!("../migrations/0008_distractions.sql")),
     ("0009_trackers", include_str!("../migrations/0009_trackers.sql")),
+    ("0010_guard", include_str!("../migrations/0010_guard.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.
@@ -31,6 +32,7 @@ pub const EXPECTED_TABLES: &[&str] = &[
     "profiles",
     "sessions",
     "settings",
+    "tamper_events",
     "todos",
     "tracker_entries",
     "trackers",

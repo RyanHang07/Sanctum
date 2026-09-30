@@ -12,6 +12,7 @@ import { useStore } from "../../state/store";
 import { useCalendar } from "../../state/calendar";
 import { RestDays } from "../Setup";
 import { BrowsersSection } from "../setup/Browsers";
+import { ProtectionSection } from "../setup/Protection";
 
 // First run (SPEC 4.11, design/screens/Onboarding.dc.html): welcome, profiles, distractions,
 // goals, calendar, browser, done. The partner (M6) and the watchdog (M8) join later.
@@ -238,9 +239,10 @@ function CalendarStep() {
 function BrowserStep() {
   return (
     <>
-      <Headline lead="Seal the" payoff="browser too." sub="The extension blocks your distracting sites, links, and keyword tabs while you're sealed." />
+      <Headline lead="Seal the" payoff="browser too." sub="The extension blocks your distracting sites, links, and keyword tabs. Protection blocks sites in every browser and keeps Sanctum open while you're sealed." />
       <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
         <BrowsersSection />
+        <ProtectionSection />
       </div>
     </>
   );

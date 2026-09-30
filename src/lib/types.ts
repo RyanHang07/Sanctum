@@ -418,3 +418,14 @@ export interface NextCheckin {
   name: string;
   time: string;
 }
+
+/** The guard service (M8, src-tauri/src/guard.rs). */
+export interface GuardStatus {
+  installed: boolean;
+  running: boolean;
+  /** Sites in the hosts block right now. */
+  hostsBlocked: number;
+  /** Times the guard brought Sanctum back mid-seal. */
+  restarts: number;
+  lastRestartAt: number | null;
+}
