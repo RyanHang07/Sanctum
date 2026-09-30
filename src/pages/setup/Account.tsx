@@ -155,6 +155,15 @@ export function AccountSection() {
   }, [load]);
 
   if (!status) return null;
+  if (!status.configured) {
+    return (
+      <Section title="Account">
+        <p className="m-0 px-[14px] py-3 text-body leading-normal text-muted">
+          Accounts and the accountability partner aren’t set up in this build. Add a Supabase project to src-tauri/.env to turn them on (docs/self-hosting.md). Everything else works without one.
+        </p>
+      </Section>
+    );
+  }
   const email = partner?.email ?? status.email;
   return (
     <Section

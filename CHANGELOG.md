@@ -1,5 +1,25 @@
 # Changelog
 
+## M13: open-source release (2026-09-30)
+
+### Added
+- **Public repo:** MIT `LICENSE`, a `README` (install, extension, Protection, build from source, layout), and `docs/self-hosting.md`.
+- **Bring-your-own services.**
+  - The Supabase URL and key now come from `src-tauri/.env` at build time, like the Google OAuth client, and `.env.example` lists every key.
+  - Without keys, Setup says Calendar or accounts aren't set up in this build, and everything else works.
+  - The partner page reads its own env and says when it isn't set up.
+- **Releases:** `.github/workflows/release.yml` builds an unsigned per-user NSIS installer for each `v*` tag. It publishes a draft GitHub Release with `latest.json` for the updater. `ci.yml` runs the type check and both test suites on push.
+- **Updates:** tauri-plugin-updater checks GitHub Releases. Setup › General › About shows the version, Check for updates, and Install and restart, which is refused while sealed.
+- **Diagnostics:**
+  - Panics write `logs\crash-*.log` under app data, and the last 5 are kept.
+  - **Copy diagnostics** puts the version, Windows version, schema, protection, configured services, and the latest crash on the clipboard for a GitHub issue. It includes no titles, sites, or emails.
+- **The installer ships the extension** (bundle resources, without `.key.pem`). Release builds point Setup at the installed copy.
+
+### Changed
+- The code signing, store listings, and remote crash reporting planned in SPEC are replaced (SPEC 4.0.4 and 7, decided 2026-09-30).
+- The `.gitignore` now covers `.env` files everywhere except `.env.example`.
+- Tests: 176 frontend and 89 Rust.
+
 ## M12: tray, motion, tamper, command bar, polish (2026-09-30)
 
 ### Added

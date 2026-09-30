@@ -252,6 +252,12 @@ const handlers: Record<string, (a: any) => unknown> = {
     return [...used, ...common].filter((s) => !flagged.has(`${s.kind}:${s.value}`));
   },
   browser_status: (): BrowserStatus => clone(state.browsers),
+  app_version: () => "0.1.0",
+  update_check: () => null,
+  update_install: () => {
+    throw "Sanctum is up to date.";
+  },
+  diagnostics: () => "Sanctum 0.1.0 (mock)",
   guard_status: (): GuardStatus => guardStatus(),
   guard_install: (): GuardStatus => {
     if (state.guard.decline) throw "Windows didn't allow it. Protection needs one admin approval.";
@@ -264,7 +270,7 @@ const handlers: Record<string, (a: any) => unknown> = {
     return guardStatus();
   },
 
-  cloud_status: (): CloudStatus => ({ signedIn: !!state.cloud.email, email: state.cloud.email, connecting: false, error: null }),
+  cloud_status: (): CloudStatus => ({ configured: true, signedIn: !!state.cloud.email, email: state.cloud.email, connecting: false, error: null }),
   cloud_sign_in_google: () => {
     state.cloud.email = "you@gmail.com";
     bus.emit(EV.cloud, null);

@@ -17,16 +17,18 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 
-/// The Sanctum project. The publishable key is public by design (SPEC 6); RLS guards the data.
-pub const URL: &str = "https://phihiaeejhdnfavtianf.supabase.co";
-pub const KEY: &str = "sb_publishable_WghC6M04Os0iCSboCEi_gA_qtIpLDdl";
+/// The Supabase project, set at build time (build.rs, docs/self-hosting.md). The publishable
+/// key is public by design (SPEC 6); RLS guards the data. Empty: accounts are off in this build.
+pub const URL: &str = env!("SANCTUM_SUPABASE_URL");
+pub const KEY: &str = env!("SANCTUM_SUPABASE_KEY");
+
+pub fn configured() -> bool {
+    !URL.is_empty() && !KEY.is_empty()
+}
 /// Fixed so it can be listed in Supabase Auth's redirect URLs.
 pub const REDIRECT_PORT: u16 = 54917;
 /// Where invite links point: the partner page on Vercel, or the local dev server.
-pub const PARTNER_URL: &str = match option_env!("SANCTUM_PARTNER_URL") {
-    Some(u) => u,
-    None => "http://localhost:5174",
-};
+pub const PARTNER_URL: &str = if env!("SANCTUM_PARTNER_URL").is_empty() { "http://localhost:5174" } else { env!("SANCTUM_PARTNER_URL") };
 const TARGET: &str = if cfg!(debug_assertions) { "Sanctum/account-dev" } else { "Sanctum/account" };
 pub const EVENT: &str = "sanctum://cloud";
 const GOOGLE_WAIT: Duration = Duration::from_secs(300);
@@ -268,6 +270,8 @@ fn sign_in(app: &AppHandle, method: Method) -> Result<(), String> {
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
+    /// This build has a Supabase project to talk to.
+    pub configured: bool,
     pub signed_in: bool,
     pub email: Option<String>,
     pub connecting: bool,
@@ -277,7 +281,8 @@ pub struct Status {
 fn status_of(state: &State) -> Status {
     let session = state.session.lock().unwrap();
     Status {
-        signed_in: session.is_some() || secret::load_from(TARGET).is_some(),
+        configured: configured(),
+        signed_in: configured() && (session.is_some() || secret::load_from(TARGET).is_some()),
         email: session.as_ref().and_then(|s| s.email.clone()),
         connecting: state.connecting.load(Ordering::SeqCst),
         error: state.error.lock().unwrap().clone(),
@@ -387,6 +392,9 @@ pub fn cancel_unlock_request(app: &AppHandle, id: &str) {
 
 /// Tells the partner (if any) what happened. Best effort, off the calling thread.
 pub fn notify(app: &AppHandle, kind: &'static str, detail: String) {
+    if !configured() {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         let state = &app.state::<Shared>().cloud;
@@ -404,6 +412,9 @@ pub fn cloud_status(shared: TauriState<Shared>) -> Status {
 }
 
 fn start_sign_in(app: AppHandle, method: Method) -> Result<Status, String> {
+    if !configured() {
+        return Err("Accounts aren't set up in this build. See docs/self-hosting.md.".into());
+    }
     let state = &app.state::<Shared>().cloud;
     if state.connecting.swap(true, Ordering::SeqCst) {
         return Err("Already signing in.".into());

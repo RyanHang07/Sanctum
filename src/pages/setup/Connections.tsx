@@ -16,7 +16,7 @@ function SyncDot({ tone }: { tone: "event" | "broken" | "open" }) {
 }
 
 function hintFor(s: GcalStatus, now: number): string {
-  if (!s.configured) return "This build has no Google OAuth client (src-tauri/.env).";
+  if (!s.configured) return "Google Calendar isn't set up in this build. Add a Google OAuth client to src-tauri/.env (docs/self-hosting.md).";
   if (s.connecting) return "Finish signing in in your browser.";
   if (s.needsReconnect) return "Sign-in expired. Google asks again every 7 days while the app is in testing.";
   if (!s.connected) return "Routines and timed items sync to a Sanctum calendar.";

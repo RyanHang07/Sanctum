@@ -90,6 +90,37 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "../extension/manifest.json": "extension/manifest.json",
+      "../extension/background.js": "extension/background.js",
+      "../extension/rules.js": "extension/rules.js",
+      "../extension/blocked.html": "extension/blocked.html",
+      "../extension/blocked.css": "extension/blocked.css",
+      "../extension/blocked.js": "extension/blocked.js",
+      "../extension/tokens.css": "extension/tokens.css",
+      "../extension/fonts/": "extension/fonts/",
+      "../extension/icons/": "extension/icons/"
+    },
+    "createUpdaterArtifacts": false,
+    "publisher": "Sanctum contributors",
+    "homepage": "https://github.com/ryanhang07/sanctum",
+    "shortDescription": "Focus hub and distraction blocker",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://github.com/ryanhang07/sanctum/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
