@@ -1,5 +1,26 @@
 # Changelog
 
+## Polish: notes, calmer screens, motion (2026-09-30)
+
+### Added
+- **Notes** (Ctrl 5, migration `0012_notes`, `notes.rs`).
+  - Titled plain-text notes for anything that isn't a task. They save as you type.
+  - Pin a note to the top, delete it, or search from the list.
+  - In a note, lines starting "- " read as a list, and "[ ] " as a checkbox you can tick without editing.
+  - Notes stays open while sealed.
+  - Ctrl K offers New note, Save "…" as a note, and Open note for notes that match.
+- **Motion:** pages and Setup sections rise in (180 ms), checkboxes pop when ticked, and list rows ease in. Reduced motion shortens all of it to nothing.
+
+### Changed
+- **Home is one job:** start focus, then the day's list.
+  - Calendar events now appear inside the Today list, and the separate Schedule panel is gone.
+  - Focus today and the next check-in are a slim strip under the list.
+- **Setup is a list of sections**, grouped as Focus, Tracking, Connections, and App. It shows one section at a time with a line saying what it's for.
+  - Protection, Calendar, Browser, and Partner are now their own sections.
+  - Distractions drops its repeated intro and the Protection panel.
+- **Week is quieter:** each day's Add appears on hover or focus, and the key sits behind a Key button.
+- Tests: 182 frontend and 90 Rust.
+
 ## M13: open-source release (2026-09-30)
 
 ### Added

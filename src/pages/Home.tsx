@@ -408,7 +408,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
             <div
               key={t.key}
               data-now={current || undefined}
-              className={`flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
+              className={`row-in flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
                 current ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
               }`}
             >
