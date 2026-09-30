@@ -6,7 +6,8 @@
 //! as attempts) and the active tab's domain (never the full URL) for Activity. A browser whose
 //! extension drops out mid-seal gets its windows minimized until it's back.
 
-use crate::{db, engine, profiles, session, winutil, Shared};
+use crate::distractions::{self, Distraction};
+use crate::{db, engine, session, winutil, Shared};
 use rand::RngCore;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -99,18 +100,17 @@ fn send_line(stream: &mut TcpStream, msg: &Value) -> std::io::Result<()> {
     stream.write_all(line.as_bytes())
 }
 
-/// What the extension should enforce right now.
-pub fn rules_message(active: Option<&session::SessionView>, profile: Option<&profiles::Profile>) -> Value {
-    let (Some(a), Some(p)) = (active, profile) else {
+/// What the extension should enforce right now: the flagged sites and keywords while sealed.
+pub fn rules_message(active: Option<&session::SessionView>, flags: &[Distraction]) -> Value {
+    let Some(a) = active else {
         return json!({ "type": "rules", "sealed": false, "sites": [], "keywords": [] });
     };
-    let sites: Vec<Value> = p
-        .rules
+    let sites: Vec<Value> = flags
         .iter()
-        .filter(|r| r.kind == "domain")
-        .map(|r| json!({ "domain": r.value, "allow": r.allow.iter().map(|x| x.prefix.clone()).collect::<Vec<_>>() }))
+        .filter(|d| d.kind == "site")
+        .map(|d| json!({ "domain": d.value, "allow": d.allow.iter().map(|x| x.prefix.clone()).collect::<Vec<_>>() }))
         .collect();
-    let keywords: Vec<String> = p.rules.iter().filter(|r| r.kind == "title").map(|r| r.value.to_lowercase()).collect();
+    let keywords: Vec<String> = flags.iter().filter(|d| d.kind == "keyword").map(|d| d.value.to_lowercase()).collect();
     json!({ "type": "rules", "sealed": true, "profile": a.profile_name, "endsAt": a.ends_at, "sites": sites, "keywords": keywords })
 }
 
@@ -124,8 +124,8 @@ fn needs_extension(rules: &Value) -> bool {
 pub fn push_rules(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let view = shared.engine.view();
-    let profile = view.as_ref().and_then(|v| v.profile_id).and_then(|id| shared.db.lock().ok().and_then(|c| profiles::get(&c, id).ok()));
-    let msg = rules_message(view.as_ref(), profile.as_ref());
+    let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
+    let msg = rules_message(view.as_ref(), &flags);
     let mut inner = shared.browser.inner.lock().unwrap();
     inner.rules = msg.clone();
     inner.missing.clear();
@@ -441,17 +441,16 @@ pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profiles::{Profile, Rule, SiteAllow};
+    use crate::distractions::Allow;
 
-    fn rule(id: i64, kind: &str, value: &str, allow: &[&str]) -> Rule {
-        Rule {
-            id,
-            profile_id: 1,
+    fn flag(kind: &str, value: &str, allow: &[&str]) -> Distraction {
+        Distraction {
+            id: 0,
             kind: kind.into(),
             value: value.into(),
             label: None,
             path: None,
-            allow: allow.iter().enumerate().map(|(i, p)| SiteAllow { id: i as i64, prefix: p.to_string() }).collect(),
+            allow: allow.iter().enumerate().map(|(i, p)| Allow { id: i as i64, prefix: p.to_string() }).collect(),
         }
     }
 
@@ -473,21 +472,9 @@ mod tests {
     }
 
     #[test]
-    fn sends_sites_with_exceptions_and_keywords() {
-        let p = Profile {
-            id: 1,
-            name: "Deep Study".into(),
-            allowlist_mode: false,
-            default_minutes: 60,
-            work_types: vec![],
-            created_at: 0,
-            rules: vec![
-                rule(1, "domain", "youtube.com", &["youtube.com/@mitocw"]),
-                rule(2, "app", "discord.exe", &[]),
-                rule(3, "title", "Shorts", &[]),
-            ],
-        };
-        let msg = rules_message(Some(&view()), Some(&p));
+    fn sends_flagged_sites_with_exceptions_and_keywords() {
+        let flags = vec![flag("site", "youtube.com", &["youtube.com/@mitocw"]), flag("app", "discord.exe", &[]), flag("keyword", "Shorts", &[])];
+        let msg = rules_message(Some(&view()), &flags);
         assert_eq!(msg["sealed"], true);
         assert_eq!(msg["profile"], "Deep Study");
         assert_eq!(msg["endsAt"], 3_600_000);
@@ -495,13 +482,12 @@ mod tests {
         assert_eq!(msg["keywords"], json!(["shorts"]));
         assert!(needs_extension(&msg));
 
-        let open = rules_message(None, Some(&p));
+        let open = rules_message(None, &flags);
         assert_eq!(open["sealed"], false);
         assert!(!needs_extension(&open));
 
         // A seal with only apps doesn't need the extension.
-        let apps_only = Profile { rules: vec![rule(2, "app", "discord.exe", &[])], ..p };
-        assert!(!needs_extension(&rules_message(Some(&view()), Some(&apps_only))));
+        assert!(!needs_extension(&rules_message(Some(&view()), &[flag("app", "discord.exe", &[])])));
     }
 
     #[test]

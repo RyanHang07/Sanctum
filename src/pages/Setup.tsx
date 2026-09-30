@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Button } from "../components/Button";
 import { MiniSelect, Switch } from "../components/controls";
-import { ChevronRightIcon, XIcon } from "../components/icons";
+import { ChevronRightIcon } from "../components/icons";
 import { ProfileDetail } from "./setup/ProfileDetail";
 import { ActivitySection, ActivityRulesSection } from "./setup/Activity";
 import { ConnectionsSection } from "./setup/Connections";
 import { BrowsersSection } from "./setup/Browsers";
 import { AccountSection } from "./setup/Account";
 import { Row, Section } from "./setup/parts";
-import { AppPicker } from "./setup/AppPicker";
-import { useStore } from "../state/store";
-import { exeList, opensOf, ruleLabel, sealsOf } from "../lib/rules";
+import { DistractionsTab } from "./setup/Distractions";
+import { useStore, type SetupTab } from "../state/store";
+import { opensOf, ruleLabel } from "../lib/rules";
 import { hasDay, WEEKDAYS } from "../lib/planner";
 import { minutes } from "../lib/time";
 import type { CloseAction, OnLogin } from "../state/appState";
@@ -49,9 +49,7 @@ function ProfilesSection() {
           >
             <span className="flex w-full items-baseline gap-2">
               <span className="text-body font-medium text-text">{p.name}</span>
-              <span className="ml-auto text-meta text-muted">
-                {p.allowlistMode ? "allowlist" : `seals ${sealsOf(p).length}`}
-              </span>
+              <span className="ml-auto font-mono text-meta text-muted">{p.defaultMinutes} min</span>
               <ChevronRightIcon
                 size={10}
                 className="self-center text-faint opacity-0 transition-opacity duration-ui ease-ui group-hover:opacity-100"
@@ -86,53 +84,6 @@ const CLOSE: { value: CloseAction; label: string }[] = [
   { value: "quit", label: "Quit Sanctum" },
 ];
 
-/**
- * The universal allowlist: apps allowlist mode always lets start, whatever the profile. Starts
- * with Claude, Spotify, browsers, and terminals. Apps already running when a seal begins stay.
- */
-export function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => void }) {
-  const [picking, setPicking] = useState(false);
-  const list = exeList(saved);
-  const save = (next: string[]) => onSave(next.join(", "));
-  return (
-    <div className="flex flex-col gap-2 border-b border-line-soft px-[14px] py-[10px]">
-      <div className="flex items-center gap-[10px]">
-        <span className="flex min-w-0 grow flex-col gap-[2px]">
-          <span className="text-body">Always open</span>
-          <span className="text-[11px] text-muted">Allowlist mode always lets these start. Apps already open when you enter stay open.</span>
-        </span>
-        <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>
-          Add app
-        </Button>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {list.length === 0 ? <span className="text-meta text-faint">Nothing else stays open.</span> : null}
-        {list.map((exe) => (
-          <span key={exe} className="group flex h-6 items-center gap-1 rounded-[4px] border border-line-input pl-[7px] pr-[3px] font-mono text-[11px] text-text-2">
-            {exe}
-            <button
-              type="button"
-              aria-label={`Remove ${exe} from Always open`}
-              onClick={() => save(list.filter((e) => e !== exe))}
-              className="flex h-4 w-4 items-center justify-center rounded-[3px] text-faint transition-colors duration-ui ease-ui hover:bg-raised hover:text-text"
-            >
-              <XIcon size={10} />
-            </button>
-          </span>
-        ))}
-      </div>
-      {picking ? (
-        <AppPicker
-          title="Keep an app open"
-          added={new Set(list)}
-          onClose={() => setPicking(false)}
-          onPick={(a) => save([...list.filter((e) => e !== a.exe), a.exe])}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 const GOALS = [30, 60, 90, 120, 150, 180, 240, 300].map((m) => ({ value: m, label: minutes(m) }));
 
 export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: number) => void }) {
@@ -161,22 +112,25 @@ export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: nu
 
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed, setDailyGoal, setRestDays, openOnboarding } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setDailyGoal, setRestDays, openOnboarding } = useStore();
   return (
-    <Section
-      title="Preferences"
-      action={
-        <Button variant="quiet" size="sm" onClick={openOnboarding}>
-          Run setup again
-        </Button>
-      }
-    >
+    <>
+    <Section title="Goal and streak">
       <Row label="Daily focus goal" hint="A day keeps the streak when you reach it and no seal breaks">
         <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
       </Row>
       <Row label="Rest days" hint="Planned days off never break the streak">
         <RestDays mask={settings.restDaysMask} onChange={setRestDays} />
       </Row>
+    </Section>
+    <Section
+      title="App"
+      action={
+        <Button variant="quiet" size="sm" onClick={openOnboarding}>
+          Run setup again
+        </Button>
+      }
+    >
       <Row label="On login">
         <MiniSelect label="On login" value={settings.onLogin} options={ON_LOGIN} onChange={setOnLogin} />
       </Row>
@@ -186,36 +140,85 @@ function PreferencesSection() {
       <Row label="Go compact when focus starts">
         <Switch label="Go compact when focus starts" checked={settings.compactOnFocus} onChange={setCompactOnFocus} />
       </Row>
-      <AlwaysOpen saved={settings.alwaysAllowed} onSave={setAlwaysAllowed} />
       <Row label="Sounds" hint="Enter, blocked, held, and seal broken">
         <Switch label="Sounds" checked={settings.sounds} onChange={setSounds} />
       </Row>
     </Section>
+    </>
+  );
+}
+
+const TABS: { id: SetupTab; label: string; blurb: string }[] = [
+  { id: "profiles", label: "Profiles", blurb: "What each kind of work opens, and how long it runs." },
+  { id: "distractions", label: "Distractions", blurb: "What every focus session blocks." },
+  { id: "tracking", label: "Tracking", blurb: "What Sanctum notices while you work. It stays on this PC." },
+  { id: "connections", label: "Connections", blurb: "Your calendar, your partner, and your browsers." },
+  { id: "general", label: "General", blurb: "Your goal, your rest days, and how the app behaves." },
+];
+
+function SetupTabs({ tab, onChange }: { tab: SetupTab; onChange: (t: SetupTab) => void }) {
+  return (
+    <div role="tablist" aria-label="Setup" className="flex rounded-control border border-line-input p-[2px]">
+      {TABS.map((t) => (
+        <button
+          key={t.id}
+          role="tab"
+          aria-selected={tab === t.id}
+          onClick={() => onChange(t.id)}
+          className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
+            tab === t.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 export function Setup() {
   const editing = useStore((s) => s.profiles.find((p) => p.id === s.editingProfileId) ?? null);
+  const tab = useStore((s) => s.setupTab);
+  const loadDistractions = useStore((s) => s.loadDistractions);
+  useEffect(() => void loadDistractions(), [loadDistractions]);
+  const setTab = (setupTab: SetupTab) => useStore.setState({ setupTab });
   if (editing) return <ProfileDetail profile={editing} />;
+  const current = TABS.find((t) => t.id === tab)!;
 
-  // Trackers, Check-ins, the accountability partner, and rest days join this page in their milestones.
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
-      <div className="flex h-control items-center">
-        <h1 className="page-title m-0">Setup</h1>
+      <div className="flex h-control items-center justify-between gap-3">
+        <div className="flex min-w-0 items-baseline gap-3">
+          <h1 className="page-title m-0">Setup</h1>
+          <span className="truncate text-body text-muted">{current.blurb}</span>
+        </div>
+        <SetupTabs tab={tab} onChange={setTab} />
       </div>
-      <div className="grid min-h-0 grow grid-cols-2 items-start gap-4 overflow-y-auto">
-        <div className="flex flex-col gap-4">
-          <ProfilesSection />
-          <PreferencesSection />
-        </div>
-        <div className="flex flex-col gap-4">
-          <ConnectionsSection />
-          <AccountSection />
-          <BrowsersSection />
-          <ActivitySection />
-          <ActivityRulesSection />
-        </div>
+      <div className="min-h-0 grow overflow-y-auto pr-1">
+        {tab === "profiles" ? (
+          <div className="flex max-w-[640px] flex-col gap-4">
+            <ProfilesSection />
+          </div>
+        ) : null}
+        {tab === "distractions" ? <DistractionsTab /> : null}
+        {tab === "tracking" ? (
+          <div className="flex max-w-[640px] flex-col gap-4">
+            <ActivitySection />
+            <ActivityRulesSection />
+          </div>
+        ) : null}
+        {tab === "connections" ? (
+          <div className="flex max-w-[640px] flex-col gap-4">
+            <ConnectionsSection />
+            <AccountSection />
+            <BrowsersSection />
+          </div>
+        ) : null}
+        {tab === "general" ? (
+          <div className="flex max-w-[640px] flex-col gap-4">
+            <PreferencesSection />
+          </div>
+        ) : null}
       </div>
     </div>
   );

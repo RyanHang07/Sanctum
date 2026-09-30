@@ -129,7 +129,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - During a session: optional fullscreen always-on-top "sealed" overlay showing current block, timer, and next calendar event. Can be minimized to a small centered pill but not closed
 
 ### 4.2 Profiles + Launcher
-- Profile = name, block list (apps by exe name, domains, title keywords), allowlist mode toggle, launch set (apps + URLs), default duration
+- Profile = name, launch set (apps + URLs), default duration, work types. **Changed 2026-09-29 (your call):** what gets sealed is one **Distractions** list shared by every profile (apps by exe, sites and links, title keywords, with Allow pages for sites). Flagged means blocked while sealed *and* counted as distracting time. Allowlist mode and Always open are removed
 - "Start" opens everything in the launch set and begins the session
 - Seed profiles: Interview Prep (launches LeetCode/NeetCode, notes, IDE; blocks social + video), Deep Work, Study, Light Work
 
@@ -167,7 +167,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - **Sites (precise):** extension uses `declarativeNetRequest` for per-URL rules (e.g. block `youtube.com` but allow `youtube.com/watch?v=<allowed>`)
 - **Extension scope:** blocking only. It receives rules from the desktop app via native messaging and never reports page titles, URLs, or history back. Nothing from the extension reaches the partner
 - **Title keywords:** if foreground window title matches a blocked keyword, minimize it and show a nudge
-- **Allowlist mode:** everything not listed is blocked. Updated 2026-09-29 at your request: it only stops new launches. Apps already running when the seal starts stay, and so does anything they start (a dev build run from your editor). A new app outside the profile's launch set and Setup > Always open closes as it opens. Apps sealed by name still close.
+- ~~**Allowlist mode**~~ removed 2026-09-29 (too much to account for). Setup > **Distractions** replaces it: flag apps from an installed-app picker, paste sites, links, or keywords into one field, or flag with one click from your most-used apps and sites this week (Activity) and a list of common distractions. Adding works mid-seal; removing or allowing pages waits until the seal ends
 - **Sealed app intercept:** when a sealed app launches, kill it and show a centered overlay: "<App> is sealed.", time left, attempt count this session, primary "Back to <last productive app>", secondary "Break the seal". Auto-returns after 5s
 - **Title nudge:** a small corner toast when a window is minimized for a sealed keyword
 - **Sealed site page:** the extension shows a full-page "<domain> is sealed." with time left and a link back to the profile's main site. The page records nothing
@@ -242,7 +242,7 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 
 Added 2026-09-29 (at M5 these become steps; see BACKLOG "M5 onboarding"):
 - **Browser extension:** after profiles, detect installed Chromium browsers. For each one, walk through loading the extension and turning on Allow in Incognito, and show it connect live. Skippable; Setup > Browser extension offers it later.
-- **Always open:** show the pre-filled list (Claude, music, browsers, terminals, screenshot tools, Docker, password managers). Offer running apps as one-tap additions, and explain that allowlist mode leaves apps already open alone and only stops new launches.
+- **Distractions (built 2026-09-29):** a step after Profiles with the common distractions as toggles (Discord, YouTube, Instagram, TikTok on by default), a field for sites, links, and keywords, and an app picker.
 
 Accounts are optional. Solo users without an account run fully local. An account is required only for the partner feature and cloud summary sync.
 
@@ -277,7 +277,8 @@ Accounts are optional. Solo users without an account run fully local. An account
 ## 5. Data Model
 
 ### 5.1 Local SQLite
-- `profiles(id, name, allowlist_mode, default_minutes, created_at)`
+- `profiles(id, name, default_minutes, created_at)` (`allowlist_mode` stays in old databases, always 0)
+- `distractions(id, kind[app|site|keyword], value, label, path, created_at)` and `distraction_allows(id, distraction_id, prefix)` (migration 0008)
 - `profile_rules(id, profile_id, kind[app|domain|title|launch_app|launch_url], value)`
 - `sessions(id, profile_id, started_at, ended_at, planned_minutes, outcome, source[manual|calendar])`
 - `unlock_attempts(id, session_id, level_reached, reason, approved, created_at)`

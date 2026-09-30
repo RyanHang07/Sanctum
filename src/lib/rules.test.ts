@@ -1,4 +1,4 @@
-import { classifySealInput, exeList, normalizeAllow, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
+import { distractionLabel, exeList, guessDistraction, normalizeAllow, normalizeDomain, normalizeUrl, profileNote, ruleLabel, ruleMeta } from "./rules";
 import type { Profile, Rule } from "./types";
 
 const rule = (kind: Rule["kind"], value: string, label: string | null = null): Rule => ({
@@ -8,7 +8,6 @@ const rule = (kind: Rule["kind"], value: string, label: string | null = null): R
   value,
   label,
   path: null,
-  allow: [],
 });
 
 describe("rule inputs", () => {
@@ -39,11 +38,15 @@ describe("rule inputs", () => {
     expect(normalizeUrl("two words.com")).toBeNull();
   });
 
-  it("reads the Seals input as a site or a title keyword", () => {
-    expect(classifySealInput("www.instagram.com")).toEqual({ kind: "domain", value: "instagram.com" });
-    expect(classifySealInput("Shorts")).toEqual({ kind: "title", value: "Shorts" });
-    expect(classifySealInput("episode 4")).toEqual({ kind: "title", value: "episode 4" });
-    expect(classifySealInput("   ")).toBeNull();
+  it("works out what a typed distraction is, like distractions::guess_kind", () => {
+    expect(guessDistraction("Discord.exe")).toBe("app");
+    expect(guessDistraction("www.instagram.com")).toBe("site");
+    expect(guessDistraction("https://youtube.com/shorts")).toBe("site");
+    expect(guessDistraction("Shorts")).toBe("keyword");
+    expect(guessDistraction("episode 4")).toBe("keyword");
+    expect(guessDistraction("   ")).toBeNull();
+    expect(distractionLabel({ kind: "app", value: "steam.exe", label: null })).toBe("Steam");
+    expect(distractionLabel({ kind: "site", value: "reddit.com", label: null })).toBe("reddit.com");
   });
 });
 
@@ -51,10 +54,8 @@ describe("rule display", () => {
   it("labels and describes each kind", () => {
     expect(ruleLabel(rule("launch_url", "https://www.github.com/"))).toBe("github.com");
     expect(ruleLabel(rule("launch_app", "code.exe", "VS Code"))).toBe("VS Code");
-    expect(ruleLabel(rule("app", "steam.exe"))).toBe("steam");
-    expect(ruleMeta(rule("app", "discord.exe", "Discord"))).toBe("discord.exe");
-    expect(ruleMeta(rule("domain", "discord.com", "Discord"))).toBe("Site · discord.com");
-    expect(ruleMeta(rule("title", "Shorts"))).toBe("Title keyword");
+    expect(ruleLabel(rule("launch_app", "steam.exe"))).toBe("steam");
+    expect(ruleMeta(rule("launch_app", "code.exe", "VS Code"))).toBe("code.exe");
     expect(ruleMeta(rule("launch_url", "https://leetcode.com/problemset/", "LeetCode"))).toBe("leetcode.com/problemset");
     expect(ruleMeta(rule("launch_url", "https://docs.rs/"))).toBe("");
   });
@@ -63,19 +64,15 @@ describe("rule display", () => {
     const p: Profile = {
       id: 1,
       name: "Deep Work",
-      allowlistMode: false,
       defaultMinutes: 90,
       workTypes: [],
       createdAt: 0,
       rules: [
         rule("launch_app", "code.exe", "VS Code"),
         rule("launch_url", "https://github.com/", "GitHub"),
-        rule("app", "discord.exe", "Discord"),
-        rule("domain", "discord.com", "Discord"),
-        rule("title", "Shorts"),
       ],
     };
-    expect(profileNote(p)).toBe("Opens VS Code, GitHub · seals 3");
-    expect(profileNote({ ...p, rules: [], allowlistMode: true })).toBe("Opens nothing · seals everything else");
+    expect(profileNote(p, 3)).toBe("Opens VS Code, GitHub · seals 3");
+    expect(profileNote({ ...p, rules: [] }, 0)).toBe("Opens nothing · seals 0");
   });
 });

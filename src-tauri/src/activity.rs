@@ -39,8 +39,8 @@ pub fn load_config(conn: &Connection) -> Config {
     Config {
         idle_threshold_ms: get("idle_threshold_min").and_then(|v| v.parse::<i64>().ok()).filter(|m| *m > 0).unwrap_or(3) * 60_000,
         retention_days: get("activity_retention_days").and_then(|v| v.parse().ok()).filter(|d| *d > 0).unwrap_or(30),
-        passive: blocker::parse_always(&get("passive_apps").unwrap_or_default()),
-        private: blocker::parse_always(&get("private_apps").unwrap_or_default()),
+        passive: blocker::parse_exes(&get("passive_apps").unwrap_or_default()),
+        private: blocker::parse_exes(&get("private_apps").unwrap_or_default()),
     }
 }
 
@@ -216,7 +216,8 @@ fn load_classifier(conn: &Connection, session_profile: Option<i64>) -> Classifie
         .and_then(|id| all.iter().find(|p| p.id == id))
         .map(classify::profile_rules)
         .unwrap_or_default();
-    Classifier { session, user, profiles: all.iter().flat_map(classify::profile_rules).collect() }
+    let flags = crate::distractions::as_rules(&crate::distractions::list(conn).unwrap_or_default());
+    Classifier { flags, session, user, profiles: all.iter().flat_map(classify::profile_rules).collect() }
 }
 
 pub fn spawn(app: AppHandle) {

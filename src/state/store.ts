@@ -7,7 +7,7 @@ import {
   isTabLocked,
 } from "./appState";
 import { errorText, native } from "../lib/native";
-import type { CalEvent, HeldStats, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, SessionView } from "../lib/types";
+import type { CalEvent, Distraction, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, SessionView } from "../lib/types";
 import { play, setSoundsEnabled } from "../lib/sound";
 import type { Suggestion } from "../lib/planner";
 
@@ -25,14 +25,14 @@ export interface UnlockResult {
   partner: string | null;
 }
 
+export type SetupTab = "profiles" | "distractions" | "tracking" | "connections" | "general";
+
 export interface Settings {
   closeAction: CloseAction;
   onLogin: OnLogin;
   displayName: string;
   compactOnFocus: boolean;
   sounds: boolean;
-  /** Exe names allowlist mode always lets start (comma-separated). */
-  alwaysAllowed: string;
   dailyGoalMin: number;
   /** Planned rest days, a weekday mask (bit 0 = Sunday). Never break the streak. */
   restDaysMask: number;
@@ -134,7 +134,6 @@ export interface Store {
   setOnLogin: (v: OnLogin) => void;
   setCompactOnFocus: (v: boolean) => void;
   setSounds: (v: boolean) => void;
-  setAlwaysAllowed: (v: string) => void;
   /** Saves one of the activity settings in SETTING_KEYS. */
   setActivitySetting: <K extends TextSetting>(key: K, value: Settings[K]) => void;
   setDailyGoal: (min: number) => void;
@@ -182,8 +181,16 @@ export interface Store {
   deleteProfile: (id: number) => Promise<boolean>;
   addRule: (profileId: number, rule: NewRule) => Promise<Profile | null>;
   removeRule: (ruleId: number) => Promise<Profile | null>;
-  addSiteAllow: (ruleId: number, prefix: string) => Promise<Profile | null>;
-  removeSiteAllow: (id: number) => Promise<Profile | null>;
+  /** The one list every seal blocks (Setup > Distractions). */
+  distractions: Distraction[];
+  loadDistractions: () => Promise<void>;
+  /** Flags something; returns false (with a notice) when it's refused. */
+  flag: (item: NewDistraction) => Promise<boolean>;
+  unflag: (id: number) => Promise<void>;
+  allowPage: (id: number, prefix: string) => Promise<boolean>;
+  unallowPage: (id: number) => Promise<void>;
+  setupTab: SetupTab;
+  openSetup: (tab: SetupTab) => void;
   launchProfile: (id: number) => Promise<LaunchReport | null>;
 }
 
@@ -251,7 +258,6 @@ export const useStore = create<Store>()((set, get) => {
       displayName: "",
       compactOnFocus: false,
       sounds: true,
-      alwaysAllowed: "",
       dailyGoalMin: 120,
       restDaysMask: 0,
       idleThresholdMin: 3,
@@ -338,10 +344,6 @@ export const useStore = create<Store>()((set, get) => {
       set({ settings: { ...get().settings, restDaysMask } });
       void native.setSetting("rest_days_mask", String(restDaysMask));
     },
-    setAlwaysAllowed: (alwaysAllowed) => {
-      set({ settings: { ...get().settings, alwaysAllowed } });
-      void native.setSetting("allowlist_always_allowed", alwaysAllowed);
-    },
     toggleHomeCollapsed: (panel) => {
       const l = get().settings.homeLayout;
       const collapsed = l.collapsed.includes(panel) ? l.collapsed.filter((p) => p !== panel) : [...l.collapsed, panel];
@@ -371,13 +373,12 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     loadSettings: async () => {
-      const [close, onLogin, name, compact, sounds, always, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest] = await Promise.all([
+      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest] = await Promise.all([
         native.getSetting("close_action"),
         native.getSetting("on_login"),
         native.getSetting("display_name"),
         native.getSetting("compact_on_focus"),
         native.getSetting("sounds"),
-        native.getSetting("allowlist_always_allowed"),
         native.getSetting("daily_goal_min"),
         native.getSetting(SETTING_KEYS.idleThresholdMin),
         native.getSetting(SETTING_KEYS.retentionDays),
@@ -396,7 +397,6 @@ export const useStore = create<Store>()((set, get) => {
           displayName: name ?? "",
           compactOnFocus: compact === "1",
           sounds: sounds !== "0",
-          alwaysAllowed: always ?? "",
           dailyGoalMin: Number(goal) || 120,
           restDaysMask: Number(rest) || 0,
           idleThresholdMin: Number(idle) || 3,
@@ -576,19 +576,51 @@ export const useStore = create<Store>()((set, get) => {
         return p;
       }),
 
-    addSiteAllow: (ruleId, prefix) =>
-      guarded(async () => {
-        const p = await native.addSiteAllow(ruleId, prefix);
-        replace(p);
-        return p;
-      }),
-
-    removeSiteAllow: (id) =>
-      guarded(async () => {
-        const p = await native.removeSiteAllow(id);
-        replace(p);
-        return p;
-      }),
+    distractions: [],
+    loadDistractions: async () => {
+      try {
+        set({ distractions: await native.listDistractions() });
+      } catch (e) {
+        get().showNotice({ lead: errorText(e) });
+      }
+    },
+    flag: async (item) => {
+      try {
+        set({ distractions: await native.addDistraction(item) });
+        return true;
+      } catch (e) {
+        get().showNotice({ lead: errorText(e) });
+        return false;
+      }
+    },
+    unflag: async (id) => {
+      try {
+        set({ distractions: await native.removeDistraction(id) });
+      } catch (e) {
+        get().showNotice({ lead: errorText(e) });
+      }
+    },
+    allowPage: async (id, prefix) => {
+      try {
+        set({ distractions: await native.addDistractionAllow(id, prefix) });
+        return true;
+      } catch (e) {
+        get().showNotice({ lead: errorText(e) });
+        return false;
+      }
+    },
+    unallowPage: async (id) => {
+      try {
+        set({ distractions: await native.removeDistractionAllow(id) });
+      } catch (e) {
+        get().showNotice({ lead: errorText(e) });
+      }
+    },
+    setupTab: "profiles",
+    openSetup: (setupTab) => {
+      set({ setupTab, editingProfileId: null });
+      get().navigate("setup");
+    },
 
     launchProfile: async (id) => {
       try {

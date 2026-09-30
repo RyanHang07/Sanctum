@@ -2,18 +2,23 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Kbd } from "../../components/Button";
 import { Mark } from "../../components/Mark";
 import { CheckIcon } from "../../components/icons";
-import { rulesForWorkTypes, sampleProfiles, WORK_TYPES } from "../../lib/catalog";
+import { catalogDistractions, rulesForWorkTypes, sampleProfiles, WORK_TYPES } from "../../lib/catalog";
+import { distractionLabel, guessDistraction } from "../../lib/rules";
+import type { NewDistraction } from "../../lib/types";
+import { AppPicker } from "../setup/AppPicker";
 import { native } from "../../lib/native";
 import { minutes } from "../../lib/time";
 import { useStore } from "../../state/store";
 import { useCalendar } from "../../state/calendar";
-import { AlwaysOpen, RestDays } from "../Setup";
+import { RestDays } from "../Setup";
 import { BrowsersSection } from "../setup/Browsers";
 
-// First run (SPEC 4.11, design/screens/Onboarding.dc.html): welcome, profiles, goals,
-// calendar, browser, done. The partner (M6) and the watchdog (M8) join in their milestones.
+// First run (SPEC 4.11, design/screens/Onboarding.dc.html): welcome, profiles, distractions,
+// goals, calendar, browser, done. The partner (M6) and the watchdog (M8) join later.
 
-const STEPS = ["Welcome", "Profiles", "Goals", "Calendar", "Browser", "Ready"] as const;
+const STEPS = ["Welcome", "Profiles", "Distractions", "Goals", "Calendar", "Browser", "Ready"] as const;
+/** Picked by default: the catalog's always-sealed four. */
+const STARTER = ["Discord", "YouTube", "Instagram", "TikTok"];
 const GOALS = [60, 90, 120, 180, 240];
 const IDLE = [1, 3, 5, 10];
 
@@ -54,20 +59,16 @@ function Chips<T extends number>({ label, value, options, format, onChange }: { 
   );
 }
 
-function labelsOf(types: string[]) {
+function opensOf(types: string[]): string[] {
   const rules = types.length ? rulesForWorkTypes(types) : [];
-  const uniq = (xs: string[]) => [...new Set(xs)];
-  return {
-    opens: uniq(rules.filter((r) => r.kind === "launch_app" || r.kind === "launch_url").map((r) => r.label ?? r.value)),
-    seals: uniq(rules.filter((r) => r.kind === "app" || r.kind === "domain").map((r) => r.label ?? r.value)),
-  };
+  return [...new Set(rules.map((r) => r.label ?? r.value))];
 }
 
 function ProfilesStep({ picks, setPicks }: { picks: Picks; setPicks: (p: Picks) => void }) {
   const names = Object.keys(picks);
   const [current, setCurrent] = useState(names[0]!);
   const picked = picks[current] ?? [];
-  const { opens, seals } = labelsOf(picked);
+  const opens = opensOf(picked);
   return (
     <>
       <Headline lead="Define" payoff={`${current}.`} sub="Pick the work it's for. Sanctum decides what opens and what gets sealed." />
@@ -106,18 +107,84 @@ function ProfilesStep({ picks, setPicks }: { picks: Picks; setPicks: (p: Picks) 
           );
         })}
       </div>
-      <div className="grid grid-cols-2 gap-[10px]">
-        {[
-          ["Opens when you enter", opens],
-          ["Sealed while you're in", seals],
-        ].map(([title, list]) => (
-          <div key={title as string} className="flex flex-col gap-2 rounded-panel border border-line bg-panel-footer p-3">
-            <span className="text-meta text-muted">{title}</span>
-            <span className="text-body leading-normal text-text">{(list as string[]).length ? (list as string[]).join(", ") : "Nothing yet"}</span>
-          </div>
-        ))}
+      <div className="flex flex-col gap-2 rounded-panel border border-line bg-panel-footer p-3">
+        <span className="text-meta text-muted">Opens when you enter</span>
+        <span className="text-body leading-normal text-text">{opens.length ? opens.join(", ") : "Nothing yet"}</span>
       </div>
       <p className="m-0 text-meta text-faint">A profile with no work picked is skipped. Rename and edit them any time in Setup.</p>
+    </>
+  );
+}
+
+export interface Flags {
+  /** Common distractions picked by name. */
+  common: string[];
+  /** Anything else: typed sites, links, keywords, and picked apps. */
+  extra: NewDistraction[];
+}
+
+function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Flags) => void }) {
+  const [draft, setDraft] = useState("");
+  const [picking, setPicking] = useState(false);
+  const groups = catalogDistractions();
+  const toggle = (label: string) =>
+    setFlags({ ...flags, common: flags.common.includes(label) ? flags.common.filter((l) => l !== label) : [...flags.common, label] });
+  const add = () => {
+    const kind = guessDistraction(draft);
+    if (!kind) return;
+    setFlags({ ...flags, extra: [...flags.extra, { kind, value: draft.trim() }] });
+    setDraft("");
+  };
+  return (
+    <>
+      <Headline lead="Name your" payoff="distractions." sub="One list for every profile: sealed in every session, and counted as distracting time." />
+      <div className="flex flex-wrap gap-[6px]">
+        {groups.map((g) => {
+          const on = flags.common.includes(g.label);
+          return (
+            <button
+              key={g.label}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => toggle(g.label)}
+              className={`flex h-8 items-center gap-2 rounded-control border px-[10px] text-body transition-colors duration-ui ease-ui ${
+                on ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
+              }`}
+            >
+              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-check-line"}`}>
+                {on ? <CheckIcon size={9} className="text-on-sealed" /> : null}
+              </span>
+              {g.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          aria-label="Add a site, link, or keyword"
+          placeholder="Add a site, link, or keyword"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          className="h-9 min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+        />
+        <Button variant="ghost" onClick={() => setPicking(true)}>
+          Add an app
+        </Button>
+      </div>
+      {flags.extra.length ? (
+        <span className="text-meta text-text-2">Also: {flags.extra.map((e) => distractionLabel({ kind: e.kind === "auto" ? "keyword" : e.kind, value: e.value, label: e.label ?? null })).join(", ")}</span>
+      ) : null}
+      <p className="m-0 text-meta text-faint">Setup › Distractions suggests more once Sanctum has seen a few days of your work.</p>
+      {picking ? (
+        <AppPicker
+          title="Flag an app"
+          added={new Set(flags.extra.filter((e) => e.kind === "app").map((e) => e.value))}
+          onClose={() => setPicking(false)}
+          onPick={(a) => setFlags({ ...flags, extra: [...flags.extra, { kind: "app", value: a.exe, label: a.name, path: a.launch }] })}
+        />
+      ) : null}
     </>
   );
 }
@@ -169,24 +236,20 @@ function CalendarStep() {
 }
 
 function BrowserStep() {
-  const always = useStore((s) => s.settings.alwaysAllowed);
-  const setAlwaysAllowed = useStore((s) => s.setAlwaysAllowed);
   return (
     <>
-      <Headline lead="Seal the" payoff="browser too." sub="The extension blocks sealed sites and keyword tabs. Allowlist mode leaves what's open alone and only stops new launches." />
+      <Headline lead="Seal the" payoff="browser too." sub="The extension blocks your distracting sites, links, and keyword tabs while you're sealed." />
       <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
         <BrowsersSection />
-        <section aria-label="Always open" className="overflow-hidden rounded-panel border border-line bg-panel">
-          <AlwaysOpen saved={always} onSave={setAlwaysAllowed} />
-        </section>
       </div>
     </>
   );
 }
 
-function ReadyStep({ picks }: { picks: Picks }) {
+function ReadyStep({ picks, flags }: { picks: Picks; flags: Flags }) {
   const goal = useStore((s) => s.settings.dailyGoalMin);
   const made = Object.entries(picks).filter(([, t]) => t.length);
+  const sealed = [...flags.common, ...flags.extra.map((e) => e.label ?? e.value)];
   return (
     <>
       <Headline lead="You're set." payoff="Stay in it." sub="Sanctum starts with Windows and opens Home. Change anything in Setup." />
@@ -194,6 +257,10 @@ function ReadyStep({ picks }: { picks: Picks }) {
         <li className="flex justify-between border-b border-line-soft pb-2">
           <span className="text-muted">Profiles</span>
           <span className="text-text">{made.length ? made.map(([n]) => n).join(", ") : "None yet"}</span>
+        </li>
+        <li className="flex justify-between gap-6 border-b border-line-soft pb-2">
+          <span className="shrink-0 text-muted">Distractions</span>
+          <span className="truncate text-text">{sealed.length ? sealed.join(", ") : "None yet"}</span>
         </li>
         <li className="flex justify-between border-b border-line-soft pb-2">
           <span className="text-muted">Daily goal</span>
@@ -204,14 +271,18 @@ function ReadyStep({ picks }: { picks: Picks }) {
   );
 }
 
-/** Creates the picked profiles (skipping names that exist) and marks setup done. */
-export async function finishOnboarding(picks: Picks, name: string): Promise<void> {
+/** Creates the picked profiles (skipping names that exist), flags the distractions, and marks setup done. */
+export async function finishOnboarding(picks: Picks, name: string, flags: Flags = { common: [], extra: [] }): Promise<void> {
   const existing = new Set((await native.listProfiles()).map((p) => p.name.toLowerCase()));
   const minutesFor = Object.fromEntries(sampleProfiles().map((p) => [p.name, p.defaultMinutes]));
   for (const [n, types] of Object.entries(picks)) {
     if (!types.length || existing.has(n.toLowerCase())) continue;
     await native.createProfile({ name: n, defaultMinutes: minutesFor[n] ?? 60, workTypes: types, rules: rulesForWorkTypes(types) });
   }
+  for (const g of catalogDistractions().filter((g) => flags.common.includes(g.label))) {
+    for (const item of g.items) await native.addDistraction(item).catch(() => undefined);
+  }
+  for (const item of flags.extra) await native.addDistraction(item).catch(() => undefined);
   if (name.trim()) await native.setSetting("display_name", name.trim());
   await native.setSetting("onboarded", "1");
 }
@@ -221,6 +292,7 @@ export function Onboarding() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(useStore.getState().settings.displayName);
   const [picks, setPicks] = useState<Picks>(() => Object.fromEntries(sampleProfiles().map((p) => [p.name, [...(p.workTypes ?? [])]])));
+  const [flags, setFlags] = useState<Flags>({ common: STARTER, extra: [] });
   const [busy, setBusy] = useState(false);
   const last = step === STEPS.length - 1;
 
@@ -228,8 +300,9 @@ export function Onboarding() {
     if (!last) return setStep(step + 1);
     setBusy(true);
     try {
-      await finishOnboarding(picks, name);
+      await finishOnboarding(picks, name, flags);
       await close();
+      await useStore.getState().loadDistractions();
     } finally {
       setBusy(false);
     }
@@ -265,7 +338,7 @@ export function Onboarding() {
         <div className="flex min-h-[380px] flex-col gap-[18px] px-6 py-[22px]">
           {step === 0 ? (
             <>
-              <Headline lead="Distractions get sealed." payoff="You do the work." sub="Two minutes: pick your profiles, set a goal, and connect what you use." />
+              <Headline lead="Distractions get sealed." payoff="You do the work." sub="Two minutes: pick your profiles, name your distractions, set a goal, and connect what you use." />
               <label className="flex flex-col gap-2">
                 <span className="text-meta text-muted">Your name, for Home</span>
                 <input
@@ -279,10 +352,11 @@ export function Onboarding() {
             </>
           ) : null}
           {step === 1 ? <ProfilesStep picks={picks} setPicks={setPicks} /> : null}
-          {step === 2 ? <GoalsStep /> : null}
-          {step === 3 ? <CalendarStep /> : null}
-          {step === 4 ? <BrowserStep /> : null}
-          {step === 5 ? <ReadyStep picks={picks} /> : null}
+          {step === 2 ? <DistractionsStep flags={flags} setFlags={setFlags} /> : null}
+          {step === 3 ? <GoalsStep /> : null}
+          {step === 4 ? <CalendarStep /> : null}
+          {step === 5 ? <BrowserStep /> : null}
+          {step === 6 ? <ReadyStep picks={picks} flags={flags} /> : null}
         </div>
 
         <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
@@ -291,7 +365,7 @@ export function Onboarding() {
               Back
             </Button>
           ) : null}
-          {step === 3 || step === 4 ? (
+          {step === 4 || step === 5 ? (
             <Button variant="quiet" onClick={() => setStep(step + 1)}>
               Skip
             </Button>

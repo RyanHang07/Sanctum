@@ -1,10 +1,7 @@
-import type { Profile, Rule, RuleKind } from "./types";
+import type { Distraction, DistractionKind, Profile, Rule } from "./types";
 
-export const OPEN_KINDS: readonly RuleKind[] = ["launch_app", "launch_url"];
-export const SEAL_KINDS: readonly RuleKind[] = ["app", "domain", "title"];
-
-export const opensOf = (p: Profile) => p.rules.filter((r) => OPEN_KINDS.includes(r.kind));
-export const sealsOf = (p: Profile) => p.rules.filter((r) => SEAL_KINDS.includes(r.kind));
+/** Everything a profile has is what it opens; seals are the one Distractions list. */
+export const opensOf = (p: Profile) => p.rules;
 
 /** Bare host (plus optional path). Mirrors normalize_domain in profiles.rs. */
 export function normalizeDomain(input: string): string | null {
@@ -54,12 +51,20 @@ export function normalizeUrl(input: string): string | null {
   }
 }
 
-/** The Seals input takes either a site or a window-title keyword. */
-export function classifySealInput(input: string): { kind: "domain" | "title"; value: string } | null {
+/** What a typed distraction is. Mirrors distractions::guess_kind. */
+export function guessDistraction(input: string): DistractionKind | null {
   const s = input.trim();
   if (!s) return null;
-  const domain = !/\s/.test(s) ? normalizeDomain(s) : null;
-  return domain ? { kind: "domain", value: domain } : { kind: "title", value: s };
+  if (s.toLowerCase().endsWith(".exe")) return "app";
+  if (!/\s/.test(s) && normalizeDomain(s)) return "site";
+  return "keyword";
+}
+
+/** Display name for a distraction. */
+export function distractionLabel(d: Pick<Distraction, "kind" | "value" | "label">): string {
+  if (d.label) return d.label;
+  if (d.kind === "app") return d.value.replace(/\.exe$/, "").replace(/^./, (c) => c.toUpperCase());
+  return d.value;
 }
 
 export function hostOf(url: string): string {
@@ -74,7 +79,7 @@ export function hostOf(url: string): string {
 export function ruleLabel(r: Rule): string {
   if (r.label) return r.label;
   if (r.kind === "launch_url") return hostOf(r.value);
-  if (r.kind === "app" || r.kind === "launch_app") return r.value.replace(/\.exe$/, "");
+  if (r.kind === "launch_app") return r.value.replace(/\.exe$/, "");
   return r.value;
 }
 
@@ -82,23 +87,17 @@ export function ruleLabel(r: Rule): string {
 export function ruleMeta(r: Rule): string {
   switch (r.kind) {
     case "launch_app":
-    case "app":
       return r.value;
     case "launch_url": {
       const bare = r.value.replace(/^https?:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
       return bare === ruleLabel(r) ? "" : bare;
     }
-    case "domain":
-      return r.label ? `Site · ${r.value}` : "Site";
-    case "title":
-      return "Title keyword";
   }
 }
 
-/** Home's one-line note: what the profile opens and how much it seals. */
-export function profileNote(p: Profile): string {
+/** Home's one-line note: what the profile opens and how many distractions every seal blocks. */
+export function profileNote(p: Profile, distractions: number): string {
   const opens = [...new Set(opensOf(p).map(ruleLabel))];
   const openPart = opens.length ? `Opens ${opens.join(", ")}` : "Opens nothing";
-  const sealPart = p.allowlistMode ? "seals everything else" : `seals ${sealsOf(p).length}`;
-  return `${openPart} · ${sealPart}`;
+  return `${openPart} · seals ${distractions}`;
 }

@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
-import { AppIcon, Dialog, Switch } from "../../components/controls";
-import { ChevronIcon, GlobeIcon, PlusIcon, TextIcon, XIcon } from "../../components/icons";
+import { AppIcon, Dialog } from "../../components/controls";
+import { ChevronIcon, GlobeIcon, PlusIcon, XIcon } from "../../components/icons";
 import { AppPicker } from "./AppPicker";
 import { useStore } from "../../state/store";
 import { durationsMin } from "../../theme/tokens";
 import { useInstalledApps } from "../../lib/installedApps";
-import { classifySealInput, normalizeUrl, opensOf, ruleLabel, ruleMeta, sealsOf } from "../../lib/rules";
+import { distractionLabel, normalizeUrl, opensOf, ruleLabel, ruleMeta } from "../../lib/rules";
 import type { InstalledApp, Profile, Rule } from "../../lib/types";
 
-const isApp = (r: Rule) => r.kind === "app" || r.kind === "launch_app";
+const isApp = (r: Rule) => r.kind === "launch_app";
 
 /** Where to read an app rule's icon: its saved shortcut, else the installed app with that exe. */
 const appPath = (r: Rule, apps: InstalledApp[] | null) => r.path ?? apps?.find((a) => a.exe === r.value)?.launch ?? null;
@@ -19,7 +19,7 @@ export const notInstalled = (r: Rule, apps: InstalledApp[] | null) => isApp(r) &
 
 function RuleIcon({ rule, apps }: { rule: Rule; apps: InstalledApp[] | null }) {
   if (isApp(rule)) return <AppIcon path={appPath(rule, apps)} label={ruleLabel(rule)} size={16} />;
-  const Icon = rule.kind === "title" ? TextIcon : GlobeIcon;
+  const Icon = GlobeIcon;
   return (
     <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted">
       <Icon size={14} />
@@ -33,42 +33,26 @@ function RulePanel({
   apps,
   placeholder,
   empty,
-  note,
   onAddApp,
   onSubmit,
   onRemove,
-  onAllow,
-  onRemoveAllow,
 }: {
   title: string;
   rules: Rule[];
   apps: InstalledApp[] | null;
   placeholder: string;
   empty: string;
-  note?: string;
   onAddApp: () => void;
   /** Returns true when the input was accepted and should clear. */
   onSubmit: (text: string) => Promise<boolean>;
   onRemove: (rule: Rule) => void;
-  /** Sealed sites: add a page that stays open. Returns true when accepted. */
-  onAllow?: (rule: Rule, text: string) => Promise<boolean>;
-  onRemoveAllow?: (id: number) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [allowing, setAllowing] = useState<number | null>(null);
-  const [allowDraft, setAllowDraft] = useState("");
-  const submitAllow = async (r: Rule) => {
-    if (!allowDraft.trim()) return setAllowing(null);
-    if (onAllow && (await onAllow(r, allowDraft))) {
-      setAllowDraft("");
-      setAllowing(null);
-    }
-  };
-  const iconButton =
-    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100";
   const submit = async () => {
     if (draft.trim() && (await onSubmit(draft))) setDraft("");
   };
+  const iconButton =
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100";
   return (
     <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-[14px]">
@@ -78,7 +62,6 @@ function RulePanel({
           Add app
         </Button>
       </div>
-      {note ? <p className="m-0 border-b border-line-soft px-[14px] py-2 text-meta text-muted">{note}</p> : null}
       <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
         {rules.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-faint">{empty}</p> : null}
         {rules.map((r) => (
@@ -90,49 +73,10 @@ function RulePanel({
                 {ruleMeta(r)}
                 {notInstalled(r, apps) ? " · not installed" : ""}
               </span>
-              {onAllow && r.kind === "domain" ? (
-                <button
-                  type="button"
-                  aria-label={`Allow a page on ${r.value}`}
-                  onClick={() => {
-                    setAllowDraft("");
-                    setAllowing(allowing === r.id ? null : r.id);
-                  }}
-                  className={`h-6 shrink-0 rounded-control px-2 text-meta text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100 ${allowing === r.id ? "opacity-100" : ""}`}
-                >
-                  Allow a page
-                </button>
-              ) : null}
               <button type="button" aria-label={`Remove ${ruleLabel(r)}`} onClick={() => onRemove(r)} className={iconButton}>
                 <XIcon />
               </button>
             </div>
-            {r.allow.map((a) => (
-              <div key={a.id} className="group flex h-7 shrink-0 items-center gap-2 pl-[40px] pr-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
-                <span className="text-meta text-faint">allows</span>
-                <span className="min-w-0 grow truncate font-mono text-[11px] text-text-2">{a.prefix}</span>
-                <button type="button" aria-label={`Stop allowing ${a.prefix}`} onClick={() => onRemoveAllow?.(a.id)} className={iconButton}>
-                  <XIcon />
-                </button>
-              </div>
-            ))}
-            {allowing === r.id ? (
-              <div className="flex h-8 shrink-0 items-center gap-2 pl-[40px] pr-[14px]">
-                <input
-                  autoFocus
-                  aria-label={`Page on ${r.value} to allow`}
-                  placeholder={`${r.value.split("/")[0]}/@channel stays open`}
-                  value={allowDraft}
-                  onChange={(e) => setAllowDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void submitAllow(r);
-                    if (e.key === "Escape") setAllowing(null);
-                  }}
-                  className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
-                />
-                <span className="font-mono text-[11px] text-faint">↵</span>
-              </div>
-            ) : null}
           </div>
         ))}
       </div>
@@ -176,18 +120,16 @@ function NameField({ profile }: { profile: Profile }) {
 }
 
 export function ProfileDetail({ profile }: { profile: Profile }) {
-  const { editProfile, updateProfile, deleteProfile, addRule, removeRule, addSiteAllow, removeSiteAllow, launchProfile, showNotice } = useStore();
+  const { editProfile, updateProfile, deleteProfile, addRule, removeRule, launchProfile, showNotice, openSetup } = useStore();
+  const distractions = useStore((s) => s.distractions);
   const apps = useInstalledApps();
-  const [picker, setPicker] = useState<"opens" | "seals" | null>(null);
+  const [picker, setPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [launching, setLaunching] = useState(false);
 
   const opens = opensOf(profile);
-  const seals = sealsOf(profile);
-  const added = useMemo(() => {
-    const kind = picker === "opens" ? "launch_app" : "app";
-    return new Set(profile.rules.filter((r) => r.kind === kind).map((r) => r.value));
-  }, [picker, profile.rules]);
+  const added = useMemo(() => new Set(profile.rules.filter((r) => r.kind === "launch_app").map((r) => r.value)), [profile.rules]);
+  const count = (kind: string) => distractions.filter((d) => d.kind === kind).length;
 
   const addUrl = async (text: string) => {
     const url = normalizeUrl(text);
@@ -196,11 +138,6 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
       return false;
     }
     return !!(await addRule(profile.id, { kind: "launch_url", value: url }));
-  };
-
-  const addSeal = async (text: string) => {
-    const rule = classifySealInput(text);
-    return !!rule && !!(await addRule(profile.id, rule));
   };
 
   const testLaunch = async () => {
@@ -249,58 +186,42 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
           </select>
           <ChevronIcon className="pointer-events-none absolute right-[10px] text-muted" />
         </label>
-        <div className="ml-auto flex items-center gap-3 pr-2">
-          <span className="flex flex-col items-end gap-[2px]">
-            <span className="text-body text-text">Allowlist mode</span>
-            <span className="text-meta text-muted">Only apps this profile opens can start while sealed</span>
-          </span>
-          <Switch
-            label="Allowlist mode"
-            checked={profile.allowlistMode}
-            onChange={(v) => void updateProfile(profile.id, { allowlistMode: v })}
-          />
-        </div>
       </div>
 
-      <div className="grid min-h-0 grow grid-cols-2 gap-4">
+      <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_280px] gap-4">
         <RulePanel
           title="Opens"
           rules={opens}
           apps={apps}
           placeholder="Add a URL"
           empty="Nothing opens with this profile yet."
-          onAddApp={() => setPicker("opens")}
+          onAddApp={() => setPicker(true)}
           onSubmit={addUrl}
           onRemove={(r) => void removeRule(r.id)}
         />
-        <RulePanel
-          title="Seals"
-          rules={seals}
-          apps={apps}
-          placeholder="Add a site or a title keyword"
-          empty="Nothing is sealed yet."
-          note={profile.allowlistMode ? "Allowlist mode is on. These still close, and new apps this profile does not open are closed as they start. What's already running stays." : undefined}
-          onAddApp={() => setPicker("seals")}
-          onSubmit={addSeal}
-          onRemove={(r) => void removeRule(r.id)}
-          onAllow={async (r, text) => !!(await addSiteAllow(r.id, text))}
-          onRemoveAllow={(id) => void removeSiteAllow(id)}
-        />
+        <section aria-label="Seals" className="flex flex-col gap-3 self-start rounded-panel border border-line bg-panel p-[14px]">
+          <h2 className="m-0 text-body font-semibold">Seals</h2>
+          <p className="m-0 text-meta text-muted">
+            Every profile seals your Distractions list. Apps this profile opens are never closed.
+          </p>
+          <span className="font-mono text-meta text-text-2">
+            {count("app")} apps · {count("site")} sites · {count("keyword")} keywords
+          </span>
+          {distractions.length ? (
+            <span className="truncate text-meta text-faint">{distractions.slice(0, 6).map(distractionLabel).join(", ")}</span>
+          ) : null}
+          <Button variant="ghost" size="sm" className="self-start" onClick={() => openSetup("distractions")}>
+            Edit distractions
+          </Button>
+        </section>
       </div>
 
       {picker ? (
         <AppPicker
-          title={picker === "opens" ? "Add an app to open" : "Add an app to seal"}
+          title="Add an app to open"
           added={added}
-          onClose={() => setPicker(null)}
-          onPick={(a) =>
-            void addRule(profile.id, {
-              kind: picker === "opens" ? "launch_app" : "app",
-              value: a.exe,
-              label: a.name,
-              path: a.launch,
-            })
-          }
+          onClose={() => setPicker(false)}
+          onPick={(a) => void addRule(profile.id, { kind: "launch_app", value: a.exe, label: a.name, path: a.launch })}
         />
       ) : null}
 
@@ -308,7 +229,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
         <Dialog label={`Delete ${profile.name}`} onClose={() => setConfirmDelete(false)}>
           <div className="flex flex-col gap-1 px-[18px] pb-4 pt-[18px]">
             <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">Delete {profile.name}</h1>
-            <p className="m-0 text-body text-muted">Its launch set and seal rules are removed. Past sessions keep their history.</p>
+            <p className="m-0 text-body text-muted">Its launch set is removed. Past sessions keep their history.</p>
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
             <Button variant="ghost" onClick={() => setConfirmDelete(false)}>

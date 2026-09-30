@@ -2,9 +2,9 @@
 // (`npm run dev` in a browser, and Vitest). Mirrors the validation in profiles.rs closely
 // enough to exercise the UI; the Rust tests are the source of truth.
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
-import { normalizeAllow, normalizeDomain } from "./rules";
-import { catalogClassRules } from "./catalog";
-import type { ActivitySummary, BrowserStatus, CalEvent, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import { guessDistraction, normalizeAllow, normalizeDomain } from "./rules";
+import { catalogClassRules, catalogDistractions } from "./catalog";
+import type { ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { dayStatus, streaks } from "./stats";
@@ -50,6 +50,7 @@ interface MockState {
   finished: [number, number][];
   /** Extra per-day history for Stats (dev preview and tests). */
   statsDays: Record<string, MockDay>;
+  distractions: Distraction[];
   tempted: { what: string; kind: string; count: number }[];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
   browsers: BrowserStatus;
@@ -89,6 +90,7 @@ export function resetMockBackend() {
     timer: null,
     finished: [],
     statsDays: {},
+    distractions: [],
     tempted: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
@@ -118,13 +120,12 @@ function normalizeRule(r: NewRule): NewRule {
   const raw = r.value.trim();
   if (!raw) throw "A rule needs a value.";
   let value = raw;
-  if (r.kind === "app" || r.kind === "launch_app") {
+  if ((r.kind as string) === "app" || (r.kind as string) === "domain" || (r.kind as string) === "title") {
+    throw "Seals live in Distractions now, for every profile.";
+  }
+  if (r.kind === "launch_app") {
     value = raw.toLowerCase();
     if (!value.endsWith(".exe")) throw `${raw} is not an app name.`;
-  } else if (r.kind === "domain") {
-    const d = normalizeDomain(raw);
-    if (!d) throw `${raw} is not a site.`;
-    value = d;
   } else if (r.kind === "launch_url" && !/^https?:\/\/.+\..+/i.test(raw)) {
     throw `${raw} is not a URL.`;
   }
@@ -134,7 +135,7 @@ function normalizeRule(r: NewRule): NewRule {
 function addRuleTo(p: Profile, rule: NewRule) {
   const r = normalizeRule(rule);
   if (p.rules.some((x) => x.kind === r.kind && x.value === r.value)) return;
-  const full: Rule = { id: state.nextId++, profileId: p.id, kind: r.kind, value: r.value, label: r.label ?? null, path: r.path ?? null, allow: [] };
+  const full: Rule = { id: state.nextId++, profileId: p.id, kind: r.kind, value: r.value, label: r.label ?? null, path: r.path ?? null };
   p.rules.push(full);
 }
 
@@ -157,7 +158,6 @@ const handlers: Record<string, (a: any) => unknown> = {
     const p: Profile = {
       id: state.nextId++,
       name: uniqueName(draft.name),
-      allowlistMode: !!draft.allowlistMode,
       defaultMinutes: minutes,
       workTypes: draft.workTypes ?? [],
       createdAt: Date.now(),
@@ -180,7 +180,6 @@ const handlers: Record<string, (a: any) => unknown> = {
       if (!DURATIONS.includes(patch.defaultMinutes)) throw "Focus length must be one of 30, 60, 90, or 120 minutes.";
       p.defaultMinutes = patch.defaultMinutes;
     }
-    if (patch.allowlistMode !== undefined) p.allowlistMode = patch.allowlistMode;
     return clone(p);
   },
   delete_profile: ({ id }) => {
@@ -198,21 +197,55 @@ const handlers: Record<string, (a: any) => unknown> = {
     p.rules = p.rules.filter((r) => r.id !== ruleId);
     return clone(p);
   },
-  add_site_allow: ({ ruleId, prefix }: { ruleId: number; prefix: string }) => {
-    const p = state.profiles.find((x) => x.rules.some((r) => r.id === ruleId));
-    const rule = p?.rules.find((r) => r.id === ruleId);
-    if (!p || !rule) throw "That profile no longer exists.";
-    if (rule.kind !== "domain") throw "Only sealed sites take exceptions.";
-    const s = normalizeAllow(rule.value, prefix);
-    if (!s) throw `${prefix.trim()} is not a page on ${rule.value}.`;
-    if (!rule.allow.some((a) => a.prefix === s)) rule.allow.push({ id: state.nextId++, prefix: s });
-    return clone(p);
+  list_distractions: () => clone(state.distractions),
+  add_distraction: ({ item }: { item: NewDistraction }) => {
+    const raw = item.value.trim();
+    const kind = item.kind === "auto" ? guessDistraction(raw) : item.kind;
+    if (!kind) throw "Type an app, a site or link, or a keyword.";
+    let value = raw.toLowerCase();
+    if (kind === "app" && !value.endsWith(".exe")) throw `${raw} is not an app name.`;
+    if (kind === "site") {
+      const d = normalizeDomain(raw);
+      if (!d) throw `${raw} is not a site or link.`;
+      value = d;
+    }
+    if (kind === "keyword" && value.length < 3) throw "A keyword needs at least 3 characters.";
+    const hit = state.distractions.find((d) => d.kind === kind && d.value === value);
+    if (hit) hit.label = item.label ?? hit.label;
+    else state.distractions.push({ id: state.nextId++, kind, value, label: item.label ?? null, path: item.path ?? null, allow: [] });
+    state.distractions.sort((a, b) => a.kind.localeCompare(b.kind) || (a.label ?? a.value).localeCompare(b.label ?? b.value));
+    return clone(state.distractions);
   },
-  remove_site_allow: ({ id }: { id: number }) => {
-    const p = state.profiles.find((x) => x.rules.some((r) => r.allow.some((a) => a.id === id)));
-    if (!p) throw "That profile no longer exists.";
-    for (const r of p.rules) r.allow = r.allow.filter((a) => a.id !== id);
-    return clone(p);
+  remove_distraction: ({ id }: { id: number }) => {
+    if (state.session) throw "Distractions can't be loosened while you're sealed.";
+    state.distractions = state.distractions.filter((d) => d.id !== id);
+    return clone(state.distractions);
+  },
+  add_distraction_allow: ({ id, prefix }: { id: number; prefix: string }) => {
+    if (state.session) throw "Distractions can't be loosened while you're sealed.";
+    const d = state.distractions.find((x) => x.id === id);
+    if (!d) throw "That distraction is gone.";
+    if (d.kind !== "site") throw "Only sites can keep pages open.";
+    const s = normalizeAllow(d.value, prefix);
+    if (!s) throw `${prefix.trim()} is not a page on ${d.value}.`;
+    if (!d.allow.some((a) => a.prefix === s)) d.allow.push({ id: state.nextId++, prefix: s });
+    return clone(state.distractions);
+  },
+  remove_distraction_allow: ({ id }: { id: number }) => {
+    for (const d of state.distractions) d.allow = d.allow.filter((a) => a.id !== id);
+    return clone(state.distractions);
+  },
+  distraction_suggestions: (): DistractionSuggestion[] => {
+    const flagged = new Set(state.distractions.map((d) => `${d.kind}:${d.value}`));
+    const used: DistractionSuggestion[] = [
+      { kind: "app", value: "leagueclient.exe", label: "League of Legends", minutes: 184 },
+      { kind: "site", value: "reddit.com", label: "reddit.com", minutes: 96 },
+      { kind: "app", value: "spotify.exe", label: "Spotify", minutes: 41 },
+    ];
+    const common: DistractionSuggestion[] = catalogDistractions().flatMap((g) =>
+      g.items.map((i) => ({ kind: i.kind as Distraction["kind"], value: i.value, label: g.label, minutes: null })),
+    );
+    return [...used, ...common].filter((s) => !flagged.has(`${s.kind}:${s.value}`));
   },
   browser_status: (): BrowserStatus => clone(state.browsers),
 
@@ -256,9 +289,9 @@ const handlers: Record<string, (a: any) => unknown> = {
   preview_seal: ({ profileId }) => {
     const p = find(profileId);
     const opens = new Set(p.rules.filter((r) => r.kind === "launch_app").map((r) => r.value));
-    return p.rules
-      .filter((r) => r.kind === "app" && state.running.has(r.value) && !opens.has(r.value))
-      .map((r) => r.label ?? r.value);
+    return state.distractions
+      .filter((d) => d.kind === "app" && state.running.has(d.value) && !opens.has(d.value))
+      .map((d) => d.label ?? d.value);
   },
   start_session: ({ profileId, minutes }) => {
     if (state.session) throw "A session is already running.";
@@ -275,14 +308,14 @@ const handlers: Record<string, (a: any) => unknown> = {
       remainingMs: minutes * 60_000,
       elapsedMs: 0,
       attempts: 0,
-      sealedCount: p.rules.filter((r) => r.kind === "app" || r.kind === "title").length,
+      sealedCount: state.distractions.length,
       broken: false,
       idle: false,
     };
     state.idleSince = null;
     state.idleTotal = 0;
     // Sealed apps close at the start.
-    p.rules.filter((r) => r.kind === "app").forEach((r) => state.running.delete(r.value));
+    state.distractions.filter((d) => d.kind === "app").forEach((d) => state.running.delete(d.value));
     state.timer = setInterval(tick, 1000);
     bus.emit(EV.session, view());
     return view();

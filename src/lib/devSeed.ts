@@ -1,7 +1,7 @@
 import { inTauri, native } from "./native";
 import { mockControls } from "./mockBackend";
 import { addDays, todayKey } from "./planner";
-import { sampleProfiles } from "./catalog";
+import { catalogDistractions, sampleProfiles } from "./catalog";
 import { EVERY_DAY, WEEKDAYS_MASK } from "./planner";
 
 let running: Promise<void> | null = null;
@@ -20,6 +20,10 @@ export function seedDevProfiles(): Promise<void> {
     if ((await native.getSetting("dev_seeded")) === "1") return;
     if ((await native.listProfiles()).length === 0) {
       for (const draft of sampleProfiles()) await native.createProfile(draft);
+      // The four common distractions onboarding starts with.
+      for (const g of catalogDistractions().filter((g) => ["Discord", "YouTube", "Instagram", "TikTok"].includes(g.label))) {
+        for (const item of g.items) await native.addDistraction(item);
+      }
     }
     await native.setSetting("dev_seeded", "1");
     await native.setSetting("onboarded", "1");

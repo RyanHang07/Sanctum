@@ -1,5 +1,5 @@
 import catalog from "../data/catalog.json";
-import { WORK_TYPES, rulesForWorkTypes, sampleProfiles } from "./catalog";
+import { WORK_TYPES, rulesForWorkTypes, sampleProfiles, catalogDistractions } from "./catalog";
 import { normalizeDomain } from "./rules";
 
 describe("work-type catalog", () => {
@@ -26,21 +26,31 @@ describe("work-type catalog", () => {
     ]);
   });
 
-  it("expands work types into valid, de-duplicated rules", () => {
+  it("expands work types into what they open, de-duplicated", () => {
     const rules = rulesForWorkTypes(["DSA practice", "Coding"]);
     const keys = rules.map((r) => `${r.kind}:${r.value}`);
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys).toContain("launch_url:https://leetcode.com/problemset/");
     expect(keys).toContain("launch_app:code.exe");
-    expect(keys).toContain("app:discord.exe"); // always sealed
-    expect(keys).toContain("domain:tiktok.com"); // always sealed
     expect(keys.filter((k) => k === "launch_app:code.exe")).toHaveLength(1);
+    expect(rules.every((r) => r.kind === "launch_app" || r.kind === "launch_url")).toBe(true);
     for (const r of rules) {
-      if (r.kind === "domain") expect(normalizeDomain(r.value)).toBe(r.value);
-      if (r.kind === "app" || r.kind === "launch_app") expect(r.value).toMatch(/^[a-z0-9_.-]+\.exe$/);
+      if (r.kind === "launch_app") expect(r.value).toMatch(/^[a-z0-9_.-]+\.exe$/);
       if (r.kind === "launch_url") expect(r.value).toMatch(/^https:\/\//);
     }
     expect(() => rulesForWorkTypes(["Juggling"])).toThrow("Unknown work type");
+  });
+
+  it("offers the common distractions by name", () => {
+    const groups = catalogDistractions();
+    const discord = groups.find((g) => g.label === "Discord")!;
+    expect(discord.items.map((i) => `${i.kind}:${i.value}`)).toEqual(expect.arrayContaining(["app:discord.exe"]));
+    const tiktok = groups.find((g) => g.label === "TikTok")!;
+    expect(tiktok.items.map((i) => `${i.kind}:${i.value}`)).toContain("site:tiktok.com");
+    for (const i of groups.flatMap((g) => g.items)) {
+      if (i.kind === "site") expect(normalizeDomain(i.value)).toBe(i.value);
+      if (i.kind === "app") expect(i.value).toMatch(/^[a-z0-9_.-]+\.exe$/);
+    }
   });
 
   it("defines the four sample profiles with valid durations", () => {

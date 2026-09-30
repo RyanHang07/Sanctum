@@ -6,6 +6,7 @@ mod browser;
 mod classify;
 mod cloud;
 mod db;
+mod distractions;
 mod engine;
 mod gcal;
 mod ladder;
@@ -365,16 +366,59 @@ fn remove_rule(shared: State<Shared>, rule_id: i64) -> Result<profiles::Profile,
     with_db(&shared, |c| profiles::remove_rule(c, rule_id))
 }
 
-#[tauri::command]
-fn add_site_allow(shared: State<Shared>, rule_id: i64, prefix: String) -> Result<profiles::Profile, String> {
-    unsealed(&shared)?;
-    with_db(&shared, |c| profiles::add_site_allow(c, rule_id, &prefix))
+fn flags<T>(shared: &Shared, f: impl FnOnce(&rusqlite::Connection) -> Result<T, String>) -> Result<T, String> {
+    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let out = f(&conn);
+    // Flags are distracting time too.
+    shared.activity.mark_dirty();
+    out
 }
 
 #[tauri::command]
-fn remove_site_allow(shared: State<Shared>, id: i64) -> Result<profiles::Profile, String> {
-    unsealed(&shared)?;
-    with_db(&shared, |c| profiles::remove_site_allow(c, id))
+fn list_distractions(shared: State<Shared>) -> Result<Vec<distractions::Distraction>, String> {
+    flags(&shared, |c| distractions::list(c).map_err(|e| e.to_string()))
+}
+
+/// Flagging works any time, even mid-seal (it only tightens the seal).
+#[tauri::command]
+fn add_distraction(app: AppHandle, shared: State<Shared>, item: distractions::NewDistraction) -> Result<Vec<distractions::Distraction>, String> {
+    let out = flags(&shared, |c| distractions::add(c, item, session::now_ms()))?;
+    engine::refresh_seal(&app);
+    Ok(out)
+}
+
+#[tauri::command]
+fn remove_distraction(shared: State<Shared>, id: i64) -> Result<Vec<distractions::Distraction>, String> {
+    locked_while_sealed(&shared)?;
+    flags(&shared, |c| distractions::remove(c, id))
+}
+
+#[tauri::command]
+fn add_distraction_allow(shared: State<Shared>, id: i64, prefix: String) -> Result<Vec<distractions::Distraction>, String> {
+    locked_while_sealed(&shared)?;
+    flags(&shared, |c| distractions::add_allow(c, id, &prefix))
+}
+
+#[tauri::command]
+fn remove_distraction_allow(app: AppHandle, shared: State<Shared>, id: i64) -> Result<Vec<distractions::Distraction>, String> {
+    let out = flags(&shared, |c| distractions::remove_allow(c, id))?;
+    engine::refresh_seal(&app);
+    Ok(out)
+}
+
+#[tauri::command]
+fn distraction_suggestions(shared: State<Shared>) -> Result<Vec<distractions::Suggestion>, String> {
+    let week_ago = session::now_ms() - 7 * 24 * 3_600_000;
+    flags(&shared, |c| distractions::suggestions(c, week_ago).map_err(|e| e.to_string()))
+}
+
+/// Loosening the seal (unflagging, allowing pages) waits until it ends (SPEC 6).
+fn locked_while_sealed(shared: &Shared) -> Result<(), String> {
+    if shared.sealed() {
+        Err("Distractions can't be loosened while you're sealed.".into())
+    } else {
+        Ok(())
+    }
 }
 
 fn installed_apps(shared: &Shared, refresh: bool) -> Vec<apps::InstalledApp> {
@@ -514,7 +558,6 @@ pub fn run() {
             let db_path = dir.join(if cfg!(debug_assertions) { "sanctum-dev.db" } else { "sanctum.db" });
             let conn = db::open(&db_path)?;
             classify::seed_from_catalog(&conn)?;
-            blocker::seed_always(&conn)?;
 
             init_autostart(app.handle(), &conn)?;
             let start_in_tray = std::env::args().any(|a| a == AUTOSTART_ARG)
@@ -608,8 +651,12 @@ pub fn run() {
             delete_profile,
             add_rule,
             remove_rule,
-            add_site_allow,
-            remove_site_allow,
+            list_distractions,
+            add_distraction,
+            remove_distraction,
+            add_distraction_allow,
+            remove_distraction_allow,
+            distraction_suggestions,
             browser::browser_status,
             cloud::cloud_status,
             cloud::cloud_sign_in_google,

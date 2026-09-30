@@ -160,6 +160,7 @@ function FocusPanel() {
   const suggestion = useStore((s) => s.suggestion);
   const navigate = useStore((s) => s.navigate);
   const closing = useSealPreview(profile?.id);
+  const distractionCount = useStore((s) => s.distractions.length);
 
   const pickProfile = (id: number) => {
     useStore.getState().selectProfile(id);
@@ -191,15 +192,15 @@ function FocusPanel() {
           {/* Labeled like the wheels: the note sits where their labels do, the button matches their boxes. */}
           <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
             {profile && closing.length ? (
-              <span data-testid="focus-note" title={profileNote(profile)} className="flex min-w-0 items-center gap-[6px] px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-2">
+              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-2">
                 <LockIcon size={10} className="shrink-0 text-sealed" />
                 <span className="truncate">
                   {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
                 </span>
               </span>
             ) : (
-              <span data-testid="focus-note" title={profile ? profileNote(profile) : undefined} className="truncate px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
-                {profile ? profileNote(profile) : "Focus"}
+              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+                {profile ? profileNote(profile, distractionCount) : "Focus"}
               </span>
             )}
             {/* The label sits at the button's exact center; the shortcut hangs just under it. */}

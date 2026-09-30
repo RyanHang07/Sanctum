@@ -81,6 +81,7 @@ function useNativeEvents() {
     void seedDevProfiles()
       .finally(() => useStore.getState().loadProfiles())
       .then(() => useStore.getState().checkOnboarding())
+      .then(() => useStore.getState().loadDistractions())
       .then(() => seedDevPlanner())
       .finally(() => usePlanner.getState().reload());
     // Keep the Rust side (tray menu, close handling) in sync with the store on startup.

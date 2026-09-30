@@ -1,5 +1,5 @@
 import catalog from "../data/catalog.json";
-import type { NewRule, ProfileDraft } from "./types";
+import type { NewDistraction, NewRule, ProfileDraft } from "./types";
 
 interface CatalogItem {
   label: string;
@@ -14,17 +14,14 @@ const workTypes = catalog.workTypes as Record<string, { open: string[]; seal: st
 
 export const WORK_TYPES: readonly string[] = Object.keys(workTypes);
 
-/** Rules for a set of work types: what they open, what they seal, plus the always-sealed items. */
+/** What a set of work types opens. What gets sealed is the Distractions list. */
 export function rulesForWorkTypes(types: readonly string[]): NewRule[] {
   const open = new Set<string>();
-  const seal = new Set<string>();
   for (const t of types) {
     const wt = workTypes[t];
     if (!wt) throw new Error(`Unknown work type: ${t}`);
     wt.open.forEach((id) => open.add(id));
-    wt.seal.forEach((id) => seal.add(id));
   }
-  catalog.alwaysSeal.forEach((id) => seal.add(id));
 
   const rules: NewRule[] = [];
   const seen = new Set<string>();
@@ -40,12 +37,20 @@ export function rulesForWorkTypes(types: readonly string[]): NewRule[] {
     if (it.url) push({ kind: "launch_url", value: it.url, label: it.label });
     if (it.app) push({ kind: "launch_app", value: it.app, label: it.label });
   }
-  for (const id of seal) {
-    const it = items[id]!;
-    it.apps?.forEach((exe) => push({ kind: "app", value: exe, label: it.label }));
-    it.domains?.forEach((d) => push({ kind: "domain", value: d, label: it.label }));
-  }
   return rules;
+}
+
+/** Common distractions for onboarding and suggestions: everything the catalog seals, by name. */
+export function catalogDistractions(): { label: string; items: NewDistraction[] }[] {
+  const ids = new Set<string>(catalog.alwaysSeal);
+  Object.values(workTypes).forEach((wt) => wt.seal.forEach((id) => ids.add(id)));
+  return [...ids].map((id) => {
+    const it = items[id]!;
+    const out: NewDistraction[] = [];
+    it.domains?.forEach((d) => out.push({ kind: "site", value: d, label: it.label }));
+    it.apps?.forEach((exe) => out.push({ kind: "app", value: exe, label: it.label }));
+    return { label: it.label, items: out };
+  });
 }
 
 /** The four sample profiles. Seeded in dev builds only; release builds get profiles from onboarding. */
