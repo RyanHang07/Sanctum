@@ -111,3 +111,13 @@ button:disabled {
   background: none;
   color: var(--sealed-text);
 }
+.urgent {
+  border-color: var(--sealed-line);
+}
+.quote {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--panel-footer);
+  color: var(--text-2);
+}

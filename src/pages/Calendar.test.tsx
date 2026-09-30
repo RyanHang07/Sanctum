@@ -200,7 +200,7 @@ describe("Home: In event", () => {
     await act(async () => void checkSchedule());
     await waitFor(() => expect(useStore.getState().appState).toBe("sealed"));
     expect(useStore.getState().session?.profileName).toBe("Interview Prep");
-    await act(() => native.endSessionEarly("x".repeat(60)));
+    await act(() => native.emergencyUnlock("test cleanup"));
   });
 
   it("goes back to open without focusing when nothing was queued; solo events don't count", async () => {

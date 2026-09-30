@@ -351,6 +351,40 @@ fn partner_status(state: &State) -> Result<PartnerStatus, String> {
     Ok(out)
 }
 
+/// The linked partner's name, or None when there's none (or you're signed out or offline).
+pub fn partner_name(app: &AppHandle) -> Option<String> {
+    let status = partner_status(&app.state::<Shared>().cloud).ok()?;
+    status.partner.map(|p| p.name.or(p.email).unwrap_or_else(|| "your partner".into()))
+}
+
+/// Level 3 with a partner: files the request and emails them. Returns its id.
+pub fn create_unlock_request(app: &AppHandle, reason: &str) -> Result<String, String> {
+    let state = &app.state::<Shared>().cloud;
+    let (req, me) = authed(state, state.http.post(format!("{URL}/rest/v1/unlock_requests")))?;
+    let rows = send(req.header("Prefer", "return=representation").json(&json!({ "user_id": me, "reason": reason, "level": 3 })))?;
+    let id = rows.get(0).and_then(|r| r["id"].as_str()).ok_or("The request didn't come back.")?.to_string();
+    if let Ok((req, _)) = authed(state, state.http.post(format!("{URL}/functions/v1/notify"))) {
+        let _ = send(req.json(&json!({ "kind": "unlock_request", "detail": reason })));
+    }
+    Ok(id)
+}
+
+/// The request's status ("pending", "approved", "denied", "expired") and the partner's note.
+pub fn unlock_request_status(app: &AppHandle, id: &str) -> Result<(String, Option<String>), String> {
+    let state = &app.state::<Shared>().cloud;
+    let (req, _) = authed(state, state.http.get(format!("{URL}/rest/v1/unlock_requests?select=status,note&id=eq.{id}")))?;
+    let rows = send(req)?;
+    let row = rows.get(0).ok_or("The request is gone.")?;
+    Ok((row["status"].as_str().unwrap_or("pending").to_string(), row["note"].as_str().map(String::from)))
+}
+
+pub fn cancel_unlock_request(app: &AppHandle, id: &str) {
+    let state = &app.state::<Shared>().cloud;
+    if let Ok((req, _)) = authed(state, state.http.post(format!("{URL}/rest/v1/rpc/cancel_unlock_request"))) {
+        let _ = send(req.json(&json!({ "rid": id })));
+    }
+}
+
 /// Tells the partner (if any) what happened. Best effort, off the calling thread.
 pub fn notify(app: &AppHandle, kind: &'static str, detail: String) {
     let app = app.clone();

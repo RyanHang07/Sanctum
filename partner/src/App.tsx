@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { call, supabase } from "./supabase";
 
 // The accountability partner's page (SPEC 4.6): accept an invite and set a PIN, see who you
-// hold the key for, release them when they ask, reset your PIN. Approvals arrive in M7.
+// hold the key for, approve or deny their early unlocks, release them when they ask, reset your PIN.
 
 const inviteToken = () => /^\/invite\/([a-f0-9]+)\/?$/i.exec(location.pathname)?.[1] ?? null;
 
@@ -124,6 +124,59 @@ function Invite({ token, onDone }: { token: string; onDone: () => void }) {
   );
 }
 
+interface UnlockRequest {
+  id: string;
+  user_id: string;
+  reason: string;
+  created_at: string;
+}
+
+const TTL_MS = 30 * 60_000;
+
+/** One pending unlock request: the reason, the time left, and Approve or Deny with the PIN. */
+function RequestCard({ r, who, onDone }: { r: UnlockRequest; who: string; onDone: (msg: string) => void }) {
+  const [pin, setPin] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const left = Math.max(0, Math.ceil((new Date(r.created_at).getTime() + TTL_MS - Date.now()) / 60_000));
+  const answer = async (approve: boolean) => {
+    if (pin.length < 6) return setError("Enter your PIN.");
+    setBusy(true);
+    try {
+      await call("unlock-respond", { requestId: r.id, approve, pin, note });
+      onDone(approve ? `You approved it. ${who}'s session is over.` : `You denied it. ${who} stays sealed.`);
+    } catch (e) {
+      setError((e as Error).message);
+      setPin("");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="panel urgent">
+      <div className="row between">
+        <strong>{who} wants out early</strong>
+        <span className="muted small">expires in {left} min</span>
+      </div>
+      <p className="quote">“{r.reason}”</p>
+      <div className="row">
+        <input inputMode="numeric" type="password" autoComplete="off" placeholder="Your PIN" aria-label="Your PIN" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 12))} />
+        <input placeholder="Note back (optional)" aria-label="Note back" value={note} maxLength={280} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="row">
+        <button className="primary" disabled={busy} onClick={() => void answer(false)}>
+          Deny
+        </button>
+        <button className="ghost" disabled={busy} onClick={() => void answer(true)}>
+          Approve
+        </button>
+      </div>
+      {error ? <p className="error">{error}</p> : null}
+    </section>
+  );
+}
+
 interface Link {
   id: string;
   user_id: string;
@@ -133,6 +186,7 @@ interface Link {
 
 function Dashboard({ session }: { session: Session }) {
   const [links, setLinks] = useState<Link[]>([]);
+  const [requests, setRequests] = useState<UnlockRequest[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [pin, setPin] = useState("");
@@ -143,13 +197,27 @@ function Dashboard({ session }: { session: Session }) {
     const { data } = await supabase.from("partnerships").select("id,user_id,status,created_at").eq("partner_id", session.user.id).neq("status", "ended");
     const rows = (data ?? []) as Link[];
     setLinks(rows);
+    const since = new Date(Date.now() - TTL_MS).toISOString();
+    const { data: pending } = await supabase
+      .from("unlock_requests")
+      .select("id,user_id,reason,created_at")
+      .eq("status", "pending")
+      .neq("user_id", session.user.id)
+      .gte("created_at", since)
+      .order("created_at");
+    setRequests((pending ?? []) as UnlockRequest[]);
     if (rows.length) {
       const { data: people } = await supabase.from("profiles_user").select("id,email,display_name").in("id", rows.map((r) => r.user_id));
       setNames(Object.fromEntries((people ?? []).map((p) => [p.id, p.display_name || p.email || "Someone"])));
     }
     setLoaded(true);
   }, [session.user.id]);
-  useEffect(() => void load(), [load]);
+  useEffect(() => {
+    void load();
+    // New requests show up without a reload.
+    const t = setInterval(() => void load(), 10_000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const end = async (id: string) => {
     const { error } = await supabase.rpc("end_partnership", { pid: id });
@@ -174,6 +242,17 @@ function Dashboard({ session }: { session: Session }) {
     <>
       <Headline lead="You hold" payoff={links.length === 1 ? "one key." : `${links.length || "no"} keys.`} />
       {!loaded ? <p className="muted">Loading…</p> : null}
+      {requests.map((r) => (
+        <RequestCard
+          key={r.id}
+          r={r}
+          who={names[r.user_id] ?? "Someone"}
+          onDone={(text) => {
+            setMessage({ text });
+            void load();
+          }}
+        />
+      ))}
       {loaded && !links.length ? <p className="muted">Nobody has chosen you as their partner yet. Invites come as a link from the Sanctum app.</p> : null}
       {links.map((l) => {
         const who = names[l.user_id] ?? "Someone";
@@ -195,7 +274,7 @@ function Dashboard({ session }: { session: Session }) {
               </>
             ) : (
               <>
-                <p className="muted small">Unlock requests will show here with their reason, to approve or deny with your PIN.</p>
+                <p className="muted small">When {who} asks to leave a session early, the request shows up here with their reason. You'll get an email too.</p>
                 <button className="ghost" onClick={() => void end(l.id)}>
                   Step down
                 </button>

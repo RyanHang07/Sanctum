@@ -314,3 +314,24 @@ export interface PartnerStatus {
   /** People who chose you as their partner. */
   partnerOf: string[];
 }
+
+/** Break the seal (src-tauri/src/unlock.rs, SPEC 4.5). */
+export interface LadderView {
+  /** The level being worked on, 1 to 3. */
+  level: 1 | 2 | 3;
+  reason: string | null;
+  waitLeftMs: number | null;
+  paragraph: string | null;
+  stage: "none" | "partner" | "solo";
+  /** The partner's name; null means the solo path. */
+  partner: string | null;
+  expiresAt: number | null;
+  requestedAt: number | null;
+  soloLeftMs: number | null;
+  outcome: "approved" | "denied" | "expired" | null;
+  note: string | null;
+  retryAt: number | null;
+  notice: string | null;
+  /** When the next emergency unlock opens; null means it's available. */
+  emergencyNextAt: number | null;
+}

@@ -8,6 +8,8 @@ mod cloud;
 mod db;
 mod engine;
 mod gcal;
+mod ladder;
+mod unlock;
 mod launcher;
 mod planner;
 mod profiles;
@@ -47,6 +49,7 @@ pub struct Shared {
     pub gcal: gcal::State,
     pub browser: browser::State,
     pub cloud: cloud::State,
+    pub unlock: unlock::State,
 }
 
 impl Shared {
@@ -528,6 +531,7 @@ pub fn run() {
                 gcal: gcal::State::new(),
                 browser: browser::State::new(),
                 cloud: cloud::State::new(),
+                unlock: unlock::State::default(),
             });
             tray::create(app.handle())?;
             engine::resume_on_startup(app.handle());
@@ -570,6 +574,12 @@ pub fn run() {
                 }
             }
             ("tray-panel", WindowEvent::Focused(false)) => tray::hide_panel(window.app_handle()),
+            // Leaving the window restarts the ladder's waits (SPEC 4.5).
+            ("main", WindowEvent::Focused(false)) => {
+                if window.app_handle().try_state::<Shared>().is_some() {
+                    unlock::left_window(window.app_handle());
+                }
+            }
             ("compact", WindowEvent::Moved(pos)) => {
                 // Remember where it was dragged, relative to top middle.
                 let Some(w) = window.app_handle().get_webview_window("compact") else { return };
@@ -617,7 +627,15 @@ pub fn run() {
             engine::get_session,
             engine::preview_seal,
             engine::start_session,
-            engine::end_session_early,
+            unlock::ladder_open,
+            unlock::ladder_view,
+            unlock::ladder_reason,
+            unlock::ladder_continue,
+            unlock::ladder_retype,
+            unlock::ladder_request,
+            unlock::ladder_finish_solo,
+            unlock::ladder_cancel,
+            unlock::emergency_unlock,
             engine::focus_minutes_since,
             engine::intercept_return,
             engine::intercept_hide,

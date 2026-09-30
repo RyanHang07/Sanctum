@@ -167,19 +167,21 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, 
     Ok(view)
 }
 
-#[tauri::command]
-pub fn end_session_early(app: AppHandle, shared: State<Shared>, reason: String) -> Result<(), String> {
+/// Ends the running session as unlocked early: the ladder finished, or the emergency unlock
+/// (SPEC 4.5). Only unlock.rs calls this; there's no command that skips the ladder.
+pub fn end_unlocked(app: &AppHandle, reason: &str, level: i64) -> Result<(), String> {
+    let shared = app.state::<Shared>();
     let engine = &shared.engine;
     let mut guard = engine.active.lock().unwrap();
     let Some(active) = guard.as_ref() else { return Err("No session is running.".into()) };
     {
         let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
-        session::end_early(&mut conn, active.id, &reason, session::now_ms())?;
+        session::end_early(&mut conn, active.id, reason, level, session::now_ms())?;
     }
     *guard = None;
     drop(guard);
     engine.blocker.lock().unwrap().unblock_all();
-    set_sealed(&app, false);
+    set_sealed(app, false);
     let _ = app.emit(EV_SESSION, None::<SessionView>);
     Ok(())
 }
@@ -422,6 +424,7 @@ fn track_foreground(shared: &Shared) {
 fn complete(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let Some(active) = shared.engine.active.lock().unwrap().take() else { return };
+    shared.unlock.clear();
     let outcome = if active.broken { "broken" } else { "completed" };
     if let Ok(conn) = shared.db.lock() {
         let _ = session::save_idle(&conn, active.id, active.idle_ms);
