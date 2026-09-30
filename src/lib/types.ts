@@ -123,7 +123,7 @@ export interface HeldStats {
 /** Payload for the intercept window (src-tauri/src/engine.rs). */
 export interface Intercept {
   /** "app" / "allowlist": sealed-app overlay. "title": corner nudge. "welcome": back from idle. */
-  kind: "app" | "allowlist" | "flag" | "title" | "welcome";
+  kind: "app" | "allowlist" | "title" | "welcome";
   label: string;
   attempts: number;
   profileName: string;

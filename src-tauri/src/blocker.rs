@@ -43,9 +43,6 @@ pub fn seed_always(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     db::set_setting(conn, "always_allowed_seeded", "1")
 }
 
-/// An app outside the allowlist gets this long, minimized, before coming back to it closes it.
-const FLAG_GRACE: Duration = Duration::from_secs(5);
-
 pub fn is_protected(exe: &str) -> bool {
     PROTECTED.contains(&exe) || own_exe().as_deref() == Some(exe)
 }
@@ -61,12 +58,15 @@ pub struct SealSet {
     pub apps: HashSet<String>,
     /// Lowercase window-title keywords to minimize.
     pub titles: Vec<String>,
-    /// Allowlist mode: every windowed app not in here is closed.
+    /// Allowlist mode: a new windowed app not in here is closed as it opens.
     pub allowed: Option<HashSet<String>>,
     /// Apps the profile opens are never closed, even if also sealed.
     pub opens: HashSet<String>,
-    /// User-editable exceptions (Setup > Always allowed).
+    /// User-editable exceptions (Setup > Always open).
     pub always: HashSet<String>,
+    /// Allowlist mode: exes already running when the seal began. They stay, and so does
+    /// anything they start.
+    pub baseline: HashSet<String>,
 }
 
 impl SealSet {
@@ -83,7 +83,7 @@ impl SealSet {
             }
             a
         });
-        SealSet { apps: of(p, "app").collect(), titles: of(p, "title").collect(), allowed, opens, always }
+        SealSet { apps: of(p, "app").collect(), titles: of(p, "title").collect(), allowed, opens, always, baseline: HashSet::new() }
     }
 
     /// Number of enforced app/keyword rules (sites seal with the extension in M8).
@@ -116,15 +116,58 @@ pub fn ancestors(procs: &[Proc], parents: &HashMap<u32, u32>, me: u32) -> HashSe
     out
 }
 
-/// Processes to close and why ("app" rule or "allowlist"). `keep` holds pids never touched.
-pub fn targets<'a>(procs: &'a [Proc], windowed: &HashSet<u32>, seal: &SealSet, keep: &HashSet<u32>) -> Vec<(&'a Proc, &'static str)> {
+/// Allowlist mode only stops new launches. A process is spared when its exe was already running
+/// at the start, is allowed, or is always open, or when one of those started it (a dev build
+/// run from your editor's terminal). Launches from the shell (Start, the taskbar, the
+/// desktop) don't inherit anything.
+pub fn spared(procs: &[Proc], parents: &HashMap<u32, u32>, seal: &SealSet) -> HashSet<u32> {
+    let ok = |exe: &str| {
+        seal.baseline.contains(exe) || seal.always.contains(exe) || seal.allowed.as_ref().is_some_and(|a| a.contains(exe))
+    };
+    let exe_of: HashMap<u32, &str> = procs.iter().map(|p| (p.pid, p.exe.as_str())).collect();
+    procs
+        .iter()
+        .filter(|p| {
+            if ok(&p.exe) {
+                return true;
+            }
+            let mut pid = p.pid;
+            for _ in 0..16 {
+                let Some(exe) = parents.get(&pid).and_then(|parent| {
+                    pid = *parent;
+                    exe_of.get(parent)
+                }) else {
+                    return false;
+                };
+                if is_protected(exe) {
+                    return false;
+                }
+                if ok(exe) {
+                    return true;
+                }
+            }
+            false
+        })
+        .map(|p| p.pid)
+        .collect()
+}
+
+/// Processes to close and why ("app" rule or "allowlist"). `keep` holds pids never touched;
+/// `spared` only exempts from allowlist mode (a sealed app still closes).
+pub fn targets<'a>(
+    procs: &'a [Proc],
+    windowed: &HashSet<u32>,
+    seal: &SealSet,
+    keep: &HashSet<u32>,
+    spared: &HashSet<u32>,
+) -> Vec<(&'a Proc, &'static str)> {
     procs
         .iter()
         .filter(|p| !keep.contains(&p.pid) && !is_protected(&p.exe) && !seal.opens.contains(&p.exe))
         .filter_map(|p| {
             if seal.apps.contains(&p.exe) {
                 Some((p, "app"))
-            } else if seal.allowed.as_ref().is_some_and(|a| !a.contains(&p.exe)) && !seal.always.contains(&p.exe) && windowed.contains(&p.pid) {
+            } else if seal.allowed.is_some() && !spared.contains(&p.pid) && windowed.contains(&p.pid) {
                 Some((p, "allowlist"))
             } else {
                 None
@@ -138,34 +181,13 @@ pub fn title_hit<'a>(title: &str, keywords: &'a [String]) -> Option<&'a str> {
     keywords.iter().find(|k| !k.is_empty() && t.contains(k.as_str())).map(|k| k.as_str())
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Action {
-    /// A sealed app, closed on sight.
-    Closed,
-    /// Outside the allowlist: minimized and flagged, closed if it comes back to the front.
-    Flagged,
-    /// A flagged app that came back to the front after the grace, now closed.
-    Enforced,
-    /// Every kill failed (usually an elevated process).
-    Failed,
-}
-
 /// One blocked app per tick (Discord spawns several processes; that's one attempt).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Blocked {
     pub exe: String,
     pub kind: &'static str,
-    pub action: Action,
-}
-
-/// What to do with an app outside the allowlist, given how long it has been flagged and
-/// whether one of its windows is in front.
-pub fn allowlist_step(flagged_for: Option<Duration>, in_front: bool) -> Option<Action> {
-    match flagged_for {
-        None => Some(Action::Flagged),
-        Some(t) if t >= FLAG_GRACE && in_front => Some(Action::Enforced),
-        Some(_) => None,
-    }
+    /// False when every kill failed (usually an elevated process).
+    pub closed: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -177,7 +199,7 @@ pub struct TitleHit {
 
 pub trait Blocker: Send {
     fn set_rules(&mut self, seal: SealSet);
-    /// Closes sealed apps and flags apps outside the allowlist. Returns what happened this pass.
+    /// Closes sealed apps, and new launches outside the allowlist. Returns what was blocked this pass.
     fn block_apps(&mut self) -> Vec<Blocked>;
     /// Minimizes the foreground window if its title matches a sealed keyword.
     fn check_title(&mut self) -> Option<TitleHit>;
@@ -190,13 +212,11 @@ pub struct SystemBlocker {
     seal: Option<SealSet>,
     sys: sysinfo::System,
     title_cooldown: HashMap<isize, Instant>,
-    /// Apps outside the allowlist, by exe, and when they were flagged.
-    flagged: HashMap<String, Instant>,
 }
 
 impl SystemBlocker {
     pub fn new() -> Self {
-        SystemBlocker { seal: None, sys: sysinfo::System::new(), title_cooldown: HashMap::new(), flagged: HashMap::new() }
+        SystemBlocker { seal: None, sys: sysinfo::System::new(), title_cooldown: HashMap::new() }
     }
 
     fn refresh(&mut self) -> Vec<Proc> {
@@ -209,10 +229,12 @@ impl SystemBlocker {
             .collect()
     }
 
-    fn keep(&self, procs: &[Proc]) -> HashSet<u32> {
+    /// Sanctum and what runs it (never touched), and what allowlist mode spares.
+    fn keep(&self, procs: &[Proc], seal: &SealSet) -> (HashSet<u32>, HashSet<u32>) {
         let parents: HashMap<u32, u32> =
             self.sys.processes().iter().filter_map(|(pid, p)| Some((pid.as_u32(), p.parent()?.as_u32()))).collect();
-        ancestors(procs, &parents, std::process::id())
+        let spared = if seal.allowed.is_some() { spared(procs, &parents, seal) } else { HashSet::new() };
+        (ancestors(procs, &parents, std::process::id()), spared)
     }
 
     pub fn exe_of(&self, pid: u32) -> Option<String> {
@@ -220,15 +242,18 @@ impl SystemBlocker {
     }
 
     pub fn is_sealed(&self, exe: &str) -> bool {
-        self.seal.as_ref().is_some_and(|s| s.apps.contains(exe) || s.allowed.as_ref().is_some_and(|a| !a.contains(exe)))
+        self.seal.as_ref().is_some_and(|s| s.apps.contains(exe))
     }
 
     /// Names of running apps this seal set would close right now (the pre-flight warning).
+    /// Allowlist mode leaves running apps alone, so only sealed apps show.
     pub fn preview(&mut self, seal: &SealSet) -> Vec<String> {
         let procs = self.refresh();
-        let windowed = if seal.allowed.is_some() { winutil::windowed_pids() } else { HashSet::new() };
-        let keep = self.keep(&procs);
-        let mut exes: Vec<String> = targets(&procs, &windowed, seal, &keep).into_iter().map(|(p, _)| p.exe.clone()).collect();
+        let mut seal = seal.clone();
+        seal.baseline = procs.iter().map(|p| p.exe.clone()).collect();
+        let (keep, spared) = self.keep(&procs, &seal);
+        let mut exes: Vec<String> =
+            targets(&procs, &HashSet::new(), &seal, &keep, &spared).into_iter().map(|(p, _)| p.exe.clone()).collect();
         exes.sort();
         exes.dedup();
         exes
@@ -236,49 +261,25 @@ impl SystemBlocker {
 }
 
 impl Blocker for SystemBlocker {
-    fn set_rules(&mut self, seal: SealSet) {
+    fn set_rules(&mut self, mut seal: SealSet) {
+        // What's open now stays open; allowlist mode only stops new launches.
+        seal.baseline = self.refresh().into_iter().map(|p| p.exe).collect();
         self.seal = Some(seal);
         self.title_cooldown.clear();
-        self.flagged.clear();
     }
 
     fn block_apps(&mut self) -> Vec<Blocked> {
         let Some(seal) = self.seal.clone() else { return Vec::new() };
         let procs = self.refresh();
         let windowed = if seal.allowed.is_some() { winutil::windowed_pids() } else { HashSet::new() };
-        let keep = self.keep(&procs);
-        let mut groups: BTreeMap<String, (&'static str, Vec<u32>)> = BTreeMap::new();
-        for (p, kind) in targets(&procs, &windowed, &seal, &keep) {
-            groups.entry(p.exe.clone()).or_insert((kind, Vec::new())).1.push(p.pid);
+        let (keep, spared) = self.keep(&procs, &seal);
+        let mut by_exe: BTreeMap<String, Blocked> = BTreeMap::new();
+        for (p, kind) in targets(&procs, &windowed, &seal, &keep, &spared) {
+            let killed = self.sys.process(sysinfo::Pid::from_u32(p.pid)).is_some_and(|proc_| proc_.kill());
+            let entry = by_exe.entry(p.exe.clone()).or_insert(Blocked { exe: p.exe.clone(), kind, closed: false });
+            entry.closed |= killed;
         }
-        let front = winutil::foreground().map(|f| f.pid);
-        let mut out = Vec::new();
-        for (exe, (kind, pids)) in &groups {
-            let action = if *kind == "app" {
-                Action::Closed
-            } else {
-                let flagged_for = self.flagged.get(exe).map(|t| t.elapsed());
-                match allowlist_step(flagged_for, front.is_some_and(|f| pids.contains(&f))) {
-                    Some(Action::Flagged) => {
-                        self.flagged.insert(exe.clone(), Instant::now());
-                        winutil::minimize_windows_of(pids);
-                        out.push(Blocked { exe: exe.clone(), kind, action: Action::Flagged });
-                        continue;
-                    }
-                    Some(a) => a,
-                    None => continue,
-                }
-            };
-            let mut killed = false;
-            for pid in pids {
-                killed |= self.sys.process(sysinfo::Pid::from_u32(*pid)).is_some_and(|proc_| proc_.kill());
-            }
-            out.push(Blocked { exe: exe.clone(), kind, action: if killed { action } else { Action::Failed } });
-        }
-        // Closed or gone: flag it afresh (and count it again) if it comes back.
-        let enforced: HashSet<&String> = out.iter().filter(|b| b.action == Action::Enforced).map(|b| &b.exe).collect();
-        self.flagged.retain(|exe, _| groups.get(exe).is_some_and(|(k, _)| *k == "allowlist") && !enforced.contains(exe));
-        out
+        by_exe.into_values().collect()
     }
 
     fn check_title(&mut self) -> Option<TitleHit> {
@@ -310,7 +311,6 @@ impl Blocker for SystemBlocker {
     fn unblock_all(&mut self) {
         self.seal = None;
         self.title_cooldown.clear();
-        self.flagged.clear();
     }
 }
 
@@ -339,37 +339,51 @@ mod tests {
             HashSet::new(),
         );
         let procs = vec![proc_(1, "discord.exe"), proc_(2, "discord.exe"), proc_(3, "explorer.exe"), proc_(4, "code.exe"), proc_(5, "notepad.exe")];
-        let hit: Vec<_> = targets(&procs, &HashSet::new(), &seal, &HashSet::new()).into_iter().map(|(p, k)| (p.pid, k)).collect();
+        let hit: Vec<_> = targets(&procs, &HashSet::new(), &seal, &HashSet::new(), &HashSet::new()).into_iter().map(|(p, k)| (p.pid, k)).collect();
         assert_eq!(hit, vec![(1, "app"), (2, "app")]);
     }
 
+    fn parents(pairs: &[(u32, u32)]) -> HashMap<u32, u32> {
+        pairs.iter().copied().collect()
+    }
+
     #[test]
-    fn allowlist_closes_only_windowed_apps_outside_the_list() {
-        let seal = SealSet::from_profile(
+    fn allowlist_leaves_running_apps_and_closes_new_launches() {
+        let mut seal = SealSet::from_profile(
             &profile(true, vec![rule("launch_app", "code.exe"), rule("launch_url", "https://leetcode.com/")]),
             Some("chrome.exe".into()),
             parse_always("1password.exe, notes.txt"),
         );
+        // Running when the seal began.
+        seal.baseline = ["explorer.exe", "code.exe", "spotify.exe"].map(String::from).into();
         let procs = vec![
-            proc_(1, "code.exe"),
-            proc_(2, "chrome.exe"),
-            proc_(3, "steam.exe"),
-            proc_(4, "backgroundhelper.exe"),
+            proc_(1, "explorer.exe"),
+            proc_(2, "code.exe"),
+            proc_(3, "spotify.exe"),
+            proc_(4, "chrome.exe"),
             proc_(5, "1password.exe"),
-            proc_(6, "explorer.exe"),
+            proc_(6, "powershell.exe"),
+            proc_(7, "myapp.exe"),
+            proc_(8, "steam.exe"),
+            proc_(9, "backgroundhelper.exe"),
         ];
-        let windowed: HashSet<u32> = [1, 2, 3, 5, 6].into();
-        let hit: Vec<_> = targets(&procs, &windowed, &seal, &HashSet::new()).into_iter().map(|(p, k)| (p.exe.as_str(), k)).collect();
+        // VS Code > PowerShell > the app you're building; Steam from the Start menu (explorer).
+        let tree = parents(&[(6, 2), (7, 6), (8, 1), (9, 1)]);
+        let spared = spared(&procs, &tree, &seal);
+        let windowed: HashSet<u32> = [1, 2, 3, 4, 5, 7, 8].into();
+        let hit: Vec<_> =
+            targets(&procs, &windowed, &seal, &HashSet::new(), &spared).into_iter().map(|(p, k)| (p.exe.as_str(), k)).collect();
         assert_eq!(hit, vec![("steam.exe", "allowlist")]);
         assert_eq!(seal.always, HashSet::from(["1password.exe".to_string()]));
     }
 
     #[test]
-    fn allowlist_flags_first_and_closes_only_if_it_comes_back() {
-        assert_eq!(allowlist_step(None, true), Some(Action::Flagged));
-        assert_eq!(allowlist_step(Some(Duration::from_secs(2)), true), None, "grace");
-        assert_eq!(allowlist_step(Some(Duration::from_secs(9)), false), None, "left minimized");
-        assert_eq!(allowlist_step(Some(Duration::from_secs(9)), true), Some(Action::Enforced));
+    fn allowlist_never_spares_a_sealed_app() {
+        let mut seal = SealSet::from_profile(&profile(true, vec![rule("app", "discord.exe")]), None, HashSet::new());
+        seal.baseline = ["discord.exe".to_string()].into();
+        let procs = vec![proc_(2, "discord.exe")];
+        let spared = spared(&procs, &HashMap::new(), &seal);
+        assert_eq!(targets(&procs, &[2].into(), &seal, &HashSet::new(), &spared).len(), 1);
     }
 
     #[test]
@@ -387,32 +401,14 @@ mod tests {
     }
 
     #[test]
-    fn allowlist_spares_the_always_open_list_and_what_runs_sanctum() {
-        let always = parse_always(&DEFAULT_ALWAYS.join(","));
-        let seal = SealSet::from_profile(&profile(true, vec![rule("launch_app", "code.exe")]), None, always);
-        let procs = vec![
-            proc_(2, "comet.exe"),
-            proc_(3, "spotify.exe"),
-            proc_(4, "claude.exe"),
-            proc_(5, "windowsterminal.exe"),
-            proc_(6, "powershell.exe"),
-            proc_(7, "node.exe"),
-            proc_(8, "steam.exe"),
-            proc_(9, "sanctum.exe"),
-        ];
+    fn never_touches_sanctum_or_what_runs_it() {
+        let seal = SealSet::from_profile(&profile(true, vec![rule("app", "node.exe")]), None, HashSet::new());
+        let procs = vec![proc_(5, "windowsterminal.exe"), proc_(6, "powershell.exe"), proc_(7, "node.exe"), proc_(9, "sanctum.exe")];
         // Terminal 5 > PowerShell 6 > npm 7 > Sanctum 9.
-        let parents: HashMap<u32, u32> = [(9, 7), (7, 6), (6, 5), (5, 1)].into();
-        let keep = ancestors(&procs, &parents, 9);
+        let keep = ancestors(&procs, &parents(&[(9, 7), (7, 6), (6, 5), (5, 1)]), 9);
         assert_eq!(keep, HashSet::from([9, 7, 6, 5]));
-        let windowed: HashSet<u32> = (2..=9).collect();
-        let hit: Vec<_> = targets(&procs, &windowed, &seal, &keep).into_iter().map(|(p, _)| p.exe.as_str()).collect();
-        assert_eq!(hit, vec!["steam.exe"]);
-        // Sealing an essential app by name still closes it.
-        let named = SealSet::from_profile(&profile(true, vec![rule("app", "spotify.exe")]), None, parse_always("claude.exe"));
-        let hit: Vec<_> = targets(&procs, &windowed, &named, &keep).into_iter().map(|(p, k)| (p.exe.as_str(), k)).collect();
-        assert!(hit.contains(&("spotify.exe", "app")));
-        let sealed_but_always = SealSet::from_profile(&profile(false, vec![rule("app", "spotify.exe")]), None, parse_always("spotify.exe"));
-        assert_eq!(targets(&procs, &windowed, &sealed_but_always, &keep).len(), 1, "always open only spares allowlist mode");
+        let windowed: HashSet<u32> = (5..=9).collect();
+        assert!(targets(&procs, &windowed, &seal, &keep, &HashSet::new()).is_empty());
     }
 
     #[test]

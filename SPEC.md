@@ -167,7 +167,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - **Sites (precise):** extension uses `declarativeNetRequest` for per-URL rules (e.g. block `youtube.com` but allow `youtube.com/watch?v=<allowed>`)
 - **Extension scope:** blocking only. It receives rules from the desktop app via native messaging and never reports page titles, URLs, or history back. Nothing from the extension reaches the partner
 - **Title keywords:** if foreground window title matches a blocked keyword, minimize it and show a nudge
-- **Allowlist mode:** everything not listed is blocked
+- **Allowlist mode:** everything not listed is blocked. Updated 2026-09-29 at your request: it only stops new launches. Apps already running when the seal starts stay, and so does anything they start (a dev build run from your editor). A new app outside the profile's launch set and Setup > Always open closes as it opens. Apps sealed by name still close.
 - **Sealed app intercept:** when a sealed app launches, kill it and show a centered overlay: "<App> is sealed.", time left, attempt count this session, primary "Back to <last productive app>", secondary "Break the seal". Auto-returns after 5s
 - **Title nudge:** a small corner toast when a window is minimized for a sealed keyword
 - **Sealed site page:** the extension shows a full-page "<domain> is sealed." with time left and a link back to the profile's main site. The page records nothing

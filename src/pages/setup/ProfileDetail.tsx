@@ -79,7 +79,7 @@ function RulePanel({
         </Button>
       </div>
       {note ? <p className="m-0 border-b border-line-soft px-[14px] py-2 text-meta text-muted">{note}</p> : null}
-      <div className={`flex min-h-0 grow flex-col overflow-y-auto py-1 ${note ? "opacity-55" : ""}`}>
+      <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
         {rules.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-faint">{empty}</p> : null}
         {rules.map((r) => (
           <div key={r.id} className="flex shrink-0 flex-col">
@@ -252,7 +252,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
         <div className="ml-auto flex items-center gap-3 pr-2">
           <span className="flex flex-col items-end gap-[2px]">
             <span className="text-body text-text">Allowlist mode</span>
-            <span className="text-meta text-muted">Seal everything this profile does not open</span>
+            <span className="text-meta text-muted">Only apps this profile opens can start while sealed</span>
           </span>
           <Switch
             label="Allowlist mode"
@@ -279,7 +279,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
           apps={apps}
           placeholder="Add a site or a title keyword"
           empty="Nothing is sealed yet."
-          note={profile.allowlistMode ? "Allowlist mode is on. Everything this profile does not open is sealed; this list is kept for when you turn it off." : undefined}
+          note={profile.allowlistMode ? "Allowlist mode is on. These still close, and new apps this profile does not open are closed as they start. What's already running stays." : undefined}
           onAddApp={() => setPicker("seals")}
           onSubmit={addSeal}
           onRemove={(r) => void removeRule(r.id)}
