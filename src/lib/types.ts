@@ -249,3 +249,45 @@ export interface EventDraft {
   time: string | null;
   durationMin: number | null;
 }
+
+/** Stats tab (src-tauri/src/stats.rs). */
+export type DayStatus = "none" | "kept" | "missed" | "broken" | "rest" | "today" | "future";
+
+export interface DayStat {
+  /** YYYY-MM-DD, a planner day (it starts at the daily reset time). */
+  date: string;
+  status: DayStatus;
+  focusMin: number;
+  sessions: number;
+  attempts: number;
+  brokenAt: number | null;
+  productiveMin: number;
+  distractingMin: number;
+}
+
+export interface Tempted {
+  /** Exe, site, or “keyword”. */
+  what: string;
+  kind: string;
+  count: number;
+}
+
+export interface StatsOverview {
+  from: string;
+  to: string;
+  goalMin: number;
+  restMask: number;
+  currentStreak: number;
+  longestStreak: number;
+  days: DayStat[];
+  kept: number;
+  broken: number;
+  missed: number;
+  focusMin: number;
+  attempts: number;
+  tempted: Tempted[];
+  productiveMin: number;
+  neutralMin: number;
+  distractingMin: number;
+  idleMin: number;
+}

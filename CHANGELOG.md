@@ -1,5 +1,25 @@
 # Changelog
 
+## M5 (part 1): Stats and streaks (2026-09-29)
+
+### Added
+- **Stats tab** (Ctrl 3; Trackers moves to Ctrl 4). Week or Month, with previous, This week or month, and next. Its summary row shows the current streak, longest streak, days kept, seals broken, and focus time.
+  - **Week:** a bar per day against a dashed goal line. Kept bars are cobalt, today is outlined, and missed, broken, and rest days are marked.
+  - **Month:** a heatmap after Month.dc.html. Kept days are shaded by focus against the goal, broken days outlined red, missed days flagged, and rest days dashed. Hover any day for details.
+  - **What tempted you:** blocked attempts in the range, with the top apps, sites, keywords, and new-app launches.
+  - **Where time went:** productive, neutral, distracting, and idle time from the activity tracker.
+- **Streaks under the new rule** (`src-tauri/src/stats.rs`, SPEC 4.10 updated).
+  - A day is kept when focus reaches the daily goal and no seal broke.
+  - A missed goal or a broken seal resets the streak.
+  - Planned rest days never break it and count toward it.
+  - Today never breaks it while in progress, and a running session counts toward today.
+  - Days start at the daily reset time.
+- **Home's streak chip is live:** the current streak plus the last 7 days as marks. Click it to open Stats.
+- **Setup > Preferences:** a Daily focus goal (30 min to 5 h) and Rest days (weekday toggles).
+
+### Changed
+- Tests: 140 frontend and 68 Rust.
+
 ## Allowlist mode, safer (2026-09-29)
 
 ### Changed

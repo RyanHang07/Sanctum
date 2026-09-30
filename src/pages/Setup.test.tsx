@@ -193,6 +193,20 @@ describe("Profile detail", () => {
   });
 });
 
+describe("Streak settings", () => {
+  it("saves the daily goal and rest days", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    fireEvent.change(screen.getByLabelText("Daily focus goal"), { target: { value: "90" } });
+    const rest = within(screen.getByRole("group", { name: "Rest days" }));
+    fireEvent.click(rest.getByRole("button", { name: "Sat" }));
+    fireEvent.click(rest.getByRole("button", { name: "Sun" }));
+    expect(rest.getByRole("button", { name: "Sat" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(async () => expect(await native.getSetting("rest_days_mask")).toBe(String((1 << 6) | 1)));
+    expect(await native.getSetting("daily_goal_min")).toBe("90");
+  });
+});
+
 describe("Always open", () => {
   it("starts with the essentials and saves removals", async () => {
     await act(() => useStore.getState().loadSettings());

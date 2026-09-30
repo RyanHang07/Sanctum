@@ -28,6 +28,8 @@ export interface Settings {
   /** Exe names allowlist mode always lets start (comma-separated). */
   alwaysAllowed: string;
   dailyGoalMin: number;
+  /** Planned rest days, a weekday mask (bit 0 = Sunday). Never break the streak. */
+  restDaysMask: number;
   /** Minutes without input before you count as idle (SPEC 4.8). */
   idleThresholdMin: number;
   /** Days of raw activity kept (SPEC 4.7). */
@@ -127,6 +129,8 @@ export interface Store {
   setAlwaysAllowed: (v: string) => void;
   /** Saves one of the activity settings in SETTING_KEYS. */
   setActivitySetting: <K extends TextSetting>(key: K, value: Settings[K]) => void;
+  setDailyGoal: (min: number) => void;
+  setRestDays: (mask: number) => void;
   toggleSidebar: () => void;
   setWeekView: (v: WeekView) => void;
   toggleHomeCollapsed: (panel: HomePanel) => void;
@@ -232,6 +236,7 @@ export const useStore = create<Store>()((set, get) => {
       sounds: true,
       alwaysAllowed: "",
       dailyGoalMin: 120,
+      restDaysMask: 0,
       idleThresholdMin: 3,
       retentionDays: 30,
       passiveApps: "",
@@ -296,6 +301,14 @@ export const useStore = create<Store>()((set, get) => {
       setSoundsEnabled(sounds);
       void native.setSetting("sounds", sounds ? "1" : "0");
     },
+    setDailyGoal: (dailyGoalMin) => {
+      set({ settings: { ...get().settings, dailyGoalMin } });
+      void native.setSetting("daily_goal_min", String(dailyGoalMin));
+    },
+    setRestDays: (restDaysMask) => {
+      set({ settings: { ...get().settings, restDaysMask } });
+      void native.setSetting("rest_days_mask", String(restDaysMask));
+    },
     setAlwaysAllowed: (alwaysAllowed) => {
       set({ settings: { ...get().settings, alwaysAllowed } });
       void native.setSetting("allowlist_always_allowed", alwaysAllowed);
@@ -329,7 +342,7 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     loadSettings: async () => {
-      const [close, onLogin, name, compact, sounds, always, goal, idle, retention, passive, priv, collapsed, layout, weekView] = await Promise.all([
+      const [close, onLogin, name, compact, sounds, always, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest] = await Promise.all([
         native.getSetting("close_action"),
         native.getSetting("on_login"),
         native.getSetting("display_name"),
@@ -344,6 +357,7 @@ export const useStore = create<Store>()((set, get) => {
         native.getSetting("sidebar_collapsed"),
         native.getSetting("home_layout"),
         native.getSetting("week_view"),
+        native.getSetting("rest_days_mask"),
       ]);
       setSoundsEnabled(sounds !== "0");
       set({
@@ -355,6 +369,7 @@ export const useStore = create<Store>()((set, get) => {
           sounds: sounds !== "0",
           alwaysAllowed: always ?? "",
           dailyGoalMin: Number(goal) || 120,
+          restDaysMask: Number(rest) || 0,
           idleThresholdMin: Number(idle) || 3,
           retentionDays: Number(retention) || 30,
           passiveApps: passive ?? "",

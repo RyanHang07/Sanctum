@@ -21,6 +21,20 @@ beforeEach(() => {
 });
 afterEach(() => disconnect());
 
+describe("Home streak chip", () => {
+  it("shows the streak and the last 7 days, and opens Stats", async () => {
+    const { addDays, todayKey } = await import("../lib/planner");
+    const t = todayKey();
+    mockControls.statsDays({ [addDays(t, -2)]: { focusMin: 130 }, [addDays(t, -1)]: { focusMin: 125 } });
+    render(<Home />);
+    const chip = await screen.findByRole("button", { name: "2 day streak. Open Stats" });
+    expect(chip.querySelectorAll("[data-status]")).toHaveLength(7);
+    expect(chip.querySelectorAll('[data-status="kept"]')).toHaveLength(2);
+    fireEvent.click(chip);
+    expect(useStore.getState().activeTab).toBe("stats");
+  });
+});
+
 describe("Home", () => {
   it("shows the focus row with real profiles and Duration (30, 60, 90, 120) when open", async () => {
     await withSampleProfiles();

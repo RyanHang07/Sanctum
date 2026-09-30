@@ -11,6 +11,7 @@ mod launcher;
 mod planner;
 mod profiles;
 mod session;
+mod stats;
 mod tray;
 mod winutil;
 
@@ -614,6 +615,7 @@ pub fn run() {
             set_class_rule_category,
             remove_class_rule,
             activity_summary,
+            stats::stats_overview,
             list_routines,
             save_routine,
             delete_routine,

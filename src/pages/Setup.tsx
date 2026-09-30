@@ -10,6 +10,8 @@ import { Row, Section } from "./setup/parts";
 import { AppPicker } from "./setup/AppPicker";
 import { useStore } from "../state/store";
 import { exeList, opensOf, ruleLabel, sealsOf } from "../lib/rules";
+import { hasDay, WEEKDAYS } from "../lib/planner";
+import { minutes } from "../lib/time";
 import type { CloseAction, OnLogin } from "../state/appState";
 
 function ProfilesSection() {
@@ -130,11 +132,43 @@ function AlwaysOpen({ saved, onSave }: { saved: string; onSave: (v: string) => v
   );
 }
 
+const GOALS = [30, 60, 90, 120, 150, 180, 240, 300].map((m) => ({ value: m, label: minutes(m) }));
+
+function RestDays({ mask, onChange }: { mask: number; onChange: (mask: number) => void }) {
+  return (
+    <div role="group" aria-label="Rest days" className="flex shrink-0 gap-[3px]">
+      {WEEKDAYS.map((d) => {
+        const on = hasDay(mask, d.bit);
+        return (
+          <button
+            key={d.name}
+            type="button"
+            aria-label={d.name}
+            aria-pressed={on}
+            onClick={() => onChange(mask ^ (1 << d.bit))}
+            className={`h-[26px] w-[26px] rounded-control border text-meta transition-colors duration-ui ease-ui ${
+              on ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-muted hover:border-check-line hover:text-text-2"
+            }`}
+          >
+            {d.short}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setAlwaysAllowed, setDailyGoal, setRestDays } = useStore();
   return (
     <Section title="Preferences">
+      <Row label="Daily focus goal" hint="A day keeps the streak when you reach it and no seal breaks">
+        <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
+      </Row>
+      <Row label="Rest days" hint="Planned days off never break the streak">
+        <RestDays mask={settings.restDaysMask} onChange={setRestDays} />
+      </Row>
       <Row label="On login">
         <MiniSelect label="On login" value={settings.onLogin} options={ON_LOGIN} onChange={setOnLogin} />
       </Row>
