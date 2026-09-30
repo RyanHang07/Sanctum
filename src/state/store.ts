@@ -19,6 +19,12 @@ export interface Notice {
   rest?: string;
 }
 
+/** How an early exit ended: the partner approved, the solo cooldown ran out, or the emergency unlock. */
+export interface UnlockResult {
+  kind: "approved" | "solo" | "emergency";
+  partner: string | null;
+}
+
 export interface Settings {
   closeAction: CloseAction;
   onLogin: OnLogin;
@@ -153,7 +159,9 @@ export interface Store {
   dismissHeld: () => void;
   openEndEarly: () => void;
   closeEndEarly: () => void;
-  endEarly: (reason: string) => Promise<boolean>;
+  /** How the last early exit went, shown until dismissed (the session is already over). */
+  unlockResult: UnlockResult | null;
+  setUnlockResult: (r: UnlockResult | null) => void;
   refreshFocusToday: () => Promise<void>;
   /** Follows the schedule: records the suggestion and pre-fills the pickers during a block. */
   applySuggestion: (s: Suggestion | null) => void;
@@ -221,6 +229,7 @@ export const useStore = create<Store>()((set, get) => {
     held: null,
     onboarding: false,
     endEarlyOpen: false,
+    unlockResult: null,
     focusTodayMin: 0,
     suggestion: null,
     focusOverrideKey: null,
@@ -449,18 +458,7 @@ export const useStore = create<Store>()((set, get) => {
 
     openEndEarly: () => set({ endEarlyOpen: true }),
     closeEndEarly: () => set({ endEarlyOpen: false }),
-    endEarly: async (reason) => {
-      try {
-        await native.endSessionEarly(reason);
-      } catch (e) {
-        get().showNotice({ lead: errorText(e) });
-        return false;
-      }
-      get().applySession(null);
-      play("broken");
-      get().showNotice({ lead: "Seal broken.", rest: "Logged with your reason." });
-      return true;
-    },
+    setUnlockResult: (unlockResult) => set({ unlockResult }),
 
     applySuggestion: (suggestion) => {
       const s = get();

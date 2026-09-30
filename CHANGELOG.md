@@ -1,5 +1,27 @@
 # Changelog
 
+## M7: break the seal (2026-09-29)
+
+### Added
+- **The ladder** (SPEC 4.5, Unlock.dc.html) replaces the reason-only End early. The state lives in Rust (`ladder.rs`, `unlock.rs`), so closing the dialog or reloading changes nothing.
+  1. A reason of 50+ characters, then a 5-minute wait. Leaving the Sanctum window restarts the wait.
+  2. Retype one of 20 built-in paragraphs exactly. Pasting and copying are blocked.
+  3. **With a partner:** they get an email with your reason and approve or deny it with their PIN on the partner page, within 30 minutes. The dialog waits and shows their answer and note. **Solo, or when the partner can't be reached:** a 30-minute cooldown that restarts if you leave the window.
+  - An approval (or the finished cooldown) ends the session as unlocked early, never broken. There's no grace window.
+  - A denial or expiry keeps the seal. The next request opens after 15 minutes and starts again at level 2.
+  - "Never mind, stay sealed" withdraws a pending request.
+- **Emergency unlock:** once every 7 days it skips the ladder, ends the session as unlocked early (not broken), and tells the partner.
+- **Server** (`unlock-respond` Edge Function, migration `m7_unlock_requests`):
+  - The partner's PIN is checked with argon2id.
+  - Three wrong PINs lock approvals for 30 minutes.
+  - Requests expire after 30 minutes.
+  - Only users with a partner can file a request, and they can withdraw it. The partner can't change a request except through the PIN check.
+- **Partner page:** pending requests with the reason and time left, answered with Deny or Approve, the PIN, and an optional note. It refreshes every 10 seconds.
+- **Partner email** for unlock requests, with the reason.
+
+### Changed
+- Tests: 146 frontend and 76 Rust.
+
 ## M6: optional account and accountability partner (2026-09-29)
 
 ### Added

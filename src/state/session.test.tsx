@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useStore } from "./store";
 import { connectNativeEvents } from "./events";
 import { mockControls, resetMockBackend } from "../lib/mockBackend";
@@ -8,7 +8,8 @@ import { native, EVENTS } from "../lib/native";
 import { bus } from "../lib/bus";
 import { sampleProfiles } from "../lib/catalog";
 import { AppShell } from "../components/AppShell";
-import { EndEarlyDialog } from "../components/EndEarlyDialog";
+import { BreakSealDialog } from "../components/BreakSealDialog";
+import { vi } from "vitest";
 import { HeldPage } from "../pages/HeldPage";
 import { MARK_PATHS } from "../components/AnimatedMark";
 import { SealedAppCard, TitleNudge, ordinal } from "../windows/Intercept";
@@ -43,32 +44,122 @@ describe("session lifecycle", () => {
     expect(useStore.getState().navigate("setup")).toBe(false);
   });
 
-  it("End early needs 50 characters, then breaks the seal", async () => {
-    await sealed();
-    act(() => useStore.getState().openEndEarly());
-    render(<EndEarlyDialog />);
-    const dialog = screen.getByRole("dialog", { name: "Break the seal" });
-    const breakBtn = within(dialog).getByRole("button", { name: "Break the seal" });
-    expect(dialog).toHaveTextContent("Interview Prep · 60:00 left");
-    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "I want to stop." } });
-    expect(breakBtn).toBeDisabled();
-    expect(dialog).toHaveTextContent("15 / 50");
-    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: REASON } });
-    expect(breakBtn).toBeEnabled();
-    await act(async () => fireEvent.click(breakBtn));
-    const s = useStore.getState();
-    expect(s.appState).toBe("open");
-    expect(s.session).toBeNull();
-    expect(s.notice).toEqual({ lead: "Seal broken.", rest: "Logged with your reason." });
-  });
-
   it("Never mind keeps the seal", async () => {
     await sealed();
     act(() => useStore.getState().openEndEarly());
-    render(<EndEarlyDialog />);
-    fireEvent.click(screen.getByRole("button", { name: "Never mind, stay sealed" }));
+    render(<BreakSealDialog />);
+    fireEvent.click(await screen.findByRole("button", { name: "Never mind, stay sealed" }));
     expect(useStore.getState().endEarlyOpen).toBe(false);
     expect(useStore.getState().appState).toBe("sealed");
+  });
+
+  it("break-seal ladder: reason and wait, retype, then the solo cooldown ends the session", async () => {
+    await sealed();
+    const t0 = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(t0);
+    try {
+      act(() => useStore.getState().openEndEarly());
+      render(<BreakSealDialog />);
+      const dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+      expect(dialog).toHaveTextContent("Interview Prep · 60:00 left");
+      expect(dialog).toHaveTextContent("30-minute cooldown");
+
+      // Level 1: 50 characters, then a 5-minute wait.
+      const start = within(dialog).getByRole("button", { name: "Start the wait" });
+      fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "I want to stop." } });
+      expect(start).toBeDisabled();
+      expect(dialog).toHaveTextContent("15 / 50");
+      fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: REASON } });
+      await act(async () => fireEvent.click(start));
+      expect(screen.getByTestId("ladder-wait")).toHaveTextContent("5:00");
+      expect(within(dialog).getByRole("button", { name: "Continue" })).toBeDisabled();
+      vi.setSystemTime(t0 + 5 * 60_000);
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "Continue" })).toBeEnabled(), { timeout: 2500 });
+      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Continue" })));
+
+      // Level 2: exact retype.
+      const paragraph = screen.getByTestId("ladder-paragraph").textContent!;
+      const box = within(dialog).getByLabelText("Retype the paragraph");
+      fireEvent.change(box, { target: { value: paragraph.toLowerCase() } });
+      expect(within(dialog).getByRole("button", { name: "Done" })).toBeDisabled();
+      fireEvent.change(box, { target: { value: paragraph } });
+      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Done" })));
+      expect(dialog).toHaveTextContent("Reason given, waited 5 minutes");
+      expect(dialog).toHaveTextContent("No partner is linked");
+
+      // Level 3 solo: a 30-minute cooldown, then the session ends as unlocked early.
+      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Start the cooldown" })));
+      expect(screen.getByTestId("ladder-cooldown")).toHaveTextContent("30:00");
+      vi.setSystemTime(t0 + 36 * 60_000);
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "End the session" })).toBeEnabled(), { timeout: 2500 });
+      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "End the session" })));
+      expect(await screen.findByRole("dialog", { name: "Seal lifted" })).toHaveTextContent("Cooldown done. Seal lifted.");
+      expect(useStore.getState().session).toBeNull();
+      expect(useStore.getState().appState).toBe("open");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("break-seal ladder: the partner denies, then approves after the 15-minute wait", async () => {
+    await native.cloudSignInEmail("me@example.com");
+    mockControls.partnerJoins("jordan@example.com", "Jordan");
+    await sealed();
+    const t0 = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(t0);
+    try {
+      // Straight to level 3 through the commands; the UI takes it from there.
+      await native.ladderOpen();
+      await native.ladderReason(REASON);
+      vi.setSystemTime(t0 + 5 * 60_000);
+      const v = await native.ladderContinue();
+      await native.ladderRetype(v.paragraph!);
+      act(() => useStore.getState().openEndEarly());
+      render(<BreakSealDialog />);
+      const dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+      await act(async () => fireEvent.click(await within(dialog).findByRole("button", { name: "Ask Jordan" })));
+      expect(dialog).toHaveTextContent("Waiting on Jordan");
+      expect(dialog).toHaveTextContent(REASON);
+
+      act(() => mockControls.partnerAnswers(false, "Finish the set."));
+      await waitFor(() => expect(dialog).toHaveTextContent("said no."), { timeout: 2500 });
+      // Denied: back to level 2, and the next request waits 15 minutes.
+      expect(dialog).toHaveTextContent("Asking again starts here.");
+      await act(async () => {
+        const again = await native.ladderRetype(screen.getByTestId("ladder-paragraph").textContent!);
+        expect(again.level).toBe(3);
+      });
+      await expect(native.ladderRequest()).rejects.toMatch(/next request opens in 1[45] min/);
+      vi.setSystemTime(t0 + 25 * 60_000);
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "Ask Jordan" })).toBeEnabled(), { timeout: 2500 });
+      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Ask Jordan" })));
+
+      act(() => mockControls.partnerAnswers(true));
+      expect(await screen.findByRole("dialog", { name: "Seal lifted" }, { timeout: 2500 })).toHaveTextContent("Jordan approved. Seal lifted.");
+      expect(useStore.getState().session).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the emergency unlock skips the ladder once a week", async () => {
+    await sealed();
+    act(() => useStore.getState().openEndEarly());
+    render(<BreakSealDialog />);
+    const dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Emergency unlock" }));
+    fireEvent.change(within(dialog).getByLabelText("What's the emergency"), { target: { value: "Family call" } });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Use it" })));
+    expect(await screen.findByRole("dialog", { name: "Seal lifted" })).toHaveTextContent("Emergency unlock used.");
+    expect(useStore.getState().session).toBeNull();
+
+    act(() => useStore.getState().setUnlockResult(null));
+    await act(async () => void (await useStore.getState().enterFocus()));
+    act(() => useStore.getState().openEndEarly());
+    const again = await screen.findByRole("dialog", { name: "Break the seal" });
+    expect(await within(again).findByText(/Emergency unlock back/)).toBeInTheDocument();
   });
 
   it("completing a session shows the held page with stats; Done returns Home", async () => {

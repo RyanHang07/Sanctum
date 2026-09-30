@@ -182,12 +182,13 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 | 3 (with partner) | Partner approval from email. The email links to the partner web page, where the partner confirms with **their** PIN and taps Approve or Deny (optional note back). You never type a PIN |
 | 3 (solo) | 30 minute cooldown. No skip, timer resets if the app loses focus |
 
-- Approved unlock is a **grace window** (default 10 min), not the end of the session. Asking again the same session starts at level 2
+- ~~Approved unlock is a **grace window** (default 10 min), not the end of the session.~~ **Changed 2026-09-29 (your call):** an approved unlock ends the session (unlocked early, not broken). Asking again after a denial or expiry starts at level 2
 - Partner approval arrives via Supabase Realtime
 - Request expires after 30 min. Denied or expired: the seal stands and the next request unlocks after 15 min
 - Partner PIN: 3 wrong tries on the approval page locks approvals for 30 min (enforced server-side)
 - An approved exit does NOT break the streak
-- **Emergency unlock:** 1 per week, skips the ladder, partner is notified if one is set
+- **Emergency unlock:** 1 per week, skips the ladder, partner is notified if one is set. **Decided 2026-09-29:** it doesn't break the streak, but the day still needs the focus goal to be kept
+- **Level 2 paragraphs (decided 2026-09-29):** a built-in set of about 20 short paragraphs in Sanctum's voice, one at random
 
 ### 4.6 Accountability Partner (optional)
 - **Exactly one partner** per user. Off by default. Can be enabled during onboarding or any time later in settings (but not during an active session)

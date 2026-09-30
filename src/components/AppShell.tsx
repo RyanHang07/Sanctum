@@ -3,7 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { Toast } from "./Toast";
 import { CloseDialog } from "./CloseDialog";
 import { DevStateToggle } from "./DevStateToggle";
-import { EndEarlyDialog } from "./EndEarlyDialog";
+import { BreakSealDialog } from "./BreakSealDialog";
 import { BlockPrompt } from "./BlockPrompt";
 import { useScheduleFocus } from "../state/schedule";
 import { Home, enterFocus } from "../pages/Home";
@@ -121,7 +121,7 @@ export function AppShell() {
         <BlockPrompt />
       </main>
       <CloseDialog />
-      <EndEarlyDialog />
+      <BreakSealDialog />
       {import.meta.env.DEV ? <DevStateToggle /> : null}
     </div>
   );

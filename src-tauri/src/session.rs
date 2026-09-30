@@ -8,9 +8,6 @@ use std::time::Instant;
 
 /// Downtime longer than this (Sanctum killed, crashed, or the PC off) breaks the session.
 pub const GAP_LIMIT_MS: i64 = 60_000;
-/// End early needs a written reason this long (the M7 ladder's level 1 minimum).
-pub const MIN_REASON_CHARS: usize = 50;
-
 pub fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -203,16 +200,13 @@ pub fn finish(conn: &Connection, id: i64, outcome: &str, ended_at: i64) -> rusql
     Ok(())
 }
 
-/// Stand-in for the break-the-seal ladder until M7: a written reason, logged as an unlock attempt.
-pub fn end_early(conn: &mut Connection, id: i64, reason: &str, now: i64) -> Result<(), String> {
-    let reason = reason.trim();
-    if reason.chars().count() < MIN_REASON_CHARS {
-        return Err(format!("Write at least {MIN_REASON_CHARS} characters."));
-    }
+/// An early exit through the ladder (or the emergency unlock), logged as an approved unlock
+/// attempt at the level reached. Unlocked early is never broken (SPEC 4.5).
+pub fn end_early(conn: &mut Connection, id: i64, reason: &str, level: i64, now: i64) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     tx.execute(
-        "INSERT INTO unlock_attempts (session_id, level_reached, reason, approved, created_at) VALUES (?1, 1, ?2, 1, ?3)",
-        params![id, reason, now],
+        "INSERT INTO unlock_attempts (session_id, level_reached, reason, approved, created_at) VALUES (?1, ?2, ?3, 1, ?4)",
+        params![id, level.clamp(1, 3), reason.trim(), now],
     )
     .map_err(|e| e.to_string())?;
     finish(&tx, id, "unlocked_early", now).map_err(|e| e.to_string())?;
@@ -371,21 +365,21 @@ mod tests {
     }
 
     #[test]
-    fn end_early_needs_a_reason() {
+    fn end_early_logs_the_level_and_reason() {
         let mut conn = fresh();
         let s = start(&conn, 1, "Deep Work", 60, 0).unwrap();
-        assert!(end_early(&mut conn, s.id, "too short", MIN).is_err());
         let reason = "The interview moved up an hour and I need to prep the room and laptop.";
-        end_early(&mut conn, s.id, reason, 10 * MIN).unwrap();
-        let (outcome, logged): (String, String) = conn
+        end_early(&mut conn, s.id, reason, 3, 10 * MIN).unwrap();
+        let (outcome, logged, level): (String, String, i64) = conn
             .query_row(
-                "SELECT s.outcome, u.reason FROM sessions s JOIN unlock_attempts u ON u.session_id = s.id WHERE s.id = ?1",
+                "SELECT s.outcome, u.reason, u.level_reached FROM sessions s JOIN unlock_attempts u ON u.session_id = s.id WHERE s.id = ?1",
                 [s.id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .unwrap();
         assert_eq!(outcome, "unlocked_early");
         assert_eq!(logged, reason);
+        assert_eq!(level, 3);
         assert!(resume(&conn, 11 * MIN).unwrap().is_none());
     }
 

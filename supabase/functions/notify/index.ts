@@ -8,6 +8,10 @@ const KINDS: Record<string, (who: string, detail: string) => { subject: string; 
   session_broken: (who, d) => ({ subject: `${who} broke a Sanctum seal`, line: `${who} broke a focus seal${d ? ` (${d})` : ""}. Their streak reset.` }),
   streak_lost: (who, d) => ({ subject: `${who} lost their Sanctum streak`, line: `${who}'s streak reset${d ? `: ${d}` : ""}.` }),
   emergency_unlock: (who, d) => ({ subject: `${who} used an emergency unlock`, line: `${who} used their weekly emergency unlock${d ? `: ${d}` : ""}.` }),
+  unlock_request: (who, d) => ({
+    subject: `${who} wants out of a focus session`,
+    line: `${who} asked to break a focus seal early${d ? `: "${d}"` : ""}. Approve or deny it with your PIN on the partner page within 30 minutes.`,
+  }),
 };
 const DAILY_LIMIT = 20;
 
@@ -33,7 +37,7 @@ Deno.serve(async (req) => {
   const { data: me } = await db.from("profiles_user").select("display_name, email").eq("id", user.id).maybeSingle();
   const { data: partner } = await db.from("profiles_user").select("email").eq("id", link.partner_id).maybeSingle();
   const who = me?.display_name || me?.email || "Your friend";
-  const text = typeof detail === "string" ? detail.slice(0, 200) : "";
+  const text = typeof detail === "string" ? detail.slice(0, 400) : "";
   const { subject, line } = make(who, text);
 
   const { data: row } = await db

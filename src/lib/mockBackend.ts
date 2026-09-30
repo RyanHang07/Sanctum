@@ -4,7 +4,7 @@
 import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile, ProfileDraft, ProfilePatch, Rule, SessionView } from "./types";
 import { normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules } from "./catalog";
-import type { ActivitySummary, BrowserStatus, CalEvent, CloudStatus, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
+import type { ActivitySummary, BrowserStatus, CalEvent, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { dayStatus, streaks } from "./stats";
@@ -57,9 +57,12 @@ interface MockState {
 }
 
 let state: MockState;
+// Declared before resetMockBackend runs at load.
+let mockLadder: MockLadder | null = null;
 
 export function resetMockBackend() {
   if (state?.timer) clearInterval(state.timer);
+  mockLadder = null;
   state = {
     settings: new Map([
       ["on_login", "home"],
@@ -284,11 +287,68 @@ const handlers: Record<string, (a: any) => unknown> = {
     bus.emit(EV.session, view());
     return view();
   },
-  end_session_early: ({ reason }) => {
-    if (!state.session) throw "No session is running.";
-    if (String(reason).trim().length < 50) throw "Write at least 50 characters.";
-    finishSession();
-    bus.emit(EV.session, null);
+  ladder_open: () => {
+    const l = ladder();
+    if (!l.third) l.partner = state.cloud.email && state.cloud.partner ? (state.cloud.partner.name ?? state.cloud.partner.email) : null;
+    return ladderView();
+  },
+  ladder_view: () => {
+    const l = ladder();
+    const now = Date.now();
+    if (l.approved) {
+      const v = ladderView();
+      endUnlocked();
+      return { ...v, outcome: "approved" };
+    }
+    if (l.third?.kind === "partner" && now >= l.third.at + 30 * 60_000) refuse("expired", null);
+    return ladderView();
+  },
+  ladder_reason: ({ reason }: { reason: string }) => {
+    const l = ladder();
+    if (l.level !== 1) throw "You already gave a reason.";
+    if (reason.trim().length < 50) throw "Write at least 50 characters.";
+    l.reason = reason.trim();
+    l.waitStarted = Date.now();
+    return ladderView();
+  },
+  ladder_continue: () => {
+    const l = ladder();
+    if (l.level !== 1 || l.waitStarted === null || Date.now() < l.waitStarted + 5 * 60_000) throw "The wait isn't over.";
+    l.level = 2;
+    l.paragraph = MOCK_PARAGRAPH;
+    return ladderView();
+  },
+  ladder_retype: ({ text }: { text: string }) => {
+    const l = ladder();
+    if (l.level !== 2 || text.trim() !== l.paragraph) throw "Not an exact match. Check it and try again.";
+    l.level = 3;
+    return ladderView();
+  },
+  ladder_request: () => {
+    const l = ladder();
+    if (l.level !== 3) throw "Finish the earlier steps first.";
+    if (l.retryAt && l.retryAt > Date.now()) throw `The next request opens in ${Math.ceil((l.retryAt - Date.now()) / 60_000)} min.`;
+    l.outcome = null;
+    l.note = null;
+    l.third = { kind: l.partner ? "partner" : "solo", at: Date.now() };
+    return ladderView();
+  },
+  ladder_finish_solo: () => {
+    const l = ladder();
+    if (l.third?.kind !== "solo" || Date.now() < l.third.at + 30 * 60_000) throw "The cooldown isn't over.";
+    const view = ladderView();
+    endUnlocked();
+    return { ...view, outcome: "approved" };
+  },
+  ladder_cancel: () => {
+    ladder().third = null;
+  },
+  emergency_unlock: ({ reason }: { reason: string }) => {
+    const last = Number(state.settings.get("emergency_used_at") ?? 0);
+    if (last && Date.now() < last + 7 * 86_400_000) throw "The emergency unlock is back later this week.";
+    if (!reason.trim()) throw "Say what the emergency is.";
+    endUnlocked();
+    state.settings.set("emergency_used_at", String(Date.now()));
   },
   stats_overview: ({ from, to }: { from: string; to: string }) => statsOverview(from, to),
   focus_minutes_since: ({ since }) => {
@@ -566,6 +626,64 @@ function statsOverview(from: string, to: string): StatsOverview {
   };
 }
 
+const MOCK_PARAGRAPH = "I set this time aside when my head was clear. Leaving now trades that plan for a feeling that will pass in minutes.";
+
+interface MockLadder {
+  sessionId: number;
+  level: 1 | 2 | 3;
+  reason: string | null;
+  waitStarted: number | null;
+  paragraph: string | null;
+  third: { kind: "partner" | "solo"; at: number } | null;
+  outcome: LadderView["outcome"];
+  note: string | null;
+  retryAt: number | null;
+  partner: string | null;
+  /** The partner approved; the next view ends the session, as the real poll does. */
+  approved?: boolean;
+}
+
+function ladder(): MockLadder {
+  if (!state.session) throw "No session is running.";
+  if (mockLadder?.sessionId !== state.session.id) {
+    mockLadder = { sessionId: state.session.id, level: 1, reason: null, waitStarted: null, paragraph: null, third: null, outcome: null, note: null, retryAt: null, partner: null };
+  }
+  return mockLadder;
+}
+
+function refuse(outcome: "denied" | "expired", note: string | null) {
+  const l = mockLadder!;
+  Object.assign(l, { third: null, outcome, note, retryAt: Date.now() + 15 * 60_000, level: 2, paragraph: MOCK_PARAGRAPH });
+}
+
+function ladderView(): LadderView {
+  const l = mockLadder!;
+  const now = Date.now();
+  const last = Number(state.settings.get("emergency_used_at") ?? 0);
+  return {
+    level: l.level,
+    reason: l.reason,
+    waitLeftMs: l.waitStarted === null ? null : Math.max(0, l.waitStarted + 5 * 60_000 - now),
+    paragraph: l.paragraph,
+    stage: l.third?.kind ?? "none",
+    partner: l.partner,
+    expiresAt: l.third?.kind === "partner" ? l.third.at + 30 * 60_000 : null,
+    requestedAt: l.third?.kind === "partner" ? l.third.at : null,
+    soloLeftMs: l.third?.kind === "solo" ? Math.max(0, l.third.at + 30 * 60_000 - now) : null,
+    outcome: l.outcome,
+    note: l.note,
+    retryAt: l.retryAt && l.retryAt > now ? l.retryAt : null,
+    notice: null,
+    emergencyNextAt: last && now < last + 7 * 86_400_000 ? last + 7 * 86_400_000 : null,
+  };
+}
+
+function endUnlocked() {
+  finishSession();
+  mockLadder = null;
+  bus.emit(EV.session, null);
+}
+
 function view(): SessionView {
   const s = state.session!;
   const now = Date.now();
@@ -604,6 +722,12 @@ function tick() {
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
+  /** The partner answers the pending unlock request. */
+  partnerAnswers(approve: boolean, note: string | null = null) {
+    if (mockLadder?.third?.kind !== "partner") return;
+    if (approve) mockLadder.approved = true;
+    else refuse("denied", note);
+  },
   /** Someone accepted the invite. */
   partnerJoins(email = "friend@example.com", name: string | null = "Alex") {
     state.cloud.partner = { email, name, status: "active", since: new Date().toISOString() };
