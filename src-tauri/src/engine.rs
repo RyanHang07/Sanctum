@@ -429,6 +429,10 @@ fn complete(app: &AppHandle) {
     }
     shared.engine.blocker.lock().unwrap().unblock_all();
     set_sealed(app, false);
+    if active.broken {
+        // The streak resets; the partner hears about it (SPEC 4.6).
+        crate::cloud::notify(app, "session_broken", active.profile_name.clone());
+    }
     let held: HeldStats = active.held();
     let _ = app.emit(EV_SESSION, None::<SessionView>);
     let _ = app.emit(EV_HELD, held);

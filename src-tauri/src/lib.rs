@@ -4,6 +4,7 @@ mod blocker;
 pub mod bridge;
 mod browser;
 mod classify;
+mod cloud;
 mod db;
 mod engine;
 mod gcal;
@@ -45,6 +46,7 @@ pub struct Shared {
     pub activity: activity::State,
     pub gcal: gcal::State,
     pub browser: browser::State,
+    pub cloud: cloud::State,
 }
 
 impl Shared {
@@ -525,6 +527,7 @@ pub fn run() {
                 activity: activity::State::new(),
                 gcal: gcal::State::new(),
                 browser: browser::State::new(),
+                cloud: cloud::State::new(),
             });
             tray::create(app.handle())?;
             engine::resume_on_startup(app.handle());
@@ -598,6 +601,15 @@ pub fn run() {
             add_site_allow,
             remove_site_allow,
             browser::browser_status,
+            cloud::cloud_status,
+            cloud::cloud_sign_in_google,
+            cloud::cloud_sign_in_email,
+            cloud::cloud_cancel_sign_in,
+            cloud::cloud_sign_out,
+            cloud::cloud_partner,
+            cloud::cloud_create_invite,
+            cloud::cloud_cancel_invite,
+            cloud::cloud_request_removal,
             browser::browser_open_extension_dir,
             list_installed_apps,
             app_icon,

@@ -6,6 +6,7 @@ import { ProfileDetail } from "./setup/ProfileDetail";
 import { ActivitySection, ActivityRulesSection } from "./setup/Activity";
 import { ConnectionsSection } from "./setup/Connections";
 import { BrowsersSection } from "./setup/Browsers";
+import { AccountSection } from "./setup/Account";
 import { Row, Section } from "./setup/parts";
 import { AppPicker } from "./setup/AppPicker";
 import { useStore } from "../state/store";
@@ -210,6 +211,7 @@ export function Setup() {
         </div>
         <div className="flex flex-col gap-4">
           <ConnectionsSection />
+          <AccountSection />
           <BrowsersSection />
           <ActivitySection />
           <ActivityRulesSection />

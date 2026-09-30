@@ -5,7 +5,7 @@
 
 pub mod api;
 pub mod oauth;
-mod secret;
+pub mod secret;
 pub mod sync;
 
 use crate::{db, planner, Shared};
