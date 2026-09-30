@@ -3,6 +3,7 @@ import { CheckIcon, ChevronIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from ".
 import { durationsMin } from "../theme/tokens";
 import { selectedProfile, useStore, type HomePanel } from "../state/store";
 import { usePlanner } from "../state/planner";
+import { useTrackers } from "../state/trackers";
 import { useAgenda, useCalendar } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
@@ -16,7 +17,7 @@ import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { addDays, blockTimes, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { addDays, blockTimes, longTime, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStatus, StatsOverview } from "../lib/types";
 
 function formatDate(d: Date) {
@@ -443,6 +444,11 @@ function ProgressPanel() {
   const done = useStore((s) => s.focusTodayMin);
   const live = useStore((s) => s.session);
   const goal = useStore((s) => s.settings.dailyGoalMin);
+  const next = useTrackers((s) => s.next);
+  useEffect(() => {
+    const t = setInterval(() => void useTrackers.getState().refreshNext(), 60_000);
+    return () => clearInterval(t);
+  }, []);
   // Finished sessions from the backend, plus the running one as it ticks.
   const total = done + (live ? Math.floor(live.elapsedMs / 60_000) : 0);
   return (
@@ -461,7 +467,7 @@ function ProgressPanel() {
         </div>
         <div className="flex justify-between text-meta">
           <span className="text-muted">Next check-in</span>
-          <span className="text-text">None</span>
+          <span className="text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
         </div>
       </div>
     </Panel>

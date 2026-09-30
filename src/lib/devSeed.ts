@@ -81,3 +81,23 @@ export function seedDevStats(): void {
     { what: "steam.exe", kind: "allowlist", count: 2 },
   ]);
 }
+
+/**
+ * Browser preview only (no Tauri): trackers from Tracking.dc.html with a few months of
+ * entries, a weigh-in, and an evening wrap-up. A real install starts with none.
+ */
+export async function seedDevTrackers(): Promise<void> {
+  if (!import.meta.env.DEV || import.meta.env.MODE === "test" || inTauri()) return;
+  if ((await native.listTrackers()).length) return;
+  const w = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb" });
+  const bf = await native.saveTracker({ name: "Body fat", kind: "number", unit: "%" });
+  const mood = await native.saveTracker({ name: "Mood", kind: "scale", display: "chart" });
+  const journal = await native.saveTracker({ name: "Journal", kind: "text" });
+  const days = Array.from({ length: 30 }, (_, i) => 104 - i * 3.5);
+  mockControls.history(w.id, days.map((d, i) => [d, Math.round((184 - (11.6 * i) / 29 + Math.sin(i * 1.3) * 0.7) * 10) / 10]));
+  mockControls.history(bf.id, days.map((d, i) => [d, Math.round((20.1 - (4.3 * i) / 29 + Math.sin(i * 1.1) * 0.25) * 10) / 10]));
+  mockControls.history(mood.id, days.slice(-12).map((d, i) => [d, 5 + ((i * 3) % 5)]));
+  mockControls.history(journal.id, [[2, "Long day, but the interview prep is paying off."], [1, "Slept badly. Kept the seal anyway."]]);
+  await native.saveCheckin({ id: 0, name: "Morning weigh-in", time: "08:00", daysMask: 0b0010010, trackerIds: [w.id, bf.id], includeGoalReview: false });
+  await native.saveCheckin({ id: 0, name: "Evening wrap-up", time: "21:30", daysMask: EVERY_DAY, trackerIds: [mood.id, journal.id], includeGoalReview: true });
+}

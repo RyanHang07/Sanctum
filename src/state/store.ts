@@ -25,7 +25,7 @@ export interface UnlockResult {
   partner: string | null;
 }
 
-export type SetupTab = "profiles" | "distractions" | "tracking" | "connections" | "general";
+export type SetupTab = "profiles" | "distractions" | "trackers" | "tracking" | "connections" | "general";
 
 export interface Settings {
   closeAction: CloseAction;

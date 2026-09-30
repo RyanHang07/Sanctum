@@ -9,6 +9,7 @@ import { BrowsersSection } from "./setup/Browsers";
 import { AccountSection } from "./setup/Account";
 import { Row, Section } from "./setup/parts";
 import { DistractionsTab } from "./setup/Distractions";
+import { TrackersTab } from "./setup/Trackers";
 import { useStore, type SetupTab } from "../state/store";
 import { opensOf, ruleLabel } from "../lib/rules";
 import { hasDay, WEEKDAYS } from "../lib/planner";
@@ -151,7 +152,8 @@ function PreferencesSection() {
 const TABS: { id: SetupTab; label: string; blurb: string }[] = [
   { id: "profiles", label: "Profiles", blurb: "What each kind of work opens, and how long it runs." },
   { id: "distractions", label: "Distractions", blurb: "What every focus session blocks." },
-  { id: "tracking", label: "Tracking", blurb: "What Sanctum notices while you work. It stays on this PC." },
+  { id: "trackers", label: "Trackers", blurb: "What you track, and when check-ins ask for it." },
+  { id: "tracking", label: "Activity", blurb: "What Sanctum notices while you work. It stays on this PC." },
   { id: "connections", label: "Connections", blurb: "Your calendar, your partner, and your browsers." },
   { id: "general", label: "General", blurb: "Your goal, your rest days, and how the app behaves." },
 ];
@@ -201,6 +203,7 @@ export function Setup() {
           </div>
         ) : null}
         {tab === "distractions" ? <DistractionsTab /> : null}
+        {tab === "trackers" ? <TrackersTab /> : null}
         {tab === "tracking" ? (
           <div className="flex max-w-[640px] flex-col gap-4">
             <ActivitySection />

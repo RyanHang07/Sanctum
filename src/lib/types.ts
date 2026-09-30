@@ -356,3 +356,65 @@ export interface LadderView {
   /** When the next emergency unlock opens; null means it's available. */
   emergencyNextAt: number | null;
 }
+
+/** Trackers and check-ins (SPEC 4.13, src-tauri/src/trackers.rs). */
+export type TrackerKind = "number" | "bool" | "scale" | "text";
+export type TrackerDisplay = "chart" | "table" | "both";
+
+export interface Tracker {
+  id: number;
+  name: string;
+  unit: string;
+  kind: TrackerKind;
+  display: TrackerDisplay;
+  goal: number | null;
+  sort: number;
+}
+
+export interface TrackerDraft {
+  id?: number;
+  name: string;
+  unit?: string;
+  kind: TrackerKind;
+  display?: TrackerDisplay;
+  goal?: number | null;
+}
+
+export interface TrackerEntry {
+  id: number;
+  trackerId: number;
+  value: number | null;
+  text: string | null;
+  loggedAt: number;
+  source: "checkin" | "manual";
+}
+
+export interface NewEntry {
+  trackerId: number;
+  value?: number | null;
+  text?: string | null;
+}
+
+export interface Checkin {
+  id: number;
+  name: string;
+  /** "HH:MM", local. */
+  time: string;
+  /** Bit 0 = Sunday. */
+  daysMask: number;
+  trackerIds: number[];
+  includeGoalReview: boolean;
+}
+
+export interface CheckinDue {
+  checkinId: number;
+  scheduledAt: number;
+  date: string;
+  missed: boolean;
+}
+
+export interface NextCheckin {
+  id: number;
+  name: string;
+  time: string;
+}

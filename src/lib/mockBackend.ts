@@ -7,6 +7,7 @@ import { catalogClassRules, catalogDistractions } from "./catalog";
 import type { ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
+import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
 import { dayStatus, streaks } from "./stats";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
@@ -64,6 +65,7 @@ let mockLadder: MockLadder | null = null;
 export function resetMockBackend() {
   if (state?.timer) clearInterval(state.timer);
   mockLadder = null;
+  resetMockTrackers();
   state = {
     settings: new Map([
       ["on_login", "home"],
@@ -755,6 +757,7 @@ function tick() {
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
+  ...trackerControls,
   /** The partner answers the pending unlock request. */
   partnerAnswers(approve: boolean, note: string | null = null) {
     if (mockLadder?.third?.kind !== "partner") return;
@@ -848,7 +851,7 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 }
 
 export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const h = handlers[cmd] ?? gcalHandlers[cmd];
+  const h = handlers[cmd] ?? gcalHandlers[cmd] ?? trackerHandlers[cmd];
   // Window and tray commands have nothing to do outside Tauri.
   if (!h) return undefined as T;
   return h(args ?? {}) as T;

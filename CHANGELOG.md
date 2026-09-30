@@ -1,5 +1,37 @@
 # Changelog
 
+## M11: trackers and check-ins (2026-09-29)
+
+### Added
+- **Custom trackers** (migration `0009_trackers`, `trackers.rs`).
+  - A number with a unit, yes or no, a 1 to 10 scale, or a text note.
+  - Each has an optional goal and shows as a chart, a table, or both.
+  - Nothing is seeded. New tracker offers templates to start from: Weight, Body fat, Sleep, Mood, Workout, and Journal.
+- **Setup > Trackers:**
+  - Trackers and check-ins can each be edited in place.
+  - A check-in has a time, days, the trackers it asks for, and an optional goal review.
+  - A switch sets "Check in on startup".
+  - Setup's old Tracking tab is now called Activity.
+- **Scheduled check-ins:**
+  - A 15-second loop in Rust finds today's due check-ins.
+  - When one is due, it brings the window forward, always on top.
+  - Actions: Log (↵), Skip today, or Snooze 15m. Closing snoozes.
+  - Check-ins wait while sealed and appear when the seal ends.
+  - A check-in missed before startup only appears with "Check in on startup" on.
+- **The check-in dialog** (Checkin.dc.html):
+  - Numbers start at their last value and step with ± buttons. Each shows the change since the last entry and a sparkline.
+  - Scales have 1 to 10 buttons, yes/no is a toggle, and text trackers get a note field.
+  - The goal review lists today's open items: check one off, or move a one-time item to tomorrow. It also has three fields for tomorrow's top 3.
+- **Trackers tab** (Tracking.dc.html):
+  - One chart per tracker, spaced by date, with a dashed goal line and a hover tooltip.
+  - Range toggle: 7D, 30D, 90D, 1Y, or All. Each chart shows its change over the range.
+  - A Chart/Table switch. The entry table shows notes and deletes an entry on hover.
+  - **Log entry** logs any trackers you fill in.
+- **Home:** "Next check-in" shows the next one due today.
+
+### Changed
+- Tests: 165 frontend and 81 Rust.
+
 ## Distractions replace per-profile seals and allowlist mode (2026-09-29)
 
 ### Changed
