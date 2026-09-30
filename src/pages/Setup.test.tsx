@@ -38,6 +38,28 @@ describe("Setup overview", () => {
     expect(screen.getByText("What each kind of work opens, and how long it runs.")).toBeInTheDocument();
   });
 
+  it("shows one section at a time from the list, each saying what it's for", async () => {
+    await renderSetup(false);
+    const expected: [string, string, string][] = [
+      ["Protection", "Keeps Sanctum open", "Protection"],
+      ["Calendar", "Two-way sync with Google Calendar.", "Google Calendar"],
+      ["Browser", "The extension that seals sites and tabs.", "Browser extension"],
+      ["Partner", "a friend who holds the key", "Account"],
+      ["General", "how the app behaves", "About"],
+    ];
+    for (const [tab, blurb, region] of expected) {
+      await openTab(tab);
+      expect(screen.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
+      const panel = within(screen.getByRole("tabpanel", { name: tab }));
+      expect(panel.getAllByRole("heading", { level: 2, name: tab })[0]).toBeInTheDocument();
+      expect(panel.getByText(new RegExp(blurb, "i"))).toBeInTheDocument();
+      expect(await panel.findByRole("region", { name: region })).toBeInTheDocument();
+    }
+    // Distractions no longer carries Protection.
+    await openTab("Distractions");
+    expect(screen.queryByRole("region", { name: "Protection" })).toBeNull();
+  });
+
   it("shows an empty state without profiles", async () => {
     await renderSetup(false);
     expect(screen.getByText("No profiles yet. Onboarding sets them up, or create one now.")).toBeInTheDocument();
@@ -258,7 +280,7 @@ describe("Distractions", () => {
 describe("Account", () => {
   it("signs in, invites a partner, and asks to remove them", async () => {
     await renderSetup(false);
-    await openTab("Connections");
+    await openTab("Partner");
     const account = within(await screen.findByRole("region", { name: "Account" }));
     expect(account.getByText(/Optional. An account lets a friend/)).toBeInTheDocument();
     fireEvent.change(account.getByLabelText("Email for a sign-in link"), { target: { value: "me@example.com" } });
@@ -299,7 +321,7 @@ describe("Streak settings", () => {
 describe("Browser extension", () => {
   it("shows setup steps until a browser connects, then its status", async () => {
     await renderSetup(false);
-    await openTab("Connections");
+    await openTab("Browser");
     const section = within(await screen.findByRole("region", { name: "Browser extension" }));
     expect(section.getByText("Comet")).toBeInTheDocument();
     expect(section.queryByText("Edge")).toBeNull(); // not installed

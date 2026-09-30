@@ -3,7 +3,6 @@ import { Button } from "../../components/Button";
 import { AppIcon } from "../../components/controls";
 import { GlobeIcon, LockIcon, PlusIcon, TextIcon, XIcon } from "../../components/icons";
 import { AppPicker } from "./AppPicker";
-import { ProtectionSection } from "./Protection";
 import { native } from "../../lib/native";
 import { useInstalledApps } from "../../lib/installedApps";
 import { distractionLabel, guessDistraction } from "../../lib/rules";
@@ -187,10 +186,6 @@ export function DistractionsTab() {
   return (
     <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] items-start gap-4">
       <div className="flex min-w-0 flex-col gap-4">
-        <p className="m-0 text-body text-text-2">
-          Everything here is blocked in every focus session and counts as distracting time. Apps close, sites and links are blocked in the browser, and keywords block
-          any window or tab with them in the title.
-        </p>
         {sealed ? (
           <p className="m-0 flex items-center gap-2 text-meta text-muted">
             <LockIcon size={11} className="text-sealed" /> You can add while sealed. Removing waits until the seal ends.
@@ -231,7 +226,6 @@ export function DistractionsTab() {
         })}
       </div>
       <div className="flex flex-col gap-4">
-        <ProtectionSection />
         <Suggestions refreshKey={distractions.length} />
       </div>
       {picking ? (

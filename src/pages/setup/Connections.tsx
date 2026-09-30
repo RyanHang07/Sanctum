@@ -122,7 +122,7 @@ export function ConnectionsSection() {
   const [removing, setRemoving] = useState(false);
   const connected = !!status?.connected;
   return (
-    <Section title="Connections">
+    <Section title="Google Calendar">
       <GoogleRow />
       {connected ? (
         <>

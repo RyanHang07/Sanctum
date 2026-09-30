@@ -21,7 +21,7 @@ All keys go in `src-tauri/.env`, which is gitignored and read when Sanctum is bu
 
    Google treats a desktop app's client secret as not confidential, since it ships inside the app. It still stays out of the repo.
 
-5. Rebuild (`npm run tauri dev`), then connect in Setup › Connections.
+5. Rebuild (`npm run tauri dev`), then connect in Setup › Calendar.
 
 ## Account and partner (Supabase)
 

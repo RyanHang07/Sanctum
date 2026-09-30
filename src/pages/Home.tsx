@@ -159,7 +159,6 @@ function FocusPanel() {
   const profile = useStore(selectedProfile);
   const duration = useStore((s) => s.durationMin);
   const suggestion = useStore((s) => s.suggestion);
-  const navigate = useStore((s) => s.navigate);
   const closing = useSealPreview(profile?.id);
   const distractionCount = useStore((s) => s.distractions.length);
 
@@ -180,7 +179,7 @@ function FocusPanel() {
       {profiles.length === 0 ? (
         <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
           No profiles yet.
-          <button type="button" onClick={() => navigate("setup")} className="text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
+          <button type="button" onClick={() => useStore.getState().openSetup("profiles")} className="text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
             Create one in Setup
           </button>
         </div>
