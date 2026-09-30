@@ -453,6 +453,17 @@ pub struct GuardStatus {
     pub last_restart_at: Option<i64>,
 }
 
+/// The guard service is installed and running.
+pub fn service_running() -> bool {
+    use windows_service::service::{ServiceAccess, ServiceState};
+    use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+    ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+        .ok()
+        .and_then(|m| m.open_service(SERVICE, ServiceAccess::QUERY_STATUS).ok())
+        .and_then(|s| s.query_status().ok())
+        .is_some_and(|s| s.current_state == ServiceState::Running)
+}
+
 pub fn status(conn: &Connection) -> GuardStatus {
     use windows_service::service::{ServiceAccess, ServiceState};
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};

@@ -252,7 +252,7 @@ function SessionBar() {
         <span className="text-meta text-muted">
           {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
           {session?.idle ? " · Idle, the seal extends until you're back" : ""}
-          {session?.broken ? " · Broken by downtime" : ""}
+          {session?.broken ? " · Seal broken, the streak resets" : ""}
         </span>
       </div>
       <Button variant="raised" onClick={() => void native.showCompact()}>

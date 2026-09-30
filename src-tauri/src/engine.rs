@@ -42,6 +42,9 @@ impl Engine {
     pub fn session_ids(&self) -> Option<(i64, Option<i64>)> {
         self.active.lock().unwrap().as_ref().map(|a| (a.id, a.profile_id))
     }
+    pub fn active_mut(&self) -> std::sync::MutexGuard<'_, Option<Active>> {
+        self.active.lock().unwrap()
+    }
     pub fn view(&self) -> Option<SessionView> {
         self.active.lock().unwrap().as_ref().map(Active::view)
     }
@@ -86,9 +89,17 @@ pub struct Intercept {
     pub ends_at: Option<i64>,
 }
 
+/// Sends the running session's view to the window now (outside the tick).
+pub fn emit_view(app: &AppHandle) {
+    if let Some(v) = app.state::<Shared>().engine.view() {
+        let _ = app.emit(EV_TICK, v);
+    }
+}
+
 fn set_sealed(app: &AppHandle, sealed: bool) {
     let shared = app.state::<Shared>();
     *shared.app_state.lock().unwrap() = if sealed { AppState::Sealed } else { AppState::Open };
+    crate::tamper::on_seal(app, sealed);
     let _ = tray::refresh(app, sealed);
     crate::browser::push_rules(app);
 }
@@ -300,6 +311,7 @@ fn tick(app: &AppHandle, n: u64) {
         complete(app);
         return;
     }
+    crate::tamper::check(app, n);
 
     let (blocked, title) = {
         let mut b = engine.blocker.lock().unwrap();
@@ -437,8 +449,8 @@ fn complete(app: &AppHandle) {
     }
     shared.engine.blocker.lock().unwrap().unblock_all();
     set_sealed(app, false);
-    if active.broken {
-        // The streak resets; the partner hears about it (SPEC 4.6).
+    if active.broken && !active.tampered {
+        // The streak resets; the partner hears about it (SPEC 4.6). Tampering already told them.
         crate::cloud::notify(app, "session_broken", active.profile_name.clone());
     }
     let held: HeldStats = active.held();

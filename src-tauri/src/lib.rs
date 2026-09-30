@@ -17,6 +17,7 @@ mod planner;
 mod profiles;
 mod session;
 mod stats;
+mod tamper;
 mod trackers;
 mod tray;
 mod winutil;
@@ -54,6 +55,7 @@ pub struct Shared {
     pub cloud: cloud::State,
     pub unlock: unlock::State,
     pub checkins: trackers::State,
+    pub tamper: tamper::State,
 }
 
 impl Shared {
@@ -615,6 +617,7 @@ pub fn run() {
                 cloud: cloud::State::new(),
                 unlock: unlock::State::default(),
                 checkins: trackers::State::new(),
+                tamper: tamper::State::default(),
             });
             // Windows are created here, not by Tauri, so no page can call a command before
             // Shared is managed (that panics inside WebView2 and aborts the app).

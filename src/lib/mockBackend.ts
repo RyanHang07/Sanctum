@@ -795,6 +795,13 @@ export const mockControls = {
     Object.assign(state.statsDays, days);
     state.tempted = tempted;
   },
+  /** Tampering breaks the running seal (clock, guard, extension). */
+  tamper(kind: "clock" | "guard" | "extension", detail: string) {
+    if (!state.session || state.session.broken) return;
+    state.session.broken = true;
+    bus.emit(EV.tick, view());
+    bus.emit("sanctum://tamper", { kind, detail });
+  },
   /** Protection: the next install is declined at the UAC prompt, or the guard brought Sanctum back. */
   guard(patch: { decline?: boolean; restartedAt?: number }) {
     if (patch.decline !== undefined) state.guard.decline = patch.decline;
