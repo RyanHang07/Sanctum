@@ -45,11 +45,10 @@ describe("Home", () => {
     await withSampleProfiles();
     render(<Home />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Keep your promises. Or stay mid.");
-    // A sentence to fill in: "Seal Interview Prep for 60 min", beside the length dial.
+    // A sentence to fill in: "Seal Interview Prep for 60 min".
     const row = within(screen.getByTestId("focus-row"));
     expect(row.getByRole("button", { name: "Profile: Interview Prep" })).toHaveAttribute("aria-haspopup", "listbox");
     expect(row.getByRole("spinbutton", { name: "Length" })).toHaveAttribute("aria-valuenow", "60");
-    expect(row.getByTestId("length-dial")).toHaveTextContent("60min");
     fireEvent.click(row.getByRole("button", { name: "Profile: Interview Prep" }));
     const options = within(screen.getByRole("listbox", { name: "Profile" })).getAllByRole("option");
     expect(options.map((o) => o.firstElementChild?.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
@@ -69,14 +68,12 @@ describe("Home", () => {
     expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
     const length = screen.getByRole("spinbutton", { name: "Length" });
     expect(length).toHaveAttribute("aria-valuenow", "90");
-    // Arrow keys and the − / + buttons step it; the dial's quarters set it.
+    // Arrow keys and the − / + buttons step it.
     fireEvent.keyDown(length, { key: "ArrowUp" });
     expect(useStore.getState().durationMin).toBe(120);
     expect(screen.getByRole("button", { name: "Longer" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Shorter" }));
     expect(useStore.getState().durationMin).toBe(90);
-    fireEvent.click(screen.getByTestId("length-dial").querySelector('[data-minutes="30"]')!);
-    expect(useStore.getState().durationMin).toBe(30);
   });
 
   it("has an empty state with Enter focus disabled when there are no profiles", async () => {

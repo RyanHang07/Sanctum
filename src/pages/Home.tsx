@@ -11,7 +11,7 @@ import { EVENTS, native, onNative } from "../lib/native";
 import { profileNote, ruleLabel } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
-import { LengthDial, LengthStepper, ProfileMenu } from "../components/FocusControls";
+import { LengthStepper, ProfileMenu } from "../components/FocusControls";
 import { QuickAddField } from "../components/QuickAdd";
 import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
@@ -154,6 +154,62 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
   );
 }
 
+// --- The state card: Open, Sealed, and In event share one shape (decided 2026-09-30) ---
+// A sentence on the left ("Seal Interview Prep for 60 min", "Sealed in Interview Prep for
+// 32:14", "In Mock interview for 18:00"), one large action on the right, a line of detail under.
+
+const SENTENCE = "flex min-w-0 grow flex-wrap items-center gap-x-3 gap-y-2 text-[22px] font-semibold tracking-[-0.02em] text-muted";
+
+/** A filled-in value in the sentence, the same size as the controls in the Open card. */
+function Slot({ children, mono = false, role, label }: { children: ReactNode; mono?: boolean; role?: string; label?: string }) {
+  return (
+    <span
+      role={role}
+      aria-label={label}
+      className={`flex h-12 min-w-0 items-center rounded-panel border border-line-input px-4 text-text ${mono ? "font-mono text-[24px] font-medium tracking-[-0.03em]" : "truncate"}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function StateCard({
+  testId,
+  label,
+  tone,
+  top,
+  sentence,
+  action,
+  progress,
+  detail,
+}: {
+  testId: string;
+  label: string;
+  tone: "open" | "sealed" | "event";
+  top?: ReactNode;
+  sentence: ReactNode;
+  action: ReactNode;
+  progress?: { value: number; className: string };
+  detail: ReactNode;
+}) {
+  const border = tone === "sealed" ? "border-sealed-line" : tone === "event" ? "border-event-line" : "border-line";
+  return (
+    <section data-testid={testId} aria-label={label} className={`page-in flex flex-col gap-4 rounded-panel border bg-panel p-5 ${border}`}>
+      {top}
+      <div className="flex items-center gap-6">
+        <div className={SENTENCE}>{sentence}</div>
+        <div className="flex w-[220px] shrink-0 flex-col gap-[6px]">{action}</div>
+      </div>
+      {progress ? (
+        <div className="h-1 overflow-hidden rounded-full bg-line">
+          <div className={`h-full transition-[width] duration-enter ease-ui ${progress.className}`} style={{ width: `${Math.min(100, Math.max(0, progress.value) * 100)}%` }} />
+        </div>
+      ) : null}
+      <div className="flex min-w-0 items-center gap-[6px] text-meta text-muted">{detail}</div>
+    </section>
+  );
+}
+
 function FocusPanel() {
   const profiles = useStore((s) => s.profiles);
   const profile = useStore(selectedProfile);
@@ -176,53 +232,61 @@ function FocusPanel() {
     [profiles],
   );
 
-  return (
-    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-4">
-      <SuggestedCard s={suggestion} />
-      {profiles.length === 0 ? (
-        <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
+  if (profiles.length === 0) {
+    return (
+      <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-5">
+        <SuggestedCard s={suggestion} />
+        <div className="flex h-[82px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
           No profiles yet.
           <button type="button" onClick={() => useStore.getState().openSetup("profiles")} className="text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
             Create one in Setup
           </button>
         </div>
-      ) : (
-        // A sentence to fill in beside a dial: "Seal Interview Prep for 60 min".
-        <div className="flex items-center gap-6">
-          <LengthDial value={duration} options={durationsMin} onChange={pickDuration} />
-          <div className="flex min-w-0 grow flex-col gap-2">
-            <div className="flex min-w-0 items-center gap-3 text-[20px] font-semibold tracking-[-0.02em] text-muted">
-              <span className="w-[42px] shrink-0">Seal</span>
-              <ProfileMenu value={profile?.id ?? null} options={choices} onChange={pickProfile} />
-            </div>
-            <div className="flex min-w-0 items-center gap-3 text-[20px] font-semibold tracking-[-0.02em] text-muted">
-              <span className="w-[42px] shrink-0">for</span>
-              <LengthStepper value={duration} options={durationsMin} onChange={pickDuration} />
-              <span className="truncate text-meta font-normal tracking-normal text-muted">ends {clock(now + duration * 60_000)}</span>
-            </div>
-            {profile && closing.length ? (
-              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] text-meta text-text-2">
-                <LockIcon size={11} className="shrink-0 text-sealed" />
-                <span className="truncate">
-                  {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
-                </span>
+      </section>
+    );
+  }
+
+  return (
+    <StateCard
+      testId="focus-row"
+      label="Focus"
+      tone="open"
+      top={<SuggestedCard s={suggestion} />}
+      sentence={
+        <>
+          <span>Seal</span>
+          <ProfileMenu value={profile?.id ?? null} options={choices} onChange={pickProfile} />
+          <span>for</span>
+          <LengthStepper value={duration} options={durationsMin} onChange={pickDuration} />
+        </>
+      }
+      action={
+        // The label sits just above the button's center, so the pair of lines reads as centered.
+        <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
+          <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
+          <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
+            <Kbd onFill>Ctrl ↵</Kbd>
+          </span>
+        </Button>
+      }
+      detail={
+        <>
+          {profile && closing.length ? (
+            <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] text-text-2">
+              <LockIcon size={11} className="shrink-0 text-sealed" />
+              <span className="truncate">
+                {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
               </span>
-            ) : (
-              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate text-meta text-muted">
-                {profile ? profileNote(profile, distractionCount) : "Focus"}
-              </span>
-            )}
-          </div>
-          {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
-          <Button variant="primary" size="cta" className="relative w-[200px] shrink-0" disabled={!profile} onClick={() => void enterFocus()}>
-            <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
-            <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
-              <Kbd onFill>Ctrl ↵</Kbd>
             </span>
-          </Button>
-        </div>
-      )}
-    </section>
+          ) : (
+            <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate">
+              {profile ? profileNote(profile, distractionCount) : "Focus"}
+            </span>
+          )}
+          <span className="shrink-0">· ends {clock(now + duration * 60_000)}</span>
+        </>
+      }
+    />
   );
 }
 
@@ -240,43 +304,47 @@ function SessionBar() {
   const ends = session?.endsAt ?? (sealedAt ?? Date.now()) + planned * 60_000;
   const sealed = session?.sealedCount ?? 0;
   const attempts = session?.attempts ?? 0;
+  const name = session?.profileName ?? fallbackProfile;
 
   return (
-    <div data-testid="session-bar" className="flex items-center gap-6 rounded-panel border border-sealed-line bg-panel px-4 py-[14px]">
-      <span role="timer" aria-label={`${countdown(remaining)} left`} className="min-w-[108px] font-mono text-[32px] font-medium tracking-[-0.03em] text-text">
-        {countdown(remaining)}
-      </span>
-      <div className="flex min-w-0 grow flex-col gap-2">
-        <div className="flex justify-between text-meta text-muted">
-          <span>
-            <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.profileName ?? fallbackProfile} ·{" "}
-            {planned} min
-          </span>
-          <span>Ends {clock(ends)}</span>
-        </div>
-        <div className="h-1 overflow-hidden rounded-full bg-line">
-          <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, progress * 100)}%` }} />
-        </div>
-        <span className="text-meta text-muted">
-          {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
+    <StateCard
+      testId="session-bar"
+      label="Sealed session"
+      tone="sealed"
+      sentence={
+        <>
+          <span>Sealed in</span>
+          <Slot>{name}</Slot>
+          <span>for</span>
+          <Slot mono role="timer" label={`${countdown(remaining)} left`}>
+            {countdown(remaining)}
+          </Slot>
+        </>
+      }
+      action={
+        <>
+          <Button variant="raised" className="h-[38px] w-full" onClick={() => void native.showCompact()}>
+            Compact<Kbd>Ctrl M</Kbd>
+          </Button>
+          <Button variant="ghost" className="h-[38px] w-full" onClick={openEndEarly}>
+            End early
+          </Button>
+        </>
+      }
+      progress={{ value: progress, className: "bg-sealed" }}
+      detail={
+        <span className="truncate">
+          <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {name} · {planned} min · ends {clock(ends)} · {sealed}{" "}
+          {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
           {session?.idle ? " · Idle, the seal extends until you're back" : ""}
           {session?.broken ? " · Seal broken, the streak resets" : ""}
         </span>
-      </div>
-      <Button variant="raised" onClick={() => void native.showCompact()}>
-        Compact<Kbd>Ctrl M</Kbd>
-      </Button>
-      <Button variant="ghost" onClick={openEndEarly}>
-        End early
-      </Button>
-    </div>
+      }
+    />
   );
 }
 
-/**
- * The meeting holding focus (SPEC 4.0, In event): the same bar as Sealed, in the event color,
- * so Home's layout doesn't shift between states. Time left, progress, and Queue focus.
- */
+/** The meeting holding focus (SPEC 4.0, In event): the same card as Open and Sealed, in coral. */
 function EventBar() {
   const meeting = useStore((s) => s.meeting);
   const queued = useStore((s) => s.focusQueued);
@@ -290,39 +358,46 @@ function EventBar() {
   const left = Math.max(0, endMs - now);
   const progress = endMs > startMs ? (now - startMs) / (endMs - startMs) : 0;
   return (
-    <div data-testid="event-bar" className="flex items-center gap-6 rounded-panel border border-event-line bg-panel px-4 py-[14px]">
-      <span role="timer" aria-label={`${e.left} left`} className="min-w-[108px] font-mono text-[32px] font-medium tracking-[-0.03em] text-text">
-        {countdown(left)}
-      </span>
-      <div className="flex min-w-0 grow flex-col gap-2">
-        <div className="flex justify-between gap-3 text-meta text-muted">
+    <StateCard
+      testId="event-bar"
+      label="In event"
+      tone="event"
+      sentence={
+        <>
+          <span>In</span>
+          <Slot>{e.title}</Slot>
+          <span>for</span>
+          <Slot mono role="timer" label={`${e.left} left`}>
+            {countdown(left)}
+          </Slot>
+        </>
+      }
+      action={
+        queued ? (
+          <Button variant="ghost" size="cta" className="w-full text-[15px]" onClick={() => setQueued(false)}>
+            Cancel queue
+          </Button>
+        ) : (
+          <Button variant="tint" size="cta" className="w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
+            Queue focus at {e.until}
+          </Button>
+        )
+      }
+      progress={{ value: progress, className: "bg-event" }}
+      detail={
+        <>
           <span className="truncate">
-            <span className="font-medium text-event">In event</span> · {e.title}
+            <span className="font-medium text-event">In event</span> · {e.range} · {e.left} left · ends {e.until} ·{" "}
+            {queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}
           </span>
-          <span className="shrink-0">Ends {e.until}</span>
-        </div>
-        <div className="h-1 overflow-hidden rounded-full bg-line">
-          <div className="h-full bg-event transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, Math.max(0, progress) * 100)}%` }} />
-        </div>
-        <span className="truncate text-meta text-muted">
-          {e.range} · {e.left} left · {queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}
-        </span>
-      </div>
-      {meeting?.htmlLink ? (
-        <Button variant="ghost" onClick={() => void native.gcalOpen(meeting.htmlLink!)}>
-          Open in Google
-        </Button>
-      ) : null}
-      {queued ? (
-        <Button variant="quiet" onClick={() => setQueued(false)}>
-          Cancel queue
-        </Button>
-      ) : (
-        <Button variant="tint" disabled={!profile} onClick={() => setQueued(true)}>
-          Queue focus at {e.until}
-        </Button>
-      )}
-    </div>
+          {meeting?.htmlLink ? (
+            <button type="button" onClick={() => void native.gcalOpen(meeting.htmlLink!)} className="ml-auto shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
+              Open in Google
+            </button>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 
