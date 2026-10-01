@@ -206,6 +206,7 @@ export const native = {
   cloudSignInEmail: (email: string) => call<CloudStatus>("cloud_sign_in_email", { email }),
   cloudCancelSignIn: () => call<void>("cloud_cancel_sign_in"),
   cloudSignOut: () => call<CloudStatus>("cloud_sign_out"),
+  cloudDeleteAccount: () => call<CloudStatus>("cloud_delete_account"),
   cloudPartner: () => call<PartnerStatus>("cloud_partner"),
   cloudCreateInvite: () => call<PartnerStatus>("cloud_create_invite"),
   cloudEmailInvite: (email: string) => call<PartnerStatus>("cloud_email_invite", { email }),

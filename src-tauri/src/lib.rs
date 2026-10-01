@@ -806,6 +806,7 @@ pub fn run() {
             engine::quiet_status,
             dnd::dnd_status,
             guard_close_elevated,
+            cloud::cloud_delete_account,
             backup::export_data,
             backup::backup_create,
             backup::backup_list,

@@ -160,6 +160,67 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
   );
 }
 
+/**
+ * Deletes the account for good (v0.1, Google's OAuth policy): profile, partner links both ways,
+ * PIN, and requests. This PC's data stays. Typed confirmation, and never while sealed.
+ */
+export function DeleteAccount({ onDone }: { onDone: () => void }) {
+  const sealed = useStore((s) => s.appState === "sealed");
+  const [asking, setAsking] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    try {
+      await native.cloudDeleteAccount();
+      onDone();
+    } catch (e) {
+      setError(errorText(e));
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Row label="Delete account" hint="Your account, partner links, and PIN, for good. What's on this PC stays.">
+        {asking ? null : (
+          <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
+            {sealed ? "Waits until the seal ends" : "Delete account"}
+          </Button>
+        )}
+      </Row>
+      {asking ? (
+        <div className="flex flex-col gap-2 border-t border-line-soft px-[14px] py-3">
+          <span className="text-meta text-text-2">
+            This can’t be undone. Your partner stops holding your key. Type <span className="font-mono text-text">delete</span> to confirm.
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              aria-label="Type delete to confirm"
+              autoFocus
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              className="h-[30px] min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text outline-none transition-colors duration-ui ease-ui focus:border-broken"
+            />
+            <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
+              Cancel
+            </Button>
+            <button
+              type="button"
+              disabled={typed.trim().toLowerCase() !== "delete" || busy || sealed}
+              onClick={() => void run()}
+              className="h-[26px] rounded-control border border-broken-line bg-broken-tint px-2 text-meta font-medium text-broken-text transition-colors duration-ui ease-ui enabled:hover:border-broken disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Deleting…" : "Delete my account"}
+            </button>
+          </div>
+          {error ? <span className="text-meta text-broken-text">{error}</span> : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function AccountSection() {
   const [status, setStatus] = useState<CloudStatus | null>(null);
   const [partner, setPartner] = useState<PartnerStatus | null>(null);
@@ -213,6 +274,7 @@ export function AccountSection() {
             <span />
           </Row>
           {partner ? <PartnerRows p={partner} onChange={setPartner} onError={setError} /> : null}
+          <DeleteAccount onDone={() => void load()} />
         </>
       ) : (
         <SignIn status={status} onError={setError} />

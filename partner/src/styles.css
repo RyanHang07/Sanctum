@@ -387,3 +387,92 @@ button:focus-visible {
   font-size: 12px;
   line-height: 1.6;
 }
+
+/* Public pages (About, Privacy, Terms) and the footer that links them (v0.1). */
+.legal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.legal-section h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.legal-section p,
+.legal-section li {
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.legal-section ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-2);
+}
+.legal-list strong {
+  color: var(--text);
+}
+main a {
+  color: var(--sealed-text);
+}
+main a:hover {
+  color: var(--sealed-text-hover);
+}
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  text-decoration: none;
+  font-size: 14px;
+}
+a.button.primary {
+  color: var(--on-sealed);
+}
+a.button.ghost {
+  color: var(--text);
+}
+.legal-footer {
+  display: flex;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.legal-footer a {
+  color: var(--faint);
+  text-decoration: none;
+}
+.legal-footer a:hover {
+  color: var(--text-2);
+}
+.danger {
+  color: var(--broken-text);
+  align-self: flex-start;
+}
+.danger:hover {
+  color: var(--broken-text);
+  text-decoration: underline;
+}
+.danger-panel {
+  border-color: var(--broken-line, var(--line-input));
+}
+.danger-button {
+  border: 1px solid var(--broken-line, var(--line-input));
+  background: transparent;
+  color: var(--broken-text);
+  font-weight: 600;
+}
+.danger-button:disabled {
+  opacity: 0.5;
+}

@@ -28,7 +28,7 @@
 - **The state is the page.** Sealed has the held mesh gradient, dimmed and slowed, behind every page; In event has a coral (ember) version. They cross-fade between states, the page eases in, and the top color rule is gone. The mesh stops moving when the window is minimized or in the tray.
 - On Home, the date turns white while sealed or in an event, and the streak, search, and Customize step aside until Open.
 - The boot splash logo no longer shakes while the wordmark tightens.
-- Tests: 211 frontend and 101 Rust.
+- Tests: 215 frontend and 101 Rust.
 
 ### Fixed (release pass)
 - A restored backup taken mid-seal no longer comes back sealed: its unfinished session closes as broken, so the guard and the next start don't treat the PC as sealed.
@@ -36,6 +36,10 @@
 - "All events" on a timed series refuses All day with a clear message instead of ignoring it.
 - Quiet hours controls dim while the switch is off. Start over says this PC signs out of Google and the account.
 - Ctrl K: Pause or resume quiet hours, Back up now, Export data as JSON or CSV.
+- CI: the cloud URL test no longer needs a Supabase URL at build time (CI builds without one).
+- **Home page, privacy policy, and terms** for Google's consent screen: `/about`, `/privacy`, and `/terms` on the partner site, linked from every page's footer. Contact: the maintainer's email.
+- **Delete account** in Setup › Partner and on the partners page: typed confirmation, never while sealed. A new Edge Function (`account-delete`) removes the account; everything that belongs to it cascades.
+- **Partner page icons and tab titles.** The app icon is the favicon and the phone home-screen icon. Titles lead with the state ("Sign in", "You're invited", "Request from Ryan", "Approved", "Denied, seal holds", "Holding the key", "Reset your PIN"), then "· Sanctum". While requests wait, the title leads with the count and the icon gets a coral dot.
 
 ## State colors and the focus row (2026-09-30)
 
