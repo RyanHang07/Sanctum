@@ -118,12 +118,12 @@ describe("Home streak chip", () => {
 });
 
 describe("Home", () => {
-  it("shows the focus row with real profiles and Duration (30, 60, 90, 120) when open", async () => {
+  it("shows the focus row with real profiles and Duration (15 min to 2 h, by 15) when open", async () => {
     await withSampleProfiles();
     render(<Home />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Keep your promises. Or stay mid.");
     const options = (name: string) => within(screen.getByRole("listbox", { name })).getAllByRole("option");
-    expect(options("Length").map((o) => o.textContent)).toEqual(["30 min", "60 min", "90 min", "120 min"]);
+    expect(options("Length").map((o) => o.textContent)).toEqual(["15 min", "30 min", "45 min", "60 min", "75 min", "90 min", "105 min", "120 min"]);
     expect(options("Profile").map((o) => o.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
     expect(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { selected: true })).toHaveTextContent("Interview Prep");
     expect(screen.getByTestId("focus-row")).toHaveTextContent(`Opens LeetCode, NeetCode, VS Code, Excalidraw, Notion · seals ${useStore.getState().distractions.length}`);
@@ -141,7 +141,7 @@ describe("Home", () => {
     expect(within(screen.getByRole("listbox", { name: "Length" })).getByRole("option", { selected: true })).toHaveTextContent("90 min");
     // Arrow keys step the wheel.
     fireEvent.keyDown(screen.getByRole("listbox", { name: "Length" }), { key: "ArrowDown" });
-    expect(useStore.getState().durationMin).toBe(120);
+    expect(useStore.getState().durationMin).toBe(105);
   });
 
   it("has an empty state with Enter focus disabled when there are no profiles", async () => {

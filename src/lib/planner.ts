@@ -208,7 +208,7 @@ export function pendingFor(week: string, today: string, ...sources: readonly (re
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || Number(b.undated) - Number(a.undated) || a.sort - b.sort || a.id - b.id);
 }
 
-/** Nearest focus length (30/60/90/120), rounding ties up and never below 30. */
+/** Nearest focus length (15-minute steps to 2 h), rounding ties up and never below 15. */
 export function snapMinutes(minutes: number): number {
   let best = durationsMin[0]!;
   for (const d of durationsMin) if (Math.abs(d - minutes) <= Math.abs(best - minutes)) best = d;
