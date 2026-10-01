@@ -254,9 +254,11 @@ export interface Todo {
   durationMin: number | null;
   profileId: number | null;
   done: boolean;
+  /** Order among the day's untimed items (Home's drag order). */
+  sort: number;
 }
 
-export type TodoDraft = Omit<Todo, "id" | "done"> & { id?: number };
+export type TodoDraft = Omit<Todo, "id" | "done" | "sort"> & { id?: number };
 
 export interface RoutineCheck {
   routineId: number;

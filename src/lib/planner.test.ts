@@ -6,6 +6,8 @@ import {
   daysLabel,
   dayOf,
   longTime,
+  moveId,
+  openFirst,
   shortTime,
   snapMinutes,
   suggestFocus,
@@ -36,6 +38,7 @@ const todo = (id: number, title: string, dueDate: string, dueTime: string | null
   durationMin: null,
   profileId: null,
   done: false,
+  sort: id,
   ...extra,
 });
 
@@ -119,6 +122,44 @@ describe("schedule-driven focus", () => {
     const done = items.map((i) => (i.title.startsWith("Work") ? { ...i, done: true } : i));
     expect(suggestFocus(done, at(10, 30))!.item.title).toBe("System design reading");
     expect(suggestFocus(items, at(18, 0))).toBeNull();
+  });
+});
+
+describe("order (v0.1)", () => {
+  const day = "2026-10-01";
+  const list = agendaFor(
+    [day],
+    [routine(1, "Read", EVERY_DAY, null, { sort: 2 }), routine(2, "Stretch", EVERY_DAY, null, { sort: 0 }), routine(3, "Plan", EVERY_DAY, "09:00")],
+    [todo(4, "Pay rent", day, null, { sort: 1 }), todo(5, "Call mom", day, null, { sort: 0, done: true }), todo(6, "Dentist", day, "08:00")],
+    [],
+  )[day]!;
+
+  it("runs timed items by time, then untimed ones in their drag order", () => {
+    expect(list.map((i) => i.title)).toEqual(["Dentist", "Plan", "Stretch", "Read", "Call mom", "Pay rent"]);
+  });
+
+  it("sinks checked-off items to the bottom, keeping both groups in order", () => {
+    expect(openFirst(list).map((i) => i.title)).toEqual(["Dentist", "Plan", "Stretch", "Read", "Pay rent", "Call mom"]);
+  });
+
+  it("moves an id before or after another", () => {
+    expect(moveId([1, 2, 3, 4], 4, 2, false)).toEqual([1, 4, 2, 3]);
+    expect(moveId([1, 2, 3, 4], 1, 3, true)).toEqual([2, 3, 1, 4]);
+    expect(moveId([1, 2, 3], 2, 2, true)).toEqual([1, 2, 3]);
+  });
+
+  it("prefers what belongs to the day over a routine at the same time", () => {
+    const items = agendaFor(
+      [day],
+      [routine(1, "Deep work", EVERY_DAY, "10:00", { profileId: 7, durationMin: 90 })],
+      [todo(2, "Design review prep", day, "10:00", { profileId: 8, durationMin: 60 })],
+      [],
+    )[day]!;
+    const at = (h: number, m: number) => new Date(2026, 9, 1, h, m).getTime();
+    expect(suggestFocus(items, at(9, 30))!.item.title).toBe("Design review prep");
+    expect(suggestFocus(items, at(10, 15))!.item.title).toBe("Design review prep");
+    // Once the item ends, the routine still running takes over.
+    expect(suggestFocus(items, at(11, 5))!.item.title).toBe("Deep work");
   });
 });
 

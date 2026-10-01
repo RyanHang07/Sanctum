@@ -20,6 +20,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0013_session_task", include_str!("../migrations/0013_session_task.sql")),
     ("0014_quiet", include_str!("../migrations/0014_quiet.sql")),
     ("0015_gcal_series", include_str!("../migrations/0015_gcal_series.sql")),
+    ("0016_todo_sort", include_str!("../migrations/0016_todo_sort.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.

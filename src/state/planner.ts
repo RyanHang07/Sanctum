@@ -28,6 +28,9 @@ export interface PlannerStore {
   deleteRoutine: (id: number) => Promise<boolean>;
   saveTodo: (d: TodoDraft) => Promise<Todo | null>;
   deleteTodo: (id: number) => Promise<boolean>;
+  /** Saves a drag order: routines everywhere, or one day's items. */
+  reorderRoutines: (ids: number[]) => Promise<void>;
+  reorderTodos: (ids: number[]) => Promise<void>;
   /** Checks an item off (a routine only for that day) or back on. */
   toggle: (item: AgendaItem) => Promise<void>;
 }
@@ -100,6 +103,21 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     const ok = await attempt(() => native.deleteTodo(id).then(() => true));
     if (ok) set({ todos: get().todos.filter((t) => t.id !== id), pending: get().pending.filter((t) => t.id !== id) });
     return !!ok;
+  },
+
+  reorderRoutines: async (ids) => {
+    // Optimistic: the list moves now, and goes back if the backend refuses.
+    const before = get().routines;
+    const at = new Map(ids.map((id, i) => [id, i]));
+    set({ routines: before.map((r) => (at.has(r.id) ? { ...r, sort: at.get(r.id)! } : r)) });
+    if ((await attempt(() => native.reorderRoutines(ids).then(() => true))) === null) set({ routines: before });
+  },
+
+  reorderTodos: async (ids) => {
+    const before = get().todos;
+    const at = new Map(ids.map((id, i) => [id, i]));
+    set({ todos: before.map((t) => (at.has(t.id) ? { ...t, sort: at.get(t.id)! } : t)) });
+    if ((await attempt(() => native.reorderTodos(ids).then(() => true))) === null) set({ todos: before });
   },
 
   toggle: async (item) => {

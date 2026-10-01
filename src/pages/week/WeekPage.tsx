@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StreakDot, StreakMark, useDayStats } from "../../components/StreakMark";
 import type { DayStat } from "../../lib/types";
 import { Button } from "../../components/Button";
@@ -9,7 +9,7 @@ import { QuickAddField, QuickAddPanel } from "../../components/QuickAdd";
 import { usePlanner } from "../../state/planner";
 import { useAgenda, useCalendar } from "../../state/calendar";
 import { useStore, type WeekView } from "../../state/store";
-import { addDays, addMonths, daysLabel, fromKey, monthGrid, shortTime, todayKey, weekKeys, weekStart, type AgendaItem } from "../../lib/planner";
+import { addDays, addMonths, daysLabel, fromKey, monthGrid, moveId, shortTime, todayKey, weekKeys, weekStart, type AgendaItem } from "../../lib/planner";
 import type { CalEvent, Routine, Todo } from "../../lib/types";
 
 // Week tab (design/screens/Week.dc.html): 7 day columns of one-time items plus routine cards,
@@ -274,11 +274,25 @@ function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   );
 }
 
+/** Every routine in your order: drag a row to move it (Home's untimed routines follow it). */
 function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
   const routines = usePlanner((s) => s.routines);
   const saveRoutine = usePlanner((s) => s.saveRoutine);
   const profiles = useStore((s) => s.profiles);
   const sorted = [...routines].sort((a, b) => a.sort - b.sort || a.id - b.id);
+  // The dragged id lives in a ref too, so drag events between renders see it.
+  const held = useRef<number | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [over, setOver] = useState<{ id: number; after: boolean } | null>(null);
+  const below = (e: React.DragEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2;
+  };
+  const endDrag = () => {
+    held.current = null;
+    setDragId(null);
+    setOver(null);
+  };
   return (
     <section aria-label="Routines" className="flex min-h-0 grow flex-col overflow-hidden rounded-panel border border-line bg-panel">
       {sorted.length === 0 ? (
@@ -291,8 +305,31 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
             <div
               key={r.id}
               data-testid="routine-row"
-              className={`group flex h-12 shrink-0 items-center gap-3 border-b border-line-soft px-[14px] transition-colors duration-ui ease-ui last:border-b-0 hover:bg-line-soft ${r.active ? "" : "opacity-55"}`}
+              draggable
+              onDragStart={(e) => {
+                held.current = r.id;
+                setDragId(r.id);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", r.title);
+              }}
+              onDragEnd={endDrag}
+              onDragOver={(e) => {
+                if (held.current === null || held.current === r.id) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                const after = below(e);
+                if (over?.id !== r.id || over.after !== after) setOver({ id: r.id, after });
+              }}
+              onDrop={(e) => {
+                const moved = held.current;
+                if (moved === null || moved === r.id) return;
+                e.preventDefault();
+                void usePlanner.getState().reorderRoutines(moveId(sorted.map((x) => x.id), moved, r.id, below(e)));
+                endDrag();
+              }}
+              className={`group relative flex h-12 shrink-0 cursor-grab items-center gap-3 border-b border-line-soft px-[14px] transition-colors duration-ui ease-ui last:border-b-0 hover:bg-line-soft active:cursor-grabbing ${r.active ? "" : "opacity-55"} ${dragId === r.id ? "opacity-40" : ""}`}
             >
+              {over?.id === r.id ? <span aria-hidden="true" className={`pointer-events-none absolute inset-x-[14px] h-[2px] rounded-full bg-sealed ${over.after ? "bottom-0" : "top-0"}`} /> : null}
               <RepeatGlyph className={profile ? "text-sealed-text" : "text-muted"} />
               <button type="button" onClick={() => onOpen(r)} className="flex min-w-0 grow items-center gap-3 text-left">
                 <span className="min-w-0 grow truncate text-body font-medium text-text">{r.title}</span>
@@ -323,6 +360,7 @@ const asItem = (t: Todo): AgendaItem => ({
   durationMin: t.durationMin,
   profileId: t.profileId,
   done: t.done,
+  order: t.sort,
 });
 
 function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOpen: () => void }) {
