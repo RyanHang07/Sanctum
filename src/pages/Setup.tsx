@@ -10,7 +10,10 @@ import { AccountSection } from "./setup/Account";
 import { Row, Section } from "./setup/parts";
 import { DistractionsTab } from "./setup/Distractions";
 import { TrackersTab } from "./setup/Trackers";
-import { AboutSection } from "./setup/About";
+import { AboutSection, StartOverSection } from "./setup/About";
+import { SoundsSection } from "./setup/Sounds";
+import { DndRow } from "./setup/Dnd";
+import { DataSection } from "./setup/Data";
 import { ProtectionSection } from "./setup/Protection";
 import { useStore, type SetupTab } from "../state/store";
 import { opensOf, ruleLabel } from "../lib/rules";
@@ -115,7 +118,7 @@ export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: nu
 
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, setSounds, setDailyGoal, setRestDays, openOnboarding } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setDailyGoal, setRestDays, openOnboarding } = useStore();
   return (
     <>
     <Section title="Goal and streak">
@@ -143,11 +146,12 @@ function PreferencesSection() {
       <Row label="Go compact when focus starts">
         <Switch label="Go compact when focus starts" checked={settings.compactOnFocus} onChange={setCompactOnFocus} />
       </Row>
-      <Row label="Sounds" hint="Enter, blocked, held, and seal broken">
-        <Switch label="Sounds" checked={settings.sounds} onChange={setSounds} />
-      </Row>
+      <DndRow />
     </Section>
+    <SoundsSection />
+    <DataSection />
     <AboutSection />
+    <StartOverSection />
     </>
   );
 }

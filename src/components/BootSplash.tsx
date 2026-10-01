@@ -24,9 +24,10 @@ export function BootSplash() {
   if (!show) return null;
   return (
     <div data-testid="boot-splash" aria-hidden="true" className="splash-out fixed inset-0 z-50 flex items-center justify-center bg-sidebar">
-      <div className="flex flex-col items-center gap-4 text-text">
+      {/* A fixed width: the word tightens as it enters, and a shrinking column would nudge the mark. */}
+      <div className="flex w-[320px] flex-col items-center gap-4 text-text">
         <AnimatedMark size={96} label="Sanctum" keyClass="text-sealed" />
-        <span className="splash-word text-[22px] font-semibold">Sanctum</span>
+        <span className="splash-word whitespace-nowrap text-[22px] font-semibold">Sanctum</span>
       </div>
     </div>
   );

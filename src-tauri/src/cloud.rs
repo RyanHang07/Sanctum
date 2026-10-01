@@ -462,19 +462,22 @@ pub fn cloud_cancel_sign_in(shared: TauriState<Shared>) {
 
 #[tauri::command]
 pub async fn cloud_sign_out(app: AppHandle) -> Result<Status, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state = &app.state::<Shared>().cloud;
+    tauri::async_runtime::spawn_blocking(move || sign_out(&app)).await.map_err(|e| e.to_string())
+}
+
+/// Signs this PC out of the account (the account itself stays). Also used by Start over.
+pub fn sign_out(app: &AppHandle) -> Status {
+    let state = &app.state::<Shared>().cloud;
+    if configured() {
         if let Ok((req, _)) = authed(state, state.http.post(format!("{URL}/auth/v1/logout"))) {
             let _ = req.send();
         }
-        secret::clear_at(TARGET);
-        *state.session.lock().unwrap() = None;
-        *state.error.lock().unwrap() = None;
-        emit(&app);
-        status_of(state)
-    })
-    .await
-    .map_err(|e| e.to_string())
+    }
+    secret::clear_at(TARGET);
+    *state.session.lock().unwrap() = None;
+    *state.error.lock().unwrap() = None;
+    emit(app);
+    status_of(state)
 }
 
 fn blocking<T: Send + 'static>(app: AppHandle, f: impl FnOnce(&State) -> Result<T, String> + Send + 'static) -> tauri::async_runtime::JoinHandle<Result<T, String>> {

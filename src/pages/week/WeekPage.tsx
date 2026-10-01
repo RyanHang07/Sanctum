@@ -50,12 +50,52 @@ function rangeTitle(start: string) {
   return a.getMonth() === b.getMonth() ? `${month(a)} ${a.getDate()} – ${b.getDate()}` : `${month(a)} ${a.getDate()} – ${month(b)} ${b.getDate()}`;
 }
 
+// --- Drag between days (v0.1): one-time items and single-day events on your own calendars move;
+// routines repeat, so they stay put. The move saves like an edit (events go to Google).
+
+let dragging: AgendaItem | null = null;
+
+/** Items that can move to another day. */
+export function canMove(i: AgendaItem): boolean {
+  if (i.kind === "todo") return true;
+  if (i.kind === "event") return !!i.event?.writable && i.event.date === i.event.endDate;
+  return false;
+}
+
+/** Saves an item on a new day, keeping everything else. */
+export async function moveTo(item: AgendaItem, date: string): Promise<boolean> {
+  if (item.date === date || !canMove(item)) return false;
+  if (item.kind === "todo") {
+    const t = usePlanner.getState().todos.find((x) => x.id === item.id);
+    if (!t) return false;
+    return !!(await usePlanner.getState().saveTodo({ id: t.id, title: t.title, dueDate: date, dueTime: t.dueTime, durationMin: t.durationMin, profileId: t.profileId }));
+  }
+  const e = item.event!;
+  return useCalendar.getState().saveEvent({ calendarId: e.calendarId, eventId: e.eventId, title: e.title, date, time: e.time, durationMin: e.durationMin });
+}
+
+function dragProps(item: AgendaItem) {
+  if (!canMove(item)) return {};
+  return {
+    draggable: true,
+    onDragStart: (ev: React.DragEvent) => {
+      dragging = item;
+      ev.dataTransfer?.setData("text/plain", item.title);
+      if (ev.dataTransfer) ev.dataTransfer.effectAllowed = "move";
+    },
+    onDragEnd: () => {
+      dragging = null;
+    },
+  };
+}
+
 /** A Google Calendar event: a teal bar (cobalt when #focus-tagged), no checkbox (Week.dc.html). */
 function EventCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   return (
     <button
       type="button"
       data-kind="event"
+      {...dragProps(item)}
       onClick={onOpen}
       title={item.event?.calendarName}
       className="flex w-full shrink-0 items-start gap-[6px] whitespace-normal rounded-control border border-line bg-panel py-[7px] pl-[6px] pr-[5px] text-left transition-colors duration-ui ease-ui hover:border-line-input"
@@ -79,6 +119,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   return (
     <div
       data-kind={item.kind}
+      {...dragProps(item)}
       className={`row-in group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
     >
       <button
@@ -106,11 +147,30 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
 
 function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
+  const [over, setOver] = useState(false);
   const d = fromKey(date);
+  const accepts = () => dragging !== null && dragging.date !== date;
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-      className={`group/day flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
+      data-drop={over || undefined}
+      onDragOver={(e) => {
+        if (!accepts()) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+        setOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const item = dragging;
+        dragging = null;
+        if (item) void moveTo(item, date);
+      }}
+      className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
         today ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40 hover:bg-panel"
       }`}
     >

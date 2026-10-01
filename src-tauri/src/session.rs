@@ -3,7 +3,7 @@
 //! clock can't shorten a seal. State is persisted every 10s so a restart can resume.
 
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// Downtime longer than this (Sanctum killed, crashed, or the PC off) breaks the session.
@@ -35,6 +35,8 @@ pub struct Active {
     pub idle_since: Option<i64>,
     /// Broken by tampering (clock, guard, extension); the partner already heard.
     pub tampered: bool,
+    /// The Today task this session is for, if one was picked.
+    pub task: Option<TaskLink>,
     anchor_wall: i64,
     anchor_mono: Instant,
 }
@@ -85,6 +87,7 @@ impl Active {
             sealed_count: self.sealed_count,
             broken: self.broken,
             idle: self.idle_since.is_some(),
+            task: self.task.clone(),
         }
     }
     pub fn held(&self) -> HeldStats {
@@ -96,8 +99,45 @@ impl Active {
             focus_minutes: ((self.planned_ms - self.gap_ms).max(0)) / 60_000,
             attempts: self.attempts,
             broken: self.broken,
+            task: self.task.clone(),
         }
     }
+}
+
+/// A Today task a session is for: a one-time item, or a routine on its date.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskLink {
+    /// "todo" or "routine".
+    pub kind: String,
+    pub id: i64,
+    /// 'YYYY-MM-DD': the routine's day (a todo's due date).
+    pub date: String,
+    pub title: String,
+}
+
+impl TaskLink {
+    pub fn valid(&self) -> bool {
+        matches!(self.kind.as_str(), "todo" | "routine") && self.id > 0 && !self.title.trim().is_empty()
+    }
+}
+
+/// Links a session to a task. The title is copied so it reads after a rename or delete.
+pub fn set_task(conn: &Connection, id: i64, task: &TaskLink) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE sessions SET task_kind = ?1, task_id = ?2, task_date = ?3, task_title = ?4 WHERE id = ?5",
+        params![task.kind, task.id, task.date, task.title.trim(), id],
+    )?;
+    Ok(())
+}
+
+fn load_task(conn: &Connection, id: i64) -> rusqlite::Result<Option<TaskLink>> {
+    conn.query_row("SELECT task_kind, task_id, task_date, task_title FROM sessions WHERE id = ?1", [id], |r| {
+        Ok(match (r.get::<_, Option<String>>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, Option<String>>(3)?) {
+            (Some(kind), Some(task_id), Some(date), Some(title)) => Some(TaskLink { kind, id: task_id, date, title }),
+            _ => None,
+        })
+    })
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -116,6 +156,7 @@ pub struct SessionView {
     pub broken: bool,
     /// Idle right now: the countdown is paused.
     pub idle: bool,
+    pub task: Option<TaskLink>,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -128,6 +169,8 @@ pub struct HeldStats {
     pub focus_minutes: i64,
     pub attempts: i64,
     pub broken: bool,
+    /// The task the session was for; the held page offers to check it off.
+    pub task: Option<TaskLink>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -171,6 +214,7 @@ pub fn start(conn: &Connection, profile_id: i64, profile_name: &str, minutes: i6
         idle_since: None,
         anchor_wall: now,
         tampered: false,
+        task: None,
         anchor_mono: Instant::now(),
     })
 }
@@ -270,6 +314,7 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
                  broken_at = CASE WHEN ?3 THEN COALESCE(broken_at, ?2) ELSE broken_at END WHERE id = ?4",
                 params![gap_ms, now, broken, id],
             )?;
+            let task = load_task(conn, id)?;
             Ok(Some(Active {
                 id,
                 profile_id,
@@ -285,6 +330,7 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
                 idle_since: None,
                 anchor_wall: now,
                 tampered: false,
+                task,
                 anchor_mono: Instant::now(),
             }))
         }
@@ -360,6 +406,22 @@ mod tests {
         assert!(r.broken);
         let r = resume(&conn, 1_000 + 8 * MIN + 30_000).unwrap().unwrap();
         assert!(r.broken);
+    }
+
+    #[test]
+    fn a_linked_task_survives_a_restart_and_reaches_the_held_page() {
+        let conn = fresh();
+        let mut s = start(&conn, 1, "Deep Work", 60, 1_000).unwrap();
+        let task = TaskLink { kind: "todo".into(), id: 7, date: "2026-09-30".into(), title: " Write the essay ".into() };
+        assert!(task.valid());
+        assert!(!TaskLink { kind: "event".into(), ..task.clone() }.valid());
+        set_task(&conn, s.id, &task).unwrap();
+        s.task = Some(task.clone());
+        assert_eq!(s.view().task.unwrap().title, " Write the essay ");
+        heartbeat(&conn, s.id, 1_000 + MIN).unwrap();
+        let r = resume(&conn, 1_000 + MIN + 5_000).unwrap().unwrap();
+        let t = r.held().task.unwrap();
+        assert_eq!((t.kind.as_str(), t.id, t.title.as_str()), ("todo", 7, "Write the essay"));
     }
 
     #[test]

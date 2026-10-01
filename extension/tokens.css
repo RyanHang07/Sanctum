@@ -31,11 +31,15 @@
   --event-line: #5A2E24;
   --open: #E6E9EF;
 
-  /* Sanctum held mesh gradient only */
+  /* Mesh gradients: held (cobalt) is the sealed theme and the held page; ember (coral) is In event */
   --held-1: #1F3FD9;
   --held-2: #2F5BFF;
   --held-3: #6A4CFF;
   --held-4: #12A8C9;
+  --ember-1: #C8402A;
+  --ember-2: #FF8A6B;
+  --ember-3: #D9466A;
+  --ember-4: #F2A33A;
 
   --font-sans: "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;

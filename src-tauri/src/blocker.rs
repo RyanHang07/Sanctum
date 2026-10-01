@@ -155,6 +155,12 @@ impl SystemBlocker {
         self.sys.process(sysinfo::Pid::from_u32(pid)).map(|p| p.name().to_string_lossy().to_lowercase())
     }
 
+    /// The exes this seal closes (minus what the profile opens), or None when nothing is sealed.
+    pub fn watch_list(&self) -> Option<HashSet<String>> {
+        let seal = self.seal.as_ref()?;
+        Some(seal.apps.iter().filter(|a| !seal.opens.contains(*a) && !is_protected(a)).cloned().collect())
+    }
+
     pub fn is_sealed(&self, exe: &str) -> bool {
         self.seal.as_ref().is_some_and(|s| s.apps.contains(exe))
     }

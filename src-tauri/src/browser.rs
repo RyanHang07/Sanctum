@@ -109,16 +109,21 @@ fn send_line(stream: &mut TcpStream, msg: &Value) -> std::io::Result<()> {
 
 /// What the extension should enforce right now: the flagged sites and keywords while sealed.
 pub fn rules_message(active: Option<&session::SessionView>, flags: &[Distraction]) -> Value {
-    let Some(a) = active else {
-        return json!({ "type": "rules", "sealed": false, "sites": [], "keywords": [] });
-    };
+    match active {
+        Some(a) => sealed_message(&a.profile_name, a.ends_at, flags),
+        None => json!({ "type": "rules", "sealed": false, "sites": [], "keywords": [] }),
+    }
+}
+
+/// Rules while the Distractions list is enforced: a seal, or quiet hours ("Quiet hours").
+pub fn sealed_message(profile: &str, ends_at: i64, flags: &[Distraction]) -> Value {
     let sites: Vec<Value> = flags
         .iter()
         .filter(|d| d.kind == "site")
         .map(|d| json!({ "domain": d.value, "allow": d.allow.iter().map(|x| x.prefix.clone()).collect::<Vec<_>>() }))
         .collect();
     let keywords: Vec<String> = flags.iter().filter(|d| d.kind == "keyword").map(|d| d.value.to_lowercase()).collect();
-    json!({ "type": "rules", "sealed": true, "profile": a.profile_name, "endsAt": a.ends_at, "sites": sites, "keywords": keywords })
+    json!({ "type": "rules", "sealed": true, "profile": profile, "endsAt": ends_at, "sites": sites, "keywords": keywords })
 }
 
 fn needs_extension(rules: &Value) -> bool {
@@ -132,7 +137,11 @@ pub fn push_rules(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let view = shared.engine.view();
     let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
-    let msg = rules_message(view.as_ref(), &flags);
+    let quiet_until = if view.is_none() { shared.engine.quiet_until() } else { None };
+    let msg = match quiet_until {
+        Some(end) => sealed_message("Quiet hours", end, &flags),
+        None => rules_message(view.as_ref(), &flags),
+    };
     let mut inner = shared.browser.inner.lock().unwrap();
     inner.rules = msg.clone();
     inner.missing.clear();
@@ -488,6 +497,7 @@ mod tests {
             sealed_count: 0,
             broken: false,
             idle: false,
+            task: None,
         }
     }
 

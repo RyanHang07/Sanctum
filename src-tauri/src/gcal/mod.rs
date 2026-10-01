@@ -477,7 +477,7 @@ pub fn gcal_cancel_connect(app: AppHandle) {
     shared(&app).gcal.cancel.store(true, Ordering::SeqCst);
 }
 
-fn sign_out(app: &AppHandle) -> Result<Status, String> {
+pub fn sign_out(app: &AppHandle) -> Result<Status, String> {
     if let Some(t) = secret::load() {
         oauth::revoke(&http(), &t);
     }
@@ -562,6 +562,10 @@ pub struct EventDraft {
     pub time: Option<String>,
     #[serde(default)]
     pub duration_min: Option<i64>,
+    /// Set to edit the whole recurring series this occurrence belongs to (v0.1). The date
+    /// stays with the series; the name, time, and length change for every occurrence.
+    #[serde(default)]
+    pub series_id: Option<String>,
 }
 
 /// Creates or edits an event on one of your calendars (Week, decided 2026-09-29).
@@ -573,6 +577,23 @@ pub async fn gcal_save_event(app: AppHandle, draft: EventDraft) -> Result<(), St
     }
     if !planner::valid_date(&draft.date) || draft.time.as_deref().is_some_and(|t| !planner::valid_time(t)) {
         return Err("That date or time isn't valid.".into());
+    }
+    if let Some(series) = draft.series_id.clone() {
+        return tauri::async_runtime::spawn_blocking(move || {
+            with_api(&app, |api| {
+                let master = api.get_event(&draft.calendar_id, &series)?;
+                let body = sync::series_body(&master, &title, draft.time.as_deref(), draft.duration_min)
+                    .ok_or_else(|| Fail::Other("An all-day series can't take a time. Change it in Google Calendar.".into()))?;
+                Ok(api.patch_event(&draft.calendar_id, &series, &body)?)
+            })
+            .map_err(err)?;
+            with_conn(&app, |c| sync::forget_series(c, &draft.calendar_id, &series)).map_err(err)?;
+            emit(&app);
+            shared(&app).gcal.wake();
+            Ok(())
+        })
+        .await
+        .map_err(err)?;
     }
     let body = sync::event_body(&title, &draft.date, draft.time.as_deref(), draft.duration_min).ok_or("That date or time isn't valid.")?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -591,11 +612,17 @@ pub async fn gcal_save_event(app: AppHandle, draft: EventDraft) -> Result<(), St
     .map_err(err)?
 }
 
+/// Deletes one occurrence, or with `series_id` the whole recurring series (v0.1).
 #[tauri::command]
-pub async fn gcal_delete_event(app: AppHandle, calendar_id: String, event_id: String) -> Result<(), String> {
+pub async fn gcal_delete_event(app: AppHandle, calendar_id: String, event_id: String, series_id: Option<String>) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        with_api(&app, |api| Ok(api.delete_event(&calendar_id, &event_id)?)).map_err(err)?;
-        with_conn(&app, |c| sync::forget_event(c, &calendar_id, &event_id)).map_err(err)?;
+        let target = series_id.clone().unwrap_or_else(|| event_id.clone());
+        with_api(&app, |api| Ok(api.delete_event(&calendar_id, &target)?)).map_err(err)?;
+        with_conn(&app, |c| match &series_id {
+            Some(s) => sync::forget_series(c, &calendar_id, s),
+            None => sync::forget_event(c, &calendar_id, &event_id),
+        })
+        .map_err(err)?;
         emit(&app);
         Ok(())
     })

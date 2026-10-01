@@ -55,4 +55,25 @@ describe("Protection", () => {
     expect(p.getByText(/Brought Sanctum back 1 time, last on Sep 30/)).toBeInTheDocument();
     expect(p.getByRole("button", { name: "Stays on while sealed" })).toBeDisabled();
   });
+
+  it("closing apps run as administrator asks first, then stays on while sealed", async () => {
+    const p = await renderIt();
+    await act(async () => fireEvent.click(p.getByRole("button", { name: "Turn on protection" })));
+    const toggle = p.getByRole("switch", { name: "Close apps run as administrator" });
+    fireEvent.click(toggle);
+    expect(p.getByRole("alert")).toHaveTextContent("Unsaved work in them is lost.");
+    fireEvent.click(p.getByRole("button", { name: "Cancel" }));
+    expect(p.queryByRole("alert")).toBeNull();
+    expect(await native.getSetting("guard_close_elevated")).toBeNull();
+    fireEvent.click(toggle);
+    await act(async () => fireEvent.click(p.getByRole("button", { name: "Close them anyway" })));
+    expect(await native.getSetting("guard_close_elevated")).toBe("1");
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await expect(native.guardCloseElevated(false)).resolves.toBe(false);
+    await native.guardCloseElevated(true);
+    await native.createProfile({ name: "Deep Work" });
+    await act(() => useStore.getState().loadProfiles());
+    await act(async () => void (await useStore.getState().enterFocus()));
+    await expect(native.guardCloseElevated(false)).rejects.toBe("This stays on until the seal ends.");
+  });
 });

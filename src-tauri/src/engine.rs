@@ -4,7 +4,7 @@
 
 use crate::blocker::{self, Blocker, SealSet, SystemBlocker};
 use crate::session::{self, Active, HeldStats, SessionView};
-use crate::{distractions, profiles, tray, winutil, AppState, Shared};
+use crate::{distractions, profiles, quiet, tray, winutil, AppState, Shared};
 use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -15,6 +15,10 @@ pub const EV_TICK: &str = "sanctum://tick";
 pub const EV_HELD: &str = "sanctum://held";
 pub const EV_INTERCEPT: &str = "sanctum://intercept";
 pub const EV_END_EARLY: &str = "sanctum://end-early";
+/// Quiet hours started, ended, paused, or changed. Payload: quiet::Status.
+pub const EV_QUIET: &str = "sanctum://quiet";
+/// Open the pause dialog (tray or the quiet overlay).
+pub const EV_QUIET_PAUSE: &str = "sanctum://quiet-pause";
 
 const HEARTBEAT_EVERY_S: u64 = 10;
 
@@ -29,11 +33,17 @@ pub struct Engine {
     blocker: Mutex<SystemBlocker>,
     /// Last non-sealed app in front, for "Back to <app>".
     last_app: Mutex<Option<LastApp>>,
+    pub quiet: Mutex<quiet::State>,
 }
 
 impl Engine {
     pub fn new() -> Self {
-        Engine { active: Mutex::new(None), blocker: Mutex::new(SystemBlocker::new()), last_app: Mutex::new(None) }
+        Engine {
+            active: Mutex::new(None),
+            blocker: Mutex::new(SystemBlocker::new()),
+            last_app: Mutex::new(None),
+            quiet: Mutex::new(quiet::State::default()),
+        }
     }
     pub fn is_active(&self) -> bool {
         self.active.lock().unwrap().is_some()
@@ -47,6 +57,19 @@ impl Engine {
     }
     pub fn view(&self) -> Option<SessionView> {
         self.active.lock().unwrap().as_ref().map(Active::view)
+    }
+    /// While quiet hours are blocking: when the window ends.
+    pub fn quiet_until(&self) -> Option<i64> {
+        let mut q = self.quiet.lock().unwrap();
+        if !q.on {
+            return None;
+        }
+        q.evaluate(session::now_ms()).1
+    }
+    /// For the tray: (blocking now, paused).
+    pub fn quiet_menu(&self) -> (bool, bool) {
+        let q = self.quiet.lock().unwrap();
+        (q.on, q.paused_until.is_some())
     }
 }
 
@@ -100,6 +123,7 @@ fn set_sealed(app: &AppHandle, sealed: bool) {
     let shared = app.state::<Shared>();
     *shared.app_state.lock().unwrap() = if sealed { AppState::Sealed } else { AppState::Open };
     crate::tamper::on_seal(app, sealed);
+    crate::dnd::on_seal(app, sealed);
     let _ = tray::refresh(app, sealed);
     crate::browser::push_rules(app);
 }
@@ -152,11 +176,11 @@ pub fn preview_seal(shared: State<Shared>, profile_id: i64) -> Result<Vec<String
 }
 
 #[tauri::command]
-pub async fn start_session(app: AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, String> {
-    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes)).await.map_err(|e| e.to_string())?
+pub async fn start_session(app: AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>) -> Result<SessionView, String> {
+    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes, task)).await.map_err(|e| e.to_string())?
 }
 
-fn start(app: &AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, String> {
+fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>) -> Result<SessionView, String> {
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
     if engine.is_active() {
@@ -169,7 +193,13 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64) -> Result<SessionView, 
     let seal = seal_set(&shared, Some(&profile));
     let mut active = {
         let conn = shared.db.lock().map_err(|e| e.to_string())?;
-        session::start(&conn, profile.id, &profile.name, minutes, session::now_ms()).map_err(|e| e.to_string())?
+        let mut a = session::start(&conn, profile.id, &profile.name, minutes, session::now_ms()).map_err(|e| e.to_string())?;
+        // A task is optional; a malformed one is dropped rather than refusing the seal.
+        if let Some(t) = task.filter(session::TaskLink::valid) {
+            session::set_task(&conn, a.id, &t).map_err(|e| e.to_string())?;
+            a.task = Some(session::TaskLink { title: t.title.trim().to_string(), ..t });
+        }
+        a
     };
     active.sealed_count = seal.enforced_count() as i64;
     {
@@ -306,21 +336,198 @@ fn tick(app: &AppHandle, n: u64) {
             let _ = session::save_idle(&conn, id, total);
         }
     }
-    let Some(remaining) = engine.active.lock().unwrap().as_ref().map(Active::remaining_ms) else { return };
+    let Some(remaining) = engine.active.lock().unwrap().as_ref().map(Active::remaining_ms) else {
+        quiet_tick(app);
+        return;
+    };
+    // A session owns the blocker; quiet hours pick up again after it ends.
+    let was_quiet = std::mem::replace(&mut engine.quiet.lock().unwrap().on, false);
+    if was_quiet {
+        quiet_changed(app);
+    }
     if remaining == 0 {
         complete(app);
         return;
     }
     crate::tamper::check(app, n);
 
+    let intercept = session_sweep(app);
+    track_foreground(&shared);
+
+    let now = session::now_ms();
+    let view = {
+        let mut guard = engine.active.lock().unwrap();
+        let Some(active) = guard.as_mut() else { return };
+        if n % HEARTBEAT_EVERY_S == 0 {
+            if let Ok(conn) = shared.db.lock() {
+                let _ = session::heartbeat(&conn, active.id, now);
+            }
+        }
+        active.view()
+    };
+    if let Some(i) = intercept {
+        show_intercept(app, &i);
+    }
+    let _ = app.emit(EV_TICK, view);
+}
+
+// --- Quiet hours (v0.1) ---
+
+/// Reads the schedule into the engine (startup, and after Start over).
+pub fn load_quiet(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let config = shared.db.lock().map(|c| quiet::load(&c)).unwrap_or_default();
+    *shared.engine.quiet.lock().unwrap() = quiet::State { config, ..Default::default() };
+}
+
+/// Once a second with no session: starts or stops blocking with the window and the pause,
+/// then enforces the Distractions list like a seal.
+fn quiet_tick(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let engine = &shared.engine;
+    let now = session::now_ms();
+    let (want, ends_at, changed) = {
+        let mut q = engine.quiet.lock().unwrap();
+        let (inside, end, paused) = q.evaluate(now);
+        let want = inside && !paused;
+        let changed = q.on != want;
+        q.on = want;
+        (want, end, changed)
+    };
+    if changed {
+        {
+            let mut b = engine.blocker.lock().unwrap();
+            if want {
+                b.set_rules(seal_set(&shared, None));
+                // What's already open closes quietly, like the first sweep of a seal.
+                b.block_apps();
+            } else {
+                b.unblock_all();
+            }
+        }
+        quiet_changed(app);
+        return;
+    }
+    if !want {
+        return;
+    }
+    track_foreground(&shared);
+    quiet_sweep(app, ends_at);
+}
+
+/// One enforcement pass for quiet hours: the Distractions list, no attempts logged.
+fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>) {
+    let shared = app.state::<Shared>();
+    let engine = &shared.engine;
+    let now = session::now_ms();
+    let (blocked, title) = {
+        let mut b = engine.blocker.lock().unwrap();
+        (b.block_apps(), b.check_title())
+    };
+    let label = if let Some(b) = blocked.iter().find(|b| b.closed) {
+        Some(("quiet", app_name(&shared, &b.exe), None))
+    } else {
+        title.map(|t| ("title", t.title, Some(t.keyword)))
+    };
+    if let Some((kind, label, keyword)) = label {
+        let back_to = engine.last_app.lock().unwrap().as_ref().map(|l| app_name(&shared, &l.exe));
+        let remaining_ms = ends_at.map_or(0, |e| (e - now).max(0));
+        show_intercept(
+            app,
+            &Intercept {
+                kind,
+                label,
+                attempts: 0,
+                profile_name: "Quiet hours".into(),
+                elapsed_ms: 0,
+                remaining_ms,
+                back_to,
+                keyword,
+                title: None,
+                idle_ms: None,
+                ends_at,
+            },
+        );
+    }
+}
+
+/// Tells the window, the tray, and the browsers.
+fn quiet_changed(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let status = shared.engine.quiet.lock().unwrap().status();
+    let _ = app.emit(EV_QUIET, status);
+    let _ = tray::refresh(app, shared.sealed());
+    crate::browser::push_rules(app);
+}
+
+#[tauri::command]
+pub fn quiet_status(shared: State<Shared>) -> quiet::Status {
+    shared.engine.quiet.lock().unwrap().status()
+}
+
+#[tauri::command]
+pub fn quiet_save(app: AppHandle, shared: State<Shared>, config: quiet::Config) -> Result<quiet::Status, String> {
+    // Mid-window the schedule holds; the way out is the pause, which asks why.
+    if shared.engine.quiet.lock().unwrap().on {
+        return Err("The schedule can change after this window ends.".into());
+    }
+    {
+        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        quiet::save(&conn, &config)?;
+    }
+    shared.engine.quiet.lock().unwrap().config = config;
+    let status = shared.engine.quiet.lock().unwrap().status();
+    let _ = app.emit(EV_QUIET, status.clone());
+    Ok(status)
+}
+
+/// Fifteen minutes off, with a reason. No ladder, no partner, no effect on streaks.
+#[tauri::command]
+pub fn quiet_pause(app: AppHandle, shared: State<Shared>, reason: String) -> Result<quiet::Status, String> {
+    let now = session::now_ms();
+    {
+        let mut q = shared.engine.quiet.lock().unwrap();
+        let (inside, _, paused) = q.evaluate(now);
+        if !inside || paused || shared.engine.is_active() {
+            return Err("Quiet hours aren't blocking right now.".into());
+        }
+        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        quiet::log_pause(&conn, &reason, now)?;
+        q.paused_until = Some(now + quiet::PAUSE_MS);
+        q.on = false;
+    }
+    shared.engine.blocker.lock().unwrap().unblock_all();
+    quiet_changed(&app);
+    Ok(shared.engine.quiet.lock().unwrap().status())
+}
+
+/// Ends a pause early; blocking resumes on the next tick.
+#[tauri::command]
+pub fn quiet_resume(shared: State<Shared>) -> quiet::Status {
+    let mut q = shared.engine.quiet.lock().unwrap();
+    q.paused_until = None;
+    q.status()
+}
+
+/// "Pause 15 min" on the quiet overlay: open Sanctum on the pause dialog.
+#[tauri::command]
+pub fn intercept_quiet_pause(app: AppHandle) {
+    hide_intercept(&app);
+    crate::show_main_window(&app);
+    let _ = app.emit(EV_QUIET_PAUSE, ());
+}
+
+/// One enforcement pass for the running session: closes flagged apps, minimizes keyword
+/// windows, logs attempts. Returns the overlay to show for the first thing caught.
+fn session_sweep(app: &AppHandle) -> Option<Intercept> {
+    let shared = app.state::<Shared>();
+    let engine = &shared.engine;
     let (blocked, title) = {
         let mut b = engine.blocker.lock().unwrap();
         let blocked = b.block_apps();
         b.block_sites();
         (blocked, b.check_title())
     };
-    track_foreground(&shared);
-
     let now = session::now_ms();
     let mut intercept: Option<Intercept> = None;
     let record = |exe: &str, kind: &str| -> Option<i64> {
@@ -342,24 +549,54 @@ fn tick(app: &AppHandle, n: u64) {
             }
         }
     }
-
-    let view = {
-        let mut guard = engine.active.lock().unwrap();
-        let Some(active) = guard.as_mut() else { return };
-        if let Some(i) = &intercept {
-            active.attempts = i.attempts;
+    if let Some(i) = &intercept {
+        if let Some(a) = engine.active.lock().unwrap().as_mut() {
+            a.attempts = i.attempts;
         }
-        if n % HEARTBEAT_EVERY_S == 0 {
-            if let Ok(conn) = shared.db.lock() {
-                let _ = session::heartbeat(&conn, active.id, now);
-            }
-        }
-        active.view()
-    };
-    if let Some(i) = intercept {
-        show_intercept(app, &i);
     }
-    let _ = app.emit(EV_TICK, view);
+    intercept
+}
+
+/// How often the watcher looks for new processes.
+const WATCH_EVERY: Duration = Duration::from_millis(150);
+
+/// Instant blocking (v0.1): while anything is sealed, a process snapshot every 150 ms. A
+/// flagged app that starts closes right away, usually before its window draws, instead of
+/// waiting for the next one-second tick.
+pub fn spawn_watch(app: AppHandle) {
+    std::thread::Builder::new()
+        .name("sanctum-watch".into())
+        .spawn(move || {
+            let mut known: std::collections::HashSet<u32> = std::collections::HashSet::new();
+            loop {
+                std::thread::sleep(WATCH_EVERY);
+                let shared = app.state::<Shared>();
+                let Some(watch) = shared.engine.blocker.lock().unwrap().watch_list() else {
+                    known.clear();
+                    continue;
+                };
+                let procs = winutil::process_snapshot();
+                let started = !known.is_empty() && procs.iter().any(|(pid, exe)| !known.contains(pid) && watch.contains(exe));
+                known = procs.into_iter().map(|(pid, _)| pid).collect();
+                if started {
+                    sweep_now(&app);
+                }
+            }
+        })
+        .expect("watch thread");
+}
+
+/// Enforces right now, outside the tick: the session's seal, or quiet hours.
+fn sweep_now(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    if shared.engine.is_active() {
+        if let Some(i) = session_sweep(app) {
+            show_intercept(app, &i);
+            emit_view(app);
+        }
+    } else if let Some(end) = shared.engine.quiet_until() {
+        quiet_sweep(app, Some(end));
+    }
 }
 
 fn make_intercept(shared: &Shared, kind: &'static str, label: String, attempts: i64, keyword: Option<String>) -> Intercept {

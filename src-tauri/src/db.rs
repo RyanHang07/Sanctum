@@ -17,6 +17,9 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0010_guard", include_str!("../migrations/0010_guard.sql")),
     ("0011_tamper", include_str!("../migrations/0011_tamper.sql")),
     ("0012_notes", include_str!("../migrations/0012_notes.sql")),
+    ("0013_session_task", include_str!("../migrations/0013_session_task.sql")),
+    ("0014_quiet", include_str!("../migrations/0014_quiet.sql")),
+    ("0015_gcal_series", include_str!("../migrations/0015_gcal_series.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.
@@ -80,6 +83,11 @@ pub fn tables(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     )?;
     let rows = stmt.query_map([], |r| r.get(0))?;
     rows.collect()
+}
+
+/// The schema this build migrates to.
+pub fn latest_version() -> usize {
+    MIGRATIONS.len()
 }
 
 pub struct Status {

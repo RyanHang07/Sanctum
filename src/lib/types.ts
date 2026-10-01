@@ -111,6 +111,52 @@ export interface LaunchReport {
   failed: string[];
 }
 
+/** Quiet hours (src-tauri/src/quiet.rs): the Distractions list blocked on a schedule. */
+export interface QuietConfig {
+  enabled: boolean;
+  /** Bit 0 = Sunday ... bit 6 = Saturday: the days a window starts on. */
+  daysMask: number;
+  /** 'HH:MM'. An end at or before the start runs past midnight. */
+  start: string;
+  end: string;
+}
+
+export interface QuietStatus {
+  config: QuietConfig;
+  /** Inside a window, paused or not. */
+  active: boolean;
+  /** Blocking now. */
+  on: boolean;
+  endsAt: number | null;
+  pausedUntil: number | null;
+}
+
+/** An export or backup under Documents\Sanctum (src-tauri/src/backup.rs). */
+export interface FileInfo {
+  name: string;
+  path: string;
+  bytes: number;
+  modifiedAt: number;
+}
+
+/** Windows Do Not Disturb while sealed (src-tauri/src/dnd.rs). */
+export interface DndStatus {
+  enabled: boolean;
+  /** The internal switch can be read on this Windows. */
+  supported: boolean;
+  /** Sanctum has it on right now. */
+  active: boolean;
+}
+
+/** The Today task a session is for (src-tauri/src/session.rs TaskLink). */
+export interface TaskLink {
+  kind: "todo" | "routine";
+  id: number;
+  /** 'YYYY-MM-DD': the routine's day, or the item's due date. */
+  date: string;
+  title: string;
+}
+
 /** A running focus session (src-tauri/src/session.rs). */
 export interface SessionView {
   id: number;
@@ -128,6 +174,7 @@ export interface SessionView {
   broken: boolean;
   /** Idle right now: the countdown is paused and the end moves later (SPEC 4.8). */
   idle: boolean;
+  task?: TaskLink | null;
 }
 
 /** Shown on the Sanctum held page when a session completes. */
@@ -139,12 +186,14 @@ export interface HeldStats {
   focusMinutes: number;
   attempts: number;
   broken: boolean;
+  /** The task the session was for; the held page offers to check it off. */
+  task?: TaskLink | null;
 }
 
 /** Payload for the intercept window (src-tauri/src/engine.rs). */
 export interface Intercept {
   /** "app" / "allowlist": sealed-app overlay. "title": corner nudge. "welcome": back from idle. */
-  kind: "app" | "allowlist" | "title" | "welcome";
+  kind: "app" | "allowlist" | "title" | "welcome" | "quiet";
   label: string;
   attempts: number;
   profileName: string;
@@ -257,6 +306,8 @@ export interface CalEvent {
   /** Other people invited (not you, not rooms). */
   attendees: number;
   recurring: boolean;
+  /** The recurring series this occurrence belongs to (filled in by the next sync). */
+  seriesId?: string | null;
   htmlLink: string | null;
   writable: boolean;
 }
@@ -269,6 +320,8 @@ export interface EventDraft {
   /** null = all day. */
   time: string | null;
   durationMin: number | null;
+  /** Edit every occurrence of this series (the date stays with the series). */
+  seriesId?: string | null;
 }
 
 /** Stats tab (src-tauri/src/stats.rs). */

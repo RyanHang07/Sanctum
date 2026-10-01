@@ -196,6 +196,10 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
   const [calendarId, setCalendarId] = useState(initial?.calendarId ?? calendars[0]?.id ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const readOnly = !!initial && !initial.writable;
+  // A recurring event edits one occurrence or the whole series (v0.1).
+  const inSeries = !!initial?.recurring && !!initial.seriesId && !readOnly;
+  const [scope, setScope] = useState<"one" | "all">("one");
+  const all = inSeries && scope === "all";
   const heading = initial ? (readOnly ? initial.calendarName : "Edit event") : "New event";
 
   const save = async () => {
@@ -204,15 +208,16 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
       calendarId,
       eventId: initial?.eventId,
       title: taggedTitle(title, profile, profiles, initial ? original : undefined),
-      date: due,
+      date: all ? initial!.date : due,
       time,
       durationMin: time ? length : null,
+      seriesId: all ? initial!.seriesId : null,
     });
     if (ok) onClose();
   };
   const remove = async () => {
     if (!confirmDelete) return setConfirmDelete(true);
-    if (initial && (await deleteEvent(initial))) onClose();
+    if (initial && (await deleteEvent(initial, all))) onClose();
   };
 
   return (
@@ -221,9 +226,33 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{heading}</h1>
           <span className="truncate text-meta text-muted">
-            {initial ? `${initial.calendarName}${initial.recurring && !readOnly ? " · this occurrence" : ""}` : "Google Calendar"}
+            {initial ? initial.calendarName : "Google Calendar"}
           </span>
         </div>
+        {inSeries ? (
+          <div role="radiogroup" aria-label="Apply to" className="flex self-start rounded-control border border-line-input p-[2px]">
+            {(
+              [
+                ["one", "This event"],
+                ["all", "All events"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={scope === id}
+                onClick={() => {
+                  setScope(id);
+                  setConfirmDelete(false);
+                }}
+                className={`h-[26px] rounded-[4px] px-3 text-meta transition-colors duration-ui ease-ui ${scope === id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {readOnly && initial ? (
           <div className="flex flex-col gap-1">
             <span className="text-[15px] font-medium text-text">{tag.title}</span>
@@ -237,7 +266,14 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
           <>
             <TitleInput value={title} onChange={setTitle} onSubmit={() => void save()} placeholder="Mock interview" />
             <div className="grid grid-cols-2 gap-3">
-              <DateField value={due} onChange={setDue} />
+              {all ? (
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Date</span>
+                  <span className="flex h-control items-center text-meta text-muted">Repeats as set in Google</span>
+                </div>
+              ) : (
+                <DateField value={due} onChange={setDue} />
+              )}
               <TimeField value={time} onChange={setTime} empty="All day" />
               <LengthField value={length} onChange={setLength} />
               <ProfileField value={profile} onChange={setProfile} />
@@ -253,7 +289,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
         {initial && !readOnly ? (
           <Button variant="ghost" onClick={() => void remove()}>
-            {confirmDelete ? "Delete from Google" : "Delete"}
+            {confirmDelete ? (all ? "Delete every occurrence" : "Delete from Google") : all ? "Delete series" : "Delete"}
           </Button>
         ) : null}
         {initial?.htmlLink ? (

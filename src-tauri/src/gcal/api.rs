@@ -126,6 +126,10 @@ impl<'a> Api<'a> {
         Ok(v["items"].as_array().cloned().unwrap_or_default())
     }
 
+    pub fn get_event(&self, calendar: &str, id: &str) -> Result<Value> {
+        self.get(url(&["calendars", calendar, "events", id]), &[])
+    }
+
     pub fn insert_event(&self, calendar: &str, body: &Value) -> Result<Value> {
         self.send(self.http.post(url(&["calendars", calendar, "events"])).json(body))
     }

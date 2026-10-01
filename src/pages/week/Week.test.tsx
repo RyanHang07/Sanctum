@@ -236,8 +236,7 @@ describe("Home follows the schedule", () => {
     render(<Home />);
     act(() => void checkSchedule());
     expect(useStore.getState().durationMin).toBe(30); // 40 min left
-    fireEvent.click(screen.getByRole("button", { name: "Longer" }));
-    fireEvent.click(screen.getByRole("button", { name: "Longer" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Length" })).getByRole("option", { name: "90 min" }));
     act(() => void checkSchedule());
     expect(useStore.getState().durationMin).toBe(90);
     // No second prompt for the same block.

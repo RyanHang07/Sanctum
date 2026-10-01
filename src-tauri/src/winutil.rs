@@ -111,6 +111,31 @@ mod imp {
     pub fn focus_process_window(pids: &[u32]) -> bool {
         app_windows().into_iter().find(|h| pids.contains(&pid_of(*h))).is_some_and(|h| focus(h.0 as isize))
     }
+
+    /// Every process as (pid, lowercase exe name). A Toolhelp snapshot: cheap enough to take
+    /// several times a second, unlike a full process refresh.
+    pub fn process_snapshot() -> Vec<(u32, String)> {
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+        };
+        let mut out = Vec::new();
+        unsafe {
+            let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return out };
+            let mut e = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+            if Process32FirstW(snap, &mut e).is_ok() {
+                loop {
+                    let end = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
+                    out.push((e.th32ProcessID, String::from_utf16_lossy(&e.szExeFile[..end]).to_lowercase()));
+                    if Process32NextW(snap, &mut e).is_err() {
+                        break;
+                    }
+                }
+            }
+            let _ = CloseHandle(snap);
+        }
+        out
+    }
 }
 
 #[cfg(not(windows))]
@@ -132,6 +157,9 @@ mod imp {
     }
     pub fn focus_process_window(_pids: &[u32]) -> bool {
         false
+    }
+    pub fn process_snapshot() -> Vec<(u32, String)> {
+        Vec::new()
     }
 }
 

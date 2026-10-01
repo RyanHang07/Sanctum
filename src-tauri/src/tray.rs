@@ -29,6 +29,16 @@ fn build_menu(app: &AppHandle, sealed: bool) -> tauri::Result<Menu<tauri::Wry>> 
     };
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", !sealed, None::<&str>)?;
+    // Quiet hours (v0.1): pause for 15 minutes with a reason, or end the pause.
+    let (quiet_on, quiet_paused) = app.state::<Shared>().engine.quiet_menu();
+    if !sealed && (quiet_on || quiet_paused) {
+        let quiet = if quiet_on {
+            MenuItem::with_id(app, "quiet-pause", "Pause quiet hours 15 min…", true, None::<&str>)?
+        } else {
+            MenuItem::with_id(app, "quiet-resume", "Resume quiet hours", true, None::<&str>)?
+        };
+        return Menu::with_items(app, &[&open, &focus, &quiet, &sep, &quit]);
+    }
     Menu::with_items(app, &[&open, &focus, &sep, &quit])
 }
 
@@ -98,6 +108,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 let _ = app.emit("sanctum://enter-focus", ());
             }
             "compact" => crate::show_compact_window(app),
+            "quiet-pause" => {
+                crate::show_main_window(app);
+                let _ = app.emit(crate::engine::EV_QUIET_PAUSE, ());
+            }
+            "quiet-resume" => {
+                let _ = crate::engine::quiet_resume(app.state::<Shared>());
+            }
             "quit" => {
                 if !app.state::<Shared>().sealed() {
                     app.exit(0);

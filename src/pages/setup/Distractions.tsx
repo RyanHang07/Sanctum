@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { QuietHoursSection } from "./QuietHours";
 import { Button } from "../../components/Button";
 import { AppIcon } from "../../components/controls";
 import { GlobeIcon, LockIcon, PlusIcon, TextIcon, XIcon } from "../../components/icons";
@@ -226,6 +227,7 @@ export function DistractionsTab() {
         })}
       </div>
       <div className="flex flex-col gap-4">
+        <QuietHoursSection />
         <Suggestions refreshKey={distractions.length} />
       </div>
       {picking ? (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/Button";
 import { Section } from "./parts";
+import { Switch } from "../../components/controls";
 import { errorText, native } from "../../lib/native";
 import { clock } from "../../lib/time";
 import { shortDate } from "../../lib/trackers";
@@ -9,6 +10,59 @@ import { useStore } from "../../state/store";
 
 // The guard service (M8, SPEC 4.4 and 6): blocks flagged sites in every browser through the
 // hosts file, and reopens Sanctum if it's closed mid-seal. One admin prompt to install.
+
+/**
+ * The guard closing apps run as administrator (v0.1). Off by default: those apps end at once,
+ * without a chance to save, so turning it on asks first.
+ */
+function CloseElevated({ installed, sealed }: { installed: boolean; sealed: boolean }) {
+  const showNotice = useStore((s) => s.showNotice);
+  const [on, setOn] = useState(false);
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    void native.getSetting("guard_close_elevated").then((v) => setOn(v === "1"));
+  }, []);
+  const set = async (v: boolean) => {
+    try {
+      setOn(await native.guardCloseElevated(v));
+      setAsking(false);
+    } catch (e) {
+      showNotice({ lead: errorText(e) });
+    }
+  };
+  return (
+    <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+      <div className="flex items-center gap-[10px]">
+        <span className="flex min-w-0 grow flex-col gap-[2px]">
+          <span className="text-body">Close apps run as administrator</span>
+          <span className="text-[11px] text-muted">
+            {!installed ? "Needs protection on." : sealed && on ? "Stays on until the seal ends." : "Sanctum can’t close these itself; the guard can."}
+          </span>
+        </span>
+        <Switch
+          label="Close apps run as administrator"
+          checked={on || asking}
+          onChange={(v) => (v ? setAsking(true) : on ? void set(false) : setAsking(false))}
+        />
+      </div>
+      {asking && !on ? (
+        <div role="alert" className="flex flex-col gap-2 rounded-control border border-broken-line bg-broken-tint px-3 py-2">
+          <span className="text-meta leading-normal text-text-2">
+            The guard ends sealed apps you started as administrator at once, with no chance to save. Unsaved work in them is lost.
+          </span>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
+              Cancel
+            </Button>
+            <Button variant="raised" size="sm" disabled={!installed} onClick={() => void set(true)}>
+              Close them anyway
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function ProtectionSection() {
   const sealed = useStore((s) => s.appState === "sealed");
@@ -78,6 +132,7 @@ export function ProtectionSection() {
           )}
           <span className="ml-auto text-[11px] text-faint">Asks Windows for admin approval once</span>
         </div>
+        <CloseElevated installed={on} sealed={sealed} />
       </div>
     </Section>
   );
