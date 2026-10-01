@@ -13,3 +13,6 @@ extension/.key.pem
 .env
 .env.*
 !.env.example
+
+# Intermediate GIF frames (npm run screenshots)
+docs/screenshots/frames/

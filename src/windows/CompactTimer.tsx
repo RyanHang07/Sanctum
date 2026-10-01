@@ -24,7 +24,9 @@ export function CompactTimer() {
   useEffect(() => {
     void native.getSession().then(setSession);
     const offs = [
-      onNative<SessionView>(EVENTS.tick, setSession),
+      // A fresh handler per mount: the preview bus keys handlers by identity, and StrictMode's
+      // second mount would otherwise lose its subscription to the first mount's cleanup.
+      onNative<SessionView>(EVENTS.tick, (s) => setSession(s)),
       onNative<SessionView | null>(EVENTS.session, (s) => {
         setSession(s);
         if (s) setHeld(false);
