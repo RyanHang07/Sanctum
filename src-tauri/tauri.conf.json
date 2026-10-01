@@ -117,7 +117,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlDNEZEQkVBQzAwRDZEMTYKUldRV2JRM0E2dHRQbkdrMVZQbzUrYy8vUVVGd2VLODVsV3Jya2pHb1VCa3BTWUtOZDJKcmZiV3oK",
       "endpoints": [
         "https://github.com/ryanhang07/sanctum/releases/latest/download/latest.json"
       ],
