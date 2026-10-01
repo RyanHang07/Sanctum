@@ -256,9 +256,12 @@ export interface Todo {
   done: boolean;
   /** Order among the day's untimed items (Home's drag order). */
   sort: number;
+  /** Pending: no day yet, parked on the week whose Monday is `dueDate`. */
+  undated: boolean;
 }
 
-export type TodoDraft = Omit<Todo, "id" | "done" | "sort"> & { id?: number };
+/** `undated`: true parks it on a week (Pending), false gives it its day, left out keeps it as is. */
+export type TodoDraft = Omit<Todo, "id" | "done" | "sort" | "undated"> & { id?: number; undated?: boolean };
 
 export interface RoutineCheck {
   routineId: number;

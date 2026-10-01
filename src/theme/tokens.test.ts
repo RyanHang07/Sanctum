@@ -71,8 +71,11 @@ describe("design tokens", () => {
     expect(main).toMatchObject({
       width: windowSize.width,
       height: windowSize.height,
+      // Resizable (v0.1), down to a size that fits a vertical 1080p monitor.
+      minWidth: 900,
+      minHeight: 640,
       center: true,
-      resizable: false,
+      resizable: true,
       backgroundColor: tokens.color.app,
     });
   });

@@ -55,6 +55,8 @@ pub struct Todo {
     pub done: bool,
     /// Order among a day's untimed items (Home's drag order).
     pub sort: i64,
+    /// Pending: no day yet, parked on the week whose Monday is `due_date`.
+    pub undated: bool,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -70,6 +72,9 @@ pub struct TodoDraft {
     pub duration_min: Option<i64>,
     #[serde(default)]
     pub profile_id: Option<i64>,
+    /// Some(true) parks it on a week (Pending), Some(false) gives it its day; None keeps it as is.
+    #[serde(default)]
+    pub undated: Option<bool>,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -218,10 +223,11 @@ fn todo_row(r: &rusqlite::Row) -> rusqlite::Result<Todo> {
         profile_id: r.get(5)?,
         done: r.get::<_, Option<i64>>(6)?.is_some(),
         sort: r.get(7)?,
+        undated: r.get::<_, i64>(8)? != 0,
     })
 }
 
-const TODO_COLS: &str = "id, title, due_date, due_time, duration_min, profile_id, done_at, sort";
+const TODO_COLS: &str = "id, title, due_date, due_time, duration_min, profile_id, done_at, sort, undated";
 
 pub fn list_todos(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<Vec<Todo>> {
     let mut stmt = conn.prepare(&format!(
@@ -238,7 +244,16 @@ fn get_todo(conn: &Connection, id: i64) -> Result<Todo, String> {
         .ok_or_else(|| "That item no longer exists.".into())
 }
 
-pub fn save_todo(conn: &Connection, d: TodoDraft) -> Result<Todo, String> {
+pub fn save_todo(conn: &Connection, mut d: TodoDraft) -> Result<Todo, String> {
+    let undated = match (d.undated, d.id) {
+        (Some(u), _) => u,
+        (None, Some(id)) => get_todo(conn, id)?.undated,
+        (None, None) => false,
+    };
+    // A pending item has no day, so no time either.
+    if undated {
+        d.due_time = None;
+    }
     let title = check_common(&d.title, &d.due_time, d.duration_min)?;
     if !valid_date(&d.due_date) {
         return Err(format!("{} is not a date.", d.due_date));
@@ -248,8 +263,8 @@ pub fn save_todo(conn: &Connection, d: TodoDraft) -> Result<Todo, String> {
         Some(id) => {
             get_todo(conn, id)?;
             conn.execute(
-                "UPDATE todos SET title = ?1, due_date = ?2, due_time = ?3, duration_min = ?4, profile_id = ?5, updated_at = ?6 WHERE id = ?7",
-                params![title, d.due_date, d.due_time, d.duration_min, d.profile_id, now, id],
+                "UPDATE todos SET title = ?1, due_date = ?2, due_time = ?3, duration_min = ?4, profile_id = ?5, updated_at = ?6, undated = ?7 WHERE id = ?8",
+                params![title, d.due_date, d.due_time, d.duration_min, d.profile_id, now, undated as i64, id],
             )
             .map_err(|e| e.to_string())?;
             id
@@ -260,9 +275,9 @@ pub fn save_todo(conn: &Connection, d: TodoDraft) -> Result<Todo, String> {
                 .query_row("SELECT COALESCE(MAX(sort), -1) + 1 FROM todos WHERE due_date = ?1", [&d.due_date], |r| r.get(0))
                 .map_err(|e| e.to_string())?;
             conn.execute(
-                "INSERT INTO todos (title, due_date, due_time, duration_min, profile_id, updated_at, created_at, sort)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?7)",
-                params![title, d.due_date, d.due_time, d.duration_min, d.profile_id, now, sort],
+                "INSERT INTO todos (title, due_date, due_time, duration_min, profile_id, updated_at, created_at, sort, undated)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?7, ?8)",
+                params![title, d.due_date, d.due_time, d.duration_min, d.profile_id, now, sort, undated as i64],
             )
             .map_err(|e| e.to_string())?;
             conn.last_insert_rowid()
@@ -402,5 +417,22 @@ mod tests {
         reorder_routines(&conn, &[read.id, gym.id]).unwrap();
         let order: Vec<_> = list_routines(&conn).unwrap().into_iter().map(|r| r.title).collect();
         assert_eq!(order, vec!["Read", "Gym"]);
+    }
+
+    #[test]
+    fn parks_items_on_a_week() {
+        let conn = fresh();
+        let p = save_todo(
+            &conn,
+            TodoDraft { title: "Renew passport".into(), due_date: "2026-09-28".into(), due_time: Some("10:00".into()), undated: Some(true), ..Default::default() },
+        )
+        .unwrap();
+        assert!(p.undated);
+        assert_eq!(p.due_time, None, "pending items have no time");
+        // An edit that doesn't say keeps it pending; giving it a day schedules it.
+        let kept = save_todo(&conn, TodoDraft { id: Some(p.id), title: "Renew passport".into(), due_date: "2026-09-28".into(), ..Default::default() }).unwrap();
+        assert!(kept.undated);
+        let day = save_todo(&conn, TodoDraft { id: Some(p.id), title: "Renew passport".into(), due_date: "2026-10-01".into(), undated: Some(false), ..Default::default() }).unwrap();
+        assert_eq!((day.undated, day.due_date.as_str()), (false, "2026-10-01"));
     }
 }

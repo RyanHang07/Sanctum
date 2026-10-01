@@ -9,6 +9,7 @@ import { usePlanner } from "../state/planner";
 import { EVERY_DAY, addDays, todayKey } from "../lib/planner";
 
 const initial = useStore.getState();
+const initialPlanner = usePlanner.getState();
 
 /** The sample profiles, and the four common distractions onboarding starts with. */
 async function withSampleProfiles() {
@@ -24,6 +25,7 @@ let disconnect = () => {};
 beforeEach(() => {
   resetMockBackend();
   useStore.setState(initial, true);
+  usePlanner.setState(initialPlanner, true);
   disconnect = connectNativeEvents();
 });
 afterEach(() => disconnect());
@@ -69,6 +71,35 @@ describe("Home Today list (v0.1)", () => {
     const saved = await native.listTodos(day, day);
     expect(saved.filter((t) => !t.dueTime).sort((a, b) => a.sort - b.sort).map((t) => t.title)).toEqual(["Call mom", "Pay rent"]);
     expect((await native.listRoutines()).map((r) => r.title)).toEqual(["Read", "Stretch", "Run"]);
+  });
+});
+
+describe("Home Pending tab (v0.1)", () => {
+  it("sits folded under Today, opens, and adds an item with no day", async () => {
+    const day = todayKey();
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    render(<Home />);
+    const tab = within(screen.getByTestId("day-column")).getByTestId("pending-tab");
+    const toggle = within(tab).getByRole("button", { name: "Show pending" });
+    expect(toggle).toHaveClass("text-faint");
+    fireEvent.click(toggle);
+    const add = within(tab).getByRole("textbox", { name: "Add to pending" });
+    fireEvent.change(add, { target: { value: "Renew passport" } });
+    await act(async () => fireEvent.keyDown(add, { key: "Enter" }));
+    expect(within(tab).getByRole("checkbox", { name: "Renew passport" })).toBeInTheDocument();
+    // Not one of today's items.
+    expect(within(screen.getByTestId("day-column")).queryAllByTestId("task-row")).toHaveLength(0);
+  });
+
+  it("puts the profile tag at the far right when an item has no time", async () => {
+    const day = todayKey();
+    const [p] = [await native.createProfile({ name: "Light Work" })];
+    await act(() => useStore.getState().loadProfiles());
+    await native.saveTodo({ title: "Send the weekly update", dueDate: day, dueTime: null, durationMin: null, profileId: p.id });
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    render(<Home />);
+    const row = screen.getByRole("checkbox", { name: "Send the weekly update" }).closest("[data-testid=task-row]")!;
+    expect(row.lastElementChild).toHaveTextContent("Light Work");
   });
 });
 

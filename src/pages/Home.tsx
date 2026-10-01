@@ -13,6 +13,7 @@ import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
 import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
+import { PendingTab } from "./week/Pending";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
@@ -447,7 +448,8 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
         </button>
       ) : null}
       {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
-      <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : ""}</span>
+      {/* No time, no time column: the tag sits at the far right. */}
+      {t.time ? <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{shortTime(t.time)}</span> : null}
     </div>
   );
 }
@@ -620,6 +622,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
               {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing else planned today.</p> : null}
               {day.map((t) => row(t, dayDrag))}
             </div>
+            <PendingTab />
           </div>
         </div>
       )}

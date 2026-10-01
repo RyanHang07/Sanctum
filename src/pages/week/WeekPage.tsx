@@ -5,6 +5,9 @@ import { Button } from "../../components/Button";
 import { Switch } from "../../components/controls";
 import { CheckIcon, ChevronRightIcon, PlusIcon } from "../../components/icons";
 import { EventDialog, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
+import { drag, dragProps, moveTo } from "./drag";
+import { PendingBox, PendingSection, PendingStrip } from "./Pending";
+import { NARROW, useMedia } from "../../lib/useMedia";
 import { QuickAddField, QuickAddPanel } from "../../components/QuickAdd";
 import { usePlanner } from "../../state/planner";
 import { useAgenda, useCalendar } from "../../state/calendar";
@@ -48,45 +51,6 @@ function rangeTitle(start: string) {
   const b = fromKey(addDays(start, 6));
   const month = (d: Date) => d.toLocaleDateString("en-US", { month: "short" });
   return a.getMonth() === b.getMonth() ? `${month(a)} ${a.getDate()} – ${b.getDate()}` : `${month(a)} ${a.getDate()} – ${month(b)} ${b.getDate()}`;
-}
-
-// --- Drag between days (v0.1): one-time items and single-day events on your own calendars move;
-// routines repeat, so they stay put. The move saves like an edit (events go to Google).
-
-let dragging: AgendaItem | null = null;
-
-/** Items that can move to another day. */
-export function canMove(i: AgendaItem): boolean {
-  if (i.kind === "todo") return true;
-  if (i.kind === "event") return !!i.event?.writable && i.event.date === i.event.endDate;
-  return false;
-}
-
-/** Saves an item on a new day, keeping everything else. */
-export async function moveTo(item: AgendaItem, date: string): Promise<boolean> {
-  if (item.date === date || !canMove(item)) return false;
-  if (item.kind === "todo") {
-    const t = usePlanner.getState().todos.find((x) => x.id === item.id);
-    if (!t) return false;
-    return !!(await usePlanner.getState().saveTodo({ id: t.id, title: t.title, dueDate: date, dueTime: t.dueTime, durationMin: t.durationMin, profileId: t.profileId }));
-  }
-  const e = item.event!;
-  return useCalendar.getState().saveEvent({ calendarId: e.calendarId, eventId: e.eventId, title: e.title, date, time: e.time, durationMin: e.durationMin });
-}
-
-function dragProps(item: AgendaItem) {
-  if (!canMove(item)) return {};
-  return {
-    draggable: true,
-    onDragStart: (ev: React.DragEvent) => {
-      dragging = item;
-      ev.dataTransfer?.setData("text/plain", item.title);
-      if (ev.dataTransfer) ev.dataTransfer.effectAllowed = "move";
-    },
-    onDragEnd: () => {
-      dragging = null;
-    },
-  };
 }
 
 /** A Google Calendar event: a teal bar (cobalt when #focus-tagged), no checkbox (Week.dc.html). */
@@ -145,11 +109,12 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   );
 }
 
-function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void }) {
+/** One day. `fixed`: a cell in the two-row grid, which doesn't widen on hover. */
+function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void; fixed?: boolean }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
   const [over, setOver] = useState(false);
   const d = fromKey(date);
-  const accepts = () => dragging !== null && dragging.date !== date;
+  const accepts = () => drag.item !== null && (drag.item.date !== date || !!drag.item.undated);
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
@@ -166,11 +131,11 @@ function DayColumn({ date, items, today, stat, onOpen }: { date: string; items: 
       onDrop={(e) => {
         e.preventDefault();
         setOver(false);
-        const item = dragging;
-        dragging = null;
+        const item = drag.item;
+        drag.item = null;
         if (item) void moveTo(item, date);
       }}
-      className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-[1_1_0%] flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100! ${
+      className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui ${fixed ? "" : "flex-[1_1_0%] hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100!"} ${
         today ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40 hover:bg-panel"
       }`}
     >
@@ -258,14 +223,28 @@ function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   const agenda = useAgenda(days);
   const stats = useDayStats(days[0]!, days[6]!);
   const today = todayKey();
+  const narrow = useMedia(NARROW);
   return (
     <>
-      {/* The day under the pointer (or being edited) widens; the rest step back. */}
-      <div className="group/week flex min-h-0 grow gap-2">
-        {days.map((d) => (
-          <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} />
-        ))}
-      </div>
+      {narrow ? (
+        // Narrow (a vertical monitor): two rows, Monday to Thursday, then Friday to Sunday and Pending.
+        <div className="grid min-h-0 grow grid-cols-4 grid-rows-2 gap-2">
+          {days.map((d) => (
+            <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} fixed />
+          ))}
+          <PendingBox week={start} onOpen={onOpen} />
+        </div>
+      ) : (
+        <>
+          {/* The day under the pointer (or being edited) widens; the rest step back. */}
+          <div className="group/week flex min-h-0 grow gap-2">
+            {days.map((d) => (
+              <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} />
+            ))}
+          </div>
+          <PendingStrip week={start} onOpen={onOpen} />
+        </>
+      )}
       <div className="flex items-center gap-[18px] text-meta text-muted">
         <WeekKey />
         <SyncStatus />
@@ -350,18 +329,6 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
 
 // --- List view: easier to read, modeled on the user's weekly agenda page ---
 
-const asItem = (t: Todo): AgendaItem => ({
-  key: `todo:${t.id}`,
-  kind: "todo",
-  id: t.id,
-  title: t.title,
-  date: t.dueDate,
-  time: t.dueTime,
-  durationMin: t.durationMin,
-  profileId: t.profileId,
-  done: t.done,
-  order: t.sort,
-});
 
 function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOpen: () => void }) {
   const toggle = usePlanner((s) => s.toggle);
@@ -438,11 +405,9 @@ function DayList({ date, items, today, onOpen }: { date: string; items: AgendaIt
 }
 
 function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) => void }) {
-  const { pending, loadPending } = usePlanner();
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
   const today = todayKey();
-  useEffect(() => void loadPending(), [loadPending]);
   return (
     <div className="min-h-0 grow overflow-y-auto pr-1">
       {/* Two flowing columns: Monday to Thursday, then Friday to Sunday and Pending. */}
@@ -450,24 +415,16 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
         {days.map((d) => (
           <DayList key={d} date={d} items={agenda[d] ?? []} today={d === today} onOpen={onOpen} />
         ))}
-        {pending.length ? (
-          <section aria-label="Pending" className="mb-6 break-inside-avoid">
+        <PendingSection
+          week={start}
+          onOpen={onOpen}
+          heading={(count) => (
             <h2 className="m-0 mb-1 flex items-baseline gap-2 border-b border-line pb-[6px] text-[14px] font-semibold text-text">
               Pending
-              <span className="font-mono text-[11px] font-normal text-muted">{pending.length}</span>
+              <span className="font-mono text-[11px] font-normal text-muted">{count}</span>
             </h2>
-            {[...pending]
-              .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-              .map((t) => (
-                <ListRow
-                  key={t.id}
-                  item={asItem(t)}
-                  meta={fromKey(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  onOpen={() => onOpen(asItem(t))}
-                />
-              ))}
-          </section>
-        ) : null}
+          )}
+        />
       </div>
     </div>
   );
