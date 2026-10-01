@@ -8,6 +8,7 @@ import {
   longTime,
   moveId,
   openFirst,
+  pendingFor,
   shortTime,
   snapMinutes,
   suggestFocus,
@@ -39,6 +40,7 @@ const todo = (id: number, title: string, dueDate: string, dueTime: string | null
   profileId: null,
   done: false,
   sort: id,
+  undated: false,
   ...extra,
 });
 
@@ -160,6 +162,30 @@ describe("order (v0.1)", () => {
     expect(suggestFocus(items, at(10, 15))!.item.title).toBe("Design review prep");
     // Once the item ends, the routine still running takes over.
     expect(suggestFocus(items, at(11, 5))!.item.title).toBe("Deep work");
+  });
+});
+
+describe("pending (v0.1)", () => {
+  const today = "2026-10-01"; // Thursday; the week starts Sep 28
+  const all = [
+    todo(1, "Book flights", "2026-09-28", null, { undated: true }),
+    todo(2, "Old parked", "2026-09-21", null, { undated: true }),
+    todo(3, "Overdue", "2026-09-29", null),
+    todo(4, "Next week", "2026-10-05", null, { undated: true }),
+    todo(5, "Today's", today, null),
+    todo(6, "Done parked", "2026-09-28", null, { undated: true, done: true }),
+  ];
+
+  it("this week: parked items, plus anything still open from before", () => {
+    expect(pendingFor("2026-09-28", today, all).map((t) => t.title)).toEqual(["Old parked", "Book flights", "Overdue"]);
+  });
+
+  it("another week: only what's parked on it", () => {
+    expect(pendingFor("2026-10-05", today, all).map((t) => t.title)).toEqual(["Next week"]);
+  });
+
+  it("keeps parked items off their Monday", () => {
+    expect(agendaFor(["2026-09-28"], [], all, [])["2026-09-28"]).toEqual([]);
   });
 });
 

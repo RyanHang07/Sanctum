@@ -5,6 +5,7 @@ import { AnimatedMark } from "./AnimatedMark";
 import { LockIcon, NotesIcon, PanelIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
 import { TABS, type AppState, type TabId, isTabLocked } from "../state/appState";
 import { useStore } from "../state/store";
+import { NARROW, useMedia } from "../lib/useMedia";
 
 const TAB_ICONS: Record<TabId, ReactNode> = {
   today: <TodayIcon />,
@@ -76,7 +77,9 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
   const activeTab = useStore((s) => s.activeTab);
   const navigate = useStore((s) => s.navigate);
   const displayName = useStore((s) => s.settings.displayName);
-  const collapsed = useStore((s) => s.settings.sidebarCollapsed);
+  // A narrow window (a vertical monitor) folds it to the rail whatever the setting says.
+  const narrow = useMedia(NARROW);
+  const collapsed = useStore((s) => s.settings.sidebarCollapsed) || narrow;
   const toggle = useStore((s) => s.toggleSidebar);
 
   return (
@@ -147,9 +150,11 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
       <div className="grow" />
 
       {collapsed ? (
-        <div className="flex justify-center">
-          <CollapseButton collapsed onClick={toggle} />
-        </div>
+        narrow ? null : (
+          <div className="flex justify-center">
+            <CollapseButton collapsed onClick={toggle} />
+          </div>
+        )
       ) : (
         <div className="flex items-center gap-2 px-2 text-meta text-faint">
           {displayName ? (

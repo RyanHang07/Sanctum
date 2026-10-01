@@ -579,7 +579,8 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (!title) throw "Give it a name.";
     const existing = draft.id !== undefined ? state.todos.find((t) => t.id === draft.id) : undefined;
     const sort = existing?.sort ?? Math.max(-1, ...state.todos.filter((x) => x.dueDate === draft.dueDate).map((x) => x.sort)) + 1;
-    const t: Todo = { ...draft, id: existing?.id ?? state.nextId++, title, done: existing?.done ?? false, sort };
+    const undated = draft.undated ?? existing?.undated ?? false;
+    const t: Todo = { ...draft, dueTime: undated ? null : draft.dueTime, id: existing?.id ?? state.nextId++, title, done: existing?.done ?? false, sort, undated };
     state.todos = [...state.todos.filter((x) => x.id !== t.id), t];
     return clone(t);
   },

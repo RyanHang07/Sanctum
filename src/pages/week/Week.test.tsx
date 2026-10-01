@@ -184,7 +184,67 @@ describe("Week: list view and header", () => {
     expect(within(pending).queryByRole("checkbox", { name: "Finished" })).toBeNull();
     expect(pending).toHaveTextContent("Sep 20");
     await act(async () => fireEvent.click(within(pending).getByRole("checkbox", { name: "Old errand" })));
-    expect(screen.queryByRole("region", { name: "Pending" })).toBeNull();
+    expect(within(pending).queryByRole("checkbox", { name: "Old errand" })).toBeNull();
+  });
+
+  it("parks items on a week with no day, and drags them onto a day (v0.1)", async () => {
+    await setup();
+    await act(async () => {
+      await native.saveTodo({ title: "Book flights", dueDate: "2026-09-28", dueTime: null, durationMin: null, profileId: null, undated: true });
+      await native.saveTodo({ title: "Next week thing", dueDate: "2026-10-05", dueTime: null, durationMin: null, profileId: null, undated: true });
+      await native.saveTodo({ title: "Groceries", dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null });
+      await usePlanner.getState().reload();
+    });
+    render(<WeekPage />);
+    const strip = await screen.findByRole("region", { name: "Pending" });
+    // Light and folded until opened; shows this week's count.
+    expect(within(strip).getByRole("button", { name: "Show pending" })).toHaveTextContent("1");
+    fireEvent.click(within(strip).getByRole("button", { name: "Show pending" }));
+    expect(within(strip).getByRole("checkbox", { name: "Book flights" })).toBeInTheDocument();
+    expect(within(strip).queryByRole("checkbox", { name: "Next week thing" })).toBeNull();
+    // Parked items aren't on their week's Monday.
+    expect(within(screen.getByRole("region", { name: "Monday, September 28" })).queryByText("Book flights")).toBeNull();
+
+    // Add one straight to Pending.
+    const add = within(strip).getByRole("textbox", { name: "Add to pending" });
+    fireEvent.change(add, { target: { value: "Call the bank" } });
+    await act(async () => fireEvent.keyDown(add, { key: "Enter" }));
+    expect(within(strip).getByRole("checkbox", { name: "Call the bank" })).toBeInTheDocument();
+
+    const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
+    // Pending -> a day: it gets that day.
+    const wed = screen.getByRole("region", { name: "Wednesday, September 30" });
+    await act(async () => {
+      fireEvent.dragStart(within(strip).getByRole("checkbox", { name: "Book flights" }).closest("[data-testid=pending-row]")!, { dataTransfer });
+      fireEvent.dragOver(wed, { dataTransfer });
+      fireEvent.drop(wed, { dataTransfer });
+    });
+    expect(within(wed).getByText("Book flights")).toBeInTheDocument();
+    expect(within(strip).queryByRole("checkbox", { name: "Book flights" })).toBeNull();
+    // A day -> Pending: parked, no day.
+    await act(async () => {
+      fireEvent.dragStart(within(wed).getByText("Groceries").closest("[draggable]")!, { dataTransfer });
+      fireEvent.dragOver(strip, { dataTransfer });
+      fireEvent.drop(strip, { dataTransfer });
+    });
+    expect(within(strip).getByRole("checkbox", { name: "Groceries" })).toBeInTheDocument();
+    expect(within(wed).queryByText("Groceries")).toBeNull();
+    expect((await native.listTodos("2026-09-28", "2026-09-28")).find((t) => t.title === "Groceries")?.undated).toBe(true);
+  });
+
+  it("goes to two rows with Pending as the eighth box when the window is narrow (v0.1)", async () => {
+    await setup();
+    const real = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width"), media: q, addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    try {
+      render(<WeekPage />);
+      const box = screen.getByRole("region", { name: "Pending" });
+      expect(box.parentElement).toHaveClass("grid-cols-4", "grid-rows-2");
+      expect(box.parentElement!.children).toHaveLength(8);
+      expect(within(box).getByRole("textbox", { name: "Add to pending" })).toBeInTheDocument();
+    } finally {
+      window.matchMedia = real;
+    }
   });
 
   it("keeps New and the view tabs in the same place across views", async () => {

@@ -108,6 +108,8 @@ export interface AgendaItem {
   done: boolean;
   /** Drag order among untimed items of its kind (routine or item sort; 0 for events). */
   order: number;
+  /** A one-time item with no day yet (Pending); `date` is its week's Monday. */
+  undated?: boolean;
   /** Calendar events only. */
   event?: CalEvent;
 }
@@ -171,7 +173,8 @@ export function agendaFor(
         done: done.has(`${r.id}:${date}`),
         order: r.sort,
       }));
-    for (const t of todos.filter((t) => t.dueDate === date)) {
+    // Pending items have no day yet; they show in Pending, not on their week's Monday.
+    for (const t of todos.filter((t) => t.dueDate === date && !t.undated)) {
       items.push({
         key: `todo:${t.id}`,
         kind: "todo",
@@ -189,6 +192,20 @@ export function agendaFor(
     out[date] = items.sort(sortItems);
   }
   return out;
+}
+
+/**
+ * What's pending in the week starting `week`: items parked on it with no day yet. For the current
+ * week, also anything still open from before (parked on an earlier week, or overdue from an
+ * earlier day). Oldest first.
+ */
+export function pendingFor(week: string, today: string, ...sources: readonly (readonly Todo[])[]): Todo[] {
+  const thisWeek = week === weekStart(today);
+  const seen = new Map<number, Todo>();
+  for (const list of sources) for (const t of list) seen.set(t.id, t);
+  return [...seen.values()]
+    .filter((t) => !t.done && (t.undated ? t.dueDate === week || (thisWeek && t.dueDate < week) : thisWeek && t.dueDate < today))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || Number(b.undated) - Number(a.undated) || a.sort - b.sort || a.id - b.id);
 }
 
 /** Nearest focus length (30/60/90/120), rounding ties up and never below 30. */
