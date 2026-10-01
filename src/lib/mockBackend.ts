@@ -320,6 +320,12 @@ const handlers: Record<string, (a: any) => unknown> = {
     return handlers.cloud_status!({});
   },
   cloud_cancel_sign_in: () => undefined,
+  cloud_delete_account: () => {
+    if (state.session) throw "Deleting the account waits until the seal ends.";
+    if (!state.cloud.email) throw "Sign in first.";
+    state.cloud = { email: null, partner: null, invite: null, partnerOf: [] };
+    return handlers.cloud_status!({});
+  },
   cloud_sign_out: () => {
     state.cloud = { email: null, partner: null, invite: null, partnerOf: [] };
     return handlers.cloud_status!({});

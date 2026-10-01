@@ -144,8 +144,13 @@ fn redirect_for(state_token: &str) -> String {
 }
 
 pub fn google_url(redirect: &str, challenge: &str) -> String {
+    google_url_at(URL, redirect, challenge)
+}
+
+/// Kept apart from the build's URL so it's testable in builds without accounts (CI).
+fn google_url_at(base: &str, redirect: &str, challenge: &str) -> String {
     reqwest::Url::parse_with_params(
-        &format!("{URL}/auth/v1/authorize"),
+        &format!("{base}/auth/v1/authorize"),
         &[("provider", "google"), ("redirect_to", redirect), ("code_challenge", challenge), ("code_challenge_method", "s256")],
     )
     .expect("static URL")
@@ -465,6 +470,29 @@ pub async fn cloud_sign_out(app: AppHandle) -> Result<Status, String> {
     tauri::async_runtime::spawn_blocking(move || sign_out(&app)).await.map_err(|e| e.to_string())
 }
 
+/// Deletes the account for good (v0.1): profile, partner links both ways, PIN, requests, and
+/// notifications, then signs this PC out. Data on this PC stays. Never while sealed: a partner
+/// is part of the seal.
+#[tauri::command]
+pub async fn cloud_delete_account(app: AppHandle) -> Result<Status, String> {
+    if app.state::<Shared>().sealed() {
+        return Err("Deleting the account waits until the seal ends.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = &app.state::<Shared>().cloud;
+        let (req, _) = authed(state, state.http.post(format!("{URL}/functions/v1/account-delete")))?;
+        send(req.json(&json!({ "confirm": "delete" })))?;
+        // The session died with the account; just clear what this PC kept.
+        secret::clear_at(TARGET);
+        *state.session.lock().unwrap() = None;
+        *state.error.lock().unwrap() = None;
+        emit(&app);
+        Ok(status_of(state))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Signs this PC out of the account (the account itself stays). Also used by Start over.
 pub fn sign_out(app: &AppHandle) -> Status {
     let state = &app.state::<Shared>().cloud;
@@ -564,8 +592,8 @@ mod tests {
     fn builds_urls() {
         let r = redirect_for("st");
         assert_eq!(r, format!("http://127.0.0.1:{REDIRECT_PORT}/auth/callback?s=st"));
-        let g = google_url(&r, "ch");
-        assert!(g.starts_with(&format!("{URL}/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2F127.0.0.1")));
+        let g = google_url_at("https://ref.supabase.co", &r, "ch");
+        assert!(g.starts_with("https://ref.supabase.co/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2F127.0.0.1"));
         assert!(g.ends_with("code_challenge=ch&code_challenge_method=s256"));
         assert!(invite_link("tok").ends_with("/invite/tok"));
     }

@@ -29,13 +29,14 @@ All keys go in `src-tauri/.env`, which is gitignored and read when Sanctum is bu
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Apply the migrations in `supabase/migrations/` in order: `supabase db push` with the [Supabase CLI](https://supabase.com/docs/guides/cli), or paste each file into the SQL editor.
-3. Deploy the Edge Functions in `supabase/functions/` (`invite`, `pin-set`, `notify`, `unlock-respond`):
+3. Deploy the Edge Functions in `supabase/functions/` (`invite`, `pin-set`, `notify`, `unlock-respond`, `account-delete`):
 
    ```powershell
    supabase functions deploy invite
    supabase functions deploy pin-set
    supabase functions deploy notify
    supabase functions deploy unlock-respond
+   supabase functions deploy account-delete
    ```
 
 4. In `src-tauri/.env`, add the project URL and **publishable** key (Project Settings › API). The publishable key is public by design; row-level security guards the data. Never use the service role key here.
@@ -84,7 +85,11 @@ Under **Authentication › Email Templates**, paste the files from `supabase/tem
 
 They're generated from `supabase/functions/_shared/email.ts`; run `npm run email:templates` after changing it.
 
-### 5. Email (optional)
+### 5. Public pages
+
+The partner page also serves `/about`, `/privacy`, and `/terms`, the home page, privacy policy, and terms of service links Google's OAuth consent screen asks for. If you run your own copy, change the operator and contact email in `partner/src/Legal.tsx`.
+
+### 6. Email (optional)
 
 Partner notifications (a broken seal, an unlock request, an emergency unlock) are stored either way. Emailing them, emailing invites, and telling you when your partner answers all need these **Edge Function secrets** in the Supabase dashboard (Edge Functions › Secrets), never in the repo:
 

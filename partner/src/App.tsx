@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { call, configured, supabase } from "./supabase";
+import { Title, useTabTitle } from "./title";
+import { About, Footer, Privacy, Terms } from "./Legal";
 
 // The accountability partner's page (SPEC 4.6, design/screens/PartnerApprove.dc.html).
 // /approve/<id>: one unlock request, full screen, decided with your PIN (the email links here).
@@ -10,13 +12,22 @@ import { call, configured, supabase } from "./supabase";
 // Dev only: /emails renders every email; /demo/approve shows the approve screen with sample data.
 const EmailPreview = import.meta.env.DEV ? lazy(() => import("./EmailPreview")) : () => null;
 
-type Route = { page: "home" } | { page: "invite"; token: string } | { page: "approve"; id: string } | { page: "emails" } | { page: "demo" };
+type Route =
+  | { page: "home" }
+  | { page: "invite"; token: string }
+  | { page: "approve"; id: string }
+  | { page: "emails" }
+  | { page: "demo" }
+  | { page: "about" | "privacy" | "terms" };
 
 function routeOf(path: string): Route {
   const invite = /^\/invite\/([a-f0-9]+)\/?$/i.exec(path);
   if (invite) return { page: "invite", token: invite[1]! };
   const approve = /^\/approve\/([0-9a-f-]{36})\/?$/i.exec(path);
   if (approve) return { page: "approve", id: approve[1]! };
+  // Public pages for Google's consent screen: the home page, privacy, and terms.
+  const legal = /^\/(about|privacy|terms)\/?$/.exec(path);
+  if (legal) return { page: legal[1] as "about" | "privacy" | "terms" };
   if (import.meta.env.DEV && /^\/emails\/?$/.test(path)) return { page: "emails" };
   if (import.meta.env.DEV && /^\/demo\/approve\/?$/.test(path)) return { page: "demo" };
   return { page: "home" };
@@ -46,6 +57,7 @@ function Card({ context, children }: { context?: ReactNode; children: ReactNode 
         {context ? <span className="context">{context}</span> : null}
       </header>
       {children}
+      <Footer />
     </main>
   );
 }
@@ -143,6 +155,7 @@ function Invite({ token }: { token: string }) {
   useEffect(() => {
     call<{ from: string; needsPin: boolean }>("invite", { action: "peek", token }).then(setInfo, (e: Error) => setError(e.message));
   }, [token]);
+  useTabTitle(error && !info ? "Invite not found" : "You're invited");
 
   const accept = async () => {
     const problem = info?.needsPin ? pinProblem(pin, confirm) : null;
@@ -254,10 +267,24 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
     })();
   }, [id, demo]);
 
+  const expiresIn = r ? new Date(r.created_at).getTime() + TTL_MS - now : 0;
+  const status = r ? (done ?? (r.status === "pending" && expiresIn <= 0 ? "expired" : r.status)) : null;
+  useTabTitle(
+    !r
+      ? error
+        ? "Request not found"
+        : "Opening the request"
+      : status === "pending"
+        ? `Request from ${who || "your partner"}`
+        : status === "approved"
+          ? "Approved"
+          : status === "denied"
+            ? "Denied, seal holds"
+            : "Request expired",
+    status === "pending" ? 1 : 0,
+  );
   if (!r) return <p className={error ? "error" : "muted"}>{error ?? "Opening the request…"}</p>;
-  const expiresIn = new Date(r.created_at).getTime() + TTL_MS - now;
   const left = r.ends_at ? new Date(r.ends_at).getTime() - now : null;
-  const status = done ?? (r.status === "pending" && expiresIn <= 0 ? "expired" : r.status);
 
   const answer = async (approve: boolean) => {
     if (pin.length < 6) return setError("Enter your PIN.");
@@ -372,6 +399,21 @@ function Dashboard({ session }: { session: Session }) {
     }
     setLoaded(true);
   }, [session.user.id]);
+  const first = requests[0];
+  useTabTitle(
+    resetting
+      ? "Reset your PIN"
+      : !loaded
+        ? "Your partners"
+        : requests.length === 1 && first
+          ? `Request from ${names[first.user_id] ?? "your partner"}`
+          : requests.length > 1
+            ? "Requests waiting"
+            : links.length
+              ? "Holding the key"
+              : "Your partners",
+    requests.length,
+  );
   useEffect(() => {
     void load();
     // New requests show up without a reload.
@@ -474,7 +516,55 @@ function Dashboard({ session }: { session: Session }) {
           Sign out
         </button>
       </p>
+      <DeleteAccount />
     </>
+  );
+}
+
+/**
+ * Deletes the account for good (v0.1, Google's OAuth policy): profile, partner links both ways,
+ * PIN, requests, and notifications. Typed confirmation first.
+ */
+function DeleteAccount() {
+  const [asking, setAsking] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!asking) {
+    return (
+      <button className="link small danger" onClick={() => setAsking(true)}>
+        Delete account
+      </button>
+    );
+  }
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await call("account-delete", { confirm: "delete" });
+      await supabase.auth.signOut();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="panel danger-panel" aria-label="Delete account">
+      <p className="muted">
+        This deletes your account, your partner links both ways, your PIN, and any requests. It can't be undone. Type <span className="mono">delete</span> to
+        confirm.
+      </p>
+      <div className="row">
+        <input aria-label="Type delete to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
+        <button className="ghost" onClick={() => (setAsking(false), setTyped(""))}>
+          Cancel
+        </button>
+        <button className="danger-button" disabled={typed.trim().toLowerCase() !== "delete" || busy} onClick={() => void run()}>
+          {busy ? "Deleting…" : "Delete my account"}
+        </button>
+      </div>
+      {error ? <p className="error">{error}</p> : null}
+    </section>
   );
 }
 
@@ -491,8 +581,18 @@ export function App() {
   if (route.page === "emails") {
     return (
       <Suspense fallback={null}>
+        <Title status="Emails" />
         <EmailPreview />
       </Suspense>
+    );
+  }
+  if (route.page === "about" || route.page === "privacy" || route.page === "terms") {
+    const [Page, title] = route.page === "about" ? [About, "About"] : route.page === "privacy" ? [Privacy, "Privacy policy"] : [Terms, "Terms of service"];
+    return (
+      <Card context={<a href="/">Partners</a>}>
+        <Title status={title} />
+        <Page />
+      </Card>
     );
   }
   if (route.page === "demo") {
@@ -505,12 +605,13 @@ export function App() {
   if (!configured) {
     return (
       <Card>
+        <Title status="Not set up" />
         <Headline lead="Not set up yet." payoff="Almost there." />
         <p className="muted">Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for this page. See docs/self-hosting.md in the Sanctum repo.</p>
       </Card>
     );
   }
-  if (session === undefined) return <Card>{null}</Card>;
+  if (session === undefined) return <Card>{<Title status={null} />}</Card>;
   if (!session) {
     const [lead, payoff, intro] =
       route.page === "invite"
@@ -520,6 +621,7 @@ export function App() {
           : ["Hold the key.", "Keep them honest.", "Sign in to see who you're a partner for."];
     return (
       <Card>
+        <Title status={route.page === "invite" ? "You're invited" : route.page === "approve" ? "Request waiting" : "Sign in"} />
         <Headline lead={lead} payoff={payoff} />
         <SignIn intro={intro} />
       </Card>
