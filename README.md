@@ -15,7 +15,7 @@ A focus app for Windows that actually holds. Pick what you're working on, enter 
 ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0B0D12)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)
 
-<img src="docs/screenshots/sanctum.gif" width="880" alt="Entering focus: the seal closes, Discord is caught and sent back, and the session ends with Sanctum held." />
+<img src="docs/screenshots/sanctum.webp" width="880" alt="Entering focus: the seal closes, Discord is caught and sent back, and the session ends with Sanctum held." />
 
 </div>
 
@@ -85,7 +85,7 @@ Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled ch
 
 | Trackers | Notes |
 |---|---|
-| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, body fat, and mood charts" /> | <img src="docs/screenshots/notes.png" alt="Notes: a note with bullets and checkboxes" /> |
+| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, sleep, and mood charts" /> | <img src="docs/screenshots/notes.png" alt="Notes: a note with bullets and checkboxes" /> |
 
 ### An accountability partner, on their phone
 

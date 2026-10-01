@@ -968,6 +968,13 @@ export const mockControls = {
       endsAt: v.endsAt,
     } satisfies Intercept);
   },
+  /** Stops (or restarts) the running session's one-second tick, for the README recordings. */
+  pauseTicks(paused: boolean) {
+    if (paused) {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+    } else if (state.session && !state.timer) state.timer = setInterval(tick, 1000);
+  },
   fastForward(ms: number) {
     if (!state.session) return;
     state.session.startedAt -= ms;
@@ -979,7 +986,7 @@ export const mockControls = {
     if (state.session) state.session.attempts += 1;
     const v = state.session
       ? view()
-      : { attempts: 3, profileName: "Interview Prep", elapsedMs: 18 * 60_000, remainingMs: 32 * 60_000 + 14_000 };
+      : { attempts: 3, profileName: "Deep Work", elapsedMs: 18 * 60_000, remainingMs: 72 * 60_000 + 14_000 };
     bus.emit(EV.intercept, {
       kind,
       label,
@@ -987,7 +994,7 @@ export const mockControls = {
       profileName: v.profileName,
       elapsedMs: v.elapsedMs,
       remainingMs: v.remainingMs,
-      backTo: "Visual Studio Code",
+      backTo: "Figma",
       keyword: kind === "title" ? "shorts" : null,
     } satisfies Intercept);
     if (state.session) bus.emit(EV.tick, v);

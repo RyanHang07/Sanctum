@@ -64,7 +64,8 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
-        <Button variant="quiet" onClick={onBreak}>
+        {/* Quiet on purpose (Blocked.dc.html); pulled left by its padding so the text lines up with the card. */}
+        <Button variant="quiet" className="-ml-3" onClick={onBreak}>
           Break the seal
         </Button>
         <span className="ml-auto whitespace-nowrap text-meta text-faint">
@@ -103,7 +104,7 @@ export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => vo
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
-        <Button variant="quiet" onClick={onPause}>
+        <Button variant="quiet" className="-ml-3" onClick={onPause}>
           Pause 15 min
         </Button>
         <span className="ml-auto whitespace-nowrap text-meta text-faint">

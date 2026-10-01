@@ -15,7 +15,7 @@ const q = new URLSearchParams(location.search);
 const kind = q.get("state") ?? "sealed";
 const endsAt = Date.now() + 32 * 60000 + 14000;
 const rules = kind === "open" ? { sealed: false, sites: [], keywords: [] }
-  : { sealed: true, profile: "Interview Prep", endsAt, sites: [{ domain: "youtube.com" }, { domain: "reddit.com" }, { domain: "x.com" }], keywords: ["shorts"] };
+  : { sealed: true, profile: "Deep Work", endsAt, sites: [{ domain: "youtube.com" }, { domain: "reddit.com" }, { domain: "x.com" }], keywords: ["shorts"] };
 window.chrome = { runtime: { sendMessage: async (m) => m.type === "state?" ? { rules, connected: kind !== "offline", back: "https://neetcode.io/practice" } : m.type === "rules?" ? rules : undefined } };
 </script>`;
 
