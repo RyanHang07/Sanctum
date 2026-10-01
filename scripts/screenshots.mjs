@@ -1,10 +1,10 @@
 // README screenshots and the hero GIF, from the browser preview on its sample data (the mock
 // backend). Starts its own Vite servers, drives Edge through puppeteer-core, and writes PNGs to
-// docs/screenshots. The GIF frames go to docs/screenshots/frames, then scripts/make-gif.py.
+// docs/screenshots. The hero's clips go to docs/screenshots/frames, then scripts/make-hero.py.
 //   npm run screenshots            (Edge must be installed; set EDGE_PATH if it isn't standard)
 import { createServer } from "vite";
 import puppeteer from "puppeteer-core";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
@@ -76,12 +76,44 @@ async function shot(page, name) {
   console.log(`docs/screenshots/${file}`);
 }
 
-let frame = 0;
-async function frames(page, count, every) {
-  for (let i = 0; i < count; i++) {
-    await page.screenshot({ path: join(FRAMES, `${String(frame++).padStart(3, "0")}.png`) });
-    if (every) await sleep(every);
-  }
+/** Hero frames: a still, or a clip recorded in slow motion. */
+const still = (page, name) => page.screenshot({ path: join(FRAMES, `${name}.png`) });
+
+/**
+ * Records `seconds` of a page in slow motion: every animation runs at RATE through the
+ * DevTools protocol, and the screencast streams a frame on every repaint, so the motion is
+ * sampled densely. Writes numbered JPEGs and times.json (each frame's moment at real speed, ms).
+ */
+const RATE = 0.1;
+async function record(page, clip, seconds, start) {
+  const dir = join(FRAMES, clip);
+  mkdirSync(dir, { recursive: true });
+  const cdp = await page.createCDPSession();
+  await cdp.send("Animation.enable");
+  await cdp.send("Animation.setPlaybackRate", { playbackRate: RATE });
+  const shots = [];
+  let t0 = null;
+  cdp.on("Page.screencastFrame", ({ data, metadata, sessionId }) => {
+    if (t0 !== null) shots.push({ data, t: Math.round((metadata.timestamp * 1000 - t0) * RATE) });
+    void cdp.send("Page.screencastFrameAck", { sessionId }).catch(() => undefined);
+  });
+  await cdp.send("Page.startScreencast", { format: "jpeg", quality: 95, everyNthFrame: 1 });
+  await sleep(300);
+  t0 = Date.now();
+  if (start) await start();
+  await sleep((seconds * 1000) / RATE);
+  await cdp.send("Page.stopScreencast");
+  await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 });
+  await cdp.detach();
+  // The first frame is the moment recording began; nothing may have repainted yet.
+  if (!shots.length || shots[0].t > 0) shots.unshift({ data: (await page.screenshot({ type: "jpeg", quality: 95, encoding: "base64" })), t: 0 });
+  const times = [];
+  shots.forEach((f, i) => {
+    writeFileSync(join(dir, `${String(i).padStart(3, "0")}.jpg`), Buffer.from(f.data, "base64"));
+    times.push(Math.max(0, f.t));
+  });
+  writeFileSync(join(dir, "times.json"), JSON.stringify(times));
+  console.log(`  ${clip}: ${shots.length} frames`);
 }
 
 /** Clicks the first element of `selector` whose text matches. */
@@ -112,8 +144,8 @@ try {
   await page.evaluate(`(async () => { ${mods} })()`);
   await page.evaluate(async () => {
     const { native } = window.__m;
-    await native.saveNote({ title: "Interview stories", body: "- Led the migration to the new billing system\n- Disagreed with a tech lead, and how it resolved\n[ ] Write the failure story\n[x] Time each one under 2 minutes" });
     await native.saveNote({ title: "Books to read", body: "Deep Work, Cal Newport\nFour Thousand Weeks, Oliver Burkeman\nThe Pragmatic Programmer" });
+    await native.saveNote({ title: "Weekly review", body: "- Shipped the API refactor\n- Two seals broken on Tuesday, both on YouTube\n- Mornings are the best focus time\n[x] Book the dentist\n[ ] Plan next week's deep work blocks" });
   });
   await sleep(600);
   await shot(page, "home-open");
@@ -127,7 +159,7 @@ try {
   await go(page, "4");
   await shot(page, "trackers");
   await go(page, "5");
-  await click(page, "button", "Interview stories");
+  await click(page, "button", "Weekly review");
   await sleep(500);
   await shot(page, "notes");
 
@@ -149,12 +181,16 @@ try {
   await go(page, "1");
   await sleep(600);
 
-  // GIF: Open, Enter focus, the seal fades in.
-  await frames(page, 1);
-  await click(page, "button", "Enter focus");
-  await frames(page, 12, 40);
+  // Hero: Open, Enter focus, the seal fades in.
+  await still(page, "open");
+  await record(page, "seal", 1.1, async () => {
+    await click(page, "button", "Enter focus");
+    // Hold the countdown still while time runs slow, so it doesn't race.
+    await page.evaluate(() => window.__m.mock.pauseTicks(true));
+  });
+  await page.evaluate(() => window.__m.mock.pauseTicks(false));
   await sleep(800);
-  await frames(page, 1);
+  await still(page, "sealed");
   await shot(page, "home-sealed");
 
   // The overlay a sealed app gets (its own window), shot alone and for the GIF.
@@ -168,17 +204,16 @@ try {
   await shot(overlay, "blocked-overlay");
   await overlay.close();
 
-  // GIF: the session completes; Sanctum held builds itself.
-  await page.evaluate(() => window.__m.mock.fastForward(61 * 60_000));
-  await frames(page, 26, 40);
-  await sleep(900);
-  await frames(page, 1);
+  // Hero: the session completes; Sanctum held builds itself.
+  await record(page, "held", 2.6, () => page.evaluate(() => window.__m.mock.fastForward(61 * 60_000)));
+  await sleep(600);
+  await still(page, "held");
   await shot(page, "held");
   await page.keyboard.press("Escape");
   await sleep(800);
 
   // In event: a meeting from the calendar holds focus.
-  await page.evaluate(() => window.__m.mock.meetingNow(18, "Mock interview"));
+  await page.evaluate(() => window.__m.mock.meetingNow(18, "Design review"));
   await sleep(1800);
   await shot(page, "home-event");
 
@@ -187,9 +222,9 @@ try {
     await p.evaluate(`(async () => { ${mods} })()`);
     await p.evaluate(async () => {
       const { native } = window.__m;
-      const prof = await native.createProfile({ name: "Interview Prep" });
-      await native.startSession(prof.id, 60);
-      window.__m.mock.fastForward(27 * 60_000 + 46_000);
+      const prof = await native.createProfile({ name: "Deep Work" });
+      await native.startSession(prof.id, 90);
+      window.__m.mock.fastForward(38 * 60_000 + 46_000);
     });
     await sleep(1600);
   };

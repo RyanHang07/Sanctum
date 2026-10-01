@@ -229,12 +229,12 @@ async function nameOf(id: string): Promise<string> {
 const DEMO: UnlockRequest = {
   id: "00000000-0000-0000-0000-000000000000",
   user_id: "demo",
-  reason: "Recruiter moved my call up and I need Discord for the shared screen link.",
+  reason: "My manager moved the design review up and I need Slack to share the deck.",
   created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
   status: "pending",
   note: null,
-  profile_name: "Interview Prep",
-  ends_at: new Date(Date.now() + 32 * 60_000 + 14_000).toISOString(),
+  profile_name: "Deep Work",
+  ends_at: new Date(Date.now() + 52 * 60_000 + 14_000).toISOString(),
 };
 
 /** One unlock request, full screen (PartnerApprove.dc.html). `demo` uses sample data and sends nothing. */
@@ -252,7 +252,7 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
   useEffect(() => {
     if (demo) {
       setR(DEMO);
-      setWho("Ryan");
+      setWho("Alex");
       setAsks(2);
       return;
     }
@@ -597,7 +597,7 @@ export function App() {
   }
   if (route.page === "demo") {
     return (
-      <Card context={<span>You're Ryan's accountability partner</span>}>
+      <Card context={<span>You're Alex's accountability partner</span>}>
         <Approve id={DEMO.id} demo />
       </Card>
     );

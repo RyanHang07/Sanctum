@@ -15,7 +15,7 @@
     "ext:assets": "node scripts/extension-assets.mjs",
     "email:templates": "node --experimental-strip-types --no-warnings scripts/email-templates.mjs",
     "ext:preview": "node scripts/extension-preview.mjs",
-    "screenshots": "node scripts/screenshots.mjs && python scripts/make-gif.py"
+    "screenshots": "node scripts/screenshots.mjs && python scripts/make-hero.py"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
