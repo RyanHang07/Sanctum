@@ -8,9 +8,12 @@ Built with Tauri v2, React, and Rust. Windows 10 and 11.
 
 - **Profiles.** Each kind of work opens its apps and links and runs for 30 to 120 minutes.
 - **One Distractions list.** Flag apps, sites, links, and title keywords once. Every seal blocks them, and they count as distracting time.
-- **A seal that holds.** Flagged apps close as they open. The browser extension blocks sites and keyword tabs, and Protection blocks sites in every browser through the hosts file. The seal survives restarts, and Sanctum comes back if it's closed.
+- **A seal that holds.** Flagged apps close as they open, Microsoft Store apps included, and Protection can close ones run as administrator. The browser extension blocks sites and keyword tabs, and Protection blocks sites in every browser through the hosts file. The seal survives restarts, and Sanctum comes back if it's closed.
 - **Break the seal, on purpose.** A reason and a wait, retyping a paragraph, then a 30-minute cooldown or your partner's approval. One emergency unlock a week.
-- **Today and Week.** Tasks and routines, synced two ways with Google Calendar, and focus blocks that start the right profile.
+- **Today and Week.** Tasks and routines, synced two ways with Google Calendar, and focus blocks that start the right profile. Link a task to a session and check it off when the seal holds. Drag items between days, and edit a whole recurring series.
+- **Quiet hours.** Your Distractions list blocked on a schedule outside sessions, with a 15-minute pause that asks why.
+- **Do not disturb while sealed.** Windows notifications hold until the seal ends.
+- **Your data.** Export to JSON or CSV, back up, and restore, all to Documents\Sanctum.
 - **Stats and streaks.** Focus time against a daily goal, kept, broken, and rest days, and where the time went.
 - **Trackers and check-ins.** Custom numbers, yes/no, 1 to 10 scales, or notes, asked for on a schedule, with charts.
 - **Optional accountability partner.** A friend holds a PIN, approves early exits, and hears when a seal breaks.
