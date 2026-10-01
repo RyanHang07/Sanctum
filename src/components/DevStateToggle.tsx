@@ -10,6 +10,7 @@ export function DevStateToggle() {
   return (
     <div
       aria-label="Dev state toggle"
+      data-dev-toggle
       className="fixed bottom-11 left-3 z-50 flex items-center gap-1 rounded-panel border border-line-input bg-panel p-1 text-meta shadow-toast"
     >
       <span className="px-2 font-mono text-[11px] text-faint">DEV</span>
