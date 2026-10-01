@@ -582,6 +582,9 @@ pub async fn gcal_save_event(app: AppHandle, draft: EventDraft) -> Result<(), St
         return tauri::async_runtime::spawn_blocking(move || {
             with_api(&app, |api| {
                 let master = api.get_event(&draft.calendar_id, &series)?;
+                if draft.time.is_none() && master["start"]["dateTime"].is_string() {
+                    return Err(Fail::Other("Switch a series to all day in Google Calendar.".into()));
+                }
                 let body = sync::series_body(&master, &title, draft.time.as_deref(), draft.duration_min)
                     .ok_or_else(|| Fail::Other("An all-day series can't take a time. Change it in Google Calendar.".into()))?;
                 Ok(api.patch_event(&draft.calendar_id, &series, &body)?)

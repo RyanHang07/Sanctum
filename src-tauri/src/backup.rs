@@ -106,16 +106,30 @@ pub fn export_csv(conn: &Connection) -> rusqlite::Result<Vec<(String, String)>> 
     Ok(files)
 }
 
-/// Writes a consistent copy of the live database (safe while it's in use).
+/// Writes a consistent copy of the live database (safe while it's in use). The copy is one
+/// self-contained file: the live database runs in WAL mode, and a copy that kept that header
+/// would need its -wal and -shm files to open.
 pub fn snapshot(conn: &Connection, dest: &Path) -> rusqlite::Result<()> {
     conn.execute("VACUUM INTO ?1", [dest.to_string_lossy().as_ref()])?;
+    let copy = Connection::open(dest)?;
+    copy.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(()))?;
     Ok(())
+}
+
+/// A restored backup may come from mid-seal. That seal is long over: close it, so neither the
+/// guard nor the next start treats this PC as sealed.
+pub fn close_open_sessions(conn: &Connection) -> rusqlite::Result<usize> {
+    conn.execute(
+        "UPDATE sessions SET outcome = 'broken', ended_at = COALESCE(last_seen_at, started_at) WHERE ended_at IS NULL",
+        [],
+    )
 }
 
 /// A file is restorable when it's a Sanctum database this version can open. Returns its schema.
 pub fn check_backup(path: &Path) -> Result<usize, String> {
     let bad = || "That file isn't a Sanctum backup.".to_string();
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|_| bad())?;
+    conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(())).map_err(|_| bad())?;
     let version = db::schema_version(&conn).map_err(|_| bad())?;
     if version == 0 || !["settings", "sessions", "profiles"].iter().all(|t| present(&conn, t)) {
         return Err(bad());
@@ -250,6 +264,7 @@ pub async fn backup_restore(app: AppHandle, path: String) -> Result<(), String> 
             std::fs::copy(from, &shared.db_path).map_err(|e| e.to_string())?;
             let c = db::open(&shared.db_path).map_err(|e| e.to_string())?;
             classify::seed_from_catalog(&c).map_err(|e| e.to_string())?;
+            close_open_sessions(&c).map_err(|e| e.to_string())?;
             Ok(c)
         };
         match replace(&source) {
@@ -307,6 +322,31 @@ mod tests {
         let notes = &csv.iter().find(|(n, _)| n == "notes.csv").unwrap().1;
         assert!(notes.contains("\"one, \"\"two\"\"\nthree\""));
         assert!(notes.starts_with("id,"));
+    }
+
+    #[test]
+    fn a_backup_of_a_live_wal_database_opens_alone_and_comes_back_unsealed() {
+        let dir = std::env::temp_dir().join(format!("sanctum-backup-wal-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let live = dir.join("live.db");
+        let copy = dir.join("copy.sanctum");
+        for p in [&live, &copy] {
+            let _ = std::fs::remove_file(p);
+        }
+        let conn = db::open(&live).unwrap();
+        conn.execute("INSERT INTO profiles (id, name, created_at) VALUES (1, 'Deep Work', 0)", []).unwrap();
+        // Mid-seal: a session with no end.
+        conn.execute("INSERT INTO sessions (profile_id, started_at, planned_minutes, last_seen_at) VALUES (1, 1000, 60, 5000)", []).unwrap();
+        snapshot(&conn, &copy).unwrap();
+        drop(conn);
+        // Opens read-only with no -wal or -shm beside it.
+        assert_eq!(check_backup(&copy).unwrap(), db::latest_version());
+        let restored = Connection::open(&copy).unwrap();
+        assert_eq!(close_open_sessions(&restored).unwrap(), 1);
+        let (outcome, ended): (String, i64) = restored.query_row("SELECT outcome, ended_at FROM sessions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((outcome.as_str(), ended), ("broken", 5000));
+        drop(restored);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -39,7 +39,9 @@ describe("quiet hours schedule", () => {
     // Midday, outside the default 11 PM to 7 AM window, so the schedule stays editable.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 8, 30, 12, 0));
-    onTestFinished(() => vi.useRealTimers());
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     await act(() => useStore.getState().loadQuiet());
     render(<QuietHoursSection />);
     const section = within(screen.getByRole("region", { name: "Quiet hours" }));

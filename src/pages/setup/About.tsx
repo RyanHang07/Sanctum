@@ -101,7 +101,7 @@ export function StartOverSection({ reload = () => window.location.reload() }: { 
     <Section title="Start over">
       <Row
         label="Erase everything on this PC"
-        hint="Profiles, distractions, tasks, history, trackers, notes, and settings. Your account, partner, and Protection stay."
+        hint="Profiles, distractions, tasks, history, trackers, notes, and settings. This PC signs out of Google and your account; the account, your partner, and Protection stay."
       >
         {asking ? null : (
           <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>

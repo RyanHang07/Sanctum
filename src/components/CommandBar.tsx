@@ -5,7 +5,7 @@ import { useTrackers } from "../state/trackers";
 import { usePlanner } from "../state/planner";
 import { noteTitle, useNotes } from "../state/notes";
 import { TABS } from "../state/appState";
-import { native } from "../lib/native";
+import { errorText, native } from "../lib/native";
 import { guessDistraction } from "../lib/rules";
 import { todayKey } from "../lib/planner";
 
@@ -57,6 +57,10 @@ export function commandsFor(query: string): Command[] {
       });
     }
   }
+  if (!sealed && s.quiet?.on) out.push({ id: "quiet-pause", group: "Focus", label: "Pause quiet hours 15 min", run: () => s.openQuietPause() });
+  if (!sealed && s.quiet?.pausedUntil) {
+    out.push({ id: "quiet-resume", group: "Focus", label: "Resume quiet hours", run: async () => s.applyQuiet(await native.quietResume()) });
+  }
   out.push({ id: "log", group: "Trackers", label: "Log a tracker entry", run: () => useTrackers.getState().openLog() });
   out.push({
     id: "new-note",
@@ -69,6 +73,12 @@ export function commandsFor(query: string): Command[] {
   });
   out.push({ id: "sidebar", group: "App", label: s.settings.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar", hint: "Ctrl B", run: () => s.toggleSidebar() });
   if (!sealed) out.push({ id: "onboarding", group: "App", label: "Run setup again", run: () => s.openOnboarding() });
+  // Your data (v0.1): the same as Setup › General, one keystroke away.
+  const saved = (lead: string) => (f: { name: string }) => s.showNotice({ lead, rest: f.name });
+  const failed = (e: unknown) => s.showNotice({ lead: errorText(e) });
+  out.push({ id: "backup", group: "App", label: "Back up now", run: () => native.backupCreate().then(saved("Backed up."), failed) });
+  out.push({ id: "export-json", group: "App", label: "Export data as JSON", run: () => native.exportData("json").then(saved("Exported."), failed) });
+  out.push({ id: "export-csv", group: "App", label: "Export data as CSV", run: () => native.exportData("csv").then(saved("Exported."), failed) });
 
   const text = query.trim();
   const q = text.toLowerCase();
