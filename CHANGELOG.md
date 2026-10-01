@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.1 features (2026-09-30)
+
+### Added
+- **Link a task to a session** (migration `0013_session_task`).
+  - Hover a Today task and click Focus: the next session is for it, with its profile picked. A strip above the wheels shows it, with × to unlink.
+  - Sealed, the task's name is in the top strip. The held page offers "Mark … done", and Enter again keeps the task.
+  - A suggested block links its own routine or item.
+- **Quiet hours** (Setup › Distractions, `quiet.rs`, migration `0014_quiet`).
+  - The Distractions list is blocked on a schedule outside sessions (days plus From and Until, overnight windows allowed). The extension blocks sites too.
+  - Soft: pause 15 minutes from the tray or the quiet overlay, with a one-sentence reason kept on this PC. No ladder, no partner, and streaks don't change.
+  - The schedule can't change mid-window. The sidebar shows "Quiet to 7:00 AM".
+- **Do Not Disturb while sealed** (Setup › General, `dnd.rs`). Sets Windows to alarms only through the internal Focus Assist switch and restores your setting afterward, even after a crash. On by default; the hint says when this Windows won't allow it.
+- **Your data** (Setup › General, `backup.rs`). Export to JSON or a folder of CSVs, back up the whole database, and restore a backup (the current data is backed up first). Files go to Documents\Sanctum. Sign-ins aren't included.
+- **Blocking gaps.**
+  - Microsoft Store apps in the app picker, with their names and logos, launched through shell:AppsFolder.
+  - Faster blocking: a process snapshot every 150 ms closes a sealed app as it starts, before the 1-second tick.
+  - The guard can close sealed apps run as administrator (Setup › Protection). Off by default, with a warning that unsaved work is lost; it stays on until the seal ends. Reinstall the guard (Repair) to pick it up.
+- **Planner depth.**
+  - Drag one-time items and single-day events between days in Week.
+  - Recurring Google events: This event or All events. All events changes the name, time, and length of every occurrence, or deletes the series (migration `0015_gcal_series`).
+- **Start over** (Setup › General): erases this PC's data after typing "start over", then runs setup again. Waits while sealed.
+- **Sounds** (Setup › General): six cues with a Chime, Latch, or Deep style each, auditioned on click, plus a volume. Defaults are Deep for enter, held, and check-in; Chime for blocked, broken, and exit. Seal broken, let out early, and check-in now play.
+
+### Changed
+- **The focus row is the scroll wheels again**, for Open, Sealed, and In event alike: labeled boxes the wheels' height, with Compact and End early filling the row.
+- **The state is the page.** Sealed has the held mesh gradient, dimmed and slowed, behind every page; In event has a coral (ember) version. They cross-fade between states, the page eases in, and the top color rule is gone. The mesh stops moving when the window is minimized or in the tray.
+- On Home, the date turns white while sealed or in an event, and the streak, search, and Customize step aside until Open.
+- The boot splash logo no longer shakes while the wordmark tightens.
+- Tests: 211 frontend and 100 Rust.
+
 ## State colors and the focus row (2026-09-30)
 
 ### Changed
@@ -7,7 +37,7 @@
   - Open is now bright (`#E6E9EF`) instead of gray, and its pill is brighter too. Sealed stays cobalt.
   - In event is now coral (`#FF8A6B`) instead of teal. That covers the pill, the top rule, the event bar, calendar events, and the extension tokens.
   - Dots for "off" or "not connected" are now neutral (`faint`), not the Open color.
-- **One card for all three states**, replacing the wheels.
+- **One card for all three states**, replacing the wheels. (Superseded the same day: the wheels are back; see v0.1 features.)
   - Open: "Seal [Interview Prep ▾] for [− 60 min +]" and a large Enter focus. The profile list shows what each one opens.
   - Sealed: "Sealed in [Interview Prep] for [32:14]" with Compact and End early.
   - In event: "In [Mock interview] for [18:00]" with Queue focus.

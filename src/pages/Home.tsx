@@ -8,17 +8,17 @@ import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
 import { EVENTS, native, onNative } from "../lib/native";
-import { profileNote, ruleLabel } from "../lib/rules";
+import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
-import { LengthStepper, ProfileMenu } from "../components/FocusControls";
+import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
 import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
 import { addDays, blockTimes, longTime, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
-import type { DayStatus, StatsOverview } from "../lib/types";
+import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -154,59 +154,53 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
   );
 }
 
-// --- The state card: Open, Sealed, and In event share one shape (decided 2026-09-30) ---
-// A sentence on the left ("Seal Interview Prep for 60 min", "Sealed in Interview Prep for
-// 32:14", "In Mock interview for 18:00"), one large action on the right, a line of detail under.
-
-const SENTENCE = "flex min-w-0 grow flex-wrap items-center gap-x-3 gap-y-2 text-[22px] font-semibold tracking-[-0.02em] text-muted";
-
-/** A filled-in value in the sentence, the same size as the controls in the Open card. */
-function Slot({ children, mono = false, role, label }: { children: ReactNode; mono?: boolean; role?: string; label?: string }) {
+/** The task the next session is for (v0.1): it takes the suggestion's place until cleared. */
+function TaskStrip({ task }: { task: TaskLink }) {
+  const clear = () => useStore.getState().setFocusTask(null);
   return (
-    <span
-      role={role}
-      aria-label={label}
-      className={`flex h-12 min-w-0 items-center rounded-panel border border-line-input px-4 text-text ${mono ? "font-mono text-[24px] font-medium tracking-[-0.03em]" : "truncate"}`}
-    >
-      {children}
-    </span>
+    <div data-testid="focus-task" className="flex h-11 items-center gap-3 rounded-control border border-sealed-line bg-sealed-tint pl-3 pr-1">
+      <span className="rounded-[4px] bg-sealed px-[6px] py-[2px] font-mono text-[10px] font-medium tracking-[0.06em] text-sealed-on">FOR</span>
+      <span className="min-w-0 truncate text-body font-medium text-text">{task.title}</span>
+      <span className="ml-auto shrink-0 text-meta text-text-2">Check it off when the seal holds</span>
+      <Button variant="quiet" size="sm" aria-label="Unlink task" className="w-[26px] px-0" onClick={clear}>
+        <XIcon size={10} />
+      </Button>
+    </div>
   );
 }
 
-function StateCard({
-  testId,
-  label,
-  tone,
-  top,
-  sentence,
-  action,
-  progress,
-  detail,
-}: {
-  testId: string;
-  label: string;
-  tone: "open" | "sealed" | "event";
-  top?: ReactNode;
-  sentence: ReactNode;
-  action: ReactNode;
-  progress?: { value: number; className: string };
-  detail: ReactNode;
-}) {
-  const border = tone === "sealed" ? "border-sealed-line" : tone === "event" ? "border-event-line" : "border-line";
+/** Same task: kind, id, and day. */
+const sameTask = (a: Pick<TaskLink, "kind" | "id" | "date">, b: Pick<AgendaItem, "kind" | "id" | "date">) =>
+  a.kind === b.kind && a.id === b.id && a.date === b.date;
+
+// --- The state card: Open, Sealed, and In event share one shape (decided 2026-09-30) ---
+// A strip on top, then labeled boxes the height of the focus wheels (82px), then the action on
+// the right under a small label. Open has the wheels; Sealed and In event fill the same boxes.
+
+const BOX = "flex h-[82px] items-center justify-center rounded-panel border border-line-input bg-raised px-3";
+const LABEL = "px-1 text-[11px] font-medium uppercase tracking-[0.06em]";
+
+/** A labeled box the size of a wheel, holding a value instead of a picker. */
+function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <section data-testid={testId} aria-label={label} className={`page-in flex flex-col gap-4 rounded-panel border bg-panel p-5 ${border}`}>
-      {top}
-      <div className="flex items-center gap-6">
-        <div className={SENTENCE}>{sentence}</div>
-        <div className="flex w-[220px] shrink-0 flex-col gap-[6px]">{action}</div>
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <span className={`${LABEL} text-faint`}>{label}</span>
+      <div className={BOX}>{children}</div>
+    </div>
+  );
+}
+
+/** The 44px strip on top of the Sealed and In event cards, where Open has its suggestion. */
+function Strip({ tone, children, progress }: { tone: "sealed" | "event"; children: ReactNode; progress: number }) {
+  const bar = tone === "sealed" ? "bg-sealed" : "bg-event";
+  const box = tone === "sealed" ? "border-sealed-line bg-sealed-tint" : "border-event-line bg-event-tint";
+  return (
+    <div className={`relative flex h-11 items-center gap-3 overflow-hidden rounded-control border px-3 ${box}`}>
+      <span className="flex min-w-0 grow items-center gap-3 truncate text-meta text-text-2">{children}</span>
+      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
+        <div className={`h-full transition-[width] duration-enter ease-ui ${bar}`} style={{ width: `${Math.min(100, Math.max(0, progress) * 100)}%` }} />
       </div>
-      {progress ? (
-        <div className="h-1 overflow-hidden rounded-full bg-line">
-          <div className={`h-full transition-[width] duration-enter ease-ui ${progress.className}`} style={{ width: `${Math.min(100, Math.max(0, progress.value) * 100)}%` }} />
-        </div>
-      ) : null}
-      <div className="flex min-w-0 items-center gap-[6px] text-meta text-muted">{detail}</div>
-    </section>
+    </div>
   );
 }
 
@@ -215,9 +209,9 @@ function FocusPanel() {
   const profile = useStore(selectedProfile);
   const duration = useStore((s) => s.durationMin);
   const suggestion = useStore((s) => s.suggestion);
+  const task = useStore((s) => s.focusTask);
   const closing = useSealPreview(profile?.id);
   const distractionCount = useStore((s) => s.distractions.length);
-  const now = useNow(30_000);
 
   const pickProfile = (id: number) => {
     useStore.getState().selectProfile(id);
@@ -227,66 +221,50 @@ function FocusPanel() {
     useStore.getState().setDuration(m);
     useStore.getState().markManualFocus();
   };
-  const choices = useMemo(
-    () => profiles.map((p) => ({ id: p.id, name: p.name, note: p.rules.length ? `Opens ${p.rules.map(ruleLabel).join(", ")}` : "Opens nothing" })),
-    [profiles],
-  );
+  const profileOptions = useMemo(() => profiles.map((p) => ({ value: p.id, label: p.name })), [profiles]);
+  const durationOptions = useMemo(() => durationsMin.map((m) => ({ value: m, label: `${m} min` })), []);
 
-  if (profiles.length === 0) {
-    return (
-      <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-5">
-        <SuggestedCard s={suggestion} />
-        <div className="flex h-[82px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
+  return (
+    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
+      {task ? <TaskStrip task={task} /> : <SuggestedCard s={suggestion} />}
+      {profiles.length === 0 ? (
+        <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
           No profiles yet.
           <button type="button" onClick={() => useStore.getState().openSetup("profiles")} className="text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
             Create one in Setup
           </button>
         </div>
-      </section>
-    );
-  }
-
-  return (
-    <StateCard
-      testId="focus-row"
-      label="Focus"
-      tone="open"
-      top={<SuggestedCard s={suggestion} />}
-      sentence={
-        <>
-          <span>Seal</span>
-          <ProfileMenu value={profile?.id ?? null} options={choices} onChange={pickProfile} />
-          <span>for</span>
-          <LengthStepper value={duration} options={durationsMin} onChange={pickDuration} />
-        </>
-      }
-      action={
-        // The label sits just above the button's center, so the pair of lines reads as centered.
-        <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
-          <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
-          <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
-            <Kbd onFill>Ctrl ↵</Kbd>
-          </span>
-        </Button>
-      }
-      detail={
-        <>
-          {profile && closing.length ? (
-            <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="flex min-w-0 items-center gap-[6px] text-text-2">
-              <LockIcon size={11} className="shrink-0 text-sealed" />
-              <span className="truncate">
-                {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
+      ) : (
+        <div className="flex items-end justify-between gap-6">
+          <div className="flex items-end gap-3">
+            <Wheel label="Profile" options={profileOptions} value={profile?.id ?? null} onChange={pickProfile} className="w-[220px] shrink-0" />
+            <Wheel label="Length" options={durationOptions} value={duration} onChange={pickDuration} className="w-[112px] shrink-0" mono />
+          </div>
+          {/* Labeled like the wheels: the note sits where their labels do, the button matches their boxes. */}
+          <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
+            {profile && closing.length ? (
+              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className={`flex min-w-0 items-center gap-[6px] ${LABEL} text-text-2`}>
+                <LockIcon size={10} className="shrink-0 text-sealed" />
+                <span className="truncate">
+                  {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
+                </span>
               </span>
-            </span>
-          ) : (
-            <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="truncate">
-              {profile ? profileNote(profile, distractionCount) : "Focus"}
-            </span>
-          )}
-          <span className="shrink-0">· ends {clock(now + duration * 60_000)}</span>
-        </>
-      }
-    />
+            ) : (
+              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className={`truncate ${LABEL} text-faint`}>
+                {profile ? profileNote(profile, distractionCount) : "Focus"}
+              </span>
+            )}
+            {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
+            <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
+              <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
+              <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
+                <Kbd onFill>Ctrl ↵</Kbd>
+              </span>
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -307,40 +285,41 @@ function SessionBar() {
   const name = session?.profileName ?? fallbackProfile;
 
   return (
-    <StateCard
-      testId="session-bar"
-      label="Sealed session"
-      tone="sealed"
-      sentence={
-        <>
-          <span>Sealed in</span>
-          <Slot>{name}</Slot>
-          <span>for</span>
-          <Slot mono role="timer" label={`${countdown(remaining)} left`}>
-            {countdown(remaining)}
-          </Slot>
-        </>
-      }
-      action={
-        <>
-          <Button variant="raised" className="h-[38px] w-full" onClick={() => void native.showCompact()}>
-            Compact<Kbd>Ctrl M</Kbd>
-          </Button>
-          <Button variant="ghost" className="h-[38px] w-full" onClick={openEndEarly}>
-            End early
-          </Button>
-        </>
-      }
-      progress={{ value: progress, className: "bg-sealed" }}
-      detail={
+    <section data-testid="session-bar" aria-label="Sealed session" className="flex flex-col gap-3 rounded-panel border border-sealed-line bg-panel p-3">
+      <Strip tone="sealed" progress={progress}>
         <span className="truncate">
-          <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {name} · {planned} min · ends {clock(ends)} · {sealed}{" "}
-          {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
+          <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.task ? <span className="font-medium text-text">{session.task.title} · </span> : null}
+          {name} · {planned} min · ends {clock(ends)}
           {session?.idle ? " · Idle, the seal extends until you're back" : ""}
           {session?.broken ? " · Seal broken, the streak resets" : ""}
         </span>
-      }
-    />
+      </Strip>
+      <div className="flex items-end justify-between gap-6">
+        <div className="flex items-end gap-3">
+          <Field label="Profile" className="w-[220px] shrink-0">
+            <span className="truncate text-[15px] font-semibold text-text">{name}</span>
+          </Field>
+          <Field label="Time left" className="w-[112px] shrink-0">
+            <span role="timer" aria-label={`${countdown(remaining)} left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
+              {countdown(remaining)}
+            </span>
+          </Field>
+        </div>
+        <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
+          <span className={`truncate ${LABEL} text-text-2`}>
+            {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
+          </span>
+          <div className="flex h-[82px] flex-col gap-[6px]">
+            <Button variant="raised" className="h-auto! w-full flex-1" onClick={() => void native.showCompact()}>
+              Compact<Kbd>Ctrl M</Kbd>
+            </Button>
+            <Button variant="ghost" className="h-auto! w-full flex-1" onClick={openEndEarly}>
+              End early
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -358,46 +337,42 @@ function EventBar() {
   const left = Math.max(0, endMs - now);
   const progress = endMs > startMs ? (now - startMs) / (endMs - startMs) : 0;
   return (
-    <StateCard
-      testId="event-bar"
-      label="In event"
-      tone="event"
-      sentence={
-        <>
-          <span>In</span>
-          <Slot>{e.title}</Slot>
-          <span>for</span>
-          <Slot mono role="timer" label={`${e.left} left`}>
-            {countdown(left)}
-          </Slot>
-        </>
-      }
-      action={
-        queued ? (
-          <Button variant="ghost" size="cta" className="w-full text-[15px]" onClick={() => setQueued(false)}>
-            Cancel queue
-          </Button>
-        ) : (
-          <Button variant="tint" size="cta" className="w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
-            Queue focus at {e.until}
-          </Button>
-        )
-      }
-      progress={{ value: progress, className: "bg-event" }}
-      detail={
-        <>
-          <span className="truncate">
-            <span className="font-medium text-event">In event</span> · {e.range} · {e.left} left · ends {e.until} ·{" "}
-            {queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}
-          </span>
-          {meeting?.htmlLink ? (
-            <button type="button" onClick={() => void native.gcalOpen(meeting.htmlLink!)} className="ml-auto shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
-              Open in Google
-            </button>
-          ) : null}
-        </>
-      }
-    />
+    <section data-testid="event-bar" aria-label="In event" className="flex flex-col gap-3 rounded-panel border border-event-line bg-panel p-3">
+      <Strip tone="event" progress={progress}>
+        <span className="truncate">
+          <span className="font-medium text-event">In event</span> · {e.range} · {e.left} left
+        </span>
+        {meeting?.htmlLink ? (
+          <button type="button" onClick={() => void native.gcalOpen(meeting.htmlLink!)} className="ml-auto shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
+            Open in Google
+          </button>
+        ) : null}
+      </Strip>
+      <div className="flex items-end justify-between gap-6">
+        <div className="flex items-end gap-3">
+          <Field label="Event" className="w-[220px] shrink-0">
+            <span className="truncate text-[15px] font-semibold text-text">{e.title}</span>
+          </Field>
+          <Field label="Time left" className="w-[112px] shrink-0">
+            <span role="timer" aria-label={`${e.left} left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
+              {countdown(left)}
+            </span>
+          </Field>
+        </div>
+        <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
+          <span className={`truncate ${LABEL} text-text-2`}>{queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}</span>
+          {queued ? (
+            <Button variant="ghost" size="cta" className="w-full text-[15px]" onClick={() => setQueued(false)}>
+              Cancel queue
+            </Button>
+          ) : (
+            <Button variant="tint" size="cta" className="w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
+              Queue focus at {e.until}
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -433,10 +408,12 @@ function useTodayAgenda(): AgendaItem[] {
   return useAgenda(days)[today] ?? [];
 }
 
-/** The item a running seal belongs to: its block is now and its profile is the session's. */
+/** The item a running seal belongs to: its linked task, or a block that is now with the session's profile. */
 function useNowKey(items: AgendaItem[]): string | null {
   const session = useStore((s) => s.session);
   if (!session) return null;
+  const task = session.task;
+  if (task) return items.find((i) => sameTask(task, i))?.key ?? null;
   const now = Date.now();
   return (
     items.find((i) => {
@@ -452,6 +429,8 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const profiles = useStore((s) => s.profiles);
   const toggle = usePlanner((s) => s.toggle);
   const nowKey = useNowKey(items);
+  const focusTask = useStore((s) => s.focusTask);
+  const canLink = useStore((s) => s.appState === "open" && !s.session);
   const now = useNow();
   return (
     <Panel
@@ -487,13 +466,14 @@ function TodayPanel({ strip }: { strip: boolean }) {
             );
           }
           const current = t.key === nowKey;
+          const linked = canLink && focusTask !== null && sameTask(focusTask, t);
           const tag = profiles.find((p) => p.id === t.profileId)?.name;
           return (
             <div
               key={t.key}
               data-now={current || undefined}
-              className={`row-in flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
-                current ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
+              className={`group row-in flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
+                current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
               }`}
             >
               <button
@@ -510,6 +490,20 @@ function TodayPanel({ strip }: { strip: boolean }) {
               </button>
               <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
               {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
+              {canLink && !t.done ? (
+                // Links the next session to this task (and its profile). Shown on hover, kept while linked.
+                <button
+                  type="button"
+                  aria-pressed={linked}
+                  aria-label={linked ? `Unlink ${t.title}` : `Focus on ${t.title}`}
+                  onClick={() => useStore.getState().setFocusTask(linked ? null : { kind: t.kind as TaskLink["kind"], id: t.id, date: t.date, title: t.title, profileId: t.profileId })}
+                  className={`flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-[11px] font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
+                    linked ? "bg-sealed text-sealed-on" : "border border-line-input text-text-2 opacity-0 hover:text-text group-hover:opacity-100"
+                  }`}
+                >
+                  {linked ? "For focus" : "Focus"}
+                </button>
+              ) : null}
               {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
               {t.kind === "routine" ? <RepeatGlyph className="h-3 w-3 shrink-0 text-faint" /> : null}
               <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : ""}</span>
@@ -601,12 +595,19 @@ export function Home() {
   const meeting = useStore((s) => s.meeting);
   const [a, b] = homeHeadline(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT);
   const show = (p: HomePanel) => !hidden.includes(p);
+  const open = appState === "open";
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
       <div className="flex h-control items-center justify-between">
-        <span className="text-body text-muted">{formatDate(new Date())}</span>
-        <div className="flex items-center gap-2">
+        <span className={`text-body transition-colors duration-700 ease-ui ${open ? "text-muted" : "text-text"}`}>{formatDate(new Date())}</span>
+        {/* Sealed or in an event, the tools step aside and come back when the state returns to Open. */}
+        <div
+          data-testid="home-tools"
+          inert={!open}
+          aria-hidden={!open || undefined}
+          className={`flex items-center gap-2 transition-[opacity,transform,visibility] duration-500 ease-ui ${open ? "visible opacity-100" : "invisible -translate-y-[6px] opacity-0"}`}
+        >
           {show("streak") ? <StreakChip /> : null}
           <button
             type="button"

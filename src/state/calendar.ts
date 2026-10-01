@@ -28,7 +28,8 @@ export interface CalendarStore {
   setSelected: (id: string, selected: boolean) => Promise<void>;
   syncNow: () => void;
   saveEvent: (d: EventDraft) => Promise<boolean>;
-  deleteEvent: (e: CalEvent) => Promise<boolean>;
+  /** One occurrence, or with `series` every occurrence of its series. */
+  deleteEvent: (e: CalEvent, series?: boolean) => Promise<boolean>;
 }
 
 const notice = (e: unknown) => useStore.getState().showNotice({ lead: errorText(e) });
@@ -124,10 +125,12 @@ export const useCalendar = create<CalendarStore>()((set, get) => ({
     }
   },
 
-  deleteEvent: async (e) => {
+  deleteEvent: async (e, series = false) => {
     try {
-      await native.gcalDeleteEvent(e.calendarId, e.eventId);
-      set({ events: get().events.filter((x) => !(x.calendarId === e.calendarId && x.eventId === e.eventId)) });
+      const seriesId = series ? (e.seriesId ?? null) : null;
+      await native.gcalDeleteEvent(e.calendarId, e.eventId, seriesId);
+      const gone = (x: CalEvent) => x.calendarId === e.calendarId && (seriesId ? x.seriesId === seriesId : x.eventId === e.eventId);
+      set({ events: get().events.filter((x) => !gone(x)) });
       return true;
     } catch (err) {
       notice(err);

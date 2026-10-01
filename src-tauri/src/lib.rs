@@ -1,5 +1,6 @@
 mod activity;
 mod apps;
+mod backup;
 mod blocker;
 pub mod bridge;
 mod browser;
@@ -7,6 +8,7 @@ mod classify;
 mod cloud;
 mod db;
 mod distractions;
+mod dnd;
 mod engine;
 mod gcal;
 pub mod guard;
@@ -17,6 +19,7 @@ mod launcher;
 mod notes;
 mod planner;
 mod profiles;
+mod quiet;
 mod session;
 mod stats;
 mod tamper;
@@ -189,6 +192,17 @@ fn set_setting(shared: State<Shared>, key: String, value: String) -> Result<(), 
     db::set_setting(&conn, &key, &value).map_err(|e| e.to_string())?;
     shared.activity.mark_dirty();
     Ok(())
+}
+
+/// The guard closing apps run as administrator (v0.1). Turning it off waits for the seal.
+#[tauri::command]
+fn guard_close_elevated(shared: State<Shared>, enabled: bool) -> Result<bool, String> {
+    if !enabled && shared.sealed() {
+        return Err("This stays on until the seal ends.".into());
+    }
+    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    db::set_setting(&conn, guard::CLOSE_ELEVATED, if enabled { "1" } else { "0" }).map_err(|e| e.to_string())?;
+    Ok(enabled)
 }
 
 #[tauri::command]
@@ -460,6 +474,47 @@ async fn guard_uninstall(app: AppHandle) -> Result<guard::GuardStatus, String> {
     }
 }
 
+/// Start over (Setup › General): a fresh database with the defaults, and this PC signed out of
+/// Google Calendar and the account, so first-run setup opens again. The account, the partner,
+/// and Protection are left as they are. Never while sealed.
+#[tauri::command]
+async fn reset_all(app: AppHandle) -> Result<(), String> {
+    {
+        let shared = app.state::<Shared>();
+        if shared.sealed() || shared.engine.is_active() {
+            return Err("Starting over waits until the seal ends.".into());
+        }
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = gcal::sign_out(&app);
+        cloud::sign_out(&app);
+        let shared = app.state::<Shared>();
+        let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
+        // Swap in a throwaway connection so the old one closes and its files can go.
+        *conn = rusqlite::Connection::open_in_memory().map_err(|e| e.to_string())?;
+        for ext in ["", "-wal", "-shm"] {
+            let path = format!("{}{ext}", shared.db_path.display());
+            if std::path::Path::new(&path).exists() {
+                std::fs::remove_file(&path).map_err(|e| format!("Couldn't clear the old data: {e}"))?;
+            }
+        }
+        let fresh = db::open(&shared.db_path).map_err(|e| e.to_string())?;
+        classify::seed_from_catalog(&fresh).map_err(|e| e.to_string())?;
+        // A clean slate in dev builds too: no sample profiles, so first-run setup shows.
+        if cfg!(debug_assertions) {
+            db::set_setting(&fresh, "dev_seeded", "1").map_err(|e| e.to_string())?;
+        }
+        *conn = fresh;
+        drop(conn);
+        engine::load_quiet(&app);
+        shared.unlock.clear();
+        shared.activity.mark_dirty();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 fn installed_apps(shared: &Shared, refresh: bool) -> Vec<apps::InstalledApp> {
     let mut cache = shared.apps.lock().unwrap();
     if refresh || cache.is_none() {
@@ -630,8 +685,15 @@ pub fn run() {
             }
             tray::create(app.handle())?;
             tray::spawn_pulse(app.handle().clone());
+            engine::load_quiet(app.handle());
             engine::resume_on_startup(app.handle());
+            // Sanctum closed mid-seal last time: give Do Not Disturb back if no seal resumed.
+            if !app.state::<Shared>().sealed() {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || dnd::restore(&handle));
+            }
             engine::spawn_loop(app.handle().clone());
+            engine::spawn_watch(app.handle().clone());
             activity::spawn(app.handle().clone());
             gcal::spawn(app.handle().clone());
             trackers::spawn(app.handle().clone());
@@ -713,6 +775,7 @@ pub fn run() {
             distraction_suggestions,
             browser::browser_status,
             guard_status,
+            reset_all,
             notes::list_notes,
             notes::save_note,
             notes::pin_note,
@@ -740,6 +803,19 @@ pub fn run() {
             engine::get_session,
             engine::preview_seal,
             engine::start_session,
+            engine::quiet_status,
+            dnd::dnd_status,
+            guard_close_elevated,
+            backup::export_data,
+            backup::backup_create,
+            backup::backup_list,
+            backup::backup_restore,
+            backup::data_reveal,
+            dnd::dnd_set_enabled,
+            engine::quiet_save,
+            engine::quiet_pause,
+            engine::quiet_resume,
+            engine::intercept_quiet_pause,
             unlock::ladder_open,
             unlock::ladder_view,
             unlock::ladder_reason,

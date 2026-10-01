@@ -10,6 +10,8 @@ import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
 import type { Note, NoteDraft } from "./types";
 import { dayStatus, streaks } from "./stats";
+import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
+import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
@@ -58,6 +60,8 @@ interface MockState {
   browsers: BrowserStatus;
   guard: { installed: boolean; decline: boolean; restarts: number[] };
   notes: Note[];
+  quiet: { config: QuietConfig; pausedUntil: number | null; pauses: string[] };
+  backups: { name: string; path: string; bytes: number; modifiedAt: number }[];
   cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[]; invitesEmailed?: string[] };
 }
 
@@ -101,6 +105,8 @@ export function resetMockBackend() {
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
     guard: { installed: false, decline: false, restarts: [] },
     notes: [],
+    quiet: { config: { ...DEFAULT_QUIET }, pausedUntil: null, pauses: [] },
+    backups: [],
     browsers: {
       extensionDir: "C:\\Mock\\Sanctum\\extension",
       extensionId: "iiapijigajhpjklfkokmjobdfconijag",
@@ -277,6 +283,12 @@ const handlers: Record<string, (a: any) => unknown> = {
   delete_note: ({ id }: { id: number }) => {
     state.notes = state.notes.filter((n) => n.id !== id);
   },
+  reset_all: () => {
+    if (state.session) throw "Starting over waits until the seal ends.";
+    resetMockBackend();
+    // A clean slate: no sample profiles, so first-run setup shows.
+    state.settings.set("dev_seeded", "1");
+  },
   app_version: () => "0.1.0",
   update_check: () => null,
   update_install: () => {
@@ -338,6 +350,55 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
 
   get_session: () => (state.session ? view() : null),
+  export_data: ({ format }: { format: string }) => {
+    const name = `Sanctum export ${new Date().toISOString().slice(0, 10)}${format === "json" ? ".json" : ""}`;
+    return { name, path: `C:\Mock\Documents\Sanctum\Exports\${name}`, bytes: format === "json" ? 2048 : 0, modifiedAt: Date.now() };
+  },
+  backup_create: () => {
+    const name = `Sanctum backup ${new Date().toISOString().slice(0, 19).replace("T", " ").replace(/:/g, "")}.sanctum`;
+    const f = { name, path: `C:\Mock\Documents\Sanctum\Backups\${name}`, bytes: 245_760, modifiedAt: Date.now() + state.backups.length };
+    state.backups.unshift(f);
+    return f;
+  },
+  backup_list: () => clone(state.backups),
+  backup_restore: ({ path }: { path: string }) => {
+    if (state.session) throw "Restoring waits until the seal ends.";
+    if (!state.backups.some((b) => b.path === path)) throw "That file isn't a Sanctum backup.";
+  },
+  guard_close_elevated: ({ enabled }: { enabled: boolean }) => {
+    if (!enabled && state.session) throw "This stays on until the seal ends.";
+    state.settings.set("guard_close_elevated", enabled ? "1" : "0");
+    return enabled;
+  },
+  dnd_status: () => ({ enabled: state.settings.get("dnd_on_seal") !== "0", supported: true, active: !!state.session && state.settings.get("dnd_on_seal") !== "0" }),
+  dnd_set_enabled: ({ enabled }: { enabled: boolean }) => {
+    state.settings.set("dnd_on_seal", enabled ? "1" : "0");
+    return handlers.dnd_status!({});
+  },
+  quiet_status: () => mockQuietStatus(state.quiet.config, state.quiet.pausedUntil, !!state.session),
+  quiet_save: ({ config }: { config: QuietConfig }) => {
+    const err = quietError(config);
+    if (err) throw err;
+    if (mockQuietStatus(state.quiet.config, state.quiet.pausedUntil, !!state.session).on) throw "The schedule can change after this window ends.";
+    state.quiet.config = { ...config };
+    return handlers.quiet_status!({});
+  },
+  quiet_pause: ({ reason }: { reason: string }) => {
+    const s = mockQuietStatus(state.quiet.config, state.quiet.pausedUntil, !!state.session);
+    if (!s.on) throw "Quiet hours aren't blocking right now.";
+    if (reason.trim().length < QUIET_MIN_REASON) throw "Say why in a sentence.";
+    state.quiet.pauses.push(reason.trim());
+    state.quiet.pausedUntil = Date.now() + QUIET_PAUSE_MS;
+    const next = handlers.quiet_status!({});
+    bus.emit("sanctum://quiet", next);
+    return next;
+  },
+  quiet_resume: () => {
+    state.quiet.pausedUntil = null;
+    const next = handlers.quiet_status!({});
+    bus.emit("sanctum://quiet", next);
+    return next;
+  },
   preview_seal: ({ profileId }) => {
     const p = find(profileId);
     const opens = new Set(p.rules.filter((r) => r.kind === "launch_app").map((r) => r.value));
@@ -345,7 +406,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       .filter((d) => d.kind === "app" && state.running.has(d.value) && !opens.has(d.value))
       .map((d) => d.label ?? d.value);
   },
-  start_session: ({ profileId, minutes }) => {
+  start_session: ({ profileId, minutes, task }) => {
     if (state.session) throw "A session is already running.";
     if (!DURATIONS.includes(minutes)) throw "Focus length must be one of 30, 60, 90, or 120 minutes.";
     const p = find(profileId);
@@ -363,6 +424,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       sealedCount: state.distractions.length,
       broken: false,
       idle: false,
+      task: task ? { ...task, title: task.title.trim() } : null,
     };
     state.idleSince = null;
     state.idleTotal = 0;
@@ -580,7 +642,7 @@ function mockEvent(calendarId: string, eventId: string, title: string, date: str
 function sampleEvents(): CalEvent[] {
   const t = todayKey();
   return [
-    mockEvent("primary@example.com", "standup", "Team standup", t, "09:30", 15, { attendees: 4, recurring: true }),
+    mockEvent("primary@example.com", "standup", "Team standup", t, "09:30", 15, { attendees: 4, recurring: true, seriesId: "standup-series" }),
     mockEvent("primary@example.com", "deep", "Deep work #focus", addDays(t, 1), "14:00", 90),
     mockEvent("primary@example.com", "dentist", "Dentist", addDays(t, 2), "16:00", 60),
     mockEvent("primary@example.com", "offsite", "Offsite", addDays(t, 3), null, null, { endDate: addDays(t, 4) }),
@@ -627,17 +689,27 @@ const gcalHandlers: Record<string, (a: any) => unknown> = {
     const title = draft.title.trim();
     if (!title) throw "Give it a name.";
     if (!state.gcal.email) throw "Google Calendar is not connected.";
+    if (draft.seriesId) {
+      // The whole series: every occurrence takes the name, time, and length; days stay.
+      state.gcal.events = state.gcal.events.map((x) =>
+        x.calendarId === draft.calendarId && x.seriesId === draft.seriesId
+          ? withCalendar(mockEvent(x.calendarId, x.eventId, title, x.date, draft.time, draft.durationMin, { recurring: true, seriesId: x.seriesId, attendees: x.attendees }))
+          : x,
+      );
+      return;
+    }
     const prev = state.gcal.events.find((e) => e.calendarId === draft.calendarId && e.eventId === draft.eventId);
     const e = withCalendar(
       mockEvent(draft.calendarId, draft.eventId ?? `ev${state.nextId++}`, title, draft.date, draft.time, draft.durationMin, {
         attendees: prev?.attendees ?? 0,
         recurring: prev?.recurring ?? false,
+        seriesId: prev?.seriesId ?? null,
       }),
     );
     state.gcal.events = [...state.gcal.events.filter((x) => x !== prev), e];
   },
-  gcal_delete_event: ({ calendarId, eventId }) => {
-    state.gcal.events = state.gcal.events.filter((e) => !(e.calendarId === calendarId && e.eventId === eventId));
+  gcal_delete_event: ({ calendarId, eventId, seriesId }) => {
+    state.gcal.events = state.gcal.events.filter((e) => !(e.calendarId === calendarId && (seriesId ? e.seriesId === seriesId : e.eventId === eventId)));
   },
   gcal_open: () => undefined,
 };
@@ -806,6 +878,7 @@ function tick() {
     focusMinutes: s.plannedMinutes,
     attempts: s.attempts,
     broken: s.broken,
+    task: s.task ?? null,
   };
   finishSession();
   bus.emit(EV.session, null);

@@ -94,6 +94,19 @@
 .held-blob-b { animation: held-blob-b 17s ease-in-out infinite; }
 .held-blob-c { animation: held-blob-c 19s ease-in-out infinite; }
 .held-blob-d { animation: held-blob-d 15s ease-in-out infinite; }
+/* The sealed and event themes: the same mesh, three times slower, frozen while the window is out
+   of sight. Switching states cross-fades the backdrops (STATE_FADE_MS). */
+.mesh-ambient .held-blob-a { animation-duration: 42s; }
+.mesh-ambient .held-blob-b { animation-duration: 51s; }
+.mesh-ambient .held-blob-c { animation-duration: 57s; }
+.mesh-ambient .held-blob-d { animation-duration: 45s; }
+@keyframes state-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.state-backdrop { opacity: 0; transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1); }
+.state-backdrop-on { opacity: 1; animation: state-backdrop-in 700ms cubic-bezier(0.4, 0, 0.2, 1); }
+.mesh[data-paused] > * { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .mesh > * { animation: none !important; }
+}
 .held-leg { transform-box: fill-box; transform-origin: bottom; animation: held-leg 0.5s cubic-bezier(0.3, 0.8, 0.2, 1) both; }
 .held-leg-2 { animation-delay: 0.08s; }
 .held-beam { transform-box: fill-box; transform-origin: center; animation: held-beam 0.5s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }

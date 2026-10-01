@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, Kbd } from "./Button";
 import { XIcon } from "./icons";
+import { play } from "../lib/sound";
 import { useTrackers } from "../state/trackers";
 import { usePlanner } from "../state/planner";
 import { addDays, agendaFor, longTime, todayKey, type AgendaItem } from "../lib/planner";
@@ -187,6 +188,7 @@ export function CheckinDialog() {
   // A scheduled check-in starts numbers at their last value (nudge from there); Log entry starts empty.
   useEffect(() => {
     if (!prompt) return;
+    if (prompt.kind === "scheduled") play("checkin");
     const next: Record<number, Draft> = {};
     for (const t of trackers) {
       const last = entriesOf(entries, t.id).at(-1);

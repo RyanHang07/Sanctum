@@ -22,6 +22,7 @@ describe("design tokens", () => {
     expect(cssVar("event-tint")).toBe(tokens.color.event.tint);
     expect(cssVar("event-line")).toBe(tokens.color.event.line);
     tokens.color.held.forEach((v, i) => expect(cssVar(`held-${i + 1}`)).toBe(v));
+    tokens.color.ember.forEach((v, i) => expect(cssVar(`ember-${i + 1}`)).toBe(v));
   });
 
   it("exposes every token color to Tailwind by name", () => {
@@ -38,6 +39,7 @@ describe("design tokens", () => {
     });
     expect(colors.event).toMatchObject({ DEFAULT: "#FF8A6B", tint: "#2A1712", line: "#5A2E24" });
     expect(colors.held).toEqual({ "1": "#1F3FD9", "2": "#2F5BFF", "3": "#6A4CFF", "4": "#12A8C9" });
+    expect(colors.ember).toEqual({ "1": "#C8402A", "2": "#FF8A6B", "3": "#D9466A", "4": "#F2A33A" });
     for (const name of Object.keys(tokens.color)) expect(colors, name).toHaveProperty(name);
   });
 

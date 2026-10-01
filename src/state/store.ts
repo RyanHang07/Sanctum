@@ -7,8 +7,8 @@ import {
   isTabLocked,
 } from "./appState";
 import { errorText, native } from "../lib/native";
-import type { CalEvent, Distraction, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, SessionView } from "../lib/types";
-import { play, setSoundsEnabled } from "../lib/sound";
+import type { CalEvent, Distraction, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, QuietStatus, SessionView, TaskLink } from "../lib/types";
+import { DEFAULT_STYLES, parseStyles, play, setSoundStyles, setSoundsEnabled, setSoundVolume, type Cue, type Style, type Styles } from "../lib/sound";
 import type { Suggestion } from "../lib/planner";
 
 const TOAST_MS = 3200;
@@ -33,6 +33,10 @@ export interface Settings {
   displayName: string;
   compactOnFocus: boolean;
   sounds: boolean;
+  /** 0 to 100. */
+  soundVolume: number;
+  /** The style chosen for each cue (Setup › General › Sounds). */
+  soundStyles: Styles;
   dailyGoalMin: number;
   /** Planned rest days, a weekday mask (bit 0 = Sunday). Never break the streak. */
   restDaysMask: number;
@@ -106,6 +110,11 @@ export interface Store {
   meeting: CalEvent | null;
   /** Enter focus as soon as the meeting ends ("Queue focus at 3:00"). */
   focusQueued: boolean;
+  /** The Today task the next session is for, picked from the list (v0.1). */
+  focusTask: TaskLink | null;
+  /** Quiet hours (v0.1): the schedule and whether it's blocking now. */
+  quiet: QuietStatus | null;
+  quietPauseOpen: boolean;
   activeTab: TabId;
   /** Tab whose locked toast is showing. */
   lockedToast: TabId | null;
@@ -134,6 +143,8 @@ export interface Store {
   setOnLogin: (v: OnLogin) => void;
   setCompactOnFocus: (v: boolean) => void;
   setSounds: (v: boolean) => void;
+  setSoundVolume: (v: number) => void;
+  setSoundStyle: (cue: Cue, style: Style) => void;
   /** Saves one of the activity settings in SETTING_KEYS. */
   setActivitySetting: <K extends TextSetting>(key: K, value: Settings[K]) => void;
   setDailyGoal: (min: number) => void;
@@ -172,6 +183,12 @@ export interface Store {
   /** Follows the calendar: In event while a meeting runs, back to open (and any queued focus) after. */
   applyMeeting: (e: CalEvent | null) => void;
   setFocusQueued: (v: boolean) => void;
+  loadQuiet: () => Promise<void>;
+  applyQuiet: (q: QuietStatus) => void;
+  openQuietPause: () => void;
+  closeQuietPause: () => void;
+  /** Links the next session to a task and picks its profile, if it has one. */
+  setFocusTask: (t: (TaskLink & { profileId?: number | null }) | null) => void;
 
   loadProfiles: () => Promise<void>;
   selectProfile: (id: number) => void;
@@ -247,6 +264,9 @@ export const useStore = create<Store>()((set, get) => {
     blockPrompt: null,
     meeting: null,
     focusQueued: false,
+    focusTask: null,
+    quiet: null,
+    quietPauseOpen: false,
     activeTab: "today",
     lockedToast: null,
     notice: null,
@@ -262,6 +282,8 @@ export const useStore = create<Store>()((set, get) => {
       displayName: "",
       compactOnFocus: false,
       sounds: true,
+      soundVolume: 70,
+      soundStyles: { ...DEFAULT_STYLES },
       dailyGoalMin: 120,
       restDaysMask: 0,
       idleThresholdMin: 3,
@@ -323,6 +345,17 @@ export const useStore = create<Store>()((set, get) => {
       void native.setSetting("compact_on_focus", compactOnFocus ? "1" : "0");
     },
 
+    setSoundVolume: (soundVolume) => {
+      set({ settings: { ...get().settings, soundVolume } });
+      setSoundVolume(soundVolume / 100);
+      void native.setSetting("sound_volume", String(soundVolume));
+    },
+    setSoundStyle: (cue, style) => {
+      const soundStyles = { ...get().settings.soundStyles, [cue]: style };
+      set({ settings: { ...get().settings, soundStyles } });
+      setSoundStyles(soundStyles);
+      void native.setSetting("sound_styles", JSON.stringify(soundStyles));
+    },
     setSounds: (sounds) => {
       set({ settings: { ...get().settings, sounds } });
       setSoundsEnabled(sounds);
@@ -377,7 +410,7 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     loadSettings: async () => {
-      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest] = await Promise.all([
+      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw] = await Promise.all([
         native.getSetting("close_action"),
         native.getSetting("on_login"),
         native.getSetting("display_name"),
@@ -392,8 +425,14 @@ export const useStore = create<Store>()((set, get) => {
         native.getSetting("home_layout"),
         native.getSetting("week_view"),
         native.getSetting("rest_days_mask"),
+        native.getSetting("sound_volume"),
+        native.getSetting("sound_styles"),
       ]);
       setSoundsEnabled(sounds !== "0");
+      const soundVolume = volume === null || volume === undefined || Number.isNaN(Number(volume)) ? 70 : Math.min(100, Math.max(0, Number(volume)));
+      const soundStyles = parseStyles(soundStyleRaw ?? null);
+      setSoundVolume(soundVolume / 100);
+      setSoundStyles(soundStyles);
       set({
         settings: {
           closeAction: close === "tray" || close === "quit" ? close : "ask",
@@ -403,6 +442,8 @@ export const useStore = create<Store>()((set, get) => {
           sounds: sounds !== "0",
           dailyGoalMin: Number(goal) || 120,
           restDaysMask: Number(rest) || 0,
+          soundVolume,
+          soundStyles,
           idleThresholdMin: Number(idle) || 3,
           retentionDays: Number(retention) || 30,
           passiveApps: passive ?? "",
@@ -419,7 +460,8 @@ export const useStore = create<Store>()((set, get) => {
       const profile = selectedProfile(s);
       if (!profile || s.appState !== "open" || s.session) return false;
       try {
-        const session = await native.startSession(profile.id, s.durationMin);
+        const session = await native.startSession(profile.id, s.durationMin, s.focusTask);
+        set({ focusTask: null });
         get().applySession(session);
       } catch (e) {
         get().showNotice({ lead: errorText(e) });
@@ -462,7 +504,10 @@ export const useStore = create<Store>()((set, get) => {
 
     openEndEarly: () => set({ endEarlyOpen: true }),
     closeEndEarly: () => set({ endEarlyOpen: false }),
-    setUnlockResult: (unlockResult) => set({ unlockResult }),
+    setUnlockResult: (unlockResult) => {
+      if (unlockResult) play("exit");
+      set({ unlockResult });
+    },
 
     applySuggestion: (suggestion) => {
       const s = get();
@@ -483,7 +528,10 @@ export const useStore = create<Store>()((set, get) => {
     showBlockPrompt: (blockPrompt) => set({ blockPrompt }),
 
     enterSuggested: async (s) => {
-      set({ blockPrompt: null, selectedProfileId: s.profileId, durationMin: s.minutes, focusOverrideKey: null });
+      // A block from a routine or an item is that task's session.
+      const i = s.item;
+      const focusTask = i.kind === "todo" || i.kind === "routine" ? { kind: i.kind, id: i.id, date: i.date, title: i.title } : get().focusTask;
+      set({ blockPrompt: null, selectedProfileId: s.profileId, durationMin: s.minutes, focusOverrideKey: null, focusTask });
       return get().enterFocus();
     },
 
@@ -505,6 +553,27 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     setFocusQueued: (focusQueued) => set({ focusQueued }),
+    loadQuiet: async () => {
+      try {
+        get().applyQuiet(await native.quietStatus());
+      } catch {
+        // Older backends have no quiet hours.
+      }
+    },
+    applyQuiet: (quiet) => set({ quiet }),
+    openQuietPause: () => {
+      if (get().quiet?.on) set({ quietPauseOpen: true });
+    },
+    closeQuietPause: () => set({ quietPauseOpen: false }),
+    setFocusTask: (t) => {
+      if (!t) return set({ focusTask: null });
+      const { profileId, ...task } = t;
+      set({ focusTask: task });
+      if (profileId != null && get().profiles.some((p) => p.id === profileId)) {
+        get().selectProfile(profileId);
+        get().markManualFocus();
+      }
+    },
 
     refreshFocusToday: async () => {
       try {

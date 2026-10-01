@@ -8,6 +8,9 @@
 //!   extension, and so do sites with Allow pages (the hosts file can't open one page).
 //! - relaunches Sanctum into your session if its process is gone. The seal resumes and the
 //!   restart is logged as a tamper event; it doesn't break the seal (decided 2026-09-30).
+//! - when you've turned it on (v0.1, off by default), closes sealed apps you started as
+//!   administrator. Sanctum itself can't close those; the guard runs as SYSTEM and can. They
+//!   close without a chance to save.
 //!
 //! The block comes out when the seal ends, when the service stops, and on uninstall.
 
@@ -42,6 +45,21 @@ pub fn hosts_domains(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     )?;
     let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
     rows.collect()
+}
+
+/// Setting: the guard closes sealed apps running as administrator ("1") or leaves them ("0").
+pub const CLOSE_ELEVATED: &str = "guard_close_elevated";
+
+/// What the running seal closes, for the guard's own pass over elevated apps.
+pub fn seal_for(conn: &Connection, session: i64) -> rusqlite::Result<crate::blocker::SealSet> {
+    let flags = crate::distractions::list(conn)?;
+    let profile_id: Option<i64> = conn.query_row("SELECT profile_id FROM sessions WHERE id = ?1", [session], |r| r.get(0))?;
+    let profile = profile_id.and_then(|id| crate::profiles::get(conn, id).ok());
+    Ok(crate::blocker::SealSet::new(&flags, profile.as_ref()))
+}
+
+pub fn close_elevated_on(conn: &Connection) -> bool {
+    crate::db::get_setting(conn, CLOSE_ELEVATED).ok().flatten().as_deref() == Some("1")
 }
 
 /// A seal is on: some session hasn't ended.
@@ -371,10 +389,67 @@ mod service {
         };
         let block = if session.is_some() { hosts_domains(c).ok().and_then(|d| block_for(&d)) } else { None };
         let _ = write_hosts(block.as_deref());
+        if let Some(id) = session.filter(|_| close_elevated_on(c)) {
+            if let Ok(seal) = seal_for(c, id) {
+                close_elevated(sys, &seal);
+            }
+        }
         if session.is_some() && !app_running(sys, &a.app) && backoff.allow(Instant::now()) {
             let _ = launch_in_session(&a.app);
         }
     }
+}
+
+/// Closes sealed apps that run elevated in the signed-in user's session. Everything else is
+/// Sanctum's job; it closes those itself and shows the overlay.
+#[cfg(windows)]
+fn close_elevated(sys: &mut sysinfo::System, seal: &crate::blocker::SealSet) {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
+    use windows::Win32::System::RemoteDesktop::{ProcessIdToSessionId, WTSGetActiveConsoleSessionId};
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let console = unsafe { WTSGetActiveConsoleSessionId() };
+    let procs: Vec<crate::blocker::Proc> =
+        sys.processes().iter().map(|(pid, p)| crate::blocker::Proc { pid: pid.as_u32(), exe: p.name().to_string_lossy().to_lowercase() }).collect();
+    for p in crate::blocker::targets(&procs, seal, &std::collections::HashSet::new()) {
+        let mut sid = 0u32;
+        let in_console = unsafe { ProcessIdToSessionId(p.pid, &mut sid) }.is_ok() && sid == console;
+        if in_console && is_elevated(p.pid) {
+            if let Some(proc_) = sys.process(sysinfo::Pid::from_u32(p.pid)) {
+                proc_.kill();
+            }
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn close_elevated(_sys: &mut sysinfo::System, _seal: &crate::blocker::SealSet) {}
+
+/// The process runs with an elevated (administrator) token.
+#[cfg(windows)]
+pub fn is_elevated(pid: u32) -> bool {
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::System::Threading::{OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
+    unsafe {
+        let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return false };
+        let mut token = HANDLE::default();
+        let mut elevated = false;
+        if OpenProcessToken(process, TOKEN_QUERY, &mut token).is_ok() {
+            let mut info = TOKEN_ELEVATION::default();
+            let mut len = 0u32;
+            let size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
+            elevated = GetTokenInformation(token, TokenElevation, Some((&mut info as *mut TOKEN_ELEVATION).cast()), size, &mut len).is_ok()
+                && info.TokenIsElevated != 0;
+            let _ = CloseHandle(token);
+        }
+        let _ = CloseHandle(process);
+        elevated
+    }
+}
+
+#[cfg(not(windows))]
+pub fn is_elevated(_pid: u32) -> bool {
+    false
 }
 
 /// Sanctum's own window process (not the browser relay, not the guard).
@@ -549,6 +624,24 @@ mod tests {
         let yt: i64 = conn.query_row("SELECT id FROM distractions WHERE value = 'youtube.com'", [], |r| r.get(0)).unwrap();
         conn.execute("INSERT INTO distraction_allows (distraction_id, prefix) VALUES (?1, 'youtube.com/@mitocw')", [yt]).unwrap();
         assert_eq!(hosts_domains(&conn).unwrap(), vec!["news.ycombinator.com", "twitch.tv"]);
+    }
+
+    #[test]
+    fn the_guard_closes_elevated_apps_only_when_asked() {
+        let conn = fresh();
+        assert!(!close_elevated_on(&conn));
+        crate::db::set_setting(&conn, CLOSE_ELEVATED, "1").unwrap();
+        assert!(close_elevated_on(&conn));
+        conn.execute("INSERT INTO profiles (id, name, created_at) VALUES (1, 'Deep Work', 0)", []).unwrap();
+        conn.execute("INSERT INTO profile_rules (profile_id, kind, value) VALUES (1, 'launch_app', 'code.exe')", []).unwrap();
+        conn.execute("INSERT INTO distractions (kind, value, created_at) VALUES ('app', 'discord.exe', 0), ('app', 'code.exe', 0)", []).unwrap();
+        conn.execute("INSERT INTO sessions (id, profile_id, started_at, planned_minutes) VALUES (5, 1, 0, 60)", []).unwrap();
+        let seal = seal_for(&conn, 5).unwrap();
+        assert!(seal.apps.contains("discord.exe"));
+        // What the profile opens is never closed, elevated or not.
+        assert!(seal.opens.contains("code.exe"));
+        // This test process isn't elevated in CI or a normal shell.
+        let _ = is_elevated(std::process::id());
     }
 
     #[test]

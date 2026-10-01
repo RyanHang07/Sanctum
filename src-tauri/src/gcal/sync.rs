@@ -523,6 +523,7 @@ pub struct Parsed {
     pub all_day: bool,
     pub attendees: i64,
     pub recurring: bool,
+    pub series_id: Option<String>,
     pub html_link: Option<String>,
 }
 
@@ -562,6 +563,7 @@ pub fn parse_event(item: &Value) -> Option<Parsed> {
         all_day,
         attendees: others,
         recurring: item["recurringEventId"].is_string(),
+        series_id: item["recurringEventId"].as_str().map(str::to_string),
         html_link: item["htmlLink"].as_str().map(str::to_string),
     })
 }
@@ -569,9 +571,9 @@ pub fn parse_event(item: &Value) -> Option<Parsed> {
 fn insert_event(conn: &Connection, calendar: &str, p: &Parsed) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO gcal_events (calendar_id, event_id, title, date, end_date, start_time, duration_min,
-           start_ms, end_ms, all_day, attendees, recurring, html_link)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-        params![calendar, p.id, p.title, p.date, p.end_date, p.time, p.duration_min, p.start_ms, p.end_ms, p.all_day, p.attendees, p.recurring, p.html_link],
+           start_ms, end_ms, all_day, attendees, recurring, html_link, series_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        params![calendar, p.id, p.title, p.date, p.end_date, p.time, p.duration_min, p.start_ms, p.end_ms, p.all_day, p.attendees, p.recurring, p.html_link, p.series_id],
     )?;
     Ok(())
 }
@@ -609,6 +611,28 @@ pub fn forget_event(conn: &Connection, calendar: &str, id: &str) -> rusqlite::Re
     Ok(())
 }
 
+/// Drops every cached occurrence of a series (it was edited or deleted as a whole; the next
+/// sync brings back what's left).
+pub fn forget_series(conn: &Connection, calendar: &str, series: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM gcal_events WHERE calendar_id = ?1 AND (series_id = ?2 OR event_id = ?2)", params![calendar, series])?;
+    Ok(())
+}
+
+/// The body that moves a whole series to a new time and length, keeping the day it started on
+/// and its time zone (Google requires one on recurring events). None for an all-day master.
+pub fn series_body(master: &Value, title: &str, t: Option<&str>, minutes: Option<i64>) -> Option<Value> {
+    let Some(t) = t else { return Some(json!({ "summary": title })) };
+    let start = master["start"]["dateTime"].as_str()?;
+    let first_day = chrono::DateTime::parse_from_rfc3339(start).ok()?.format("%Y-%m-%d").to_string();
+    let mut body = event_body(title, &first_day, Some(t), minutes)?;
+    for side in ["start", "end"] {
+        if let Some(tz) = master[side]["timeZone"].as_str() {
+            body[side]["timeZone"] = json!(tz);
+        }
+    }
+    Some(body)
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CalEvent {
@@ -626,6 +650,8 @@ pub struct CalEvent {
     /// Other people invited (not you, not rooms).
     pub attendees: i64,
     pub recurring: bool,
+    /// The recurring series this occurrence belongs to.
+    pub series_id: Option<String>,
     pub html_link: Option<String>,
     pub writable: bool,
 }
@@ -634,7 +660,7 @@ pub struct CalEvent {
 pub fn list_events(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<Vec<CalEvent>> {
     let mut stmt = conn.prepare(
         "SELECT e.calendar_id, c.summary, e.event_id, e.title, e.date, e.end_date, e.start_time, e.duration_min,
-                e.start_ms, e.end_ms, e.all_day, e.attendees, e.recurring, e.html_link, c.writable
+                e.start_ms, e.end_ms, e.all_day, e.attendees, e.recurring, e.html_link, c.writable, e.series_id
          FROM gcal_events e JOIN gcal_calendars c ON c.id = e.calendar_id
          WHERE c.selected = 1 AND e.date <= ?2 AND e.end_date >= ?1
          ORDER BY e.all_day DESC, e.start_ms, e.title",
@@ -656,6 +682,7 @@ pub fn list_events(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<
             recurring: r.get(12)?,
             html_link: r.get(13)?,
             writable: r.get(14)?,
+            series_id: r.get(15)?,
         })
     })?;
     rows.collect()
@@ -678,6 +705,29 @@ pub fn event_body(title: &str, d: &str, t: Option<&str>, minutes: Option<i64>) -
                 "end": { "date": key(start + Duration::days(1)), "dateTime": null },
             }))
         }
+    }
+}
+
+#[cfg(test)]
+mod series_tests {
+    use super::*;
+
+    #[test]
+    fn a_series_moves_to_a_new_time_on_its_first_day_in_its_own_zone() {
+        let master = json!({
+            "start": { "dateTime": "2026-09-01T09:00:00-04:00", "timeZone": "America/New_York" },
+            "end": { "dateTime": "2026-09-01T09:30:00-04:00", "timeZone": "America/New_York" },
+            "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=TU"]
+        });
+        let b = series_body(&master, "Standup", Some("10:15"), Some(45)).unwrap();
+        assert_eq!(b["summary"], "Standup");
+        assert!(b["start"]["dateTime"].as_str().unwrap().starts_with("2026-09-01T10:15:00"));
+        assert!(b["end"]["dateTime"].as_str().unwrap().starts_with("2026-09-01T11:00:00"));
+        assert_eq!(b["start"]["timeZone"], "America/New_York");
+        // A rename alone leaves the times to Google.
+        assert_eq!(series_body(&master, "Sync", None, None).unwrap(), json!({ "summary": "Sync" }));
+        // An all-day master can't take a time.
+        assert!(series_body(&json!({ "start": { "date": "2026-09-01" } }), "Off", Some("09:00"), Some(30)).is_none());
     }
 }
 

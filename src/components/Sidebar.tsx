@@ -36,14 +36,14 @@ export function StatePill({ state, meta, compact = false }: { state: AppState; m
   const label = meta ? `${p.label} · ${meta}` : p.label;
   if (compact) {
     return (
-      <div data-testid="state-pill" role="status" aria-label={label} title={label} className={`flex h-control items-center justify-center rounded-control border ${p.box}`}>
-        <span className={`h-[7px] w-[7px] rounded-full ${p.dot}`} />
+      <div data-testid="state-pill" role="status" aria-label={label} title={label} className={`flex h-control items-center justify-center rounded-control border transition-colors duration-700 ${p.box}`}>
+        <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
       </div>
     );
   }
   return (
-    <div data-testid="state-pill" className={`flex h-control items-center gap-2 rounded-control border px-[10px] ${p.box}`}>
-      <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${p.dot}`} />
+    <div data-testid="state-pill" className={`flex h-control items-center gap-2 rounded-control border px-[10px] transition-colors duration-700 ${p.box}`}>
+      <span className={`h-[7px] w-[7px] shrink-0 rounded-full transition-colors duration-700 ${p.dot}`} />
       <span className="text-meta font-medium">{p.label}</span>
       {meta ? <span className="ml-auto font-mono text-meta text-muted">{meta}</span> : null}
     </div>

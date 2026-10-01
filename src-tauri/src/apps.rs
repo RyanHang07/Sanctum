@@ -1,5 +1,6 @@
-//! App discovery for the picker: Start menu shortcuts a person would launch, plus apps
-//! with a window open right now (their real exe, which is what sealing matches on).
+//! App discovery for the picker: Start menu shortcuts a person would launch, Microsoft Store
+//! apps (v0.1), plus apps with a window open right now (their real exe, which is what sealing
+//! matches on).
 //! Windows only; other platforms return nothing for now.
 
 use crate::blocker;
@@ -98,6 +99,72 @@ pub fn merge(shortcuts: Vec<InstalledApp>, running: Vec<RunningApp>) -> Vec<Inst
     }
     out.sort_by_key(|a| a.name.to_lowercase());
     out
+}
+
+/// A Store app's entry in its AppxManifest.xml.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ManifestApp {
+    pub id: String,
+    /// Lowercase file name of the executable ("whatsapp.exe").
+    pub exe: String,
+}
+
+/// Value of `name="..."` inside one tag.
+fn attr(tag: &str, name: &str) -> Option<String> {
+    // The first attribute follows the tag name's space, which the caller split off.
+    let tag = format!(" {tag}");
+    let key = format!(" {name}=\"");
+    let start = tag.find(&key)? + key.len();
+    let end = tag[start..].find('"')? + start;
+    Some(tag[start..end].to_string())
+}
+
+/// Store packages that are part of Windows, runtimes, or frameworks: never apps you'd seal.
+pub fn system_package(name: &str) -> bool {
+    const PREFIXES: [&str; 14] = [
+        "microsoft.windows",
+        "microsoftwindows",
+        "windows.",
+        "microsoft.vclibs",
+        "microsoft.net",
+        "microsoft.ui",
+        "microsoft.services",
+        "microsoft.directx",
+        "microsoft.advertising",
+        "microsoft.aad",
+        "microsoft.accountscontrol",
+        "microsoft.lockapp",
+        "microsoft.desktopappinstaller",
+        "microsoft.xboxgamecallableui",
+    ];
+    let n = name.to_lowercase();
+    PREFIXES.iter().any(|p| n.starts_with(p)) || n.len() == 36 && n.chars().filter(|c| *c == '-').count() == 4
+}
+
+/// The listed, runnable applications in a manifest: those with their own exe (web apps run in
+/// the shared WWAHost and can't be sealed by name) and not hidden from the app list.
+pub fn manifest_apps(xml: &str) -> Vec<ManifestApp> {
+    let mut out = Vec::new();
+    for chunk in xml.split("<Application ").skip(1) {
+        let head = &chunk[..chunk.find('>').unwrap_or(chunk.len())];
+        let (Some(id), Some(exe)) = (attr(head, "Id"), attr(head, "Executable")) else { continue };
+        let body = &chunk[..chunk.find("</Application>").unwrap_or(chunk.len())];
+        if body.contains("AppListEntry=\"none\"") {
+            continue;
+        }
+        let exe = exe.rsplit(['\\', '/']).next().unwrap_or_default().to_lowercase();
+        if !exe.ends_with(".exe") || exe == "wwahost.exe" || blocker::is_protected(&exe) {
+            continue;
+        }
+        out.push(ManifestApp { id, exe });
+    }
+    out
+}
+
+/// Name_Version_Arch_Resource_Publisher -> Name_Publisher, the family name in an app's AUMID.
+pub fn family_name(full: &str) -> Option<String> {
+    let parts: Vec<&str> = full.split('_').collect();
+    (parts.len() == 5).then(|| format!("{}_{}", parts[0], parts[4]))
 }
 
 #[cfg(windows)]
@@ -271,7 +338,84 @@ mod win {
 
     pub fn scan() -> Vec<InstalledApp> {
         let _com = Com::init();
-        merge(from_shortcuts(), running_apps())
+        let mut found = from_shortcuts();
+        found.extend(store_apps());
+        merge(found, running_apps())
+    }
+
+    /// A Store app's small logo (Square44x44Logo), at the size that stays sharp in the list.
+    fn store_logo(aumid: &str) -> Option<Vec<u8>> {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        const REPO: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+        let family = aumid.split('!').next()?;
+        let (name, publisher) = family.split_once('_')?;
+        let repo = RegKey::predef(HKEY_CURRENT_USER).open_subkey(REPO).ok()?;
+        let full = repo.enum_keys().flatten().find(|k| k.starts_with(&format!("{name}_")) && k.ends_with(&format!("_{publisher}")))?;
+        let root: String = repo.open_subkey(&full).ok()?.get_value("PackageRootFolder").ok()?;
+        let xml = std::fs::read_to_string(Path::new(&root).join("AppxManifest.xml")).ok()?;
+        let logo = super::attr(xml.split("<uap:VisualElements").nth(1)?, "Square44x44Logo")?;
+        let logo = Path::new(&root).join(logo.replace('/', "\\"));
+        let dir = logo.parent()?;
+        let stem = logo.file_stem()?.to_string_lossy().to_lowercase();
+        // Assets ship as Logo.targetsize-48.png, Logo.scale-200.png, ...; the plain name often doesn't exist.
+        let files: Vec<PathBuf> = std::fs::read_dir(dir)
+            .ok()?
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                let n = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+                n.starts_with(&format!("{stem}.")) && n.ends_with(".png") && !n.contains("contrast")
+            })
+            .collect();
+        let rank = |p: &PathBuf| {
+            let n = p.to_string_lossy().to_lowercase();
+            ["targetsize-48_altform-unplated", "targetsize-48", "scale-200", "targetsize-64", "scale-150", "scale-100"]
+                .iter()
+                .position(|k| n.contains(k))
+                .unwrap_or(99)
+        };
+        let best = files.iter().min_by_key(|p| rank(p))?;
+        std::fs::read(best).ok()
+    }
+
+    /// Resolves "@{Package?ms-resource://...}" strings to the name you see in Start.
+    fn indirect(s: &str) -> Option<String> {
+        if !s.starts_with('@') {
+            return Some(s.to_string()).filter(|v| !v.is_empty() && !v.starts_with("ms-resource:"));
+        }
+        let mut buf = [0u16; 512];
+        unsafe { windows::Win32::UI::Shell::SHLoadIndirectString(PCWSTR(wide(s).as_ptr()), &mut buf, None).ok()? };
+        Some(from_wide(&buf)).filter(|v| !v.is_empty())
+    }
+
+    /// Microsoft Store apps for this user (v0.1): the per-user package repository, then each
+    /// package's manifest for the exe that runs. Launched through shell:AppsFolder.
+    fn store_apps() -> Vec<InstalledApp> {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        const REPO: &str = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\Repository\\Packages";
+        let Ok(repo) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(REPO) else { return Vec::new() };
+        let mut out = Vec::new();
+        for full in repo.enum_keys().flatten() {
+            let name = full.split('_').next().unwrap_or_default();
+            if system_package(name) {
+                continue;
+            }
+            let Ok(key) = repo.open_subkey(&full) else { continue };
+            let Ok(root) = key.get_value::<String, _>("PackageRootFolder") else { continue };
+            if root.to_lowercase().contains("\\windows\\") {
+                continue;
+            }
+            let Ok(xml) = std::fs::read_to_string(Path::new(&root).join("AppxManifest.xml")) else { continue };
+            let Some(family) = family_name(&full) else { continue };
+            let display = key.get_value::<String, _>("DisplayName").ok().and_then(|d| indirect(&d));
+            for app in manifest_apps(&xml) {
+                let name = display.clone().unwrap_or_else(|| stem_name(&app.exe));
+                out.push(InstalledApp { name, exe: app.exe, launch: format!("shell:AppsFolder\\{family}!{}", app.id), running: false });
+            }
+        }
+        out
     }
 
     /// Icon size extracted; the UI draws 16-20px, so 48 stays sharp at 150-200% scaling.
@@ -366,6 +510,10 @@ mod win {
     /// App icon for an exe or shortcut as a PNG data URL, without the shortcut arrow.
     pub fn icon_data_url(path: &str) -> Option<String> {
         use base64::Engine;
+        if let Some(aumid) = path.strip_prefix("shell:AppsFolder\\") {
+            let png = store_logo(aumid)?;
+            return Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png)));
+        }
         let _com = Com::init();
         let icon = icon_sources(path).into_iter().find_map(|(src, index)| extract(&src, index))?;
         let png = icon_to_png(icon);
@@ -489,6 +637,24 @@ mod tests {
         let icon = icon_data_url(&apps[0].launch);
         println!("icon for {}: {} bytes", apps[0].name, icon.as_ref().map_or(0, |s| s.len()));
         assert!(icon.is_some_and(|s| s.starts_with("data:image/png;base64,")));
+    }
+
+    #[test]
+    fn reads_store_manifests() {
+        let xml = r#"<Package><Applications>
+            <Application Id="App" Executable="app\WhatsApp.exe" EntryPoint="Windows.FullTrustApplication">
+              <uap:VisualElements DisplayName="WhatsApp" /></Application>
+            <Application Id="Web" StartPage="https://x.test"><uap:VisualElements /></Application>
+            <Application Id="Hidden" Executable="helper.exe"><uap:VisualElements AppListEntry="none" /></Application>
+            <Application Id="Host" Executable="WWAHost.exe"></Application>
+        </Applications></Package>"#;
+        assert_eq!(manifest_apps(xml), vec![ManifestApp { id: "App".into(), exe: "whatsapp.exe".into() }]);
+        assert_eq!(family_name("5319275A.WhatsAppDesktop_2.2436.6.0_x64__cv1g1gvanyjgm").as_deref(), Some("5319275A.WhatsAppDesktop_cv1g1gvanyjgm"));
+        assert_eq!(family_name("nonsense"), None);
+        assert!(system_package("Microsoft.WindowsCalculator"));
+        assert!(system_package("Microsoft.VCLibs.140.00"));
+        assert!(system_package("1527c705-839a-4832-9118-54d4bd6a0c89"));
+        assert!(!system_package("SpotifyAB.SpotifyMusic"));
     }
 
     #[test]

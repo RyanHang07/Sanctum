@@ -15,8 +15,8 @@ export function ordinal(n: number): string {
   return `${n}${s}`;
 }
 
-/** "Discord stays sealed." overlay (design/screens/Blocked.dc.html). Auto-returns after 5s. */
-export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () => void; onBreak: () => void }) {
+/** Counts down and returns to work; Enter returns now. */
+function useAutoReturn(p: Payload, onBack: () => void): number {
   const [left, setLeft] = useState(RETURN_AFTER_S);
   useEffect(() => {
     setLeft(RETURN_AFTER_S);
@@ -31,6 +31,12 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onBack]);
+  return left;
+}
+
+/** "Discord stays sealed." overlay (design/screens/Blocked.dc.html). Auto-returns after 5s. */
+export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () => void; onBreak: () => void }) {
+  const left = useAutoReturn(p, onBack);
 
   return (
     <div
@@ -60,6 +66,45 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
         <Button variant="quiet" onClick={onBreak}>
           Break the seal
+        </Button>
+        <span className="ml-auto whitespace-nowrap text-meta text-faint">
+          Returning in <span className="font-mono">{Math.max(0, left)}s</span>
+        </span>
+        <Button variant="primary" className="min-w-0 gap-[10px] px-[14px]" onClick={onBack}>
+          <span className="max-w-[128px] truncate">Back to {p.backTo ?? "work"}</span>
+          <Kbd onFill>↵</Kbd>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Quiet hours caught a flagged app (v0.1): it waits until the window ends, or pause 15 minutes. */
+export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => void; onPause: () => void }) {
+  const left = useAutoReturn(p, onBack);
+  const until = p.endsAt ? clock(p.endsAt) : "morning";
+  return (
+    <div
+      role="alertdialog"
+      aria-label={`${p.label} waits for quiet hours`}
+      className="flex w-[420px] animate-rise-in flex-col overflow-hidden rounded-dialog border border-sealed-line bg-panel shadow-dialog"
+    >
+      <div className="flex flex-col gap-[14px] px-[22px] pb-[18px] pt-[22px]">
+        <div className="flex h-9 w-9 items-center justify-center rounded-panel border border-sealed-line bg-sealed-tint text-sealed">
+          <LockIcon size={18} />
+        </div>
+        <div className="flex flex-col gap-[6px]">
+          <h1 className="headline m-0 text-[24px]">
+            {p.label} waits <em>until {until}.</em>
+          </h1>
+          <p className="m-0 text-body leading-normal text-text-2">
+            Quiet hours keep your Distractions list closed. <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
+        <Button variant="quiet" onClick={onPause}>
+          Pause 15 min
         </Button>
         <span className="ml-auto whitespace-nowrap text-meta text-faint">
           Returning in <span className="font-mono">{Math.max(0, left)}s</span>
@@ -140,12 +185,18 @@ export function InterceptWindow() {
     setPayload(null);
     void native.interceptBreak();
   };
+  const pauseQuiet = () => {
+    setPayload(null);
+    void native.interceptQuietPause();
+  };
   return (
     <div className="flex h-full w-full items-center justify-center">
       {payload.kind === "title" ? (
         <TitleNudge p={payload} />
       ) : payload.kind === "welcome" ? (
         <WelcomeCard p={payload} />
+      ) : payload.kind === "quiet" ? (
+        <QuietCard p={payload} onBack={back} onPause={pauseQuiet} />
       ) : (
         <SealedAppCard p={payload} onBack={back} onBreak={breakSeal} />
       )}
