@@ -13,11 +13,10 @@ import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
 import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
-import { RepeatGlyph } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { addDays, blockTimes, longTime, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { addDays, blockTimes, canReorder, longTime, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
@@ -378,29 +377,6 @@ function EventBar() {
 
 // --- Panels: collapse to their header (remembered) or hide via Customize ---
 
-function Panel({ id, title, meta, children, className = "" }: { id: HomePanel; title: string; meta?: ReactNode; children: ReactNode; className?: string }) {
-  const collapsed = useStore((s) => s.settings.homeLayout.collapsed.includes(id));
-  const toggle = useStore((s) => s.toggleHomeCollapsed);
-  return (
-    <section aria-label={title} className={`flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel ${collapsed ? "" : className}`}>
-      <div className={`flex h-10 shrink-0 items-center gap-2 px-[14px] ${collapsed ? "" : "border-b border-line"}`}>
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? `Show ${title}` : `Collapse ${title}`}
-          onClick={() => toggle(id)}
-          className="-ml-1 flex h-6 w-6 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
-        >
-          <ChevronIcon size={10} className={`transition-transform duration-ui ease-ui ${collapsed ? "-rotate-90" : ""}`} />
-        </button>
-        <h2 className="m-0 grow text-body font-semibold text-text">{title}</h2>
-        {meta}
-      </div>
-      {collapsed ? null : children}
-    </section>
-  );
-}
-
 /** Today's routines, items, and calendar events. */
 function useTodayAgenda(): AgendaItem[] {
   const today = todayKey();
@@ -423,96 +399,232 @@ function useNowKey(items: AgendaItem[]): string | null {
   );
 }
 
+/** One row: a routine or an item you can check off, focus on, and (untimed) drag into place. */
+function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; current: boolean; linked: boolean; canLink: boolean; tag?: string; drag: DragKit }) {
+  const toggle = usePlanner((s) => s.toggle);
+  const movable = canReorder(t);
+  const over = drag.over?.key === t.key ? drag.over.after : null;
+  return (
+    <div
+      data-now={current || undefined}
+      data-testid="task-row"
+      draggable={movable || undefined}
+      onDragStart={movable ? (e) => drag.start(e, t) : undefined}
+      onDragEnd={drag.end}
+      onDragOver={(e) => drag.overRow(e, t)}
+      onDrop={(e) => drag.drop(e, t)}
+      className={`group row-in relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
+        current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
+      } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
+    >
+      {over !== null ? <span aria-hidden="true" className={`pointer-events-none absolute inset-x-[14px] h-[2px] rounded-full bg-sealed ${over ? "bottom-0" : "top-0"}`} /> : null}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={t.done}
+        aria-label={t.title}
+        onClick={() => void toggle(t)}
+        className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
+          t.done ? "border border-sealed bg-sealed hover:brightness-110" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
+        }`}
+      >
+        {t.done ? <CheckIcon /> : null}
+      </button>
+      <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
+      {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
+      {canLink && !t.done ? (
+        // Links the next session to this task (and its profile). Shown on hover, kept while linked.
+        <button
+          type="button"
+          aria-pressed={linked}
+          aria-label={linked ? `Unlink ${t.title}` : `Focus on ${t.title}`}
+          onClick={() => useStore.getState().setFocusTask(linked ? null : { kind: t.kind as TaskLink["kind"], id: t.id, date: t.date, title: t.title, profileId: t.profileId })}
+          className={`flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-[11px] font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
+            linked ? "bg-sealed text-sealed-on" : "border border-line-input text-text-2 opacity-0 hover:text-text group-hover:opacity-100"
+          }`}
+        >
+          {linked ? "For focus" : "Focus"}
+        </button>
+      ) : null}
+      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
+      <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : ""}</span>
+    </div>
+  );
+}
+
+function EventRow({ t, now }: { t: AgendaItem; now: number }) {
+  const times = blockTimes(t);
+  const past = times ? times.endsAt <= now : false;
+  return (
+    <div data-kind="event" className="flex h-row shrink-0 items-center gap-[10px] border-l-2 border-l-transparent px-[14px]">
+      <span aria-hidden="true" className={`ml-[6px] mr-[5px] h-4 w-[3px] shrink-0 rounded-[2px] ${past ? "bg-line-input" : t.profileId !== null ? "bg-sealed" : "bg-event"}`} />
+      <span className={`min-w-0 grow truncate text-body ${past ? "text-faint" : "text-text-2"}`}>{t.title}</span>
+      <span className="shrink-0 text-[11px] text-faint">Calendar</span>
+      <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
+    </div>
+  );
+}
+
+interface DragKit {
+  dragging: string | null;
+  over: { key: string; after: boolean } | null;
+  start: (e: React.DragEvent, t: AgendaItem) => void;
+  end: () => void;
+  overRow: (e: React.DragEvent, t: AgendaItem) => void;
+  drop: (e: React.DragEvent, t: AgendaItem) => void;
+}
+
+/**
+ * Drag to reorder untimed, open items within one column. `save` gets the moved item, the one it
+ * landed on, and whether it went below it.
+ */
+function useReorder(save: (moved: AgendaItem, target: AgendaItem, after: boolean) => void): DragKit {
+  // The dragged item lives in a ref too, so drag events between renders see it.
+  const held = useRef<AgendaItem | null>(null);
+  const [dragging, setDragging] = useState<AgendaItem | null>(null);
+  const [over, setOver] = useState<{ key: string; after: boolean } | null>(null);
+  const fits = (t: AgendaItem) => held.current !== null && canReorder(t) && t.kind === held.current.kind && t.key !== held.current.key;
+  const below = (e: React.DragEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2;
+  };
+  return {
+    dragging: dragging?.key ?? null,
+    over,
+    start: (e, t) => {
+      held.current = t;
+      setDragging(t);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", t.title);
+    },
+    end: () => {
+      held.current = null;
+      setDragging(null);
+      setOver(null);
+    },
+    overRow: (e, t) => {
+      if (!fits(t)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const after = below(e);
+      if (over?.key !== t.key || over.after !== after) setOver({ key: t.key, after });
+    },
+    drop: (e, t) => {
+      const moved = held.current;
+      if (!fits(t) || !moved) return;
+      e.preventDefault();
+      save(moved, t, below(e));
+      held.current = null;
+      setDragging(null);
+      setOver(null);
+    },
+  };
+}
+
+function ColumnHead({ title, items, first }: { title: string; items: AgendaItem[]; first?: ReactNode }) {
+  const tasks = items.filter((i) => i.kind !== "event");
+  return (
+    <div className="flex h-10 shrink-0 items-center gap-2 px-[14px]">
+      {first}
+      <h2 className="m-0 grow text-body font-semibold text-text">{title}</h2>
+      <span className="font-mono text-meta text-muted">
+        {tasks.filter((t) => t.done).length}/{tasks.length}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Today on Home: routines on the left, what belongs to this day on the right (one-time items and
+ * calendar events). Timed items run in time order, untimed ones in the order you drag them into,
+ * and checked-off items sink to the bottom.
+ */
 function TodayPanel({ strip }: { strip: boolean }) {
   const all = useTodayAgenda();
-  const items = useMemo(() => all.filter((i) => i.kind !== "event"), [all]);
+  const routines = useMemo(() => openFirst(all.filter((i) => i.kind === "routine")), [all]);
+  const day = useMemo(() => openFirst(all.filter((i) => i.kind !== "routine")), [all]);
+  const tasks = useMemo(() => all.filter((i) => i.kind !== "event"), [all]);
   const profiles = useStore((s) => s.profiles);
-  const toggle = usePlanner((s) => s.toggle);
-  const nowKey = useNowKey(items);
+  const nowKey = useNowKey(tasks);
   const focusTask = useStore((s) => s.focusTask);
   const canLink = useStore((s) => s.appState === "open" && !s.session);
+  const collapsed = useStore((s) => s.settings.homeLayout.collapsed.includes("today"));
+  const toggleCollapsed = useStore((s) => s.toggleHomeCollapsed);
   const now = useNow();
-  return (
-    <Panel
-      id="today"
-      title="Today"
-      className="h-full"
-      meta={
-        <span className="font-mono text-meta text-muted">
-          {items.filter((t) => t.done).length}/{items.length}
-        </span>
-      }
-    >
-      <QuickAddField
-        date={todayKey()}
-        label="Add a task for today"
-        placeholder="Add a task for today"
-        prefix={<PlusIcon className="shrink-0 text-faint" />}
-        className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft"
+
+  const routineDrag = useReorder((moved, target, after) => {
+    const ids = [...usePlanner.getState().routines].sort((a, b) => a.sort - b.sort || a.id - b.id).map((r) => r.id);
+    void usePlanner.getState().reorderRoutines(moveId(ids, moved.id, target.id, after));
+  });
+  const dayDrag = useReorder((moved, target, after) => {
+    const ids = usePlanner
+      .getState()
+      .todos.filter((t) => t.dueDate === moved.date)
+      .sort((a, b) => a.sort - b.sort || a.id - b.id)
+      .map((t) => t.id);
+    void usePlanner.getState().reorderTodos(moveId(ids, moved.id, target.id, after));
+  });
+
+  const row = (t: AgendaItem, drag: DragKit) =>
+    t.kind === "event" ? (
+      <EventRow key={t.key} t={t} now={now} />
+    ) : (
+      <TaskRow
+        key={t.key}
+        t={t}
+        current={t.key === nowKey}
+        linked={canLink && focusTask !== null && sameTask(focusTask, t)}
+        canLink={canLink}
+        tag={profiles.find((p) => p.id === t.profileId)?.name}
+        drag={drag}
       />
-      <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
-        {all.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing planned today.</p> : null}
-        {all.map((t) => {
-          if (t.kind === "event") {
-            const times = blockTimes(t);
-            const past = times ? times.endsAt <= now : false;
-            return (
-              <div key={t.key} data-kind="event" className="flex h-row shrink-0 items-center gap-[10px] border-l-2 border-l-transparent px-[14px]">
-                <span aria-hidden="true" className={`ml-[6px] mr-[5px] h-4 w-[3px] shrink-0 rounded-[2px] ${past ? "bg-line-input" : t.profileId !== null ? "bg-sealed" : "bg-event"}`} />
-                <span className={`min-w-0 grow truncate text-body ${past ? "text-faint" : "text-text-2"}`}>{t.title}</span>
-                <span className="shrink-0 text-[11px] text-faint">Calendar</span>
-                <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
-              </div>
-            );
-          }
-          const current = t.key === nowKey;
-          const linked = canLink && focusTask !== null && sameTask(focusTask, t);
-          const tag = profiles.find((p) => p.id === t.profileId)?.name;
-          return (
-            <div
-              key={t.key}
-              data-now={current || undefined}
-              className={`group row-in flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
-                current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
-              }`}
+    );
+
+  return (
+    <section aria-label="Today" className={`flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel ${collapsed ? "" : "h-full"}`}>
+      <div className={`grid shrink-0 grid-cols-2 ${collapsed ? "" : "border-b border-line"}`}>
+        <ColumnHead
+          title="Routines"
+          items={routines}
+          first={
+            <button
+              type="button"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? "Show Today" : "Collapse Today"}
+              onClick={() => toggleCollapsed("today")}
+              className="-ml-1 flex h-6 w-6 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
             >
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={t.done}
-                aria-label={t.title}
-                onClick={() => void toggle(t)}
-                className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-                  t.done ? "border border-sealed bg-sealed hover:brightness-110" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
-                }`}
-              >
-                {t.done ? <CheckIcon /> : null}
-              </button>
-              <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
-              {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
-              {canLink && !t.done ? (
-                // Links the next session to this task (and its profile). Shown on hover, kept while linked.
-                <button
-                  type="button"
-                  aria-pressed={linked}
-                  aria-label={linked ? `Unlink ${t.title}` : `Focus on ${t.title}`}
-                  onClick={() => useStore.getState().setFocusTask(linked ? null : { kind: t.kind as TaskLink["kind"], id: t.id, date: t.date, title: t.title, profileId: t.profileId })}
-                  className={`flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-[11px] font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
-                    linked ? "bg-sealed text-sealed-on" : "border border-line-input text-text-2 opacity-0 hover:text-text group-hover:opacity-100"
-                  }`}
-                >
-                  {linked ? "For focus" : "Focus"}
-                </button>
-              ) : null}
-              {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
-              {t.kind === "routine" ? <RepeatGlyph className="h-3 w-3 shrink-0 text-faint" /> : null}
-              <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : ""}</span>
-            </div>
-          );
-        })}
+              <ChevronIcon size={10} className={`transition-transform duration-ui ease-ui ${collapsed ? "-rotate-90" : ""}`} />
+            </button>
+          }
+        />
+        <div className="border-l border-line">
+          <ColumnHead title="Today" items={day} />
+        </div>
       </div>
-      {strip ? <FocusStrip /> : null}
-    </Panel>
+      {collapsed ? null : (
+        <div className="grid min-h-0 grow grid-cols-2">
+          <div data-testid="routines-column" className="flex min-h-0 flex-col overflow-y-auto py-1">
+            {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">No routines today.</p> : null}
+            {routines.map((t) => row(t, routineDrag))}
+          </div>
+          <div data-testid="day-column" className="flex min-h-0 flex-col border-l border-line">
+            <QuickAddField
+              date={todayKey()}
+              label="Add a task for today"
+              placeholder="Add a task for today"
+              prefix={<PlusIcon className="shrink-0 text-faint" />}
+              className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft"
+            />
+            <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
+              {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing else planned today.</p> : null}
+              {day.map((t) => row(t, dayDrag))}
+            </div>
+          </div>
+        </div>
+      )}
+      {strip && !collapsed ? <FocusStrip /> : null}
+    </section>
   );
 }
 

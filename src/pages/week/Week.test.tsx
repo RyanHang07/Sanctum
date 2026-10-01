@@ -127,6 +127,24 @@ describe("Week: routines are separate", () => {
     await act(async () => fireEvent.click(screen.getByRole("switch", { name: "Weigh-in active" })));
     expect(usePlanner.getState().routines[0]!.active).toBe(false);
   });
+
+  it("drags routines into a new order and saves it (v0.1)", async () => {
+    await setup();
+    await act(async () => {
+      for (const title of ["Run", "Read", "Stretch"]) await usePlanner.getState().saveRoutine({ title, daysMask: 127, time: null, durationMin: null, profileId: null, active: true });
+    });
+    render(<WeekPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Routines" }));
+    const rows = () => screen.getAllByTestId("routine-row");
+    const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
+    await act(async () => {
+      fireEvent.dragStart(rows()[2]!, { dataTransfer });
+      fireEvent.dragOver(rows()[0]!, { dataTransfer, clientY: 0 });
+      fireEvent.drop(rows()[0]!, { dataTransfer, clientY: 0 });
+    });
+    expect(rows().map((r) => r.textContent?.split("Every day")[0])).toEqual(["Stretch", "Run", "Read"]);
+    expect((await native.listRoutines()).map((r) => r.title)).toEqual(["Stretch", "Run", "Read"]);
+  });
 });
 
 describe("Week: list view and header", () => {

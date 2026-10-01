@@ -68,7 +68,7 @@ describe("a session for a task (v0.1)", () => {
     const item = usePlanner.getState().todos[0]!;
     await act(async () =>
       void (await useStore.getState().enterSuggested({
-        item: { key: `todo:${item.id}`, kind: "todo", id: item.id, title: item.title, date: item.dueDate, time: null, durationMin: 30, profileId: item.profileId, done: false },
+        item: { key: `todo:${item.id}`, kind: "todo", id: item.id, title: item.title, date: item.dueDate, time: null, durationMin: 30, profileId: item.profileId, done: false, order: 0 },
         state: "now",
         startsAt: Date.now(),
         endsAt: Date.now() + 30 * 60_000,

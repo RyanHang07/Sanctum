@@ -72,6 +72,7 @@ export function eventItems(
         durationMin: first ? e.durationMin : null,
         profileId: first && e.time ? focus : null,
         done: false,
+        order: 0,
         event: e,
       });
     }

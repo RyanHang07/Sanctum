@@ -75,7 +75,7 @@ describe("events in the agenda", () => {
   it("sorts all-day events first, then everything by time", () => {
     const extra = eventItems(["2026-09-30"], [ev({ eventId: "b", title: "Offsite", date: "2026-09-30", time: null }), ev({ eventId: "s", title: "Standup", date: "2026-09-30", time: "09:30" })], profiles);
     const routine = { id: 1, title: "Gym", sort: 0, profileId: null, active: true, daysMask: 127, time: "07:00", durationMin: 60 };
-    const todo = { id: 2, title: "Pay rent", dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null, done: false };
+    const todo = { id: 2, title: "Pay rent", dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null, done: false, sort: 0 };
     const agenda = agendaFor(["2026-09-30"], [routine], [todo], [], extra);
     expect(agenda["2026-09-30"]!.map((i) => i.title)).toEqual(["Offsite", "Gym", "Standup", "Pay rent"]);
   });

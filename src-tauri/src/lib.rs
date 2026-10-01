@@ -272,6 +272,16 @@ fn delete_routine(shared: State<Shared>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn reorder_routines(shared: State<Shared>, ids: Vec<i64>) -> Result<(), String> {
+    db_call(&shared, |c| planner::reorder_routines(c, &ids).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+fn reorder_todos(shared: State<Shared>, ids: Vec<i64>) -> Result<(), String> {
+    db_call(&shared, |c| planner::reorder_todos(c, &ids).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
 fn list_routine_checks(shared: State<Shared>, from: String, to: String) -> Result<Vec<planner::RoutineCheck>, String> {
     db_call(&shared, |c| planner::list_checks(c, &from, &to).map_err(|e| e.to_string()))
 }
@@ -857,6 +867,8 @@ pub fn run() {
             save_todo,
             set_todo_done,
             delete_todo,
+            reorder_routines,
+            reorder_todos,
             gcal::gcal_status,
             gcal::gcal_connect,
             gcal::gcal_cancel_connect,

@@ -106,6 +106,8 @@ export interface AgendaItem {
   durationMin: number | null;
   profileId: number | null;
   done: boolean;
+  /** Drag order among untimed items of its kind (routine or item sort; 0 for events). */
+  order: number;
   /** Calendar events only. */
   event?: CalEvent;
 }
@@ -115,12 +117,28 @@ const UNTIMED_ORDER = { routine: 0, todo: 1, event: 2 } as const;
 
 function sortItems(a: AgendaItem, b: AgendaItem) {
   // All-day events first, then timed items in time order, then anytime items: routines in
-  // their order, then one-time items.
+  // their drag order, then one-time items in theirs.
   if (allDay(a) !== allDay(b)) return allDay(a) ? -1 : 1;
   if (a.time && b.time) return minutesOf(a.time) - minutesOf(b.time);
   if (a.time) return -1;
   if (b.time) return 1;
-  return UNTIMED_ORDER[a.kind] - UNTIMED_ORDER[b.kind];
+  return UNTIMED_ORDER[a.kind] - UNTIMED_ORDER[b.kind] || a.order - b.order;
+}
+
+/** Open items first, checked-off ones after; each group keeps its order. */
+export const openFirst = (items: readonly AgendaItem[]) => [...items.filter((i) => !i.done), ...items.filter((i) => i.done)];
+
+/** Untimed and still open: the items you can drag into your own order. */
+export const canReorder = (i: AgendaItem) => i.kind !== "event" && !i.time && !i.done;
+
+/** `ids` with `moved` placed before (or after) `target`. */
+export function moveId(ids: readonly number[], moved: number, target: number, after: boolean): number[] {
+  if (moved === target) return [...ids];
+  const out = ids.filter((id) => id !== moved);
+  const at = out.indexOf(target);
+  if (at < 0) return [...ids];
+  out.splice(after ? at + 1 : at, 0, moved);
+  return out;
 }
 
 /**
@@ -151,6 +169,7 @@ export function agendaFor(
         durationMin: r.durationMin,
         profileId: r.profileId,
         done: done.has(`${r.id}:${date}`),
+        order: r.sort,
       }));
     for (const t of todos.filter((t) => t.dueDate === date)) {
       items.push({
@@ -163,6 +182,7 @@ export function agendaFor(
         durationMin: t.durationMin,
         profileId: t.profileId,
         done: t.done,
+        order: t.sort,
       });
     }
     items.push(...(extra[date] ?? []));
@@ -199,21 +219,27 @@ export interface Suggestion {
 /** How far ahead "next" looks. */
 const LOOKAHEAD_MS = 12 * 3_600_000;
 
+/** Items that belong to the day itself win over routines when both fit. */
+const routineLast = (i: AgendaItem) => (i.kind === "routine" ? 1 : 0);
+
 /**
  * The focus block the schedule points at: a timed, unfinished item linked to a profile that's
- * happening now (duration = time left, snapped), else the next one coming up.
+ * happening now (duration = time left, snapped), else the next one coming up. When a one-time
+ * item or event and a routine overlap, the one that belongs to the day wins.
  */
 export function suggestFocus(items: readonly AgendaItem[], now: number): Suggestion | null {
   const blocks = items
     .filter((i) => i.profileId !== null && !i.done)
     .map((item) => ({ item, t: blockTimes(item) }))
     .filter((b): b is { item: AgendaItem; t: { startsAt: number; endsAt: number } } => b.t !== null)
-    .sort((a, b) => a.t.startsAt - b.t.startsAt);
+    .sort((a, b) => routineLast(a.item) - routineLast(b.item) || a.t.startsAt - b.t.startsAt);
   const current = blocks.find((b) => b.t.startsAt <= now && now < b.t.endsAt);
   if (current) {
     return { item: current.item, state: "now", ...current.t, profileId: current.item.profileId!, minutes: snapMinutes((current.t.endsAt - now) / 60_000) };
   }
-  const next = blocks.find((b) => b.t.startsAt > now && b.t.startsAt - now <= LOOKAHEAD_MS);
+  const next = blocks
+    .filter((b) => b.t.startsAt > now && b.t.startsAt - now <= LOOKAHEAD_MS)
+    .sort((a, b) => a.t.startsAt - b.t.startsAt || routineLast(a.item) - routineLast(b.item))[0];
   if (!next) return null;
   return {
     item: next.item,

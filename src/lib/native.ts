@@ -159,6 +159,8 @@ export const native = {
   saveTodo: (draft: TodoDraft) => call<Todo>("save_todo", { draft }),
   setTodoDone: (id: number, done: boolean) => call<Todo>("set_todo_done", { id, done }),
   deleteTodo: (id: number) => call<void>("delete_todo", { id }),
+  reorderRoutines: (ids: number[]) => call<void>("reorder_routines", { ids }),
+  reorderTodos: (ids: number[]) => call<void>("reorder_todos", { ids }),
 
   gcalStatus: () => call<GcalStatus>("gcal_status"),
   gcalConnect: () => call<GcalStatus>("gcal_connect"),

@@ -5,6 +5,8 @@ import { connectNativeEvents } from "../state/events";
 import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
 import { catalogDistractions, sampleProfiles } from "../lib/catalog";
+import { usePlanner } from "../state/planner";
+import { EVERY_DAY, addDays, todayKey } from "../lib/planner";
 
 const initial = useStore.getState();
 
@@ -25,6 +27,50 @@ beforeEach(() => {
   disconnect = connectNativeEvents();
 });
 afterEach(() => disconnect());
+
+/** A drag from one row onto another, landing in its top half (jsdom rows have no height). */
+function drag(from: HTMLElement, to: HTMLElement) {
+  const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer, clientY: 0 });
+  fireEvent.drop(to, { dataTransfer, clientY: 0 });
+  fireEvent.dragEnd(from, { dataTransfer });
+}
+
+describe("Home Today list (v0.1)", () => {
+  it("puts routines on the left and the day's items on the right, sinks checked items, and drags untimed ones", async () => {
+    const day = todayKey();
+    const base = { profileId: null, active: true, daysMask: EVERY_DAY, durationMin: null };
+    await native.saveRoutine({ ...base, title: "Stretch", time: null });
+    await native.saveRoutine({ ...base, title: "Read", time: null });
+    await native.saveRoutine({ ...base, title: "Run", time: "07:00" });
+    const todo = (title: string, dueTime: string | null) => native.saveTodo({ title, dueDate: day, dueTime, durationMin: null, profileId: null });
+    await todo("Pay rent", null);
+    await todo("Call mom", null);
+    await todo("Dentist", "15:00");
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    render(<Home />);
+
+    const titles = (id: string) => within(screen.getByTestId(id)).getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"));
+    expect(titles("routines-column")).toEqual(["Run", "Stretch", "Read"]);
+    expect(titles("day-column")).toEqual(["Dentist", "Pay rent", "Call mom"]);
+
+    // Checked off: to the bottom, still in order; unchecked, back in place.
+    await act(async () => fireEvent.click(screen.getByRole("checkbox", { name: "Run" })));
+    expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
+
+    // Untimed items drag into place, and the order is saved.
+    const row = (name: string) => screen.getByRole("checkbox", { name }).closest("[data-testid=task-row]") as HTMLElement;
+    expect(row("Dentist")).not.toHaveAttribute("draggable");
+    await act(async () => drag(row("Call mom"), row("Pay rent")));
+    expect(titles("day-column")).toEqual(["Dentist", "Call mom", "Pay rent"]);
+    await act(async () => drag(row("Read"), row("Stretch")));
+    expect(titles("routines-column")).toEqual(["Read", "Stretch", "Run"]);
+    const saved = await native.listTodos(day, day);
+    expect(saved.filter((t) => !t.dueTime).sort((a, b) => a.sort - b.sort).map((t) => t.title)).toEqual(["Call mom", "Pay rent"]);
+    expect((await native.listRoutines()).map((r) => r.title)).toEqual(["Read", "Stretch", "Run"]);
+  });
+});
 
 describe("Home streak chip", () => {
   it("shows the streak and the last 7 days, and opens Stats", async () => {

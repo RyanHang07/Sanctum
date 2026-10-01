@@ -573,12 +573,13 @@ const handlers: Record<string, (a: any) => unknown> = {
     state.checks = state.checks.filter((c) => !(c.routineId === id && c.date === date));
     if (done) state.checks.push({ routineId: id, date });
   },
-  list_todos: ({ from, to }) => clone(state.todos.filter((t) => t.dueDate >= from && t.dueDate <= to)),
+  list_todos: ({ from, to }) => clone(state.todos.filter((t) => t.dueDate >= from && t.dueDate <= to).sort((a, b) => a.sort - b.sort || a.id - b.id)),
   save_todo: ({ draft }: { draft: TodoDraft }) => {
     const title = draft.title.trim();
     if (!title) throw "Give it a name.";
     const existing = draft.id !== undefined ? state.todos.find((t) => t.id === draft.id) : undefined;
-    const t: Todo = { ...draft, id: existing?.id ?? state.nextId++, title, done: existing?.done ?? false };
+    const sort = existing?.sort ?? Math.max(-1, ...state.todos.filter((x) => x.dueDate === draft.dueDate).map((x) => x.sort)) + 1;
+    const t: Todo = { ...draft, id: existing?.id ?? state.nextId++, title, done: existing?.done ?? false, sort };
     state.todos = [...state.todos.filter((x) => x.id !== t.id), t];
     return clone(t);
   },
@@ -590,6 +591,18 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   delete_todo: ({ id }) => {
     state.todos = state.todos.filter((t) => t.id !== id);
+  },
+  reorder_routines: ({ ids }: { ids: number[] }) => {
+    ids.forEach((id, i) => {
+      const r = state.routines.find((x) => x.id === id);
+      if (r) r.sort = i;
+    });
+  },
+  reorder_todos: ({ ids }: { ids: number[] }) => {
+    ids.forEach((id, i) => {
+      const t = state.todos.find((x) => x.id === id);
+      if (t) t.sort = i;
+    });
   },
 
   list_installed_apps: () => clone(SAMPLE_APPS),
