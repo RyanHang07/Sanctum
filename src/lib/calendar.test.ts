@@ -83,7 +83,7 @@ describe("events in the agenda", () => {
   it("suggests a #focus event like a profile-linked routine", () => {
     const items = eventItems(["2026-09-29"], [ev({ eventId: "a", title: "Deep work #focus:deep-work", date: "2026-09-29", time: "14:00", durationMin: 90 })], profiles)["2026-09-29"]!;
     const s = suggestFocus(items, new Date(2026, 8, 29, 14, 10).getTime());
-    expect(s).toMatchObject({ state: "now", profileId: 2, minutes: 90 });
+    expect(s).toMatchObject({ state: "now", profileId: 2, minutes: 75 }); // 80 min left
   });
 });
 

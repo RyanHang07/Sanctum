@@ -15,7 +15,7 @@ import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
-const DURATIONS = [30, 60, 90, 120];
+const DURATIONS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 const SAMPLE_APPS: InstalledApp[] = [
   { name: "Discord", exe: "discord.exe", launch: "C:\\Mock\\Discord.lnk", running: true },
@@ -167,7 +167,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   list_profiles: () => clone(state.profiles),
   create_profile: ({ draft }: { draft: ProfileDraft }) => {
     const minutes = draft.defaultMinutes ?? 60;
-    if (!DURATIONS.includes(minutes)) throw "Focus length must be one of 30, 60, 90, or 120 minutes.";
+    if (!DURATIONS.includes(minutes)) throw "Focus length must be 15 minutes to 2 hours, in 15-minute steps.";
     const p: Profile = {
       id: state.nextId++,
       name: uniqueName(draft.name),
@@ -190,7 +190,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       p.name = name;
     }
     if (patch.defaultMinutes !== undefined) {
-      if (!DURATIONS.includes(patch.defaultMinutes)) throw "Focus length must be one of 30, 60, 90, or 120 minutes.";
+      if (!DURATIONS.includes(patch.defaultMinutes)) throw "Focus length must be 15 minutes to 2 hours, in 15-minute steps.";
       p.defaultMinutes = patch.defaultMinutes;
     }
     return clone(p);
@@ -414,7 +414,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   start_session: ({ profileId, minutes, task }) => {
     if (state.session) throw "A session is already running.";
-    if (!DURATIONS.includes(minutes)) throw "Focus length must be one of 30, 60, 90, or 120 minutes.";
+    if (!DURATIONS.includes(minutes)) throw "Focus length must be 15 minutes to 2 hours, in 15-minute steps.";
     const p = find(profileId);
     const now = Date.now();
     state.session = {

@@ -76,7 +76,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - **Shell:** left sidebar (220px, collapsible to a 60px icon rail with Ctrl B, remembered; **Decided** 2026-09-29) with the mark, a state pill, and four tabs: **Today** (Home), **Week**, **Trackers**, **Setup**. Each tab has a shortcut (Ctrl 1, 2, 3, Ctrl ,). A command bar opens with Ctrl K. **Now (2026-09-30):** Today, Week, Stats, Trackers, **Notes**, Setup (Ctrl 1 to 5, Ctrl ,). Notes are titled plain-text notes, local only, and stay open while sealed (Decided). Each screen does one job: Home is start focus plus one Today list (calendar events inline, no Schedule panel); Setup is a section list, one section at a time
 - **Home = Today.** Daily goals and focus are one screen:
   - Day-only task list: add (Enter), check off, repeating daily items reset each morning. Tasks can carry a profile tag and a time
-  - Focus row on one line: **Profile** dropdown, **Duration** dropdown (30, 60, 90, 120 min; 30 is the minimum), a one-line note of what opens/seals, and **Enter focus** (Ctrl Enter)
+  - Focus row on one line: **Profile** dropdown, **Duration** dropdown (15 min to 2 h in 15-minute steps; 15 is the minimum. Was 30/60/90/120, changed 2026-10-01), a one-line note of what opens/seals, and **Enter focus** (Ctrl Enter)
   - Right column: today's schedule from Google Calendar and today's focus progress + next check-in
   - The Week tab holds everything beyond today
 - **App states** (single source of truth in the store, shown in the sidebar pill and a 2px top rule):

@@ -187,7 +187,7 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::T
         return Err("A session is already running.".into());
     }
     if !profiles::DURATIONS.contains(&minutes) {
-        return Err("Focus length must be one of 30, 60, 90, or 120 minutes.".into());
+        return Err("Focus length must be 15 minutes to 2 hours, in 15-minute steps.".into());
     }
     let profile = load_profile(&shared, profile_id)?;
     let seal = seal_set(&shared, Some(&profile));

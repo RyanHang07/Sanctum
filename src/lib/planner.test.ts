@@ -104,8 +104,8 @@ describe("schedule-driven focus", () => {
     [],
   )[day]!;
 
-  it("snaps lengths to 30/60/90/120", () => {
-    expect([10, 30, 44, 45, 50, 75, 100, 200].map(snapMinutes)).toEqual([30, 30, 30, 60, 60, 90, 90, 120]);
+  it("snaps lengths to 15-minute steps up to 2 h", () => {
+    expect([10, 30, 44, 45, 50, 75, 100, 200].map(snapMinutes)).toEqual([15, 30, 45, 45, 45, 75, 105, 120]);
   });
 
   it("suggests the next block with its planned length", () => {

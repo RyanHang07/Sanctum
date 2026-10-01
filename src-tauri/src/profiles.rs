@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub const DURATIONS: [i64; 4] = [30, 60, 90, 120];
+pub const DURATIONS: [i64; 8] = [15, 30, 45, 60, 75, 90, 105, 120];
 pub const DEFAULT_MINUTES: i64 = 60;
 /// What a profile opens. What it seals lives in the one Distractions list (distractions.rs).
 const KINDS: [&str; 2] = ["launch_app", "launch_url"];
@@ -154,7 +154,7 @@ fn check_minutes(m: i64) -> Result<i64> {
     if DURATIONS.contains(&m) {
         Ok(m)
     } else {
-        Err(Error::Invalid(format!("Focus length must be one of 30, 60, 90, or 120 minutes, not {m}.")))
+        Err(Error::Invalid(format!("Focus length must be 15 minutes to 2 hours, in 15-minute steps, not {m}.")))
     }
 }
 
@@ -377,7 +377,7 @@ mod tests {
         let mut conn = fresh();
         let p = create(&mut conn, ProfileDraft { name: "Study".into(), ..Default::default() }).unwrap();
         assert_eq!(p.default_minutes, 60);
-        assert!(update(&conn, p.id, ProfilePatch { default_minutes: Some(45), ..Default::default() }).is_err());
+        assert!(update(&conn, p.id, ProfilePatch { default_minutes: Some(50), ..Default::default() }).is_err());
         let p = update(
             &conn,
             p.id,

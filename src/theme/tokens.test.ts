@@ -62,7 +62,7 @@ describe("design tokens", () => {
 
   it("matches the window size and focus durations from the spec", () => {
     expect(windowSize).toEqual({ width: 1120, height: 720 });
-    expect([...durationsMin]).toEqual([30, 60, 90, 120]);
+    expect([...durationsMin]).toEqual([15, 30, 45, 60, 75, 90, 105, 120]);
   });
 
   it("matches the Tauri main window config", () => {

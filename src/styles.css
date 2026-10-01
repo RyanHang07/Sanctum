@@ -19,10 +19,23 @@
     overflow: hidden;
     user-select: none;
   }
+  /* The app is dark: native popups (select menus, date pickers) open dark too, instead of
+     Windows' white menu with washed-out text. */
+  :root {
+    color-scheme: dark;
+  }
   button,
   input,
   select {
     font-family: inherit;
+  }
+  option,
+  optgroup {
+    background-color: theme(colors.raised);
+    color: theme(colors.text);
+  }
+  option:disabled {
+    color: theme(colors.faint);
   }
   button {
     white-space: nowrap;
