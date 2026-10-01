@@ -154,6 +154,34 @@ pub fn hide_panel(app: &AppHandle) {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rect {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+/// Where the tray panel goes: beside the taskbar on whichever edge it sits (found by comparing
+/// the screen with its work area), near the click, and fully inside the work area.
+pub fn panel_position(click: (i32, i32), panel: (i32, i32), screen: Rect, work: Rect, gap: i32) -> (i32, i32) {
+    let (pw, ph) = panel;
+    let (left, top, right, bottom) = (work.x, work.y, work.x + work.w, work.y + work.h);
+    let (x, y) = if work.x > screen.x {
+        // Taskbar on the left.
+        (left + gap, click.1 - ph / 2)
+    } else if right < screen.x + screen.w {
+        (right - pw - gap, click.1 - ph / 2)
+    } else if work.y > screen.y {
+        (click.0 - pw / 2, top + gap)
+    } else {
+        // Bottom, the default (also when the taskbar auto-hides).
+        (click.0 - pw / 2, bottom - ph - gap)
+    };
+    let clamp = |v: i32, lo: i32, hi: i32| v.max(lo).min(hi.max(lo));
+    (clamp(x, left + gap, right - pw - gap), clamp(y, top + gap, bottom - ph - gap))
+}
+
 fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
     let Some(w) = app.get_webview_window(PANEL) else { return };
     if w.is_visible().unwrap_or(false) {
@@ -167,11 +195,14 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
     if just_hidden {
         return;
     }
-    // Anchor above the click point (the tray sits at the bottom of the screen on Windows).
-    if let Ok(size) = w.outer_size() {
-        let x = at.x - size.width as f64 / 2.0;
-        let y = at.y - size.height as f64 - 12.0;
-        let _ = w.set_position(PhysicalPosition::new(x.max(0.0), y.max(0.0)));
+    // Next to the taskbar, wherever it is, and never over it.
+    if let (Ok(size), Ok(Some(monitor))) = (w.outer_size(), app.monitor_from_point(at.x, at.y)) {
+        let r = |p: tauri::PhysicalPosition<i32>, s: tauri::PhysicalSize<u32>| Rect { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 };
+        let screen = r(*monitor.position(), *monitor.size());
+        let work = r(monitor.work_area().position, monitor.work_area().size);
+        let gap = (12.0 * monitor.scale_factor()).round() as i32;
+        let (x, y) = panel_position((at.x as i32, at.y as i32), (size.width as i32, size.height as i32), screen, work, gap);
+        let _ = w.set_position(PhysicalPosition::new(x, y));
     }
     let _ = w.show();
     let _ = w.set_focus();
@@ -180,6 +211,30 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_panel_sits_beside_the_taskbar_on_any_edge() {
+        let screen = Rect { x: 0, y: 0, w: 1920, h: 1080 };
+        let panel = (340, 440);
+        // Bottom taskbar: above it, centered on the click.
+        let work = Rect { x: 0, y: 0, w: 1920, h: 1032 };
+        assert_eq!(panel_position((1800, 1050), panel, screen, work, 12), (1568, 580));
+        // Left taskbar (as in the bug): to its right, never over it, kept on screen vertically.
+        let work = Rect { x: 62, y: 0, w: 1858, h: 1080 };
+        let (x, y) = panel_position((30, 1040), panel, screen, work, 12);
+        assert_eq!(x, 74);
+        assert_eq!(y, 1080 - 440 - 12);
+        // Right taskbar.
+        let work = Rect { x: 0, y: 0, w: 1858, h: 1080 };
+        assert_eq!(panel_position((1890, 500), panel, screen, work, 12).0, 1858 - 340 - 12);
+        // Top taskbar.
+        let work = Rect { x: 0, y: 48, w: 1920, h: 1032 };
+        assert_eq!(panel_position((900, 20), panel, screen, work, 12), (730, 60));
+        // A second monitor to the left (negative coordinates) with a bottom taskbar.
+        let screen = Rect { x: -1920, y: 0, w: 1920, h: 1080 };
+        let work = Rect { x: -1920, y: 0, w: 1920, h: 1032 };
+        assert_eq!(panel_position((-10, 1050), panel, screen, work, 12), (-352, 580));
+    }
 
     #[test]
     fn only_the_keyhole_breathes() {
