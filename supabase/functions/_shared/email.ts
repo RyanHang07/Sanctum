@@ -41,6 +41,10 @@ export interface Email {
   text: string;
 }
 
+/** The app icon as a PNG (email clients drop SVG), served by the partner site. Fixed, because
+ *  Supabase's sign-in templates are static HTML. Self-hosters: point this at your own copy. */
+export const LOGO = "https://sanctum-partner.vercel.app/email-icon.png";
+
 const C = {
   page: "#F4F5F7",
   card: "#FFFFFF",
@@ -83,7 +87,7 @@ ${p.quoteLabel ? `<div style="font-size:12px;color:${C.muted};margin-bottom:4px"
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page}"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:${C.card};border:1px solid ${C.line};border-radius:10px">
 <tr><td style="padding:14px 20px;border-bottom:1px solid ${C.line};font-size:13px;font-weight:600;color:${C.ink}">
-<span style="display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:2px;background:${C.cobalt};vertical-align:1px"></span>Sanctum</td></tr>
+<img src="${LOGO}" width="20" height="20" alt="" style="display:inline-block;width:20px;height:20px;margin-right:8px;border:0;border-radius:5px;vertical-align:-5px">Sanctum</td></tr>
 <tr><td style="padding:22px 20px 18px">
 <h1 style="margin:0 0 12px;font-size:20px;line-height:1.3;font-weight:700;letter-spacing:-0.01em;color:${C.ink}">${e(p.heading)}</h1>
 ${p.lines.map(para).join("\n")}
