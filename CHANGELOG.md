@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.1 (2026-10-01)
+
+The first update after v0.1.0. Details are under v0.1 features below.
+
+- Today on Home: Routines and Today side by side, drag to reorder, checked items sink.
+- Pending: items for this week or next with no day yet, on Home, Week, and List.
+- A resizable window down to 900×640 (vertical monitors): the sidebar folds and Week goes to two rows.
+- Focus lengths in 15-minute steps, 15 min to 2 h.
+- The moments rotate their words: Home headlines, the held line, the overlay, Welcome back.
+- Dropdown menus open dark. README: an animated WebP hero and fresh screenshots.
+
 ## v0.1 features (2026-09-30)
 
 ### Added
