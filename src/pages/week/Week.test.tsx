@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import { WeekPage } from "./WeekPage";
 import { Home } from "../Home";
 import { BlockPrompt } from "../../components/BlockPrompt";
+import { Toast } from "../../components/Toast";
 import { useStore } from "../../state/store";
 import { usePlanner } from "../../state/planner";
 import { connectNativeEvents } from "../../state/events";
@@ -75,6 +76,40 @@ describe("Week: one-time items", () => {
     expect(usePlanner.getState().todos).toHaveLength(0);
   });
 
+  it("undoes a delete for 5 seconds, then deletes for real (v0.1)", async () => {
+    await setup();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(TUESDAY);
+    const save = (title: string) => usePlanner.getState().saveTodo({ title, dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null });
+    await act(async () => {
+      await save("Pay rent");
+      await save("Call mom");
+    });
+    render(
+      <>
+        <WeekPage />
+        <Toast />
+      </>,
+    );
+    const remove = async (title: string) => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(title) }));
+      await act(async () => fireEvent.click(within(screen.getByRole("dialog", { name: "Edit item" })).getByRole("button", { name: "Delete" })));
+    };
+    await remove("Pay rent");
+    expect(screen.getByRole("status")).toHaveTextContent("Deleted “Pay rent”.");
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Undo" }));
+    expect(usePlanner.getState().todos.map((t) => t.title)).toContain("Pay rent");
+    await act(async () => void vi.advanceTimersByTime(6000));
+    expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).toContain("Pay rent");
+
+    await remove("Call mom");
+    expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).toContain("Call mom"); // not yet
+    await act(async () => void vi.advanceTimersByTime(5000));
+    expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).not.toContain("Call mom");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(TUESDAY);
+  });
+
   it("steps between weeks", async () => {
     await setup();
     render(<WeekPage />);
@@ -144,6 +179,8 @@ describe("Week: routines are separate", () => {
     });
     expect(rows().map((r) => r.textContent?.split("Every day")[0])).toEqual(["Stretch", "Run", "Read"]);
     expect((await native.listRoutines()).map((r) => r.title)).toEqual(["Stretch", "Run", "Read"]);
+    await act(async () => fireEvent.keyDown(rows()[0]!.querySelector("button")!, { key: "ArrowDown", altKey: true }));
+    expect(rows().map((r) => r.textContent?.split("Every day")[0])).toEqual(["Run", "Stretch", "Read"]);
   });
 });
 

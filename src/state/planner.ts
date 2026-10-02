@@ -7,6 +7,12 @@ import { useStore } from "./store";
 /** How far back Pending looks for unfinished one-time items. */
 const PENDING_DAYS = 60;
 
+/** How long a delete can be undone. The item goes at once; the backend delete waits this long. */
+export const UNDO_MS = 5000;
+
+/** Deletes waiting out their undo window, so a reload meanwhile doesn't bring them back. */
+const deleting = { todos: new Set<number>(), routines: new Set<number>() };
+
 // Routines (recurring) and one-time items (SPEC 4.12). Loaded for a date range that grows to
 // cover whatever Home and Week are showing.
 
@@ -68,13 +74,19 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
       native.listTodos(range[0], range[1]),
       native.listRoutineChecks(range[0], range[1]),
     ]).catch(() => [[], [], []] as [Routine[], Todo[], RoutineCheck[]]);
-    set({ routines, todos, checks, range, loaded: true });
+    set({
+      routines: routines.filter((r) => !deleting.routines.has(r.id)),
+      todos: todos.filter((t) => !deleting.todos.has(t.id)),
+      checks: checks.filter((c) => !deleting.routines.has(c.routineId)),
+      range,
+      loaded: true,
+    });
   },
 
   loadPending: async () => {
     const today = todayKey();
     const past = await native.listTodos(addDays(today, -PENDING_DAYS), addDays(today, -1)).catch(() => [] as Todo[]);
-    set({ pending: past.filter((t) => !t.done) });
+    set({ pending: past.filter((t) => !t.done && !deleting.todos.has(t.id)) });
   },
 
   saveRoutine: async (d) => {
@@ -84,9 +96,28 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   deleteRoutine: async (id) => {
-    const ok = await attempt(() => native.deleteRoutine(id).then(() => true));
-    if (ok) set({ routines: get().routines.filter((r) => r.id !== id), checks: get().checks.filter((c) => c.routineId !== id) });
-    return !!ok;
+    const r = get().routines.find((x) => x.id === id);
+    if (!r) return false;
+    const checks = get().checks.filter((c) => c.routineId === id);
+    deleting.routines.add(id);
+    set({ routines: get().routines.filter((x) => x.id !== id), checks: get().checks.filter((c) => c.routineId !== id) });
+    const timer = setTimeout(() => {
+      deleting.routines.delete(id);
+      void attempt(() => native.deleteRoutine(id)).then((ok) => ok === null && void get().reload());
+    }, UNDO_MS);
+    useStore.getState().showNotice({
+      lead: `Deleted “${r.title}”.`,
+      ms: UNDO_MS,
+      action: {
+        label: "Undo",
+        run: () => {
+          clearTimeout(timer);
+          deleting.routines.delete(id);
+          set({ routines: [...get().routines, r], checks: [...get().checks, ...checks] });
+        },
+      },
+    });
+    return true;
   },
 
   saveTodo: async (d) => {
@@ -100,9 +131,29 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   deleteTodo: async (id) => {
-    const ok = await attempt(() => native.deleteTodo(id).then(() => true));
-    if (ok) set({ todos: get().todos.filter((t) => t.id !== id), pending: get().pending.filter((t) => t.id !== id) });
-    return !!ok;
+    const inTodos = get().todos.find((x) => x.id === id);
+    const inPending = get().pending.find((x) => x.id === id);
+    const t = inTodos ?? inPending;
+    if (!t) return false;
+    deleting.todos.add(id);
+    set({ todos: get().todos.filter((x) => x.id !== id), pending: get().pending.filter((x) => x.id !== id) });
+    const timer = setTimeout(() => {
+      deleting.todos.delete(id);
+      void attempt(() => native.deleteTodo(id)).then((ok) => ok === null && void get().reload());
+    }, UNDO_MS);
+    useStore.getState().showNotice({
+      lead: `Deleted “${t.title}”.`,
+      ms: UNDO_MS,
+      action: {
+        label: "Undo",
+        run: () => {
+          clearTimeout(timer);
+          deleting.todos.delete(id);
+          set({ todos: inTodos ? [...get().todos, inTodos] : get().todos, pending: inPending ? [...get().pending, inPending] : get().pending });
+        },
+      },
+    });
+    return true;
   },
 
   reorderRoutines: async (ids) => {

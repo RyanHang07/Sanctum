@@ -72,6 +72,12 @@ describe("Home Today list (v0.1)", () => {
     const saved = await native.listTodos(day, day);
     expect(saved.filter((t) => !t.dueTime).sort((a, b) => a.sort - b.sort).map((t) => t.title)).toEqual(["Call mom", "Pay rent"]);
     expect((await native.listRoutines()).map((r) => r.title)).toEqual(["Read", "Stretch", "Run"]);
+
+    // The keyboard way: Alt+Down on a row moves it down one; Alt+Up past the top does nothing.
+    await act(async () => fireEvent.keyDown(screen.getByRole("checkbox", { name: "Read" }), { key: "ArrowDown", altKey: true }));
+    expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
+    await act(async () => fireEvent.keyDown(screen.getByRole("checkbox", { name: "Stretch" }), { key: "ArrowUp", altKey: true }));
+    expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
   });
 });
 

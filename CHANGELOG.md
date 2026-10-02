@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.3 (in progress)
+
+- **Undo deletes:** deleting an item or routine hides it at once and shows "Deleted “Pay rent”." with **Undo** for 5 seconds; the real delete (and its Google Calendar event) waits until then. A reload in the meantime doesn't bring it back.
+- **Reorder from the keyboard:** Alt+↑ / Alt+↓ on a row moves it, on Home (untimed, open items) and on Week › Routines. Focus stays on the row.
+
 ## v0.1.2 (2026-10-01)
 
 A fix for v0.1.1.

@@ -284,7 +284,18 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
             <div
               key={r.id}
               data-testid="routine-row"
+              data-id={r.id}
               draggable
+              onKeyDown={(e) => {
+                // Alt+Up / Alt+Down moves it, like dragging.
+                if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+                const i = sorted.findIndex((x) => x.id === r.id);
+                const next = sorted[i + (e.key === "ArrowUp" ? -1 : 1)];
+                if (!next) return;
+                e.preventDefault();
+                void usePlanner.getState().reorderRoutines(moveId(sorted.map((x) => x.id), r.id, next.id, e.key === "ArrowDown"));
+                requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-id="${r.id}"] button`)?.focus());
+              }}
               onDragStart={(e) => {
                 held.current = r.id;
                 setDragId(r.id);

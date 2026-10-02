@@ -21,6 +21,19 @@ export function Toast() {
       {tab ? <LockIcon size={14} className="shrink-0 text-sealed" /> : null}
       <span className="whitespace-nowrap text-body text-text">{msg.lead}</span>
       {msg.rest ? <span className="truncate text-body text-muted">{msg.rest}</span> : null}
+      {!tab && notice?.action ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            notice.action!.run();
+            dismiss();
+          }}
+          className="shrink-0 rounded-control px-2 py-[2px] text-body font-medium text-sealed-text transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-sealed-text-hover"
+        >
+          {notice.action.label}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -409,7 +409,14 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
     <div
       data-now={current || undefined}
       data-testid="task-row"
+      data-key={t.key}
       draggable={movable || undefined}
+      onKeyDown={(e) => {
+        // Alt+Up / Alt+Down: the keyboard way to drag.
+        if (!movable || !e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        e.preventDefault();
+        drag.nudge(t, e.key === "ArrowUp" ? -1 : 1);
+      }}
       onDragStart={movable ? (e) => drag.start(e, t) : undefined}
       onDragEnd={drag.end}
       onDragOver={(e) => drag.overRow(e, t)}
@@ -474,13 +481,15 @@ interface DragKit {
   end: () => void;
   overRow: (e: React.DragEvent, t: AgendaItem) => void;
   drop: (e: React.DragEvent, t: AgendaItem) => void;
+  /** Moves an item one place up (-1) or down (1) among the ones it can swap with. */
+  nudge: (t: AgendaItem, dir: -1 | 1) => void;
 }
 
 /**
  * Drag to reorder untimed, open items within one column. `save` gets the moved item, the one it
  * landed on, and whether it went below it.
  */
-function useReorder(save: (moved: AgendaItem, target: AgendaItem, after: boolean) => void): DragKit {
+function useReorder(items: readonly AgendaItem[], save: (moved: AgendaItem, target: AgendaItem, after: boolean) => void): DragKit {
   // The dragged item lives in a ref too, so drag events between renders see it.
   const held = useRef<AgendaItem | null>(null);
   const [dragging, setDragging] = useState<AgendaItem | null>(null);
@@ -510,6 +519,14 @@ function useReorder(save: (moved: AgendaItem, target: AgendaItem, after: boolean
       e.dataTransfer.dropEffect = "move";
       const after = below(e);
       if (over?.key !== t.key || over.after !== after) setOver({ key: t.key, after });
+    },
+    nudge: (t, dir) => {
+      const peers = items.filter((i) => canReorder(i) && i.kind === t.kind);
+      const next = peers[peers.findIndex((i) => i.key === t.key) + dir];
+      if (!next) return;
+      save(t, next, dir > 0);
+      // The row moves in the DOM; keep the keyboard on it.
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-key="${t.key}"] [role="checkbox"]`)?.focus());
     },
     drop: (e, t) => {
       const moved = held.current;
@@ -554,11 +571,11 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const toggleCollapsed = useStore((s) => s.toggleHomeCollapsed);
   const now = useNow();
 
-  const routineDrag = useReorder((moved, target, after) => {
+  const routineDrag = useReorder(routines, (moved, target, after) => {
     const ids = [...usePlanner.getState().routines].sort((a, b) => a.sort - b.sort || a.id - b.id).map((r) => r.id);
     void usePlanner.getState().reorderRoutines(moveId(ids, moved.id, target.id, after));
   });
-  const dayDrag = useReorder((moved, target, after) => {
+  const dayDrag = useReorder(day, (moved, target, after) => {
     const ids = usePlanner
       .getState()
       .todos.filter((t) => t.dueDate === moved.date)
