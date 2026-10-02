@@ -5,7 +5,7 @@ import { DaysField, LengthField, ProfileField, SaveToField, TimeField, TitleInpu
 import { usePlanner } from "../../state/planner";
 import { useCalendar } from "../../state/calendar";
 import { useStore } from "../../state/store";
-import { EVERY_DAY, fromKey, longTime } from "../../lib/planner";
+import { EVERY_DAY, addDays, fromKey, longTime, todayKey, weekStart } from "../../lib/planner";
 import { focusTagText, readFocusTag, writeFocusTag } from "../../lib/calendar";
 import { native } from "../../lib/native";
 import type { CalEvent, Profile, Routine, Todo } from "../../lib/types";
@@ -32,18 +32,37 @@ function useWritableCalendars() {
 
 const SANCTUM = "sanctum";
 
-function DateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+const fieldClass = "h-control rounded-control border border-line-input bg-raised px-[10px] text-body text-text outline-none [color-scheme:dark] focus:border-sealed";
+
+/**
+ * The date, or (Pending) no day yet: parked on this week or next. `week` is the Monday it's
+ * parked on, or null when it has a day.
+ */
+function DateField({ value, onChange, week, onWeek }: { value: string; onChange: (v: string) => void; week?: string | null; onWeek?: (w: string | null) => void }) {
+  const thisWeek = weekStart(todayKey());
+  const nextWeek = addDays(thisWeek, 7);
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Date</span>
-      <input
-        type="date"
-        aria-label="Date"
-        value={value}
-        onChange={(e) => e.target.value && onChange(e.target.value)}
-        className="h-control rounded-control border border-line-input bg-raised px-[10px] text-body text-text outline-none [color-scheme:dark] focus:border-sealed"
-      />
-    </label>
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center justify-between">
+        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Date</span>
+        {onWeek ? (
+          <label className="flex cursor-pointer items-center gap-[6px] text-[11px] text-muted hover:text-text-2">
+            <input type="checkbox" checked={week != null} onChange={(e) => onWeek(e.target.checked ? (value >= nextWeek ? nextWeek : thisWeek) : null)} className="accent-sealed" />
+            No day yet
+          </label>
+        ) : null}
+      </span>
+      {week != null && onWeek ? (
+        <select aria-label="Week" value={week} onChange={(e) => onWeek(e.target.value)} className={`${fieldClass} cursor-pointer`}>
+          {/* An item parked on an older week stays there until you choose. */}
+          {week < thisWeek ? <option value={week}>Week of {fromKey(week).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</option> : null}
+          <option value={thisWeek}>This week</option>
+          <option value={nextWeek}>Next week</option>
+        </select>
+      ) : (
+        <input type="date" aria-label="Date" value={value} onChange={(e) => e.target.value && onChange(e.target.value)} className={fieldClass} />
+      )}
+    </div>
   );
 }
 
@@ -65,12 +84,18 @@ export function OneTimeDialog({ initial, date, onClose }: { initial?: Todo; date
   const [length, setLength] = useState(initial?.durationMin ?? null);
   const [profile, setProfile] = useState(initial?.profileId ?? null);
   const [target, setTarget] = useState(SANCTUM);
+  // Pending: the Monday it's parked on, or null when it has a day.
+  const [week, setWeek] = useState<string | null>(initial?.undated ? initial.dueDate : null);
 
   const save = async () => {
     if (!title.trim()) return;
     const ok =
       target === SANCTUM
-        ? await saveTodo({ id: initial?.id, title, dueDate: due, dueTime: time, durationMin: length, profileId: profile })
+        ? await saveTodo(
+            week
+              ? { id: initial?.id, title, dueDate: week, dueTime: null, durationMin: length, profileId: profile, undated: true }
+              : { id: initial?.id, title, dueDate: due, dueTime: time, durationMin: length, profileId: profile, undated: false },
+          )
         : await saveEvent({ calendarId: target, title: taggedTitle(title, profile, profiles), date: due, time, durationMin: time ? length : null });
     if (ok) onClose();
   };
@@ -84,8 +109,8 @@ export function OneTimeDialog({ initial, date, onClose }: { initial?: Todo; date
         </div>
         <TitleInput value={title} onChange={setTitle} onSubmit={() => void save()} placeholder="Mock interview" />
         <div className="grid grid-cols-2 gap-3">
-          <DateField value={due} onChange={setDue} />
-          <TimeField value={time} onChange={setTime} empty={target === SANCTUM ? "Anytime" : "All day"} />
+          <DateField value={due} onChange={setDue} week={week} onWeek={target === SANCTUM ? setWeek : undefined} />
+          {week ? <div /> : <TimeField value={time} onChange={setTime} empty={target === SANCTUM ? "Anytime" : "All day"} />}
           <LengthField value={length} onChange={setLength} />
           <ProfileField value={profile} onChange={setProfile} />
           {!initial && calendars.length ? (
