@@ -17,6 +17,10 @@ const NOTICE_MS = 4200;
 export interface Notice {
   lead: string;
   rest?: string;
+  /** A button on the toast ("Undo"). */
+  action?: { label: string; run: () => void };
+  /** How long it stays, if not the default. */
+  ms?: number;
 }
 
 /** How an early exit ended: the partner approved, the solo cooldown ran out, or the emergency unlock. */
@@ -326,7 +330,7 @@ export const useStore = create<Store>()((set, get) => {
     showNotice: (notice) => {
       clearTimeout(noticeTimer);
       set({ notice, lockedToast: null });
-      noticeTimer = setTimeout(() => set({ notice: null }), NOTICE_MS);
+      noticeTimer = setTimeout(() => set({ notice: null }), notice.ms ?? NOTICE_MS);
     },
     setDuration: (durationMin) => set({ durationMin }),
     openCloseDialog: () => set({ closeDialogOpen: true }),
