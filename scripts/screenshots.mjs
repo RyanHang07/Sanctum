@@ -203,6 +203,9 @@ try {
   await sleep(300);
   await shot(overlay, "blocked-overlay");
   await overlay.close();
+  // The same attempt, counted on the main window's session (each preview page has its own mock).
+  await page.evaluate(() => window.__m.mock.block("Discord"));
+  await sleep(300);
 
   // Hero: the session completes; Sanctum held builds itself.
   await record(page, "held", 2.6, () => page.evaluate(() => window.__m.mock.fastForward(61 * 60_000)));

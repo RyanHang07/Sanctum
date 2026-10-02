@@ -269,6 +269,53 @@ describe("Week: list view and header", () => {
     expect((await native.listTodos("2026-09-28", "2026-09-28")).find((t) => t.title === "Groceries")?.undated).toBe(true);
   });
 
+  it("parks a new item with No day yet, and gives a pending one its day (v0.1)", async () => {
+    await setup();
+    render(<WeekPage />);
+    fireEvent.click(screen.getByRole("button", { name: "New item" }));
+    let dialog = screen.getByRole("dialog", { name: "New item" });
+    fireEvent.change(within(dialog).getByLabelText("Title"), { target: { value: "Renew passport" } });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "No day yet" }));
+    expect(within(dialog).queryByLabelText("Time")).toBeNull();
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Week" }), { target: { value: "2026-10-05" } });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: /Add/ })));
+    let saved = (await native.listTodos("2026-10-05", "2026-10-05")).find((t) => t.title === "Renew passport")!;
+    expect([saved.undated, saved.dueDate]).toEqual([true, "2026-10-05"]);
+
+    // Next week's Pending has it; open it there and give it a day.
+    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    const strip = screen.getByRole("region", { name: "Pending" });
+    fireEvent.click(within(strip).getByRole("button", { name: "Show pending" }));
+    fireEvent.click(within(strip).getByRole("button", { name: "Renew passport" }));
+    dialog = screen.getByRole("dialog", { name: "Edit item" });
+    expect(within(dialog).getByRole("checkbox", { name: "No day yet" })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "No day yet" }));
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-10-07" } });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: /Save/ })));
+    saved = (await native.listTodos("2026-10-07", "2026-10-07")).find((t) => t.title === "Renew passport")!;
+    expect(saved.undated).toBe(false);
+  });
+
+  it("understands quick add words in Add to pending (v0.1)", async () => {
+    await setup();
+    render(<WeekPage />);
+    const strip = screen.getByRole("region", { name: "Pending" });
+    fireEvent.click(within(strip).getByRole("button", { name: "Show pending" }));
+    const add = within(strip).getByRole("textbox", { name: "Add to pending" });
+    const type = async (text: string) => {
+      fireEvent.change(add, { target: { value: text } });
+      await act(async () => fireEvent.keyDown(add, { key: "Enter" }));
+    };
+    await type("System design reading @deep 90m");
+    await type("Plan the trip next week");
+    await type("Call the bank thu");
+    const all = await native.listTodos("2026-09-28", "2026-10-11");
+    const by = (t: string) => all.find((x) => x.title === t)!;
+    expect(by("System design reading")).toMatchObject({ undated: true, dueDate: "2026-09-28", durationMin: 90, profileId: profileId("Deep Work") });
+    expect(by("Plan the trip")).toMatchObject({ undated: true, dueDate: "2026-10-05" });
+    expect(by("Call the bank")).toMatchObject({ undated: false, dueDate: "2026-10-01" });
+  });
+
   it("goes to two rows with Pending as the eighth box when the window is narrow (v0.1)", async () => {
     await setup();
     const real = window.matchMedia;

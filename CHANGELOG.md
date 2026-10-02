@@ -3,6 +3,9 @@
 ## v0.1.3 (in progress)
 
 - **Undo deletes:** deleting an item or routine hides it at once and shows "Deleted “Pay rent”." with **Undo** for 5 seconds; the real delete (and its Google Calendar event) waits until then. A reload in the meantime doesn't bring it back.
+- **No day yet in the item editor:** a checkbox beside Date parks the item on this week or next (Pending); unchecking gives a pending item its day.
+- **Add to pending understands quick add:** "@deep 90m" sets the profile and length, "next week" parks it a week later, and a day ("thu", "tomorrow") schedules it instead.
+- The Stats legend wraps on a narrow window instead of cutting the day's details short.
 - **Reorder from the keyboard:** Alt+↑ / Alt+↓ on a row moves it, on Home (untimed, open items) and on Week › Routines. Focus stays on the row.
 
 ## v0.1.2 (2026-10-01)

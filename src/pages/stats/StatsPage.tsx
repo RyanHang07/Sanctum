@@ -187,7 +187,8 @@ function WeekBars({ o, onHover }: { o: StatsOverview; onHover: (d: DayStat | nul
 function Legend({ hover, o }: { hover: DayStat | null; o: StatsOverview }) {
   const swatch = "h-3 w-3 rounded-[3px]";
   return (
-    <div className="flex h-5 shrink-0 items-center gap-[18px] text-meta text-muted">
+    // Wraps on a narrow window instead of cutting the day's details short.
+    <div className="flex min-h-5 shrink-0 flex-wrap items-center gap-x-[18px] gap-y-1 whitespace-nowrap text-meta text-muted">
       <span className="flex items-center gap-[6px]">
         <span className={`${swatch} bg-heat-1`} />
         <span className={`${swatch} bg-heat-2`} />
@@ -206,7 +207,7 @@ function Legend({ hover, o }: { hover: DayStat | null; o: StatsOverview }) {
         <span className={`${swatch} border border-dashed border-check-line`} />
         Rest day
       </span>
-      <span data-testid="stats-hover" className="ml-auto truncate text-text-2">
+      <span data-testid="stats-hover" className="ml-auto text-text-2">
         {hover ? dayDetail(hover.date, hover, o.goalMin) : "Hover a day for details"}
       </span>
     </div>

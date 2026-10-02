@@ -5,7 +5,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronIcon, PlusIcon } from "../../components/icons";
 import { usePlanner } from "../../state/planner";
-import { fromKey, pendingFor, todayKey, weekStart, type AgendaItem } from "../../lib/planner";
+import { addDays, fromKey, pendingFor, todayKey, weekStart, type AgendaItem } from "../../lib/planner";
+import { parseQuickAdd } from "../../lib/quickAdd";
+import { useStore } from "../../state/store";
 import type { Todo } from "../../lib/types";
 import { drag, dragProps, parkOn, todoItem } from "./drag";
 
@@ -85,13 +87,30 @@ function PendingRow({ t, week, onOpen }: { t: Todo; week: string; onOpen?: (i: A
   );
 }
 
-/** "Add to pending": a plain line, Enter saves (no day, no time). */
+/**
+ * "Add to pending", with quick add's words: "@deep 90m" sets the profile and length, "next week"
+ * parks it a week later, and a day ("thu", "tomorrow") gives it that day instead.
+ */
 function AddPending({ week, className = "" }: { week: string; className?: string }) {
   const [title, setTitle] = useState("");
+  const profiles = useStore((s) => s.profiles);
   const save = async () => {
-    const t = title.trim();
-    if (!t) return;
-    const ok = await usePlanner.getState().saveTodo({ title: t, dueDate: week, dueTime: null, durationMin: null, profileId: null, undated: true });
+    let text = title.trim();
+    if (!text) return;
+    let on = week;
+    if (/\bnext week\b/i.test(text)) {
+      on = addDays(week, 7);
+      text = text.replace(/\s*\bnext week\b\s*/i, " ").trim();
+    }
+    const p = parseQuickAdd(text, todayKey(), profiles);
+    const name = p.title || text;
+    const ok = await usePlanner
+      .getState()
+      .saveTodo(
+        p.date
+          ? { title: name, dueDate: p.date, dueTime: p.time, durationMin: p.durationMin, profileId: p.profileId, undated: false }
+          : { title: name, dueDate: on, dueTime: null, durationMin: p.durationMin, profileId: p.profileId, undated: true },
+      );
     if (ok) setTitle("");
   };
   return (
