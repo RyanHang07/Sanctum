@@ -1,6 +1,6 @@
 import { inTauri, native } from "./native";
 import { mockControls } from "./mockBackend";
-import { addDays, todayKey } from "./planner";
+import { addDays, todayKey, weekStart } from "./planner";
 import { catalogDistractions, sampleProfiles } from "./catalog";
 import { EVERY_DAY, WEEKDAYS_MASK } from "./planner";
 
@@ -53,6 +53,12 @@ export function seedDevPlanner(): Promise<void> {
     ];
     for (const r of routines) await native.saveRoutine(r);
     await native.saveTodo({ title: "Send the weekly update", dueDate: todayKey(), dueTime: null, durationMin: null, profileId: id("Light Work") });
+    // Pending: this week's things with no day yet, and one for next week.
+    const week = weekStart(todayKey());
+    for (const title of ["Renew passport", "Book the dentist", "Back up the laptop"]) {
+      await native.saveTodo({ title, dueDate: week, dueTime: null, durationMin: null, profileId: null, undated: true });
+    }
+    await native.saveTodo({ title: "Plan the trip", dueDate: addDays(week, 7), dueTime: null, durationMin: null, profileId: null, undated: true });
     await native.setSetting("dev_seeded_planner", "1");
   })();
   return plannerRun;

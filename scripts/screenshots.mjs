@@ -208,7 +208,7 @@ try {
   await sleep(300);
 
   // Hero: the session completes; Sanctum held builds itself.
-  await record(page, "held", 2.6, () => page.evaluate(() => window.__m.mock.fastForward(61 * 60_000)));
+  await record(page, "held", 2.6, () => page.evaluate(() => window.__m.mock.fastForward(121 * 60_000)));
   await sleep(600);
   await still(page, "held");
   await shot(page, "held");
