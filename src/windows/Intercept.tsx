@@ -5,6 +5,7 @@ import { EVENTS, native, onNative } from "../lib/native";
 import { play, setSoundsEnabled } from "../lib/sound";
 import { clock, countdown, minutes, minutesIn } from "../lib/time";
 import type { Intercept as Payload } from "../lib/types";
+import { overlayLine, welcomeLine } from "../pages/headlines";
 
 const RETURN_AFTER_S = 5;
 const NUDGE_MS = 3500;
@@ -54,7 +55,7 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
           </h1>
           <p className="m-0 text-body leading-normal text-text-2">
             {minutesIn(p.elapsedMs)} minutes into {p.profileName}, <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to
-            go. You don't need it. You need the reps.
+            go. {overlayLine(`${p.label}:${p.attempts}`, clock(Date.now() + p.remainingMs))}
           </p>
         </div>
         <div className="flex gap-4 text-meta text-muted">
@@ -138,10 +139,11 @@ export function TitleNudge({ p }: { p: Payload }) {
  */
 export function WelcomeCard({ p }: { p: Payload }) {
   const was = p.title && p.title !== "(private)" ? `${p.label}: ${p.title}` : p.label;
+  const welcome = welcomeLine(p.endsAt ?? p.idleMs ?? 0);
   return (
     <div role="status" className="flex w-[372px] animate-rise-in flex-col gap-1 rounded-panel border border-sealed-line bg-panel px-4 py-3 shadow-toast">
       <span className="headline text-[16px]">
-        Welcome back. <em>Pick it up.</em>
+        {welcome[0]} <em>{welcome[1]}</em>
       </span>
       {was ? <span className="truncate text-meta text-text-2">You were in {was}.</span> : null}
       <span className="text-meta text-muted">

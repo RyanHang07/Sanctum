@@ -111,7 +111,7 @@ describe("idle during a seal", () => {
       endsAt: new Date(2026, 8, 29, 11, 2).getTime(),
     };
     const { rerender } = render(<WelcomeCard p={p} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Welcome back. Pick it up.");
+    expect(screen.getByRole("status")).toHaveTextContent(/Welcome back\. Pick it up\.|Back in\. Keep going\.|You stepped away\. Step back in\./);
     expect(screen.getByRole("status")).toHaveTextContent("You were in Visual Studio Code: graph.py.");
     expect(screen.getByRole("status")).toHaveTextContent("12m idle · seal extended to 11:02 AM");
     // Private titles never show.

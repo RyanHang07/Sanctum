@@ -4,7 +4,7 @@ import { useStore } from "./store";
 import { Sidebar } from "../components/Sidebar";
 import { CloseDialog } from "../components/CloseDialog";
 import { Toast } from "../components/Toast";
-import { homeHeadline } from "../pages/headlines";
+import { EVENT_PAYOFFS, OPEN, SEALED, homeHeadline } from "../pages/headlines";
 import { native } from "../lib/native";
 
 const initial = useStore.getState();
@@ -36,13 +36,14 @@ describe("state machine", () => {
     expect(lockedToast("week")).toEqual({ lead: "Week is locked while you're sealed.", rest: "End focus to open it." });
   });
 
-  it("has a headline for each state", () => {
-    expect(homeHeadline("open")).toEqual(["Keep your promises.", "Or stay mid."]);
-    expect(homeHeadline("sealed")).toEqual(["You’re sealed in.", "Finish what you started."]);
-    expect(homeHeadline("event", { title: "Mock interview", until: "3:00" })).toEqual([
-      "Mock interview until 3:00.",
-      "Be all the way there.",
-    ]);
+  it("has a headline for each state, from that state's lines", () => {
+    const at = new Date(2026, 9, 1, 14, 0);
+    const lines = (l: readonly (readonly [string, string])[]) => l.map((x) => x.join(" "));
+    expect([...lines(OPEN), "Half the day is left. Use it."]).toContain(homeHeadline("open", undefined, at).join(" "));
+    expect(lines(SEALED)).toContain(homeHeadline("sealed", undefined, at).join(" "));
+    const [lead, payoff] = homeHeadline("event", { title: "Mock interview", until: "3:00" }, at);
+    expect(lead).toBe("Mock interview until 3:00.");
+    expect(EVENT_PAYOFFS).toContain(payoff);
   });
 });
 

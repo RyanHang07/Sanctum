@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { vi } from "vitest";
 import { WeekPage } from "./week/WeekPage";
 import { Home } from "./Home";
+import { homeHeadline } from "./headlines";
 import { ConnectionsSection } from "./setup/Connections";
 import { Toast } from "../components/Toast";
 import { useStore } from "../state/store";
@@ -190,7 +191,7 @@ describe("Home: In event", () => {
     act(() => void checkSchedule());
     expect(useStore.getState().appState).toBe("event");
     render(<Home />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Team standup until 9:45 AM. Be all the way there.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeHeadline("event", { title: "Team standup", until: "9:45 AM" }).join(" "));
     const bar = screen.getByTestId("event-bar");
     expect(bar).toHaveTextContent("5m left");
     await act(async () => fireEvent.click(within(bar).getByRole("button", { name: "Queue focus at 9:45 AM" })));
