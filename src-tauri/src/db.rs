@@ -22,6 +22,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0015_gcal_series", include_str!("../migrations/0015_gcal_series.sql")),
     ("0016_todo_sort", include_str!("../migrations/0016_todo_sort.sql")),
     ("0017_todo_undated", include_str!("../migrations/0017_todo_undated.sql")),
+    ("0018_focus_15min", include_str!("../migrations/0018_focus_15min.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.
@@ -65,15 +66,43 @@ pub fn schema_version(conn: &Connection) -> rusqlite::Result<usize> {
         .map(|v| v as usize)
 }
 
+/// A migration that rebuilds a table other tables point at starts with this line. It runs with
+/// foreign keys off (dropping the old table would otherwise cascade), then checks them before
+/// committing. SQLite only honors the pragma outside a transaction, so it's set around it.
+const FOREIGN_KEYS_OFF: &str = "-- foreign_keys: off";
+
 /// Applies pending migrations, each in its own transaction. Returns how many ran.
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<usize> {
+    migrate_until(conn, MIGRATIONS.len())
+}
+
+fn migrate_until(conn: &mut Connection, until: usize) -> rusqlite::Result<usize> {
     let current = schema_version(conn)?;
     let mut applied = 0;
-    for (i, (_name, sql)) in MIGRATIONS.iter().enumerate().skip(current) {
-        let tx = conn.transaction()?;
-        tx.execute_batch(sql)?;
-        tx.pragma_update(None, "user_version", (i + 1) as i64)?;
-        tx.commit()?;
+    for (i, (_name, sql)) in MIGRATIONS.iter().enumerate().take(until).skip(current) {
+        let rebuild = sql.starts_with(FOREIGN_KEYS_OFF);
+        if rebuild {
+            conn.pragma_update(None, "foreign_keys", false)?;
+        }
+        let result = (|| {
+            let tx = conn.transaction()?;
+            tx.execute_batch(sql)?;
+            if rebuild {
+                let broken: i64 = tx.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r.get(0))?;
+                if broken > 0 {
+                    return Err(rusqlite::Error::SqliteFailure(
+                        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY),
+                        Some(format!("migration {} left {broken} broken references", i + 1)),
+                    ));
+                }
+            }
+            tx.pragma_update(None, "user_version", (i + 1) as i64)?;
+            tx.commit()
+        })();
+        if rebuild {
+            conn.pragma_update(None, "foreign_keys", true)?;
+        }
+        result?;
         applied += 1;
     }
     Ok(applied)
@@ -122,6 +151,38 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sessions_take_15_minutes_and_keep_their_history_through_the_rebuild() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        migrate_until(&mut conn, 17).unwrap();
+        conn.execute_batch(
+            "INSERT INTO sessions (id, started_at, planned_minutes, profile_name, attempts_blocked) VALUES (1, 100, 60, 'Deep Work', 2);
+             INSERT INTO blocked_attempts (session_id, ts, exe, kind) VALUES (1, 110, 'discord.exe', 'app'), (1, 120, 'youtube.com', 'site');
+             INSERT INTO activity (ts, exe, session_id) VALUES (105, 'code.exe', 1);
+             INSERT INTO profiles (id, name, created_at) VALUES (1, 'Deep Work', 0);
+             INSERT INTO profile_rules (profile_id, kind, value) VALUES (1, 'app', 'discord.exe');
+             UPDATE sessions SET profile_id = 1 WHERE id = 1;",
+        )
+        .unwrap();
+        assert!(conn.execute("INSERT INTO sessions (started_at, planned_minutes) VALUES (200, 15)", []).is_err(), "the old check");
+        migrate(&mut conn).unwrap();
+        let count = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(count("SELECT COUNT(*) FROM blocked_attempts WHERE session_id = 1"), 2, "nothing cascaded");
+        assert_eq!(count("SELECT COUNT(*) FROM activity WHERE session_id = 1"), 1);
+        assert_eq!(count("SELECT attempts_blocked FROM sessions WHERE id = 1"), 2);
+        assert_eq!(count("SELECT COUNT(*) FROM profile_rules WHERE profile_id = 1"), 1, "profile rules kept");
+        assert_eq!(count("SELECT profile_id FROM sessions WHERE id = 1"), 1);
+        conn.execute("UPDATE profiles SET default_minutes = 15 WHERE id = 1", []).unwrap();
+        conn.execute("INSERT INTO sessions (started_at, planned_minutes) VALUES (200, 15)", []).unwrap();
+        assert!(conn.execute("INSERT INTO sessions (started_at, planned_minutes) VALUES (200, 10)", []).is_err());
+        let fk: bool = conn.pragma_query_value(None, "foreign_keys", |r| r.get(0)).unwrap();
+        assert!(fk, "foreign keys back on");
+        // Deleting a session still cascades as before.
+        conn.execute("DELETE FROM sessions WHERE id = 1", []).unwrap();
+        assert_eq!(count("SELECT COUNT(*) FROM blocked_attempts"), 0);
+    }
 
     fn fresh() -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
@@ -178,10 +239,11 @@ mod tests {
     #[test]
     fn enforces_constraints_and_foreign_keys() {
         let conn = fresh();
-        // 30 minutes is the minimum focus length.
+        // 15 minutes is the minimum focus length.
         assert!(conn
-            .execute("INSERT INTO profiles (name, default_minutes, created_at) VALUES ('Short', 15, 0)", [])
+            .execute("INSERT INTO profiles (name, default_minutes, created_at) VALUES ('Short', 10, 0)", [])
             .is_err());
+        conn.execute("INSERT INTO profiles (name, default_minutes, created_at) VALUES ('Quick', 15, 0)", []).unwrap();
         conn.execute("INSERT INTO profiles (name, created_at) VALUES ('Deep Work', 0)", []).unwrap();
         let id = conn.last_insert_rowid();
         conn.execute("INSERT INTO profile_rules (profile_id, kind, value) VALUES (?1, 'app', 'discord.exe')", [id])
