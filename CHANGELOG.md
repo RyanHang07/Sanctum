@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.2 (2026-10-01)
+
+A fix for v0.1.1.
+
+- Fix: 15-minute sessions and profile defaults now save. The database still required 30 minutes (a CHECK from 0001); migration 0018 rebuilds `sessions` and `profiles` with foreign keys off for that one step, then checks them, so no history is lost.
+
 ## v0.1.1 (2026-10-01)
 
 The first update after v0.1.0. Details are under v0.1 features below.
@@ -10,7 +16,6 @@ The first update after v0.1.0. Details are under v0.1 features below.
 - Focus lengths in 15-minute steps, 15 min to 2 h.
 - The moments rotate their words: Home headlines, the held line, the overlay, Welcome back.
 - Dropdown menus open dark. README: an animated WebP hero and fresh screenshots.
-- Fix: 15-minute sessions and profile defaults now save. The database still required 30 minutes (a CHECK from 0001); migration 0018 rebuilds `sessions` and `profiles` with foreign keys off for that one step, then checks them, so no history is lost.
 
 ## v0.1 features (2026-09-30)
 
