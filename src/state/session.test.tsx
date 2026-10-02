@@ -187,7 +187,7 @@ describe("session lifecycle", () => {
       const page = screen.getByTestId("held-page");
       expect(page).toHaveTextContent("Interview Prep · 60 min");
       expect(page).toHaveTextContent("Sanctum held.");
-      expect(page).toHaveTextContent("Promise kept.");
+      expect(page).toHaveTextContent("First one down."); // the day's first session
       expect(page).toHaveTextContent(/1\s*attempt blocked/);
       expect(page).toHaveTextContent(/1h\s*today of 2h/);
       fireEvent.keyDown(window, { key: "Escape" });
@@ -212,7 +212,7 @@ describe("session lifecycle", () => {
     render(
       <HeldPage held={{ sessionId: 1, profileId: 1, profileName: "Study", plannedMinutes: 30, focusMinutes: 26, attempts: 0, broken: true }} />,
     );
-    expect(screen.getByTestId("held-page")).toHaveTextContent("Held, but the downtime broke it.");
+    expect(screen.getByTestId("held-page")).toHaveTextContent(/Held, but the downtime broke it\.|Holding onto distraction is letting go of what really matters\./);
   });
 
   it("resumes a session reported by the backend on startup", async () => {

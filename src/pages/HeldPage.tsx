@@ -8,6 +8,8 @@ import type { HeldStats, TaskLink } from "../lib/types";
 import { usePlanner } from "../state/planner";
 import { native } from "../lib/native";
 import { CheckIcon } from "../components/icons";
+import { heldLine } from "./headlines";
+import { addDays, todayKey } from "../lib/planner";
 
 // Full-page takeover when a session completes (SPEC 4.0.2, design/screens/HeldPage.dc.html).
 // Stays until dismissed. Colors are the held mesh tokens; white is `sealed-on`.
@@ -66,6 +68,20 @@ export function HeldPage({ held }: { held: HeldStats }) {
   const goal = useStore((s) => s.settings.dailyGoalMin);
   const dismiss = useStore((s) => s.dismissHeld);
   const [run, setRun] = useState(0);
+  // The streak, for "3 days running." when this session met the goal.
+  const [streak, setStreak] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    const t = todayKey();
+    native
+      .statsOverview(addDays(t, -6), t)
+      .then((o) => live && setStreak(o.currentStreak))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [held.sessionId]);
+  const line = heldLine({ sessionId: held.sessionId, broken: held.broken, attempts: held.attempts, focusMinutes: held.focusMinutes, todayMinutes: today, goalMinutes: goal, streak });
 
   const enterAgain = async () => {
     const s = useStore.getState();
@@ -107,7 +123,7 @@ export function HeldPage({ held }: { held: HeldStats }) {
             Sanctum <em className="text-sealed-on/86">held.</em>
           </h1>
           <p className="m-0 text-[17px] text-sealed-on/90">
-            {held.broken ? "Held, but the downtime broke it." : "Promise kept."}
+            {line}
           </p>
         </div>
         <div className="held-r2 flex overflow-hidden rounded-[10px] border border-sealed-on/16 bg-app/35">

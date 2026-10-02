@@ -6,6 +6,7 @@ import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
 import { catalogDistractions, sampleProfiles } from "../lib/catalog";
 import { usePlanner } from "../state/planner";
+import { homeHeadline } from "./headlines";
 import { EVERY_DAY, addDays, todayKey } from "../lib/planner";
 
 const initial = useStore.getState();
@@ -121,7 +122,7 @@ describe("Home", () => {
   it("shows the focus row with real profiles and Duration (15 min to 2 h, by 15) when open", async () => {
     await withSampleProfiles();
     render(<Home />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Keep your promises. Or stay mid.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeHeadline("open").join(" "));
     const options = (name: string) => within(screen.getByRole("listbox", { name })).getAllByRole("option");
     expect(options("Length").map((o) => o.textContent)).toEqual(["15 min", "30 min", "45 min", "60 min", "75 min", "90 min", "105 min", "120 min"]);
     expect(options("Profile").map((o) => o.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
@@ -202,7 +203,7 @@ describe("Home", () => {
     await withSampleProfiles();
     act(() => useStore.getState().setAppState("sealed"));
     render(<Home />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("You’re sealed in. Finish what you started.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeHeadline("sealed").join(" "));
     expect(screen.queryByTestId("focus-row")).toBeNull();
     expect(screen.getByTestId("session-bar")).toHaveTextContent("Sealed · Interview Prep · 60 min");
   });
@@ -224,7 +225,7 @@ describe("Home", () => {
   it("shows the event bar in an event", () => {
     act(() => useStore.getState().setAppState("event"));
     render(<Home />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Mock interview until 3:00. Be all the way there.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeHeadline("event", { title: "Mock interview", until: "3:00" }).join(" "));
     expect(screen.getByTestId("event-bar")).toBeInTheDocument();
   });
 
