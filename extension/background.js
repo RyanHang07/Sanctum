@@ -9,8 +9,15 @@ const RETRY_MS = 5_000;
 const BLOCKED_PAGE = chrome.runtime.getURL("blocked.html");
 
 let port = null;
-/** The latest rules from Sanctum. Kept across worker restarts, so a seal survives Sanctum being briefly unreachable. */
-let rules = { sealed: false, sites: [], keywords: [] };
+/**
+ * The latest rules from Sanctum. Kept in local storage, across worker AND browser restarts: the
+ * browser keeps declarativeNetRequest's dynamic rules across a restart too, so this copy has to
+ * survive with them or the two disagree (a site "open" here but still redirected; v0.1.3 fix).
+ */
+const OPEN = { sealed: false, sites: [], keywords: [] };
+let rules = OPEN;
+/** How long past the session's planned end a seal is held while Sanctum can't be reached. */
+const STALE_MS = 2 * 60_000;
 let lastDomain = undefined;
 /** Heard from Sanctum since the port opened (the bridge alone doesn't count). */
 let connected = false;
@@ -60,12 +67,24 @@ async function onMessage(msg) {
   connected = true;
   if (msg.type === "rules") {
     rules = msg;
-    await chrome.storage.session.set({ rules });
+    await chrome.storage.local.set({ rules });
     await applyRules();
   } else if (msg.type === "online") {
     // The bridge reconnected to Sanctum.
     await hello();
   }
+}
+
+/** A seal Sanctum never lifted (it was closed, or the PC went off) and whose time is up. */
+const expired = (r) => r.sealed && r.endsAt && Date.now() > r.endsAt + STALE_MS;
+
+/** Lifts a seal that has run out while Sanctum is away, here, rather than hold it forever. */
+async function liftIfExpired() {
+  if (connected || !expired(rules)) return false;
+  rules = OPEN;
+  await chrome.storage.local.set({ rules });
+  await applyRules();
+  return true;
 }
 
 /** Updates the site rules and moves open tabs that are now sealed to the blocked page. */
@@ -120,6 +139,8 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "blocked") send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
   if (msg?.type === "rules?") return Promise.resolve(rules);
+  // The blocked page's "Open youtube.com": make sure no stale rule redirects it straight back.
+  if (msg?.type === "resync") return applyRules().then(() => rules);
   // The blocked page and the popup: the seal, whether Sanctum is there, and where to go back to.
   if (msg?.type === "state?") return Promise.resolve({ rules, connected, back: sender?.tab?.id ? back[sender.tab.id] ?? null : null });
   return undefined;
@@ -130,17 +151,28 @@ chrome.alarms.create("heartbeat", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name !== "heartbeat") return;
   send({ type: "ping" });
-  // Sanctum gone past the session's planned end: lift the seal here rather than hold it forever.
-  if (!connected && rules.sealed && rules.endsAt && Date.now() > rules.endsAt + 2 * 60_000) {
-    rules = { sealed: false, sites: [], keywords: [] };
-    void chrome.storage.session.set({ rules }).then(applyRules);
-  }
+  void heal();
   lastDomain = undefined;
   void reportActive();
 });
 
-chrome.storage.session.get(["rules", "back"]).then((stored) => {
-  if (stored.rules) rules = stored.rules;
-  if (stored.back) back = stored.back;
+/**
+ * Keeps the browser's blocking rules matching `rules`: lifts an expired seal, and clears any
+ * rule left behind with nothing sealed (e.g. after the PC went off mid-seal).
+ */
+async function heal() {
+  if (await liftIfExpired()) return;
+  if (rules.sealed) return;
+  const left = await chrome.declarativeNetRequest.getDynamicRules();
+  if (left.length) await applyRules();
+}
+
+// Start-up: restore the last rules and make the browser's blocking match them before anything
+// else, so a restart never leaves a site blocked that this worker thinks is open.
+Promise.all([chrome.storage.local.get("rules"), chrome.storage.session.get("back")]).then(async ([local, session]) => {
+  if (local.rules) rules = local.rules;
+  if (session.back) back = session.back;
+  await liftIfExpired();
+  await applyRules();
   connect();
 });
