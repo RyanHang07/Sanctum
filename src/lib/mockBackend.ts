@@ -15,6 +15,12 @@ import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
+/** The emergency unlock comes back at the next local midnight (once a day). */
+const nextMidnight = (t: number) => {
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+};
+
 const DURATIONS = [15, 30, 45, 60, 75, 90, 105, 120];
 
 const SAMPLE_APPS: InstalledApp[] = [
@@ -483,12 +489,18 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (l.retryAt && l.retryAt > Date.now()) throw `The next request opens in ${Math.ceil((l.retryAt - Date.now()) / 60_000)} min.`;
     l.outcome = null;
     l.note = null;
-    l.third = { kind: l.partner ? "partner" : "solo", at: Date.now() };
+    // Solo, the session ends here (v0.1.3: no cooldown).
+    if (!l.partner) {
+      const view = ladderView();
+      endUnlocked();
+      return { ...view, stage: "solo", outcome: "approved" };
+    }
+    l.third = { kind: "partner", at: Date.now() };
     return ladderView();
   },
   ladder_finish_solo: () => {
     const l = ladder();
-    if (l.third?.kind !== "solo" || Date.now() < l.third.at + 30 * 60_000) throw "The cooldown isn't over.";
+    if (l.third?.kind !== "solo" || Date.now() < l.third.at + 5 * 60_000) throw "The wait isn't over.";
     const view = ladderView();
     endUnlocked();
     return { ...view, outcome: "approved" };
@@ -498,7 +510,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   emergency_unlock: ({ reason }: { reason: string }) => {
     const last = Number(state.settings.get("emergency_used_at") ?? 0);
-    if (last && Date.now() < last + 7 * 86_400_000) throw "The emergency unlock is back later this week.";
+    if (last && Date.now() < nextMidnight(last)) throw "The emergency unlock is back at midnight.";
     if (!reason.trim()) throw "Say what the emergency is.";
     endUnlocked();
     state.settings.set("emergency_used_at", String(Date.now()));
@@ -853,12 +865,12 @@ function ladderView(): LadderView {
     partner: l.partner,
     expiresAt: l.third?.kind === "partner" ? l.third.at + 30 * 60_000 : null,
     requestedAt: l.third?.kind === "partner" ? l.third.at : null,
-    soloLeftMs: l.third?.kind === "solo" ? Math.max(0, l.third.at + 30 * 60_000 - now) : null,
+    soloLeftMs: l.third?.kind === "solo" ? Math.max(0, l.third.at + 5 * 60_000 - now) : null,
     outcome: l.outcome,
     note: l.note,
     retryAt: l.retryAt && l.retryAt > now ? l.retryAt : null,
     notice: null,
-    emergencyNextAt: last && now < last + 7 * 86_400_000 ? last + 7 * 86_400_000 : null,
+    emergencyNextAt: last && now < nextMidnight(last) ? nextMidnight(last) : null,
   };
 }
 

@@ -53,7 +53,7 @@ describe("session lifecycle", () => {
     expect(useStore.getState().appState).toBe("sealed");
   });
 
-  it("break-seal ladder: reason and wait, retype, then the solo cooldown ends the session", async () => {
+  it("break-seal ladder: reason and wait, retype, then solo it ends the session (no cooldown, v0.1.3)", async () => {
     await sealed();
     const t0 = Date.now();
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -63,7 +63,7 @@ describe("session lifecycle", () => {
       render(<BreakSealDialog />);
       const dialog = await screen.findByRole("dialog", { name: "Break the seal" });
       expect(dialog).toHaveTextContent("Interview Prep · 60:00 left");
-      expect(dialog).toHaveTextContent("30-minute cooldown");
+      expect(dialog).not.toHaveTextContent("cooldown");
 
       // Level 1: 50 characters, then a 5-minute wait.
       const start = within(dialog).getByRole("button", { name: "Start the wait" });
@@ -88,13 +88,9 @@ describe("session lifecycle", () => {
       expect(dialog).toHaveTextContent("Reason given, waited 5 minutes");
       expect(dialog).toHaveTextContent("No partner is linked");
 
-      // Level 3 solo: a 30-minute cooldown, then the session ends as unlocked early.
-      await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Start the cooldown" })));
-      expect(screen.getByTestId("ladder-cooldown")).toHaveTextContent("30:00");
-      vi.setSystemTime(t0 + 36 * 60_000);
-      await waitFor(() => expect(within(dialog).getByRole("button", { name: "End the session" })).toBeEnabled(), { timeout: 2500 });
+      // Level 3 solo: no cooldown; the session ends as unlocked early.
       await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "End the session" })));
-      expect(await screen.findByRole("dialog", { name: "Seal lifted" })).toHaveTextContent("Cooldown done. Seal lifted.");
+      expect(await screen.findByRole("dialog", { name: "Seal lifted" })).toHaveTextContent("Session ended. Seal lifted.");
       expect(useStore.getState().session).toBeNull();
       expect(useStore.getState().appState).toBe("open");
     } finally {

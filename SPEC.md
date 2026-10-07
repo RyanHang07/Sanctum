@@ -113,7 +113,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 ### 4.0.3 Offline and time integrity (**Decided**)
 - Blocking, sessions, streaks, trackers, and check-ins all run locally and work fully offline
 - **Offline indicator:** a subtle "Offline" tag in the sidebar state pill and the tray panel. Nothing else changes
-- **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to the solo 30 min cooldown
+- **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to a 5-minute wait (changed 2026-10-06; was the solo 30 min cooldown)
 - **Google Calendar offline:** edits queue locally and sync on reconnect; last edit wins on conflicts
 - **Clock changes:** session timers use a monotonic clock. If the Windows system clock jumps (forward or back) during a session, treat it as tampering: the seal breaks, the streak resets, and the partner is notified. **Built 2026-09-30 (M12):** a jump is more than 2 minutes of wall-clock change beyond GetTickCount64 (which counts through sleep, so waking a laptop never counts). A broken seal stays on until its planned end
 
@@ -178,17 +178,17 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 
 | Level | Requirement |
 |---|---|
-| 1 | Type a reason (min 50 chars) + wait 5 minutes (timer resets if you leave the screen) |
+| 1 | Type a reason (min 50 chars) + wait 5 minutes (pauses while you leave the screen; changed 2026-10-06, was resets) |
 | 2 | Retype a random ~300 char paragraph exactly |
 | 3 (with partner) | Partner approval from email. The email links to the partner web page, where the partner confirms with **their** PIN and taps Approve or Deny (optional note back). You never type a PIN |
-| 3 (solo) | 30 minute cooldown. No skip, timer resets if the app loses focus |
+| 3 (solo) | **Changed 2026-10-06:** none, the session ends after the paragraph. If a linked partner can't be reached: a 5-minute wait. All waits pause (not reset) while the app is out of focus |
 
 - ~~Approved unlock is a **grace window** (default 10 min), not the end of the session.~~ **Changed 2026-09-29 (your call):** an approved unlock ends the session (unlocked early, not broken). Asking again after a denial or expiry starts at level 2
 - Partner approval arrives via Supabase Realtime
 - Request expires after 30 min. Denied or expired: the seal stands and the next request unlocks after 15 min
 - Partner PIN: 3 wrong tries on the approval page locks approvals for 30 min (enforced server-side)
 - An approved exit does NOT break the streak
-- **Emergency unlock:** 1 per week, skips the ladder, partner is notified if one is set. **Decided 2026-09-29:** it doesn't break the streak, but the day still needs the focus goal to be kept
+- **Emergency unlock:** 1 per day, back at local midnight (**changed 2026-10-06**; was 1 per week), skips the ladder, partner is notified if one is set. **Decided 2026-09-29:** it doesn't break the streak, but the day still needs the focus goal to be kept
 - **Level 2 paragraphs (decided 2026-09-29):** a built-in set of about 20 short paragraphs in Sanctum's voice, one at random
 
 ### 4.6 Accountability Partner (optional)
