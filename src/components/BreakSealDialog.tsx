@@ -36,7 +36,7 @@ function Steps({ v }: { v: LadderView }) {
     [v.level > 1 ? "Reason given, waited 5 minutes" : "Give a reason, then wait 5 minutes", v.level > 1 ? "done" : "now", v.level > 1 ? "Done" : ""],
     ["Retype a paragraph", v.level > 2 ? "done" : v.level === 2 ? "now" : "todo", v.level > 2 ? "Done" : ""],
     [
-      v.partner ? `${v.partner} approves` : "30-minute cooldown",
+      v.partner ? `${v.partner} approves` : "End the session",
       third,
       v.stage === "partner" ? "Pending" : v.stage === "solo" ? "Running" : v.outcome === "denied" ? "Denied" : v.outcome === "expired" ? "Expired" : "",
     ],
@@ -79,7 +79,7 @@ function Result() {
   const clear = useStore((s) => s.setUnlockResult);
   if (!result) return null;
   const done = () => clear(null);
-  const lead = result.kind === "approved" ? `${result.partner ?? "Your partner"} approved.` : result.kind === "solo" ? "Cooldown done." : "Emergency unlock used.";
+  const lead = result.kind === "approved" ? `${result.partner ?? "Your partner"} approved.` : result.kind === "solo" ? "Session ended." : "Emergency unlock used.";
   return (
     <Dialog label="Seal lifted" onClose={done} width={460} top={150}>
       <div className="flex flex-col gap-3 px-[18px] pb-4 pt-[18px]">
@@ -91,7 +91,7 @@ function Result() {
         </div>
         <p className="m-0 text-meta text-muted">
           {result.kind === "emergency"
-            ? `This week's emergency unlock is used.${result.partner ? ` ${result.partner} was told.` : ""} It isn't a broken seal; the day still needs your goal.`
+            ? `Today's emergency unlock is used; it's back at midnight.${result.partner ? ` ${result.partner} was told.` : ""} It isn't a broken seal; the day still needs your goal.`
             : "This counts as an approved exit, not a broken seal. Your streak is safe; the day still needs your goal."}
         </p>
       </div>
@@ -110,8 +110,8 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
   const setResult = useStore((s) => s.setUnlockResult);
   const close = useStore((s) => s.closeEndEarly);
   if (v.emergencyNextAt) {
-    const d = new Date(v.emergencyNextAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    return <span className="text-meta text-faint">Emergency unlock back {d}</span>;
+    // Once a day: it comes back at midnight.
+    return <span className="text-meta text-faint">Emergency unlock back at midnight</span>;
   }
   if (!open) {
     return (
@@ -207,7 +207,7 @@ export function BreakSealDialog() {
     const n = draft.trim().length;
     body = (
       <>
-        <p className="m-0 text-body text-text-2">Write down why you're stopping. Then a 5-minute wait; leaving this window restarts it.</p>
+        <p className="m-0 text-body text-text-2">Write down why you're stopping. Then a 5-minute wait; it pauses while you're away from this window.</p>
         <textarea
           autoFocus
           aria-label="Reason"
@@ -235,7 +235,7 @@ export function BreakSealDialog() {
           <span data-testid="ladder-wait" className="font-mono text-[28px] font-medium tracking-[-0.02em]">
             {countdown(left)}
           </span>
-          <span className="text-meta text-muted">Stay on this window. Leaving it restarts the wait.</span>
+          <span className="text-meta text-muted">It pauses while you're away from this window.</span>
         </div>
         {v.reason ? <Quote>{v.reason}</Quote> : null}
       </>
@@ -305,7 +305,7 @@ export function BreakSealDialog() {
           <span data-testid="ladder-cooldown" className="font-mono text-[28px] font-medium tracking-[-0.02em]">
             {countdown(left)}
           </span>
-          <span className="text-meta text-muted">Stay on this window. Leaving it restarts the cooldown.</span>
+          <span className="text-meta text-muted">It pauses while you're away from this window.</span>
         </div>
       </>
     );
@@ -329,7 +329,7 @@ export function BreakSealDialog() {
           <p className="m-0 text-body text-text-2">
             {v.partner
               ? `${v.partner} gets an email with your reason and approves or denies it with their PIN. The request expires in 30 minutes.`
-              : "No partner is linked, so the last step is a 30-minute cooldown. Leaving this window restarts it."}
+              : "No partner is linked, so this ends the session. It counts as unlocked early, not a broken seal."}
           </p>
         )}
         {v.retryAt ? <span className="text-meta text-muted">Next request unlocks in {minutesLeft(v.retryAt)} min.</span> : null}
@@ -337,7 +337,7 @@ export function BreakSealDialog() {
     );
     action = (
       <Button variant="ghost" disabled={!!v.retryAt} onClick={() => run(native.ladderRequest)}>
-        {v.partner ? `Ask ${v.partner}` : "Start the cooldown"}
+        {v.partner ? `Ask ${v.partner}` : "End the session"}
       </Button>
     );
   }

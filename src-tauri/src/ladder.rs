@@ -1,13 +1,15 @@
 //! Breaking the seal early (SPEC 4.5, M7). Levels in order:
-//! 1. A reason (50+ characters) and a 5-minute wait that restarts if you leave the window.
+//! 1. A reason (50+ characters) and a 5-minute wait. Leaving the window pauses it (changed
+//!    v0.1.3: it used to restart from zero).
 //! 2. Retype a paragraph exactly.
 //! 3. With a partner: their approval, from their page with their PIN (30 minutes to answer).
-//!    Solo, or when the partner can't be reached: a 30-minute cooldown that restarts if you
-//!    leave the window.
+//!    Solo: that's it, the session ends (v0.1.3: the 30-minute cooldown is gone). When the
+//!    partner can't be reached: one more 5-minute wait, paused the same way, so going offline
+//!    never skips the partner outright.
 //!
 //! An approval ends the session as unlocked early, never broken. A denial or expiry means the
 //! seal stands; the next request opens after 15 minutes and starts at level 2.
-//! The emergency unlock skips all of it, once a week.
+//! The emergency unlock skips all of it, once a day (v0.1.3: was once a week).
 //!
 //! `Ladder` is pure (times are passed in) so the rules are tested without clocks or network.
 
@@ -15,10 +17,10 @@ use serde::Serialize;
 
 pub const MIN_REASON: usize = 50;
 pub const WAIT_MS: i64 = 5 * 60_000;
-pub const SOLO_MS: i64 = 30 * 60_000;
+/// The wait when a partner is linked but can't be reached.
+pub const SOLO_MS: i64 = 5 * 60_000;
 pub const REQUEST_TTL_MS: i64 = 30 * 60_000;
 pub const RETRY_AFTER_MS: i64 = 15 * 60_000;
-pub const EMERGENCY_EVERY_MS: i64 = 7 * 24 * 3_600_000;
 
 /// Level 2: one at random, typed exactly. Plain ASCII so every keyboard can type it.
 pub const PARAGRAPHS: &[&str] = &[
@@ -78,11 +80,13 @@ pub struct Ladder {
     pub note: Option<String>,
     /// After a denial or expiry, no new request before this.
     pub retry_at: Option<i64>,
+    /// Set while you're away from the window: the running wait is paused from then.
+    pub away_since: Option<i64>,
 }
 
 impl Ladder {
     pub fn new(session_id: i64) -> Self {
-        Ladder { session_id, level: 1, reason: None, wait_started: None, paragraph: None, third: None, outcome: None, note: None, retry_at: None }
+        Ladder { session_id, level: 1, reason: None, wait_started: None, paragraph: None, third: None, outcome: None, note: None, retry_at: None, away_since: None }
     }
 
     /// Level 1: the reason starts the wait.
@@ -99,17 +103,31 @@ impl Ladder {
         Ok(())
     }
 
-    pub fn wait_left(&self, now: i64) -> Option<i64> {
-        self.wait_started.map(|t| (t + WAIT_MS - now).max(0))
+    /// The clock the waits read: frozen at the moment you left the window.
+    fn clock(&self, now: i64) -> i64 {
+        self.away_since.map_or(now, |a| a.min(now))
     }
 
-    /// Leaving the window restarts whichever wait is running.
+    pub fn wait_left(&self, now: i64) -> Option<i64> {
+        self.wait_started.map(|t| (t + WAIT_MS - self.clock(now)).max(0))
+    }
+
+    /// Leaving the window pauses whichever wait is running.
     pub fn left_window(&mut self, now: i64) {
-        if self.level == 1 && self.wait_started.is_some() {
-            self.wait_started = Some(now);
+        if self.away_since.is_none() {
+            self.away_since = Some(now);
+        }
+    }
+
+    /// Back on the window: the wait picks up where it paused.
+    pub fn returned(&mut self, now: i64) {
+        let Some(away) = self.away_since.take() else { return };
+        let gap = (now - away).max(0);
+        if let Some(t) = &mut self.wait_started {
+            *t += gap;
         }
         if let Some(Third::Solo { started_at }) = &mut self.third {
-            *started_at = now;
+            *started_at += gap;
         }
     }
 
@@ -159,12 +177,13 @@ impl Ladder {
 
     pub fn start_solo(&mut self, now: i64) {
         self.outcome = None;
+        self.away_since = None;
         self.third = Some(Third::Solo { started_at: now });
     }
 
     pub fn solo_left(&self, now: i64) -> Option<i64> {
         match self.third {
-            Some(Third::Solo { started_at }) => Some((started_at + SOLO_MS - now).max(0)),
+            Some(Third::Solo { started_at }) => Some((started_at + SOLO_MS - self.clock(now)).max(0)),
             _ => None,
         }
     }
@@ -191,9 +210,17 @@ impl Ladder {
     }
 }
 
-/// Whether the weekly emergency unlock is free, and if not, when it will be.
+/// Whether the daily emergency unlock is free, and if not, when it will be: the next local
+/// midnight after it was last used.
 pub fn emergency_next(last_used: Option<i64>, now: i64) -> Option<i64> {
-    last_used.map(|t| t + EMERGENCY_EVERY_MS).filter(|next| *next > now)
+    last_used.map(next_midnight).filter(|next| *next > now)
+}
+
+fn next_midnight(t: i64) -> i64 {
+    use chrono::{Duration, Local, TimeZone};
+    let Some(at) = Local.timestamp_millis_opt(t).single() else { return t + 86_400_000 };
+    let day = at.date_naive() + Duration::days(1);
+    Local.from_local_datetime(&day.and_hms_opt(0, 0, 0).unwrap()).earliest().map_or(t + 86_400_000, |d| d.timestamp_millis())
 }
 
 #[cfg(test)]
@@ -204,16 +231,19 @@ mod tests {
     const REASON: &str = "Recruiter moved my call up and I need Discord for the shared screen link.";
 
     #[test]
-    fn level_one_needs_a_reason_and_an_unbroken_wait() {
+    fn level_one_needs_a_reason_and_a_wait_that_pauses_while_you_are_away() {
         let mut l = Ladder::new(1);
         assert!(l.give_reason("too short", 0).is_err());
         l.give_reason(REASON, 0).unwrap();
         assert_eq!(l.wait_left(2 * MIN), Some(3 * MIN));
         assert!(l.finish_wait(2 * MIN, 0).is_err());
-        // Leaving the window restarts the wait.
+        // Leaving the window pauses the wait; coming back picks it up, nothing lost.
         l.left_window(4 * MIN);
-        assert_eq!(l.wait_left(5 * MIN), Some(4 * MIN));
-        l.finish_wait(9 * MIN, 3).unwrap();
+        assert_eq!(l.wait_left(9 * MIN), Some(MIN), "paused at 1 min left");
+        l.returned(9 * MIN);
+        assert_eq!(l.wait_left(9 * MIN), Some(MIN));
+        assert!(l.finish_wait(9 * MIN, 3).is_err());
+        l.finish_wait(10 * MIN, 3).unwrap();
         assert_eq!(l.level, 2);
         assert_eq!(l.paragraph, Some(PARAGRAPHS[3]));
     }
@@ -248,14 +278,15 @@ mod tests {
     }
 
     #[test]
-    fn solo_cooldown_restarts_when_you_leave() {
+    fn the_unreachable_partner_wait_is_five_minutes_and_pauses_too() {
         let mut l = Ladder::new(1);
         l.level = 3;
         l.start_solo(0);
-        assert_eq!(l.solo_left(10 * MIN), Some(20 * MIN));
-        l.left_window(10 * MIN);
-        assert_eq!(l.solo_left(10 * MIN), Some(30 * MIN));
-        assert_eq!(l.solo_left(45 * MIN), Some(0));
+        assert_eq!(l.solo_left(2 * MIN), Some(3 * MIN));
+        l.left_window(2 * MIN);
+        assert_eq!(l.solo_left(20 * MIN), Some(3 * MIN));
+        l.returned(20 * MIN);
+        assert_eq!(l.solo_left(23 * MIN), Some(0));
     }
 
     #[test]
@@ -268,9 +299,13 @@ mod tests {
     }
 
     #[test]
-    fn emergency_is_weekly() {
-        assert_eq!(emergency_next(None, 0), None);
-        assert_eq!(emergency_next(Some(0), 3 * 24 * 60 * MIN), Some(EMERGENCY_EVERY_MS));
-        assert_eq!(emergency_next(Some(0), EMERGENCY_EVERY_MS), None);
+    fn emergency_is_daily_and_back_at_midnight() {
+        use chrono::{Local, TimeZone};
+        let at = |d: u32, h: u32| Local.with_ymd_and_hms(2026, 10, d, h, 0, 0).unwrap().timestamp_millis();
+        assert_eq!(emergency_next(None, at(6, 9)), None);
+        // Used at 9 AM: back at midnight, not 24 hours later.
+        assert_eq!(emergency_next(Some(at(6, 9)), at(6, 23)), Some(at(7, 0)));
+        assert_eq!(emergency_next(Some(at(6, 9)), at(7, 0)), None);
+        assert_eq!(emergency_next(Some(at(6, 23)), at(7, 1)), None, "late last night, free again this morning");
     }
 }

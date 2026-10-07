@@ -179,7 +179,8 @@ pub fn ladder_retype(app: AppHandle, text: String) -> Result<LadderView, String>
     Ok(with_ladder(&app, |u, _| u.ladder.retype(&text))?.1)
 }
 
-/// Level 3: ask the partner, or start the solo cooldown (also when the partner can't be reached).
+/// Level 3: ask the partner. Solo, the session ends here. A partner who can't be reached means
+/// one more 5-minute wait instead.
 #[tauri::command]
 pub async fn ladder_request(app: AppHandle) -> Result<LadderView, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -188,15 +189,20 @@ pub async fn ladder_request(app: AppHandle) -> Result<LadderView, String> {
             Ok((u.partner.clone(), u.ladder.reason.clone().unwrap_or_default()))
         })?;
         let (partner, reason) = partner;
-        let asked = partner.as_ref().map(|_| cloud::create_unlock_request(&app, &reason));
+        let Some(name) = partner else {
+            // Solo: the reason, the wait, and the paragraph were the price. The session ends.
+            let (_, view) = with_ladder(&app, |_, _| Ok(()))?;
+            finish(&app, &reason, 3)?;
+            return Ok(LadderView { outcome: Some(Outcome::Approved), stage: "solo", ..view });
+        };
+        let asked = cloud::create_unlock_request(&app, &reason);
         Ok(with_ladder(&app, |u, now| {
-            match (asked, partner) {
-                (Some(Ok(id)), Some(name)) => u.ladder.start_partner(id, name, now),
-                (Some(Err(e)), _) => {
-                    u.notice = Some(format!("Couldn't reach your partner ({e}). The solo cooldown applies instead."));
+            match asked {
+                Ok(id) => u.ladder.start_partner(id, name, now),
+                Err(e) => {
+                    u.notice = Some(format!("Couldn't reach your partner ({e}). A 5-minute wait applies instead."));
                     u.ladder.start_solo(now);
                 }
-                _ => u.ladder.start_solo(now),
             }
             u.last_poll = None;
             Ok(())
@@ -241,7 +247,7 @@ pub async fn ladder_cancel(app: AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Leaving the window restarts the level-1 wait and the solo cooldown.
+/// Leaving the window pauses the running wait; coming back resumes it.
 pub fn left_window(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let mut guard = shared.unlock.current.lock().unwrap();
@@ -250,14 +256,21 @@ pub fn left_window(app: &AppHandle) {
     }
 }
 
-/// Once a week: ends the session without the ladder. Not a broken seal; the partner hears.
+pub fn returned_to_window(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let mut guard = shared.unlock.current.lock().unwrap();
+    if let Some(u) = guard.as_mut() {
+        u.ladder.returned(session::now_ms());
+    }
+}
+
+/// Once a day: ends the session without the ladder. Not a broken seal; the partner hears.
 #[tauri::command]
 pub fn emergency_unlock(app: AppHandle, reason: String) -> Result<(), String> {
     let shared = app.state::<Shared>();
     let now = session::now_ms();
-    if let Some(next) = emergency_next(&shared, now) {
-        let days = (next - now + 86_399_999) / 86_400_000;
-        return Err(format!("The emergency unlock is back in {days} {}.", if days == 1 { "day" } else { "days" }));
+    if emergency_next(&shared, now).is_some() {
+        return Err("The emergency unlock is back at midnight.".into());
     }
     let reason = reason.trim();
     if reason.is_empty() {

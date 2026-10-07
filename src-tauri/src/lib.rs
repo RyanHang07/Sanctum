@@ -743,10 +743,14 @@ pub fn run() {
                 }
             }
             ("tray-panel", WindowEvent::Focused(false)) => tray::hide_panel(window.app_handle()),
-            // Leaving the window restarts the ladder's waits (SPEC 4.5).
-            ("main", WindowEvent::Focused(false)) => {
+            // Leaving the window pauses the ladder's waits; coming back resumes them (SPEC 4.5).
+            ("main", WindowEvent::Focused(focused)) => {
                 if window.app_handle().try_state::<Shared>().is_some() {
-                    unlock::left_window(window.app_handle());
+                    if *focused {
+                        unlock::returned_to_window(window.app_handle());
+                    } else {
+                        unlock::left_window(window.app_handle());
+                    }
                 }
             }
             ("compact", WindowEvent::Moved(pos)) => {
