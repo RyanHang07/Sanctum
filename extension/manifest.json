@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sanctum",
   "description": "Seals the sites your Sanctum focus profile blocks, while you're sealed.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt2KwhtGwATl0l42pbYAySBqiG+zA4e3vsMmwOxRr50sZ2Gobu85dUWSVDF8290KhPgivaSeBc6ZtSmS54aAxVQNYvJgk12bwMCebNLhsq4TVpWAQbbaU2Wk8G4+UKS1g0sfPYAK1Zkg4UumfXrjT3lLW0GRa4dB3beop73aqyOCSELzd2gcevDEiZOMhR7JTgomdkxO34ZX7Jmil4tuffRFKtuDUWFNR6JHoB9r/p4YbEt/1wg0KaJcoVS973tkX+Vr1Q+ZgabOM5/NPHbZ4RUxfjrY7BBxTjNuXyxeXPNNWCjqqKVDbq7QmcE+dgGlWzLvrbDYc7SqqXrjU3x2RrQIDAQAB",
   "minimum_chrome_version": "120",
   "background": {

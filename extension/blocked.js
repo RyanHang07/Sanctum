@@ -10,7 +10,8 @@ const keyword = params.get("keyword");
 const $ = (id) => document.getElementById(id);
 document.title = `${keyword ? `“${keyword}”` : site || "Sealed"} · Sanctum`;
 
-void chrome.runtime.sendMessage({ type: "blocked", site, keyword });
+/** Counted once as an attempt, and only while a seal is on (not when the page is showing "open"). */
+let reported = false;
 
 const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -52,13 +53,20 @@ function render() {
 
 async function refresh() {
   state = await chrome.runtime.sendMessage({ type: "state?" }).catch(() => null);
+  if (state?.rules?.sealed && !reported) {
+    reported = true;
+    void chrome.runtime.sendMessage({ type: "blocked", site, keyword });
+  }
   render();
 }
 
-$("back").addEventListener("click", () => {
+$("back").addEventListener("click", async () => {
   const rules = state?.rules;
-  if (rules && !rules.sealed && site) location.href = `https://${site}`;
-  else if (state?.back) location.href = state.back;
+  if (rules && !rules.sealed && site) {
+    // Clear any blocking rule left over first, or the site would redirect straight back here.
+    await chrome.runtime.sendMessage({ type: "resync" }).catch(() => null);
+    location.href = `https://${site}`;
+  } else if (state?.back) location.href = state.back;
   else window.close();
 });
 $("open").addEventListener("click", () => void chrome.runtime.sendMessage({ type: "open-sanctum" }));
