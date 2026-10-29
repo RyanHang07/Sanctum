@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { call, configured, supabase } from "./supabase";
 import { Title, useTabTitle } from "./title";
 import { About, Footer, Privacy, Terms } from "./Legal";
+import { SharedNote } from "./SharedNote";
 
 // The accountability partner's page (SPEC 4.6, design/screens/PartnerApprove.dc.html).
 // /approve/<id>: one unlock request, full screen, decided with your PIN (the email links here).
@@ -18,9 +19,13 @@ type Route =
   | { page: "approve"; id: string }
   | { page: "emails" }
   | { page: "demo" }
-  | { page: "about" | "privacy" | "terms" };
+  | { page: "about" | "privacy" | "terms" }
+  | { page: "note"; token: string };
 
 function routeOf(path: string): Route {
+  // A shared note (v0.2): /n/<token>#<key>.
+  const note = /^\/n\/([0-9a-f]{64})\/?$/.exec(path);
+  if (note) return { page: "note", token: note[1]! };
   const invite = /^\/invite\/([a-f0-9]+)\/?$/i.exec(path);
   if (invite) return { page: "invite", token: invite[1]! };
   const approve = /^\/approve\/([0-9a-f-]{36})\/?$/i.exec(path);
@@ -578,6 +583,7 @@ export function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (route.page === "note") return <SharedNote token={route.token} />;
   if (route.page === "emails") {
     return (
       <Suspense fallback={null}>

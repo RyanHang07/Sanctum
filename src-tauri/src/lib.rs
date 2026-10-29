@@ -18,6 +18,7 @@ mod updates;
 mod launcher;
 mod notes;
 mod note_images;
+mod note_share;
 mod planner;
 mod profiles;
 mod quiet;
@@ -691,6 +692,8 @@ pub fn run() {
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &cfg)?.build()?;
             }
             tray::create(app.handle())?;
+            // Shared-note links that expired while Sanctum was closed come down (v0.2).
+            note_share::sweep_expired(app.handle());
             tray::spawn_pulse(app.handle().clone());
             engine::load_quiet(app.handle());
             engine::resume_on_startup(app.handle());
@@ -795,6 +798,9 @@ pub fn run() {
             startup::startup_status,
             startup::set_startup,
             note_images::save_note_image,
+            note_share::share_note,
+            note_share::update_note_share,
+            note_share::stop_note_share,
             updates::update_install,
             updates::app_version,
             updates::diagnostics,

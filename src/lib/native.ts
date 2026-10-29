@@ -45,6 +45,7 @@ import type {
   TrackerEntry,
   UpdateInfo,
   StartupStatus,
+  SharedImage,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
 import { bus } from "./bus";
@@ -199,6 +200,9 @@ export const native = {
   startupStatus: () => call<StartupStatus>("startup_status"),
   setStartup: (on: boolean) => call<StartupStatus>("set_startup", { on }),
   saveNoteImage: (data: string, mime: string) => call<number>("save_note_image", { data, mime }),
+  shareNote: (id: number, hours: number, key: string) => call<{ url: string; expiresAt: number }>("share_note", { id, hours, key }),
+  updateNoteShare: (id: number, cipher: string, images: SharedImage[]) => call<number[]>("update_note_share", { id, cipher, images }),
+  stopNoteShare: (id: number) => call<void>("stop_note_share", { id }),
   updateInstall: () => call<void>("update_install"),
   diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),

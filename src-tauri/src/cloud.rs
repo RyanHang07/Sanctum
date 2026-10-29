@@ -42,7 +42,7 @@ struct Session {
 }
 
 pub struct State {
-    http: Client,
+    pub(crate) http: Client,
     session: Mutex<Option<Session>>,
     connecting: AtomicBool,
     cancel: AtomicBool,
@@ -118,12 +118,12 @@ fn session(state: &State) -> Result<(String, String), String> {
     Ok((s.access.clone(), s.user_id.clone()))
 }
 
-fn authed(state: &State, req: RequestBuilder) -> Result<(RequestBuilder, String), String> {
+pub(crate) fn authed(state: &State, req: RequestBuilder) -> Result<(RequestBuilder, String), String> {
     let (access, user) = session(state)?;
     Ok((with_key(req).bearer_auth(access), user))
 }
 
-fn send(req: RequestBuilder) -> Result<Value, String> {
+pub(crate) fn send(req: RequestBuilder) -> Result<Value, String> {
     let res = req.send().map_err(|_| "Can't reach Sanctum's server.".to_string())?;
     if !res.status().is_success() {
         return Err(error_text(res));

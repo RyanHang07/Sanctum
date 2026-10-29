@@ -3,6 +3,10 @@ import { errorText, native } from "../lib/native";
 import type { Note } from "../lib/types";
 import { useStore } from "./store";
 import { DEFAULT_NOTE_SIZE } from "../components/editor/NoteToolbar";
+import type { SharedImage } from "../lib/types";
+import { docOf } from "../lib/noteDoc";
+import { imageBytes, imageIdsIn, stripMetadata } from "../lib/noteImages";
+import { encryptBytes, encryptJson, newShareKey, toBase64 } from "../lib/shareCrypto";
 
 // Notes (decided 2026-09-30): edits apply locally at once and save after a short pause, so
 // typing never waits on the backend. Pinned first, then most recently edited.
@@ -23,12 +27,20 @@ export interface NotesStore {
   flush: () => Promise<void>;
   pin: (id: number, pinned: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  /** Shares a note as a live, end-to-end encrypted link for `hours` (1, 24, or 168). */
+  share: (id: number, hours: number) => Promise<boolean>;
+  /** Pushes a shared note's latest version (encrypted) to its link. */
+  pushShare: (id: number) => Promise<void>;
+  stopShare: (id: number) => Promise<void>;
   /** Text size for every note, in px (the note toolbar's A− / A+). */
   fontSize: number;
   setFontSize: (px: number) => void;
 }
 
 const pending = new Map<number, ReturnType<typeof setTimeout>>();
+/** A shared note's edits reach its link this long after typing pauses. */
+const PUSH_MS = 1500;
+const pushes = new Map<number, ReturnType<typeof setTimeout>>();
 
 function sorted(list: Note[]): Note[] {
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id);
@@ -95,6 +107,59 @@ export const useNotes = create<NotesStore>()((set, get) => {
       set({ notes: get().notes.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
       clearTimeout(pending.get(id));
       pending.set(id, setTimeout(() => void save(id), SAVE_MS));
+      if (get().notes.find((n) => n.id === id)?.share) {
+        clearTimeout(pushes.get(id));
+        pushes.set(id, setTimeout(() => void get().pushShare(id), PUSH_MS));
+      }
+    },
+
+    share: async (id, hours) => {
+      await get().flush();
+      try {
+        const key = newShareKey();
+        const info = await native.shareNote(id, hours, key);
+        set({ notes: get().notes.map((n) => (n.id === id ? { ...n, share: { ...info, key, imageIds: [] } } : n)) });
+        await get().pushShare(id);
+        return true;
+      } catch (e) {
+        fail(e);
+        return false;
+      }
+    },
+
+    pushShare: async (id) => {
+      pushes.delete(id);
+      const n = get().notes.find((x) => x.id === id);
+      if (!n?.share) return;
+      const { key, imageIds } = n.share;
+      try {
+        const doc = docOf(n);
+        // New images: metadata stripped, then encrypted, before they leave this PC.
+        const images: SharedImage[] = [];
+        for (const img of imageIdsIn(doc).filter((x) => !imageIds.includes(x))) {
+          const clean = await stripMetadata(await imageBytes(img));
+          images.push({ id: img, data: toBase64(await encryptBytes(key, new Uint8Array(await clean.arrayBuffer()))) });
+        }
+        const cipher = await encryptJson(key, { title: n.title, doc });
+        const up = await native.updateNoteShare(id, cipher, images);
+        set({ notes: get().notes.map((x) => (x.id === id && x.share ? { ...x, share: { ...x.share, imageIds: up } } : x)) });
+      } catch (e) {
+        const text = errorText(e);
+        // Gone on the server (expired, or stopped elsewhere): not shared any more.
+        if (/isn't shared|expired/.test(text)) set({ notes: get().notes.map((x) => (x.id === id ? { ...x, share: null } : x)) });
+        fail(e);
+      }
+    },
+
+    stopShare: async (id) => {
+      clearTimeout(pushes.get(id));
+      pushes.delete(id);
+      try {
+        await native.stopNoteShare(id);
+        set({ notes: get().notes.map((n) => (n.id === id ? { ...n, share: null } : n)) });
+      } catch (e) {
+        fail(e);
+      }
     },
 
     flush: async () => {
