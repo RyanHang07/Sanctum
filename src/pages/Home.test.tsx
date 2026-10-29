@@ -6,11 +6,14 @@ import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
 import { catalogDistractions, sampleProfiles } from "../lib/catalog";
 import { usePlanner } from "../state/planner";
+import { useTrackers } from "../state/trackers";
+import { RoutineDialog } from "./week/editors";
 import { homeHeadline } from "./headlines";
 import { EVERY_DAY, addDays, todayKey } from "../lib/planner";
 
 const initial = useStore.getState();
 const initialPlanner = usePlanner.getState();
+const initialTrackers = useTrackers.getState();
 
 /** The sample profiles, and the four common distractions onboarding starts with. */
 async function withSampleProfiles() {
@@ -27,6 +30,7 @@ beforeEach(() => {
   resetMockBackend();
   useStore.setState(initial, true);
   usePlanner.setState(initialPlanner, true);
+  useTrackers.setState(initialTrackers, true);
   disconnect = connectNativeEvents();
 });
 afterEach(() => disconnect());
@@ -78,6 +82,55 @@ describe("Home Today list (v0.1)", () => {
     expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
     await act(async () => fireEvent.keyDown(screen.getByRole("checkbox", { name: "Stretch" }), { key: "ArrowUp", altKey: true }));
     expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
+  });
+});
+
+describe("Home counters (v0.1.4)", () => {
+  it("makes a counter in the routine editor, adds amounts with notes, and checks it off at the goal", async () => {
+    const day = todayKey();
+    await act(() => useTrackers.getState().load());
+    // The editor: Counter on, a goal, a unit, and notes required.
+    const editor = render(<RoutineDialog onClose={() => undefined} />);
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Protein" } });
+    fireEvent.click(screen.getByRole("switch", { name: "Counter" }));
+    expect(screen.queryByLabelText("Time")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Daily goal"), { target: { value: "150" } });
+    fireEvent.change(screen.getByLabelText("Unit"), { target: { value: "g" } });
+    fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "required" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Add routine/ })));
+    editor.unmount();
+    const [routine] = await native.listRoutines();
+    const tracker = (await native.listTrackers()).find((t) => t.id === routine!.trackerId)!;
+    expect([tracker.name, tracker.unit, tracker.kind, routine!.goalAmount, routine!.noteMode]).toEqual(["Protein", "g", "number", 150, "required"]);
+
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    render(<Home />);
+    const counter = within(screen.getByTestId("routines-column")).getByTestId("counter");
+    // Pinned at the top, not a checkbox row.
+    expect(screen.queryByRole("checkbox", { name: "Protein" })).toBeNull();
+    const amount = within(counter).getByLabelText("Add to Protein");
+    const note = within(counter).getByLabelText("Note for Protein");
+    fireEvent.change(amount, { target: { value: "60" } });
+    await act(async () => fireEvent.submit(amount.closest("form")!));
+    expect(counter).toHaveTextContent("Add a note.");
+    fireEvent.change(note, { target: { value: "eggs" } });
+    await act(async () => fireEvent.submit(amount.closest("form")!));
+    expect(counter).toHaveTextContent("60 / 150 g");
+    expect(counter).not.toHaveAttribute("data-done");
+    fireEvent.change(amount, { target: { value: "95" } });
+    fireEvent.change(note, { target: { value: "chicken" } });
+    await act(async () => fireEvent.submit(amount.closest("form")!));
+    expect(counter).toHaveTextContent("155 / 150 g");
+    expect(counter).toHaveAttribute("data-done", "true");
+    expect(usePlanner.getState().checks).toContainEqual({ routineId: routine!.id, date: day });
+    // The entries, with notes, are in the tracker.
+    const logged = (await native.trackerEntries(0, Date.now() + 1)).filter((e) => e.trackerId === tracker.id);
+    expect(logged.map((e) => [e.value, e.text])).toEqual([[60, "eggs"], [95, "chicken"]]);
+    // Removing one drops below the goal and unchecks it.
+    fireEvent.click(within(counter).getByRole("button", { name: /Show today's entries/ }));
+    await act(async () => fireEvent.click(within(counter).getByRole("button", { name: "Remove 95 g" })));
+    expect(counter).toHaveTextContent("60 / 150 g");
+    expect(usePlanner.getState().checks).not.toContainEqual({ routineId: routine!.id, date: day });
   });
 });
 

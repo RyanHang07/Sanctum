@@ -19,6 +19,12 @@ pub struct Routine {
     /// 'HH:MM', or None for anytime.
     pub time: Option<String>,
     pub duration_min: Option<i64>,
+    /// A counter: the number tracker its amounts go to. None for a plain checkbox routine.
+    pub tracker_id: Option<i64>,
+    /// A counter's daily goal, in the tracker's unit.
+    pub goal_amount: Option<f64>,
+    /// Whether each counter entry asks for a note: "required", "optional", or "off".
+    pub note_mode: String,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -36,6 +42,12 @@ pub struct RoutineDraft {
     pub time: Option<String>,
     #[serde(default)]
     pub duration_min: Option<i64>,
+    #[serde(default)]
+    pub tracker_id: Option<i64>,
+    #[serde(default)]
+    pub goal_amount: Option<f64>,
+    #[serde(default)]
+    pub note_mode: Option<String>,
 }
 
 fn yes() -> bool {
@@ -134,10 +146,32 @@ fn routine_row(r: &rusqlite::Row) -> rusqlite::Result<Routine> {
         days_mask: r.get(5)?,
         time: r.get(6)?,
         duration_min: r.get(7)?,
+        tracker_id: r.get(8)?,
+        goal_amount: r.get(9)?,
+        note_mode: r.get(10)?,
     })
 }
 
-const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min";
+const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min, tracker_id, goal_amount, note_mode";
+const NOTE_MODES: &[&str] = &["required", "optional", "off"];
+
+/// A counter needs a number tracker and a goal above zero.
+fn check_counter(conn: &Connection, d: &RoutineDraft) -> Result<(), String> {
+    let Some(tracker) = d.tracker_id else { return Ok(()) };
+    let kind: Option<String> = conn
+        .query_row("SELECT kind FROM trackers WHERE id = ?1", [tracker], |r| r.get(0))
+        .optional()
+        .map_err(|e| e.to_string())?;
+    match kind.as_deref() {
+        None => return Err("That tracker no longer exists.".into()),
+        Some("number") => {}
+        Some(_) => return Err("A counter needs a number tracker.".into()),
+    }
+    if !d.goal_amount.is_some_and(|g| g.is_finite() && g > 0.0) {
+        return Err("Set a daily goal above zero.".into());
+    }
+    Ok(())
+}
 
 pub fn list_routines(conn: &Connection) -> rusqlite::Result<Vec<Routine>> {
     let mut stmt = conn.prepare(&format!("SELECT {ROUTINE_COLS} FROM daily_goals ORDER BY sort, id"))?;
@@ -157,12 +191,19 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
     if !(1..=127).contains(&d.days_mask) {
         return Err("Pick at least one day.".into());
     }
+    check_counter(conn, &d)?;
+    let note_mode = d.note_mode.clone().unwrap_or_else(|| "optional".into());
+    if !NOTE_MODES.contains(&note_mode.as_str()) {
+        return Err(format!("{note_mode} is not a note setting."));
+    }
+    let goal = d.tracker_id.and(d.goal_amount);
     let id = match d.id {
         Some(id) => {
             get_routine(conn, id)?;
             conn.execute(
-                "UPDATE daily_goals SET name = ?1, profile_id = ?2, active = ?3, days_mask = ?4, time = ?5, duration_min = ?6 WHERE id = ?7",
-                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, id],
+                "UPDATE daily_goals SET name = ?1, profile_id = ?2, active = ?3, days_mask = ?4, time = ?5, duration_min = ?6,
+                 tracker_id = ?7, goal_amount = ?8, note_mode = ?9 WHERE id = ?10",
+                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, d.tracker_id, goal, note_mode, id],
             )
             .map_err(|e| e.to_string())?;
             id
@@ -172,9 +213,9 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
                 .query_row("SELECT COALESCE(MAX(sort), -1) + 1 FROM daily_goals", [], |r| r.get(0))
                 .map_err(|e| e.to_string())?;
             conn.execute(
-                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms()],
+                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at, tracker_id, goal_amount, note_mode)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms(), d.tracker_id, goal, note_mode],
             )
             .map_err(|e| e.to_string())?;
             conn.last_insert_rowid()
@@ -417,6 +458,25 @@ mod tests {
         reorder_routines(&conn, &[read.id, gym.id]).unwrap();
         let order: Vec<_> = list_routines(&conn).unwrap().into_iter().map(|r| r.title).collect();
         assert_eq!(order, vec!["Read", "Gym"]);
+    }
+
+    #[test]
+    fn counters_need_a_number_tracker_and_a_goal() {
+        let conn = fresh();
+        conn.execute("INSERT INTO trackers (id, name, unit, kind) VALUES (7, 'Protein', 'g', 'number'), (8, 'Mood', '', 'scale')", []).unwrap();
+        let counter = |tracker: i64, goal: Option<f64>| RoutineDraft { tracker_id: Some(tracker), goal_amount: goal, note_mode: Some("required".into()), ..routine("Protein", 127, None) };
+        assert!(save_routine(&conn, counter(7, None)).is_err(), "needs a goal");
+        assert!(save_routine(&conn, counter(7, Some(0.0))).is_err());
+        assert!(save_routine(&conn, counter(8, Some(5.0))).is_err(), "needs a number tracker");
+        let r = save_routine(&conn, counter(7, Some(150.0))).unwrap();
+        assert_eq!((r.tracker_id, r.goal_amount, r.note_mode.as_str()), (Some(7), Some(150.0), "required"));
+        // A plain routine: no goal kept, notes default to optional.
+        let plain = save_routine(&conn, RoutineDraft { goal_amount: Some(3.0), ..routine("Gym", 127, None) }).unwrap();
+        assert_eq!((plain.tracker_id, plain.goal_amount, plain.note_mode.as_str()), (None, None, "optional"));
+        assert!(save_routine(&conn, RoutineDraft { note_mode: Some("sometimes".into()), ..routine("Read", 127, None) }).is_err());
+        // Deleting the tracker turns it back into a plain routine.
+        conn.execute("DELETE FROM trackers WHERE id = 7", []).unwrap();
+        assert_eq!(list_routines(&conn).unwrap().iter().find(|x| x.id == r.id).unwrap().tracker_id, None);
     }
 
     #[test]

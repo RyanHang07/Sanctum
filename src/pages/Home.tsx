@@ -14,6 +14,7 @@ import { Switch } from "../components/controls";
 import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
+import { CounterRow } from "./CounterRow";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
@@ -560,7 +561,16 @@ function ColumnHead({ title, items, first }: { title: string; items: AgendaItem[
  */
 function TodayPanel({ strip }: { strip: boolean }) {
   const all = useTodayAgenda();
+  const routineList = usePlanner((s) => s.routines);
   const routines = useMemo(() => openFirst(all.filter((i) => i.kind === "routine")), [all]);
+  // Counters (v0.1.4) sit at the top of Routines, in routine order; the rest list below.
+  const counterOf = (i: AgendaItem) => routineList.find((r) => r.id === i.id && r.trackerId !== null);
+  const counters = useMemo(
+    () => all.filter((i) => i.kind === "routine" && counterOf(i)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [all, routineList],
+  );
+  const listed = useMemo(() => routines.filter((i) => !counters.includes(i)), [routines, counters]);
   const day = useMemo(() => openFirst(all.filter((i) => i.kind !== "routine")), [all]);
   const tasks = useMemo(() => all.filter((i) => i.kind !== "event"), [all]);
   const profiles = useStore((s) => s.profiles);
@@ -571,7 +581,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const toggleCollapsed = useStore((s) => s.toggleHomeCollapsed);
   const now = useNow();
 
-  const routineDrag = useReorder(routines, (moved, target, after) => {
+  const routineDrag = useReorder(listed, (moved, target, after) => {
     const ids = [...usePlanner.getState().routines].sort((a, b) => a.sort - b.sort || a.id - b.id).map((r) => r.id);
     void usePlanner.getState().reorderRoutines(moveId(ids, moved.id, target.id, after));
   });
@@ -625,7 +635,10 @@ function TodayPanel({ strip }: { strip: boolean }) {
         <div className="grid min-h-0 grow grid-cols-2">
           <div data-testid="routines-column" className="flex min-h-0 flex-col overflow-y-auto py-1">
             {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">No routines today.</p> : null}
-            {routines.map((t) => row(t, routineDrag))}
+            {counters.map((t) => (
+              <CounterRow key={t.key} item={t} routine={counterOf(t)!} />
+            ))}
+            {listed.map((t) => row(t, routineDrag))}
           </div>
           <div data-testid="day-column" className="flex min-h-0 flex-col border-l border-line">
             <QuickAddField

@@ -8,7 +8,8 @@ import { useStore } from "../../state/store";
 import { EVERY_DAY, addDays, fromKey, longTime, todayKey, weekStart } from "../../lib/planner";
 import { focusTagText, readFocusTag, writeFocusTag } from "../../lib/calendar";
 import { native } from "../../lib/native";
-import type { CalEvent, Profile, Routine, Todo } from "../../lib/types";
+import type { CalEvent, NoteMode, Profile, Routine, Todo } from "../../lib/types";
+import { useTrackers } from "../../state/trackers";
 
 // One-time items and routines are created in visibly different places (SPEC 4.12):
 // a light card on a day for one-time items, a full editor with weekday chips for routines.
@@ -151,10 +152,30 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
   const [length, setLength] = useState(initial?.durationMin ?? null);
   const [profile, setProfile] = useState(initial?.profileId ?? null);
   const [active, setActive] = useState(initial?.active ?? true);
+  // A counter (v0.1.4): amounts toward a daily goal, kept in a number tracker of the same name.
+  const linked = useTrackers((s) => s.trackers.find((t) => t.id === initial?.trackerId));
+  const [counter, setCounter] = useState(initial?.trackerId != null);
+  const [goal, setGoal] = useState(initial?.goalAmount != null ? String(initial.goalAmount) : "");
+  const [unit, setUnit] = useState(linked?.unit ?? "");
+  const [noteMode, setNoteMode] = useState<NoteMode>(initial?.noteMode ?? "optional");
+  const goalValue = Number(goal);
+  const goalOk = !counter || (goal.trim() !== "" && Number.isFinite(goalValue) && goalValue > 0);
 
   const save = async () => {
-    if (!title.trim() || !mask) return;
-    if (await saveRoutine({ id: initial?.id, title, daysMask: mask, time, durationMin: length, profileId: profile, active })) onClose();
+    if (!title.trim() || !mask || !goalOk) return;
+    const base = { id: initial?.id, title, daysMask: mask, active };
+    if (!counter) {
+      if (await saveRoutine({ ...base, time, durationMin: length, profileId: profile, trackerId: null, goalAmount: null, noteMode })) onClose();
+      return;
+    }
+    // Keep the linked tracker's name and unit in step; reuse a number tracker with this name.
+    const trackers = useTrackers.getState().trackers;
+    const name = title.trim();
+    const existing = linked ?? trackers.find((t) => t.kind === "number" && t.name.toLowerCase() === name.toLowerCase());
+    const t = await useTrackers.getState().saveTracker({ id: existing?.id, name, unit: unit.trim(), kind: "number", display: existing?.display ?? "both", goal: existing?.goal ?? null });
+    if (!t) return;
+    const ok = await saveRoutine({ ...base, time: null, durationMin: null, profileId: null, trackerId: t.id, goalAmount: goalValue, noteMode });
+    if (ok) onClose();
   };
 
   return (
@@ -174,12 +195,41 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
         </div>
         <TitleInput value={title} onChange={setTitle} onSubmit={() => void save()} placeholder="Gym" />
         <DaysField mask={mask} onChange={setMask} />
-        <div className="grid grid-cols-3 gap-3">
-          <TimeField value={time} onChange={setTime} />
-          <LengthField value={length} onChange={setLength} />
-          <ProfileField value={profile} onChange={setProfile} />
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex flex-col">
+            <span className="text-body text-text">Counter</span>
+            <span className="text-meta text-muted">Add amounts through the day toward a goal, like protein or water.</span>
+          </span>
+          <Switch label="Counter" checked={counter} onChange={setCounter} />
         </div>
-        {profile !== null && time ? (
+        {counter ? (
+          <div className="grid grid-cols-3 gap-3">
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Daily goal</span>
+              <input aria-label="Daily goal" inputMode="decimal" placeholder="150" value={goal} onChange={(e) => setGoal(e.target.value)} className={`${fieldClass} font-mono`} />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Unit</span>
+              <input aria-label="Unit" placeholder="g" value={unit} onChange={(e) => setUnit(e.target.value)} className={fieldClass} />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Notes</span>
+              <select aria-label="Notes" value={noteMode} onChange={(e) => setNoteMode(e.target.value as NoteMode)} className={`${fieldClass} cursor-pointer`}>
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+                <option value="off">Off</option>
+              </select>
+            </label>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            <TimeField value={time} onChange={setTime} />
+            <LengthField value={length} onChange={setLength} />
+            <ProfileField value={profile} onChange={setProfile} />
+          </div>
+        )}
+        {counter ? <p className="m-0 text-meta text-muted">Each amount is logged to the {title.trim() || "counter"} tracker, so Trackers keeps the history.</p> : null}
+        {!counter && profile !== null && time ? (
           <p className="m-0 text-meta text-muted">Home suggests this profile when it starts, and offers to enter focus.</p>
         ) : null}
       </div>
@@ -192,7 +242,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
         <Button variant="ghost" className="ml-auto" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="primary" className="gap-[10px]" disabled={!title.trim() || !mask} onClick={() => void save()}>
+        <Button variant="primary" className="gap-[10px]" disabled={!title.trim() || !mask || !goalOk} onClick={() => void save()}>
           <RepeatGlyph />
           {initial ? "Save routine" : "Add routine"}
         </Button>

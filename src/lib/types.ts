@@ -240,9 +240,23 @@ export interface Routine {
   /** "HH:MM", or null for anytime. */
   time: string | null;
   durationMin: number | null;
+  /** A counter (v0.1.4): the number tracker its amounts go to. Null for a checkbox routine. */
+  trackerId: number | null;
+  /** A counter's daily goal, in the tracker's unit. */
+  goalAmount: number | null;
+  /** Whether each counter entry asks for a note. */
+  noteMode: NoteMode;
 }
 
-export type RoutineDraft = Omit<Routine, "id" | "sort"> & { id?: number };
+export type NoteMode = "required" | "optional" | "off";
+
+/** Counter fields left out make a plain checkbox routine. */
+export type RoutineDraft = Omit<Routine, "id" | "sort" | "trackerId" | "goalAmount" | "noteMode"> & {
+  id?: number;
+  trackerId?: number | null;
+  goalAmount?: number | null;
+  noteMode?: NoteMode;
+};
 
 /** A one-time item on a date. */
 export interface Todo {

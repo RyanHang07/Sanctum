@@ -54,6 +54,14 @@ export function todayKey(now: Date = new Date(), resetTime = "04:00"): string {
   return toKey(shifted);
 }
 
+/** The planner day `key` as [start, end) in ms: 4:00 AM to 4:00 AM, like `todayKey`. */
+export function dayBounds(key: string, resetTime = "04:00"): [number, number] {
+  const start = fromKey(key).getTime() + minutesOf(resetTime) * 60_000;
+  const d = fromKey(key);
+  d.setDate(d.getDate() + 1);
+  return [start, d.getTime() + minutesOf(resetTime) * 60_000];
+}
+
 /** "8:00a", "4:30p" (Home.dc.html). */
 export function shortTime(hhmm: string): string {
   const total = minutesOf(hhmm);
