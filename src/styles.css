@@ -223,7 +223,10 @@
   .note-doc img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid theme(colors.line); }
   .note-doc [data-resize-wrapper] { max-width: 100%; }
   .note-doc [data-resize-handle] { width: 10px; height: 10px; border-radius: 3px; background: theme(colors.sealed.DEFAULT); border: 2px solid theme(colors.panel); opacity: 0; transition: opacity 120ms; }
-  .note-doc [data-resize-wrapper]:hover [data-resize-handle], .note-doc .ProseMirror-selectednode [data-resize-handle] { opacity: 1; }
+  .note-doc [data-resize-wrapper]:hover [data-resize-handle], .note-doc [data-picked] [data-resize-handle] { opacity: 1; }
+  /* Picked: a ring, only while it's the selection (see markPickedImage). */
+  .note-doc [data-resize-container].ProseMirror-selectednode, .note-doc img.ProseMirror-selectednode { outline: none; }
+  .note-doc [data-picked] img, .note-doc img[data-picked] { outline: 2px solid theme(colors.sealed.DEFAULT); outline-offset: 2px; }
   .note-doc .ProseMirror-selectednode { outline: 2px solid theme(colors.sealed.DEFAULT / 50%); outline-offset: 2px; border-radius: 4px; }
   .note-doc .ProseMirror-gapcursor::after { border-top-color: theme(colors.text); }
 }

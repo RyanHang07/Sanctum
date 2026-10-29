@@ -69,6 +69,16 @@ function blockAtY(editor: Editor, y: number): { pos: number; el: HTMLElement } |
   return { pos: $pos.depth >= 1 ? $pos.before(1) : inside, el: best };
 }
 
+/** Puts data-picked on the image the selection is (and nowhere else). */
+function markPickedImage(editor: Editor, blurred = false) {
+  const root = editor.view.dom;
+  root.querySelectorAll("[data-picked]").forEach((el) => el.removeAttribute("data-picked"));
+  const sel = editor.state.selection;
+  if (blurred || !(sel instanceof NodeSelection) || sel.node.type.name !== "image") return;
+  const el = editor.view.nodeDOM(sel.from);
+  if (el instanceof HTMLElement) el.setAttribute("data-picked", "");
+}
+
 /** The gutter on the left that holds the handle, inside the editor so reaching it never leaves. */
 export const GUTTER = 32;
 
@@ -123,6 +133,10 @@ export function NoteEditor({
       },
     },
     onUpdate: ({ editor }) => onChange(changeOf(editor)),
+    // The resizable image view keeps ProseMirror's "selected" class after you click away, so
+    // an image is marked picked only while the selection is that image.
+    onSelectionUpdate: ({ editor }) => markPickedImage(editor),
+    onBlur: ({ editor }) => markPickedImage(editor, true),
   });
   editorRef.current = editor;
 
