@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { errorText, native } from "../lib/native";
+import type { StartupStatus } from "../lib/types";
 import { Button } from "../components/Button";
 import { MiniSelect, Switch } from "../components/controls";
 import { ChevronRightIcon } from "../components/icons";
@@ -137,6 +139,7 @@ function PreferencesSection() {
         </Button>
       }
     >
+      <StartupRow />
       <Row label="On login">
         <MiniSelect label="On login" value={settings.onLogin} options={ON_LOGIN} onChange={setOnLogin} />
       </Row>
@@ -153,6 +156,29 @@ function PreferencesSection() {
     <AboutSection />
     <StartOverSection />
     </>
+  );
+}
+
+/**
+ * Start with Windows (v0.1.4). Mirrors Windows' Settings › Apps › Startup both ways, so it's
+ * read fresh whenever the window comes back (you may have just changed it there).
+ */
+function StartupRow() {
+  const [status, setStatus] = useState<StartupStatus | null>(null);
+  useEffect(() => {
+    const load = () => void native.startupStatus().then(setStatus).catch(() => setStatus(null));
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
+  return (
+    <Row label="Start with Windows" hint="Same switch as Windows Settings › Apps › Startup">
+      <Switch
+        label="Start with Windows"
+        checked={status?.enabled ?? false}
+        onChange={(on) => void native.setStartup(on).then(setStatus).catch((e) => useStore.getState().showNotice({ lead: errorText(e) }))}
+      />
+    </Row>
   );
 }
 

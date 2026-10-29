@@ -178,6 +178,12 @@ export interface SessionView {
 }
 
 /** Shown on the Sanctum held page when a session completes. */
+/** Start with Windows (v0.1.4): Windows' own startup entry and its on/off switch. */
+export interface StartupStatus {
+  enabled: boolean;
+  registered: boolean;
+}
+
 export interface HeldStats {
   sessionId: number;
   profileId: number | null;

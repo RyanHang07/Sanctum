@@ -44,6 +44,7 @@ import type {
   TrackerDraft,
   TrackerEntry,
   UpdateInfo,
+  StartupStatus,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
 import { bus } from "./bus";
@@ -195,6 +196,8 @@ export const native = {
   resetAll: () => call<void>("reset_all"),
   appVersion: () => call<string>("app_version"),
   updateCheck: () => call<UpdateInfo | null>("update_check"),
+  startupStatus: () => call<StartupStatus>("startup_status"),
+  setStartup: (on: boolean) => call<StartupStatus>("set_startup", { on }),
   updateInstall: () => call<void>("update_install"),
   diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),
