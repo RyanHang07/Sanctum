@@ -302,12 +302,8 @@ a.button.large {
   height: 760px;
   transform: translateX(-50%);
   opacity: var(--mesh-opacity);
-  background:
-    radial-gradient(40% 50% at 22% 30%, var(--held-1), transparent 70%),
-    radial-gradient(35% 45% at 78% 22%, var(--held-3), transparent 70%),
-    radial-gradient(45% 55% at 60% 70%, var(--held-2), transparent 70%),
-    radial-gradient(30% 40% at 30% 80%, var(--held-4), transparent 70%);
-  filter: blur(40px);
+  overflow: hidden;
+  /* Its four lights (and their drift) are in home-motion.css. */
   mask-image: linear-gradient(to bottom, black 40%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent);
   pointer-events: none;
@@ -343,6 +339,13 @@ a.button.large {
 .hero-shot {
   width: 100%;
   max-width: 980px;
+}
+/* Over the mesh, the quiet button needs its own ground. */
+.hero a.button.ghost {
+  background: var(--glass);
+  border-color: var(--line-input);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .proof {
