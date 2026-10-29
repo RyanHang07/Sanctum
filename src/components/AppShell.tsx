@@ -11,6 +11,7 @@ import { HeldPage } from "../pages/HeldPage";
 import { Onboarding } from "../pages/onboarding/Onboarding";
 import { TrackersPage } from "../pages/trackers/TrackersPage";
 import { NotesPage } from "../pages/notes/NotesPage";
+import { MotionConfig } from "motion/react";
 import { JournalPage } from "../pages/journal/JournalPage";
 import { useNotes } from "../state/notes";
 import { CheckinDialog } from "./CheckinDialog";
@@ -162,6 +163,8 @@ export function AppShell() {
           : undefined;
 
   return (
+    // Every animation follows Windows' "reduce motion" setting (v0.2).
+    <MotionConfig reducedMotion="user">
     <div data-state={appState} className="relative box-border flex h-full w-full overflow-hidden bg-app">
       <Sidebar pillMeta={pillMeta} />
       <main className="relative min-w-0 grow">
@@ -183,5 +186,6 @@ export function AppShell() {
       {import.meta.env.DEV ? <DevStateToggle /> : null}
       <BootSplash />
     </div>
+    </MotionConfig>
   );
 }

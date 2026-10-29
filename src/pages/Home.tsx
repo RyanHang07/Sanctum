@@ -15,6 +15,7 @@ import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
 import { CounterRow } from "./CounterRow";
+import { Glide } from "../lib/motion";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
@@ -594,12 +595,13 @@ function TodayPanel({ strip }: { strip: boolean }) {
     void usePlanner.getState().reorderTodos(moveId(ids, moved.id, target.id, after));
   });
 
-  const row = (t: AgendaItem, drag: DragKit) =>
-    t.kind === "event" ? (
-      <EventRow key={t.key} t={t} now={now} />
-    ) : (
-      <TaskRow
-        key={t.key}
+  // Each row glides to its new place when the list reorders (v0.2).
+  const row = (t: AgendaItem, drag: DragKit) => (
+    <Glide key={t.key}>
+      {t.kind === "event" ? (
+        <EventRow t={t} now={now} />
+      ) : (
+        <TaskRow
         t={t}
         current={t.key === nowKey}
         linked={canLink && focusTask !== null && sameTask(focusTask, t)}
@@ -607,7 +609,9 @@ function TodayPanel({ strip }: { strip: boolean }) {
         tag={profiles.find((p) => p.id === t.profileId)?.name}
         drag={drag}
       />
-    );
+      )}
+    </Glide>
+  );
 
   return (
     <section aria-label="Today" className={`flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel ${collapsed ? "" : "h-full"}`}>
@@ -636,7 +640,9 @@ function TodayPanel({ strip }: { strip: boolean }) {
           <div data-testid="routines-column" className="flex min-h-0 flex-col overflow-y-auto py-1">
             {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">No routines today.</p> : null}
             {counters.map((t) => (
-              <CounterRow key={t.key} item={t} routine={counterOf(t)!} />
+              <Glide key={t.key}>
+                <CounterRow item={t} routine={counterOf(t)!} />
+              </Glide>
             ))}
             {listed.map((t) => row(t, routineDrag))}
           </div>
