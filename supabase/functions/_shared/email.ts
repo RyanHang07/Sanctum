@@ -138,9 +138,9 @@ function parts(kind: EmailKind, d: EmailData): Parts {
     case "emergency_unlock":
       return {
         subject: `${who} used their emergency unlock`,
-        preheader: `It comes back in 7 days.`,
+        preheader: `It comes back at midnight.`,
         heading: `${who} used their emergency unlock.`,
-        lines: [`${who} ended a focus session with the once-a-week emergency unlock. It doesn't break their streak, and it comes back in 7 days.`],
+        lines: [`${who} ended a focus session with the once-a-day emergency unlock. It doesn't break their streak, and it comes back at midnight.`],
         quote: d.detail,
         quoteLabel: "What they said",
         foot: partnerFoot,
@@ -214,7 +214,7 @@ export function renderEmail(kind: EmailKind, data: EmailData = {}): Email {
 /** Sample data for the /emails preview and the tests. */
 export const SAMPLES: { kind: EmailKind; label: string; data: EmailData }[] = [
   { kind: "unlock_request", label: "Unlock request (to the partner)", data: { who: "Ryan", profile: "Interview Prep", minutesIn: 18, minutesLeft: 42, detail: "Recruiter moved my call up and I need Discord for the shared screen link.", link: "https://partner.example/approve/123" } },
-  { kind: "session_broken", label: "Seal broken (to the partner)", data: { who: "Ryan", detail: "Interview Prep: the system clock was set forward 60 min", link: "https://partner.example/" } },
+  { kind: "session_broken", label: "Seal broken (to the partner)", data: { who: "Ryan", detail: "Interview Prep: the system clock was set forward 60 min", link: "https://partner.example/partner" } },
   { kind: "emergency_unlock", label: "Emergency unlock (to the partner)", data: { who: "Ryan", detail: "Family call" } },
   { kind: "streak_lost", label: "Streak lost (to the partner)", data: { who: "Ryan", detail: "Tuesday ended at 45 of 120 minutes" } },
   { kind: "invite", label: "Invite (to a future partner)", data: { who: "Ryan", link: "https://partner.example/invite/abc" } },

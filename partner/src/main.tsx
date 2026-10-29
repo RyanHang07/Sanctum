@@ -4,6 +4,7 @@ import "../../design/tokens.css";
 import "./styles.css";
 import "./site/site.css";
 import "./site/docs.css";
+import "./site/home-motion.css";
 import { App } from "./App";
 import { applyTheme } from "./site/theme";
 

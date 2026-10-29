@@ -1,0 +1,283 @@
+/* The home page's motion (v0.2 site; script in homeMotion.ts). Crisp and unhurried, the app's
+   ease. Every effect is off with "reduce motion", and nothing here can leave content hidden:
+   reveals only hide once the script has turned them on, and scroll-linked effects only run
+   where scroll-driven animations exist. Only transform, opacity, and filter move. */
+
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+    filter: blur(8px);
+  }
+}
+@keyframes shot-in {
+  from {
+    opacity: 0;
+    translate: 0 48px;
+    scale: 0.96;
+  }
+}
+@keyframes drift-a {
+  to {
+    transform: translate(9%, 7%) scale(1.15);
+  }
+}
+@keyframes drift-b {
+  to {
+    transform: translate(-10%, 9%) scale(0.9);
+  }
+}
+@keyframes drift-c {
+  to {
+    transform: translate(7%, -8%) scale(1.2);
+  }
+}
+@keyframes drift-d {
+  to {
+    transform: translate(-8%, -6%) scale(1.1);
+  }
+}
+@keyframes spin {
+  to {
+    --spin: 360deg;
+  }
+}
+@keyframes sheen {
+  from {
+    translate: -120% 0;
+  }
+  to {
+    translate: 220% 0;
+  }
+}
+
+/* The mesh: four soft lights drifting slowly behind the hero. */
+.hero-mesh .blob {
+  position: absolute;
+  width: 60%;
+  aspect-ratio: 1.3;
+  border-radius: 50%;
+  will-change: transform;
+}
+.hero-mesh .blob:nth-child(1) {
+  left: 2%;
+  top: 2%;
+  background: radial-gradient(closest-side, var(--held-1), transparent);
+}
+.hero-mesh .blob:nth-child(2) {
+  right: 0;
+  top: -8%;
+  background: radial-gradient(closest-side, var(--held-3), transparent);
+}
+.hero-mesh .blob:nth-child(3) {
+  left: 32%;
+  top: 30%;
+  background: radial-gradient(closest-side, var(--held-2), transparent);
+}
+.hero-mesh .blob:nth-child(4) {
+  left: 6%;
+  top: 46%;
+  width: 44%;
+  background: radial-gradient(closest-side, var(--held-4), transparent);
+}
+
+/* The hero shot stands on a slight tilt, and lies flat as you scroll to it. */
+.hero-stage {
+  width: 100%;
+  max-width: 980px;
+  perspective: 1400px;
+}
+.hero-stage .hero-shot {
+  max-width: 100%;
+}
+
+/* Cards that catch the light under the pointer. */
+.spot {
+  position: relative;
+  isolation: isolate;
+}
+.spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), var(--sealed-tint), transparent 70%);
+  opacity: 0;
+  transition: opacity 260ms var(--ease-out);
+  pointer-events: none;
+}
+
+/* The closing panel's border: a slow light around its edge. */
+.closing {
+  position: relative;
+  isolation: isolate;
+}
+.closing::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--spin), transparent 0deg, var(--sealed) 50deg, transparent 110deg, transparent 360deg);
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Primary buttons: a sheen crosses on hover. */
+.home a.button.primary {
+  position: relative;
+  overflow: hidden;
+}
+.home a.button.primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--on-sealed) 28%, transparent), transparent);
+  translate: -120% 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Arrival: the hero's words, then its line, buttons, and the shot. */
+  .hero h1 .w {
+    display: inline-block;
+    animation: rise-in 900ms var(--ease-soft) both;
+    animation-delay: calc(80ms + var(--i) * 70ms);
+  }
+  .hero .lede {
+    animation: rise-in 900ms var(--ease-soft) 420ms both;
+  }
+  .hero .download {
+    animation: rise-in 900ms var(--ease-soft) 540ms both;
+  }
+  .hero-stage {
+    animation: shot-in 1200ms var(--ease-soft) 620ms both;
+  }
+
+  .hero-mesh .blob:nth-child(1) {
+    animation: drift-a 19s ease-in-out infinite alternate;
+  }
+  .hero-mesh .blob:nth-child(2) {
+    animation: drift-b 23s ease-in-out infinite alternate;
+  }
+  .hero-mesh .blob:nth-child(3) {
+    animation: drift-c 27s ease-in-out infinite alternate;
+  }
+  .hero-mesh .blob:nth-child(4) {
+    animation: drift-d 21s ease-in-out infinite alternate;
+  }
+
+  /* Reveals (only once homeMotion.ts has turned them on). */
+  .motion-on [data-reveal] {
+    transition:
+      opacity 800ms var(--ease-soft),
+      translate 900ms var(--ease-soft),
+      filter 800ms var(--ease-soft);
+    transition-delay: calc(var(--i, 0) * 90ms);
+  }
+  .motion-on [data-reveal]:not(.in) {
+    opacity: 0;
+    translate: 0 28px;
+    filter: blur(6px);
+  }
+  .motion-on [data-reveal="left"]:not(.in) {
+    translate: -36px 0;
+  }
+  .motion-on [data-reveal="right"]:not(.in) {
+    translate: 36px 0;
+  }
+  .motion-on [data-reveal="zoom"]:not(.in) {
+    translate: 0 40px;
+    scale: 0.95;
+  }
+  .motion-on [data-reveal="zoom"] {
+    transition-property: opacity, translate, scale, filter;
+  }
+
+  /* The ladder: each step's number fills cobalt in turn once it's in. */
+  .ladder li::before {
+    transition:
+      background-color 400ms var(--ease-out),
+      color 400ms var(--ease-out),
+      border-color 400ms var(--ease-out),
+      scale 500ms var(--ease-soft);
+    transition-delay: calc(400ms + var(--i, 0) * 260ms);
+  }
+  .motion-on .ladder.in li::before {
+    background: var(--sealed);
+    border-color: var(--sealed);
+    color: var(--on-sealed);
+    scale: 1.08;
+  }
+
+  .spot:hover::after {
+    opacity: 1;
+  }
+  .spot {
+    transition:
+      translate 260ms var(--ease-out),
+      border-color 260ms var(--ease-out);
+  }
+  .spot:hover {
+    translate: 0 -2px;
+    border-color: var(--sealed-line);
+  }
+
+  .closing::before {
+    opacity: 1;
+    animation: spin 9s linear infinite;
+  }
+
+  .home a.button.primary:hover::after {
+    animation: sheen 900ms var(--ease-out);
+  }
+
+  /* Scroll-linked, where the browser can: the hero shot lies flat as it comes up, and the
+     second screenshot in a pair drifts against the first. Elsewhere they simply stay still. */
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes lie-flat {
+      from {
+        transform: rotateX(16deg) scale(0.94);
+      }
+      to {
+        transform: none;
+      }
+    }
+    @keyframes drift-up {
+      from {
+        translate: 0 48px;
+      }
+      to {
+        translate: 0 -48px;
+      }
+    }
+    .hero-stage .hero-shot {
+      transform-origin: 50% 0%;
+      animation: lie-flat linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 45%;
+    }
+    .stack-shots .shot.offset {
+      animation: drift-up linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+}
