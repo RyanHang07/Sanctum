@@ -50,7 +50,7 @@ const BLOBS = {
   ember: ["bg-ember-1", "bg-ember-2", "bg-ember-3", "bg-ember-4"],
 } as const;
 
-type Tone = "held" | "sealed" | "event";
+type Tone = "held" | "sealed" | "event" | "open";
 
 /**
  * "held": the full mesh behind the Sanctum held page. "sealed" (cobalt) and "event" (ember): the
@@ -71,7 +71,10 @@ export function Mesh({ tone, paused = false, className = "" }: { tone: Tone; pau
       <div className={`held-blob-b absolute -right-[200px] -top-[80px] h-[700px] w-[700px] rounded-full opacity-80 blur-[130px] ${b}`} />
       <div className={`held-blob-c absolute -bottom-[380px] left-[260px] h-[720px] w-[720px] rounded-full opacity-85 blur-[130px] ${c}`} />
       <div className={`held-blob-d absolute -bottom-[200px] right-[120px] h-[460px] w-[460px] rounded-full opacity-70 blur-[110px] ${d}`} />
-      {ambient ? (
+      {tone === "open" ? (
+        // Open: barely there, a sense of depth rather than a state.
+        <div className="absolute inset-0 bg-app/[0.86]" />
+      ) : ambient ? (
         // Dimmed toward the app background so text and panels stay in front.
         <div className="absolute inset-0 bg-radial-[ellipse_80%_70%_at_50%_40%] from-app/70 from-0% to-app/45 to-100%" />
       ) : (
@@ -91,19 +94,20 @@ export function Mesh({ tone, paused = false, className = "" }: { tone: Tone; pau
 export const STATE_FADE_MS = 700;
 
 /**
- * The app's backdrop: cobalt while sealed, ember in an event, plain when open. Switching states
+ * The app's backdrop: cobalt while sealed, ember in an event, and (v0.2) the same mesh barely
+ * there when open. Switching states
  * cross-fades the two; a faded-out mesh unmounts once the fade ends so it costs nothing.
  */
 export function StateBackdrop({ state }: { state: "open" | "sealed" | "event" }) {
-  const [mounted, setMounted] = useState(() => ({ sealed: state === "sealed", event: state === "event" }));
+  const [mounted, setMounted] = useState(() => ({ sealed: state === "sealed", event: state === "event", open: state === "open" }));
   useEffect(() => {
-    if (state !== "open") setMounted((m) => ({ ...m, [state]: true }));
-    const t = setTimeout(() => setMounted({ sealed: state === "sealed", event: state === "event" }), STATE_FADE_MS + 100);
+    setMounted((m) => ({ ...m, [state]: true }));
+    const t = setTimeout(() => setMounted({ sealed: state === "sealed", event: state === "event", open: state === "open" }), STATE_FADE_MS + 100);
     return () => clearTimeout(t);
   }, [state]);
   return (
     <>
-      {(["sealed", "event"] as const).map((tone) =>
+      {(["open", "sealed", "event"] as const).map((tone) =>
         mounted[tone] ? (
           <Mesh key={tone} tone={tone} paused={state !== tone} className={`state-backdrop ${state === tone ? "state-backdrop-on" : ""}`} />
         ) : null,
