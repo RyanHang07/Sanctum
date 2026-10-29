@@ -12,6 +12,13 @@ export const UNDO_MS = 5000;
 
 /** Deletes waiting out their undo window, so a reload meanwhile doesn't bring them back. */
 const deleting = { todos: new Set<number>(), routines: new Set<number>() };
+/** Deletes waiting out their undo window, by "todo:<id>" / "routine:<id>". Quitting runs them. */
+const undoable = new Map<string, () => Promise<unknown>>();
+
+/** Carries out every delete still in its undo window (before quitting). */
+export async function flushDeletes(): Promise<void> {
+  await Promise.allSettled([...undoable.values()].map((commit) => commit()));
+}
 
 // Routines (recurring) and one-time items (SPEC 4.12). Loaded for a date range that grows to
 // cover whatever Home and Week are showing.
@@ -101,10 +108,14 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     const checks = get().checks.filter((c) => c.routineId === id);
     deleting.routines.add(id);
     set({ routines: get().routines.filter((x) => x.id !== id), checks: get().checks.filter((c) => c.routineId !== id) });
-    const timer = setTimeout(() => {
+    const commit = () => {
+      clearTimeout(timer);
+      undoable.delete(`routine:${id}`);
       deleting.routines.delete(id);
-      void attempt(() => native.deleteRoutine(id)).then((ok) => ok === null && void get().reload());
-    }, UNDO_MS);
+      return attempt(() => native.deleteRoutine(id)).then((ok) => ok === null && void get().reload());
+    };
+    const timer = setTimeout(() => void commit(), UNDO_MS);
+    undoable.set(`routine:${id}`, commit);
     useStore.getState().showNotice({
       lead: `Deleted “${r.title}”.`,
       ms: UNDO_MS,
@@ -112,6 +123,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
         label: "Undo",
         run: () => {
           clearTimeout(timer);
+          undoable.delete(`routine:${id}`);
           deleting.routines.delete(id);
           set({ routines: [...get().routines, r], checks: [...get().checks, ...checks] });
         },
@@ -137,10 +149,14 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     if (!t) return false;
     deleting.todos.add(id);
     set({ todos: get().todos.filter((x) => x.id !== id), pending: get().pending.filter((x) => x.id !== id) });
-    const timer = setTimeout(() => {
+    const commit = () => {
+      clearTimeout(timer);
+      undoable.delete(`todo:${id}`);
       deleting.todos.delete(id);
-      void attempt(() => native.deleteTodo(id)).then((ok) => ok === null && void get().reload());
-    }, UNDO_MS);
+      return attempt(() => native.deleteTodo(id)).then((ok) => ok === null && void get().reload());
+    };
+    const timer = setTimeout(() => void commit(), UNDO_MS);
+    undoable.set(`todo:${id}`, commit);
     useStore.getState().showNotice({
       lead: `Deleted “${t.title}”.`,
       ms: UNDO_MS,
@@ -148,6 +164,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
         label: "Undo",
         run: () => {
           clearTimeout(timer);
+          undoable.delete(`todo:${id}`);
           deleting.todos.delete(id);
           set({ todos: inTodos ? [...get().todos, inTodos] : get().todos, pending: inPending ? [...get().pending, inPending] : get().pending });
         },

@@ -9,6 +9,20 @@ import { useStore } from "./store";
 
 const SETUP_KEY = "journal_setup";
 
+/** The page's unsaved typing, waiting out its pause. Saved before the journal locks. */
+let unsaved: (() => Promise<void>) | null = null;
+
+export function holdJournalSave(save: (() => Promise<void>) | null) {
+  unsaved = save;
+}
+
+/** Saves the page's typing now, if any is waiting. */
+export async function flushJournal(): Promise<void> {
+  const save = unsaved;
+  unsaved = null;
+  if (save) await save();
+}
+
 export interface JournalStore {
   setup: JournalSetup;
   lock: JournalLock | null;
@@ -79,7 +93,8 @@ export const useJournal = create<JournalStore>()((set, get) => ({
     const lock = get().lock;
     if (!lock || lock.lock === "none" || !lock.unlocked) return;
     set({ lock: { ...lock, unlocked: false } });
-    void native.journalLock().catch(() => undefined);
+    // The last words typed land before the lock does.
+    void flushJournal().finally(() => native.journalLock().catch(() => undefined));
   },
 }));
 

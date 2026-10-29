@@ -180,6 +180,8 @@ export const useNotes = create<NotesStore>()((set, get) => {
     remove: async (id) => {
       clearTimeout(pending.get(id));
       pending.delete(id);
+      clearTimeout(pushes.get(id));
+      pushes.delete(id);
       try {
         await native.deleteNote(id);
         const notes = get().notes.filter((n) => n.id !== id);

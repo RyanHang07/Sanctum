@@ -76,4 +76,15 @@ describe("sharing a note (v0.2)", () => {
     expect(mockShares.size).toBe(0);
     expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
   });
+
+  it("takes the link down when the shared note is deleted", async () => {
+    await native.cloudSignInEmail("me@example.com");
+    const n = await native.saveNote({ title: "Gone soon", body: "x" });
+    await act(() => useNotes.getState().load());
+    await act(async () => void (await useNotes.getState().share(n.id, 1)));
+    expect(mockShares.size).toBe(1);
+    await act(() => useNotes.getState().remove(n.id));
+    expect(mockShares.size).toBe(0);
+    expect(useNotes.getState().notes).toEqual([]);
+  });
 });

@@ -96,7 +96,7 @@ describe("journal page (v0.2)", () => {
     page.unmount();
     await waitFor(() => expect(mockJournal.unlocked).toBe(false));
     await expect(native.journalGet(todayKey())).rejects.toBe("The journal is locked.");
-    render(<JournalPage />);
+    const again = render(<JournalPage />);
     const pin = await screen.findByLabelText("Journal PIN");
     fireEvent.change(pin, { target: { value: "1111" } });
     await act(async () => fireEvent.submit(pin.closest("form")!));
@@ -104,6 +104,12 @@ describe("journal page (v0.2)", () => {
     fireEvent.change(screen.getByLabelText("Journal PIN"), { target: { value: "4821" } });
     await act(async () => fireEvent.submit(screen.getByLabelText("Journal PIN").closest("form")!));
     expect(await screen.findByLabelText(/^Journal, /)).toHaveTextContent("Shipped the refactor");
+
+    // Words typed just before it locks are saved before the lock lands.
+    act(() => void editorOf().chain().focus("end").insertContent(" Tired.").run());
+    again.unmount();
+    await waitFor(() => expect(mockJournal.unlocked).toBe(false));
+    expect(mockJournal.days.get(todayKey())?.body).toContain("Tired.");
   });
 
   it("leaves no page when only the prompts are there", async () => {

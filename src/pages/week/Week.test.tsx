@@ -7,6 +7,7 @@ import { Toast } from "../../components/Toast";
 import { useStore } from "../../state/store";
 import { usePlanner } from "../../state/planner";
 import { connectNativeEvents } from "../../state/events";
+import { saveEverything } from "../../state/quit";
 import { checkSchedule, resetPrompted } from "../../state/schedule";
 import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
@@ -106,6 +107,11 @@ describe("Week: one-time items", () => {
     expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).toContain("Call mom"); // not yet
     await act(async () => void vi.advanceTimersByTime(5000));
     expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).not.toContain("Call mom");
+
+    // Quitting inside the undo window deletes for real (v0.2).
+    await remove("Pay rent");
+    await act(() => saveEverything());
+    expect((await native.listTodos("2026-09-30", "2026-09-30")).map((t) => t.title)).not.toContain("Pay rent");
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(TUESDAY);
   });

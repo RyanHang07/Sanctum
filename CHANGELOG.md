@@ -10,6 +10,8 @@
 
 - **Motion and room** (Motion library, 150 to 450 ms, crisp ease). Rows on Home and in the notes list glide to their new place when they reorder or a checked item drops to the bottom. Focus time and counter totals roll to their new value; a counter's bar shimmers once when it meets its goal; a checked box glows. Panels lift on hover, and dialogs blur what's behind them. The Open screen gets the same mesh as Sealed, barely there. List rows are 38px (were 34) and Home has wider margins. All of it follows Windows' reduce-motion setting.
 
+- **Pre-release pass (security, bugs).** Deleting a shared note takes its link down first; before, the encrypted copy stayed online until it expired. Quitting from the tray, the close button, or the tray panel saves what's still waiting (typing in a note or the journal, deletes in their 5 s undo window) before Sanctum exits; before, those were lost. The journal saves the last words typed before it relocks, or when you move to another day. A Windows Hello prompt no longer opens a PIN-locked journal, and wrong PINs pause longer each round (30 s, doubling, up to an hour). Note images are served with `nosniff`, and the shared-note page fetches images only from Sanctum's own bucket.
+
 ## v0.1.4 (in progress)
 
 - **Start with Windows:** a switch in Setup › General that is the same switch as Windows' Settings › Apps › Startup (either one shows the other). Fix: the startup entry was written only on the very first run, so an update or reinstall could drop it for good and Sanctum quietly stopped starting with Windows; it's now rewritten on every launch with the current install's path, never touching your on/off choice.

@@ -115,11 +115,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             "quiet-resume" => {
                 let _ = crate::engine::quiet_resume(app.state::<Shared>());
             }
-            "quit" => {
-                if !app.state::<Shared>().sealed() {
-                    app.exit(0);
-                }
-            }
+            "quit" => crate::quit_via_window(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

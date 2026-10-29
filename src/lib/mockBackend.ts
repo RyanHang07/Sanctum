@@ -300,6 +300,9 @@ const handlers: Record<string, (a: any) => unknown> = {
     return clone(n);
   },
   delete_note: ({ id }: { id: number }) => {
+    // A shared note's link comes down with it.
+    const n = state.notes.find((x) => x.id === id);
+    if (n?.share) mockShares.delete(/\/n\/([0-9a-f]+)#/.exec(n.share.url)![1]!);
     state.notes = state.notes.filter((n) => n.id !== id);
   },
   reset_all: () => {

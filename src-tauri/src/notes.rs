@@ -6,7 +6,7 @@
 use crate::{session::now_ms, Shared};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 const MAX_TITLE: usize = 200;
 const MAX_BODY: usize = 100_000;
@@ -136,9 +136,14 @@ pub fn pin_note(shared: State<Shared>, id: i64, pinned: bool) -> Result<Note, St
     with(&shared, |c| set_pinned(c, id, pinned))
 }
 
+/// A shared note's link comes down first, so nothing of it stays on the server (and the note
+/// isn't deleted while its link can't be stopped).
 #[tauri::command]
-pub fn delete_note(shared: State<Shared>, id: i64) -> Result<(), String> {
-    with(&shared, |c| delete(c, id))
+pub async fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
+    crate::note_share::stop_note_share(app.clone(), id)
+        .await
+        .map_err(|_| "Couldn't stop sharing this note, so it wasn't deleted. Try again online.".to_string())?;
+    with(&app.state::<Shared>(), |c| delete(c, id))
 }
 
 #[cfg(test)]

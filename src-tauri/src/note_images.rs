@@ -62,6 +62,8 @@ pub fn serve<R: tauri::Runtime>(app: &tauri::AppHandle<R>, request: &http::Reque
     match found {
         Some((mime, bytes)) => http::Response::builder()
             .header("Content-Type", mime)
+            // Always an image, never sniffed into something that runs.
+            .header("X-Content-Type-Options", "nosniff")
             // An id never changes what it points to.
             .header("Cache-Control", "private, max-age=31536000, immutable")
             .body(Cow::Owned(bytes))

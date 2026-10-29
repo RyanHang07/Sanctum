@@ -257,7 +257,7 @@ export function TrayPanel() {
             Break the seal
           </button>
         ) : (
-          <button type="button" onClick={() => void native.quitApp()} className="ml-auto h-7 rounded-control px-2 text-meta text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text">
+          <button type="button" onClick={() => void native.requestQuit()} className="ml-auto h-7 rounded-control px-2 text-meta text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text">
             Quit Sanctum
           </button>
         )}
