@@ -26,6 +26,16 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm test
+      # The release notes are this version's CHANGELOG.md section (the site's /changelog reads
+      # them); tagging a version without a section stops here.
+      - id: notes
+        shell: bash
+        run: |
+          {
+            echo 'body<<NOTES_EOF'
+            node scripts/release-notes.mjs "${{ github.ref_name }}"
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,12 +51,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Sanctum ${{ github.ref_name }}
-          releaseBody: |
-            Download the `-setup.exe` below and run it. It installs for your user only, no admin needed.
-
-            Sanctum isn't code-signed, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
-
-            See the README for loading the browser extension and turning on Protection.
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-// The public pages Google's OAuth consent screen links to (v0.1): /about (the home page),
-// /privacy, and /terms. Plain, factual, and kept in step with what the code actually does.
+// The public pages Google's OAuth consent screen links to (v0.1): the home page (site/Home.tsx;
+// /about still lands there), /privacy, and /terms. Plain, factual, and kept in step with what the code actually does.
 
 export const CONTACT = "ryan.hang3r@gmail.com";
 export const OPERATOR = "Ryan Hang";
@@ -18,46 +18,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const Mail = () => <a href={`mailto:${CONTACT}`}>{CONTACT}</a>;
-
-export function About() {
-  return (
-    <>
-      <h1 className="headline">
-        Seal yourself in. <em>Finish what you started.</em>
-      </h1>
-      <p className="muted">
-        Sanctum is a free, open-source focus app for Windows. Pick a profile, enter focus, and Sanctum opens what the work needs, closes what you flagged as
-        distracting, blocks distracting sites, and holds the seal until the time is up. Breaking out early takes real effort, or a friend's approval.
-      </p>
-      <div className="legal-list">
-        <p>
-          <strong>Profiles and a seal that holds.</strong> Flagged apps close as they open; sites and tabs are blocked in the browser.
-        </p>
-        <p>
-          <strong>Today and Week.</strong> Tasks and routines, with optional two-way Google Calendar sync.
-        </p>
-        <p>
-          <strong>Stats, trackers, and notes.</strong> All of it stays on your PC.
-        </p>
-        <p>
-          <strong>An optional accountability partner.</strong> A friend holds a PIN, approves early exits, and hears when a seal breaks. This site is
-          where partners answer.
-        </p>
-      </div>
-      <div className="row">
-        <a className="button primary" href={`${REPO}/releases/latest`}>
-          Download for Windows
-        </a>
-        <a className="button ghost" href={REPO}>
-          Source code
-        </a>
-      </div>
-      <p className="small">
-        Made by {OPERATOR}. Questions: <Mail />.
-      </p>
-    </>
-  );
-}
 
 export function Privacy() {
   return (
@@ -199,16 +159,5 @@ export function Terms() {
         </p>
       </Section>
     </>
-  );
-}
-
-/** Links on every page: the home page, privacy, and terms. */
-export function Footer() {
-  return (
-    <footer className="legal-footer">
-      <a href="/about">About</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms</a>
-    </footer>
   );
 }

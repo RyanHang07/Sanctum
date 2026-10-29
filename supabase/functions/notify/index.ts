@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     .single();
 
   const site = partnerSite();
-  const target = kind === "unlock_request" && typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId) ? `${site}/approve/${requestId}` : `${site}/`;
+  const target = kind === "unlock_request" && typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId) ? `${site}/approve/${requestId}` : `${site}/partner`;
   const email = renderEmail(kind, {
     who,
     detail: text,

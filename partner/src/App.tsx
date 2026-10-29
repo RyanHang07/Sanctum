@@ -2,24 +2,36 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEven
 import type { Session } from "@supabase/supabase-js";
 import { call, configured, supabase } from "./supabase";
 import { Title, useTabTitle } from "./title";
-import { About, Footer, Privacy, Terms } from "./Legal";
+import { Privacy, Terms } from "./Legal";
 import { SharedNote } from "./SharedNote";
+import { Shell } from "./site/Shell";
+import { Home } from "./site/Home";
+import { go } from "./site/nav";
 
-// The accountability partner's page (SPEC 4.6, design/screens/PartnerApprove.dc.html).
-// /approve/<id>: one unlock request, full screen, decided with your PIN (the email links here).
-// /invite/<token>: accept an invite and set a PIN. /: who you hold the key for, and your PIN.
-// Built for phones first: partners open it from an email.
+// Sanctum's site (v0.2): / the home page, /docs, /changelog, and the accountability partner's
+// pages (SPEC 4.6, design/screens/PartnerApprove.dc.html), all in one frame (site/Shell.tsx):
+// /partner: who you hold the key for, and your PIN. /approve/<id>: one unlock request, decided
+// with your PIN (the email links here). /invite/<token>: accept an invite and set a PIN.
+// The partner pages are built for phones first: partners open them from an email.
+// /n/<token>: a shared note, on its own (no site frame).
+
+// Docs and the changelog carry the Markdown renderer: loaded when opened.
+const Docs = lazy(() => import("./site/Docs").then((m) => ({ default: m.Docs })));
+const Changelog = lazy(() => import("./site/Changelog").then((m) => ({ default: m.Changelog })));
 
 // Dev only: /emails renders every email; /demo/approve shows the approve screen with sample data.
 const EmailPreview = import.meta.env.DEV ? lazy(() => import("./EmailPreview")) : () => null;
 
 type Route =
   | { page: "home" }
+  | { page: "partner" }
+  | { page: "docs"; slug: string | null }
+  | { page: "changelog" }
   | { page: "invite"; token: string }
   | { page: "approve"; id: string }
   | { page: "emails" }
   | { page: "demo" }
-  | { page: "about" | "privacy" | "terms" }
+  | { page: "privacy" | "terms" }
   | { page: "note"; token: string };
 
 function routeOf(path: string): Route {
@@ -30,17 +42,16 @@ function routeOf(path: string): Route {
   if (invite) return { page: "invite", token: invite[1]! };
   const approve = /^\/approve\/([0-9a-f-]{36})\/?$/i.exec(path);
   if (approve) return { page: "approve", id: approve[1]! };
-  // Public pages for Google's consent screen: the home page, privacy, and terms.
-  const legal = /^\/(about|privacy|terms)\/?$/.exec(path);
-  if (legal) return { page: legal[1] as "about" | "privacy" | "terms" };
+  if (/^\/partner\/?$/.test(path)) return { page: "partner" };
+  const docs = /^\/docs(?:\/([a-z0-9-]+))?\/?$/.exec(path);
+  if (docs) return { page: "docs", slug: docs[1] ?? null };
+  if (/^\/changelog\/?$/.test(path)) return { page: "changelog" };
+  // Public pages for Google's consent screen: the home page (/about is the old address), privacy, and terms.
+  const legal = /^\/(privacy|terms)\/?$/.exec(path);
+  if (legal) return { page: legal[1] as "privacy" | "terms" };
   if (import.meta.env.DEV && /^\/emails\/?$/.test(path)) return { page: "emails" };
   if (import.meta.env.DEV && /^\/demo\/approve\/?$/.test(path)) return { page: "demo" };
   return { page: "home" };
-}
-
-function go(path: string) {
-  history.pushState(null, "", path);
-  dispatchEvent(new PopStateEvent("popstate"));
 }
 
 function useRoute(): Route {
@@ -53,17 +64,15 @@ function useRoute(): Route {
   return route;
 }
 
+/** A partner page: a phone-width column inside the site's frame. */
 function Card({ context, children }: { context?: ReactNode; children: ReactNode }) {
   return (
-    <main className="card">
-      <header className="brand">
-        <img src="/mark.svg" width="18" height="18" alt="" />
-        <span>Sanctum</span>
-        {context ? <span className="context">{context}</span> : null}
-      </header>
-      {children}
-      <Footer />
-    </main>
+    <Shell wide={false}>
+      <main className="card">
+        {context ? <div className="card-context">{context}</div> : null}
+        {children}
+      </main>
+    </Shell>
   );
 }
 
@@ -168,7 +177,7 @@ function Invite({ token }: { token: string }) {
     setBusy(true);
     try {
       await call("invite", { action: "accept", token, pin: info?.needsPin ? pin : undefined });
-      go("/");
+      go("/partner");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -211,6 +220,8 @@ interface UnlockRequest {
 }
 
 const TTL_MS = 30 * 60_000;
+/** Past requests shown on the partner page. */
+const HISTORY = 20;
 
 function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now());
@@ -317,7 +328,7 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
       <>
         <Headline lead={lead} payoff={payoff} />
         <p className="muted">{line}</p>
-        <button className="ghost" onClick={() => go("/")}>
+        <button className="ghost" onClick={() => go("/partner")}>
           Back to your partners
         </button>
       </>
@@ -377,6 +388,7 @@ interface Link {
 function Dashboard({ session }: { session: Session }) {
   const [links, setLinks] = useState<Link[]>([]);
   const [requests, setRequests] = useState<Pick<UnlockRequest, "id" | "user_id" | "reason" | "created_at">[]>([]);
+  const [past, setPast] = useState<UnlockRequest[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [pin, setPin] = useState("");
@@ -398,6 +410,17 @@ function Dashboard({ session }: { session: Session }) {
       .gte("created_at", since)
       .order("created_at");
     setRequests(pending ?? []);
+    // What you decided before (and what expired), newest first.
+    if (rows.length) {
+      const { data: done } = await supabase
+        .from("unlock_requests")
+        .select("id,user_id,reason,created_at,status,note,profile_name,ends_at")
+        .in("user_id", rows.map((r) => r.user_id))
+        .order("created_at", { ascending: false })
+        .limit(HISTORY + 5);
+      // A request still "pending" past its 30 minutes expired unanswered.
+      setPast(((done ?? []) as UnlockRequest[]).filter((r) => r.status !== "pending" || Date.parse(r.created_at) < Date.now() - TTL_MS).slice(0, HISTORY));
+    }
     if (rows.length) {
       const { data: people } = await supabase.from("profiles_user").select("id,email,display_name").in("id", rows.map((r) => r.user_id));
       setNames(Object.fromEntries((people ?? []).map((p) => [p.id, p.display_name || p.email || "Someone"])));
@@ -493,6 +516,27 @@ function Dashboard({ session }: { session: Session }) {
           </section>
         );
       })}
+      {past.length ? (
+        <section className="history" aria-label="Past requests">
+          <span className="label">Past requests</span>
+          <ul>
+            {past.map((r) => (
+              <li key={r.id}>
+                <div className="row between">
+                  <strong>{names[r.user_id] ?? "Someone"}</strong>
+                  <span className={`outcome ${r.status}`}>{r.status === "approved" ? "Approved" : r.status === "denied" ? "Denied" : "Expired"}</span>
+                </div>
+                <p className="reason clamp">“{r.reason}”</p>
+                <span className="small">
+                  {new Date(r.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  {r.profile_name ? ` · ${r.profile_name}` : ""}
+                  {r.note ? ` · You said: ${r.note}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {links.length ? (
         resetting ? (
           <form className="panel" onSubmit={(e) => void resetPin(e)}>
@@ -592,10 +636,35 @@ export function App() {
       </Suspense>
     );
   }
-  if (route.page === "about" || route.page === "privacy" || route.page === "terms") {
-    const [Page, title] = route.page === "about" ? [About, "About"] : route.page === "privacy" ? [Privacy, "Privacy policy"] : [Terms, "Terms of service"];
+  if (route.page === "home") {
     return (
-      <Card context={<a href="/">Partners</a>}>
+      <Shell>
+        <Home />
+      </Shell>
+    );
+  }
+  if (route.page === "docs") {
+    return (
+      <Shell>
+        <Suspense fallback={null}>
+          <Docs slug={route.slug} />
+        </Suspense>
+      </Shell>
+    );
+  }
+  if (route.page === "changelog") {
+    return (
+      <Shell>
+        <Suspense fallback={null}>
+          <Changelog />
+        </Suspense>
+      </Shell>
+    );
+  }
+  if (route.page === "privacy" || route.page === "terms") {
+    const [Page, title] = route.page === "privacy" ? [Privacy, "Privacy policy"] : [Terms, "Terms of service"];
+    return (
+      <Card>
         <Title status={title} />
         <Page />
       </Card>
@@ -636,8 +705,8 @@ export function App() {
   return (
     <Card
       context={
-        route.page === "home" ? undefined : (
-          <button className="link small" onClick={() => go("/")}>
+        route.page === "partner" ? undefined : (
+          <button className="link small" onClick={() => go("/partner")}>
             Your partners
           </button>
         )
