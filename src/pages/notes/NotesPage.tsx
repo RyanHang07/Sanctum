@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
-import { CheckIcon, PlusIcon, SearchIcon, XIcon } from "../../components/icons";
-import { noteTitle, notePreview, toggleLine, useNotes } from "../../state/notes";
+import { PlusIcon, SearchIcon, XIcon } from "../../components/icons";
+import { noteTitle, notePreview, useNotes } from "../../state/notes";
+import { NoteEditor } from "../../components/editor/NoteEditor";
+import { docOf } from "../../lib/noteDoc";
 import { clock } from "../../lib/time";
 import { shortDate } from "../../lib/trackers";
 import type { Note } from "../../lib/types";
 
 // Notes (decided 2026-09-30): anything that isn't a task for the day. A list on the left, the
-// note on the right. Plain text, autosaved; lines starting "- " read as a list and "[ ]" as a
-// checkbox you can tick without editing. Open while sealed too.
+// note on the right, autosaved, open while sealed too. v0.2: block documents (lists,
+// checklists, tables, callouts, toggles, links to Sanctum); older plain notes convert on open.
 
 /** "2:14 PM" today, "Yesterday", or "Sep 28". */
 export function edited(ms: number, now = Date.now()): string {
@@ -53,63 +55,13 @@ function NoteRow({ n, active, onOpen }: { n: Note; active: boolean; onOpen: () =
   );
 }
 
-/** The body read-only: lists and tickable checkboxes. Click anywhere else to edit. */
-function Rendered({ body, onToggle, onEdit }: { body: string; onToggle: (line: number) => void; onEdit: () => void }) {
-  const lines = body.split("\n");
-  return (
-    <div role="document" aria-label="Note" onClick={onEdit} className="min-h-full cursor-text whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-text">
-      {body.trim() ? (
-        lines.map((line, i) => {
-          const box = /^(\s*)\[( |x)\] ?(.*)$/i.exec(line);
-          if (box) {
-            const done = box[2]!.toLowerCase() === "x";
-            return (
-              <div key={i} className="flex items-start gap-[10px]" style={{ paddingLeft: `${box[1]!.length * 8}px` }}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={done}
-                  aria-label={box[3] || "Checkbox"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggle(i);
-                  }}
-                  className={`check-pop mt-[4px] box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] transition-colors duration-ui ease-ui ${
-                    done ? "border border-sealed bg-sealed text-sealed-on" : "border-[1.5px] border-check-line hover:border-sealed"
-                  }`}
-                >
-                  {done ? <CheckIcon size={9} /> : null}
-                </button>
-                <span className={done ? "text-faint line-through" : ""}>{box[3]}</span>
-              </div>
-            );
-          }
-          const bullet = /^(\s*)- (.*)$/.exec(line);
-          if (bullet) {
-            return (
-              <div key={i} className="flex items-start gap-[10px]" style={{ paddingLeft: `${bullet[1]!.length * 8}px` }}>
-                <span aria-hidden="true" className="mt-[10px] h-[4px] w-[4px] shrink-0 rounded-full bg-muted" />
-                <span>{bullet[2]}</span>
-              </div>
-            );
-          }
-          return <div key={i}>{line || " "}</div>;
-        })
-      ) : (
-        <span className="text-faint">Write anything. Lines starting “- ” make a list, “[ ] ” a checkbox.</span>
-      )}
-    </div>
-  );
-}
+const PLACEHOLDER = "Write, or type “/” for blocks and “@” to link to Sanctum";
 
 function Editor({ n }: { n: Note }) {
-  const { edit, pin, remove, flush } = useNotes();
-  const [editing, setEditing] = useState(!n.body);
-  const area = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => setEditing(!n.body), [n.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (editing) area.current?.focus();
-  }, [editing]);
+  const { edit, pin, remove } = useNotes();
+  // The document as it was when the note opened; the editor owns it from there.
+  const doc = useMemo(() => docOf(n), [n.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const focusBody = () => document.querySelector<HTMLElement>(".note-doc")?.focus();
   return (
     <article aria-label={noteTitle(n)} className="flex min-h-0 grow flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -119,7 +71,12 @@ function Editor({ n }: { n: Note }) {
           placeholder="Untitled"
           maxLength={200}
           onChange={(e) => edit(n.id, { title: e.target.value })}
-          onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              focusBody();
+            }
+          }}
           className="min-w-0 grow bg-transparent text-[20px] font-semibold tracking-[-0.02em] text-text outline-none placeholder:text-faint"
         />
         <span className="shrink-0 text-meta text-faint">Edited {edited(n.updatedAt)}</span>
@@ -143,24 +100,9 @@ function Editor({ n }: { n: Note }) {
           <XIcon size={12} />
         </button>
       </div>
-      <div className="min-h-0 grow overflow-y-auto pr-1">
-        {editing ? (
-          <textarea
-            ref={area}
-            aria-label="Note text"
-            value={n.body}
-            placeholder="Write anything. Lines starting “- ” make a list, “[ ] ” a checkbox."
-            onChange={(e) => edit(n.id, { body: e.target.value })}
-            onBlur={() => {
-              void flush();
-              if (n.body.trim()) setEditing(false);
-            }}
-            onKeyDown={(e) => e.key === "Escape" && (e.currentTarget as HTMLTextAreaElement).blur()}
-            className="h-full min-h-[320px] w-full resize-none bg-transparent text-[14px] leading-[1.6] text-text outline-none placeholder:text-faint"
-          />
-        ) : (
-          <Rendered body={n.body} onEdit={() => setEditing(true)} onToggle={(i) => edit(n.id, { body: toggleLine(n.body, i) })} />
-        )}
+      {/* Room on the left for the blocks' drag handle. */}
+      <div className="min-h-0 grow overflow-y-auto pl-7 pr-1">
+        <NoteEditor doc={doc} label="Note text" placeholder={PLACEHOLDER} onChange={(c) => edit(n.id, { doc: c.doc, body: c.text })} />
       </div>
     </article>
   );

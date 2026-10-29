@@ -1,5 +1,7 @@
-//! Notes (decided 2026-09-30): titled plain-text notes, unrelated to the day's plan. Autosaved
-//! as you type, pinned notes first, then the most recently edited. Stored locally only.
+//! Notes (decided 2026-09-30): titled notes, unrelated to the day's plan. Autosaved as you type,
+//! pinned notes first, then the most recently edited. Stored locally only.
+//! v0.2: a note is a block document (`doc`, the editor's JSON) plus `body`, its plain text,
+//! which search, previews, and exports read. Notes from before have only a body.
 
 use crate::{session::now_ms, Shared};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -8,6 +10,8 @@ use tauri::State;
 
 const MAX_TITLE: usize = 200;
 const MAX_BODY: usize = 100_000;
+/// The document carries structure on top of the text, so it gets more room.
+const MAX_DOC: usize = 2_000_000;
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -15,6 +19,8 @@ pub struct Note {
     pub id: i64,
     pub title: String,
     pub body: String,
+    /// The block document (JSON), or None for a note that's only ever been plain text.
+    pub doc: Option<String>,
     pub pinned: bool,
     pub created_at: i64,
     pub updated_at: i64,
@@ -27,13 +33,16 @@ pub struct NoteDraft {
     pub id: Option<i64>,
     pub title: String,
     pub body: String,
+    /// Left out: the document is kept as it was.
+    #[serde(default)]
+    pub doc: Option<String>,
 }
 
 fn row(r: &rusqlite::Row) -> rusqlite::Result<Note> {
-    Ok(Note { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, pinned: r.get::<_, i64>(3)? != 0, created_at: r.get(4)?, updated_at: r.get(5)? })
+    Ok(Note { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, pinned: r.get::<_, i64>(3)? != 0, created_at: r.get(4)?, updated_at: r.get(5)?, doc: r.get(6)? })
 }
 
-const COLS: &str = "id, title, body, pinned, created_at, updated_at";
+const COLS: &str = "id, title, body, pinned, created_at, updated_at, doc";
 
 pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(&format!("SELECT {COLS} FROM notes ORDER BY pinned DESC, updated_at DESC, id DESC"))?;
@@ -51,13 +60,19 @@ fn get(conn: &Connection, id: i64) -> Result<Note, String> {
 /// Creates or updates a note. Text is kept as typed, only trimmed to the limits.
 pub fn save(conn: &Connection, d: NoteDraft, now: i64) -> Result<Note, String> {
     let title: String = d.title.chars().take(MAX_TITLE).collect();
-    if d.body.chars().count() > MAX_BODY {
+    if d.body.chars().count() > MAX_BODY || d.doc.as_ref().is_some_and(|x| x.len() > MAX_DOC) {
         return Err("That note is too long. Split it into two.".into());
+    }
+    if let Some(doc) = &d.doc {
+        serde_json::from_str::<serde_json::Value>(doc).map_err(|_| "That note couldn't be saved (its document is damaged).".to_string())?;
     }
     let id = match d.id {
         Some(id) => {
             let n = conn
-                .execute("UPDATE notes SET title = ?1, body = ?2, updated_at = ?3 WHERE id = ?4", params![title, d.body, now, id])
+                .execute(
+                    "UPDATE notes SET title = ?1, body = ?2, updated_at = ?3, doc = COALESCE(?4, doc) WHERE id = ?5",
+                    params![title, d.body, now, d.doc, id],
+                )
                 .map_err(|e| e.to_string())?;
             if n == 0 {
                 return Err("That note no longer exists.".into());
@@ -65,7 +80,7 @@ pub fn save(conn: &Connection, d: NoteDraft, now: i64) -> Result<Note, String> {
             id
         }
         None => {
-            conn.execute("INSERT INTO notes (title, body, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)", params![title, d.body, now])
+            conn.execute("INSERT INTO notes (title, body, doc, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)", params![title, d.body, d.doc, now])
                 .map_err(|e| e.to_string())?;
             conn.last_insert_rowid()
         }
@@ -120,18 +135,30 @@ mod tests {
     #[test]
     fn saves_pins_orders_and_deletes() {
         let conn = fresh();
-        let a = save(&conn, NoteDraft { id: None, title: "Books".into(), body: "- Dune".into() }, 1).unwrap();
-        let b = save(&conn, NoteDraft { id: None, title: "".into(), body: "".into() }, 2).unwrap();
+        let a = save(&conn, NoteDraft { id: None, title: "Books".into(), body: "- Dune".into(), doc: None }, 1).unwrap();
+        let b = save(&conn, NoteDraft { id: None, title: "".into(), body: "".into(), doc: None }, 2).unwrap();
         // Most recently edited first.
         assert_eq!(list(&conn).unwrap().iter().map(|n| n.id).collect::<Vec<_>>(), vec![b.id, a.id]);
-        let a2 = save(&conn, NoteDraft { id: Some(a.id), title: "Books to read".into(), body: "- Dune\n- Piranesi".into() }, 3).unwrap();
+        let a2 = save(&conn, NoteDraft { id: Some(a.id), title: "Books to read".into(), body: "- Dune\n- Piranesi".into(), doc: None }, 3).unwrap();
         assert_eq!((a2.title.as_str(), a2.created_at, a2.updated_at), ("Books to read", 1, 3));
         set_pinned(&conn, b.id, true).unwrap();
         // Pinned first, even when older.
         assert_eq!(list(&conn).unwrap()[0].id, b.id);
         delete(&conn, b.id).unwrap();
         assert_eq!(list(&conn).unwrap().len(), 1);
-        assert!(save(&conn, NoteDraft { id: Some(99), title: "x".into(), body: "".into() }, 4).is_err());
-        assert!(save(&conn, NoteDraft { id: None, title: "".into(), body: "x".repeat(MAX_BODY + 1) }, 4).is_err());
+        assert!(save(&conn, NoteDraft { id: Some(99), title: "x".into(), body: "".into(), doc: None }, 4).is_err());
+        assert!(save(&conn, NoteDraft { id: None, title: "".into(), body: "x".repeat(MAX_BODY + 1), doc: None }, 4).is_err());
+    }
+
+    #[test]
+    fn keeps_the_document_and_leaves_it_alone_when_not_sent() {
+        let conn = fresh();
+        let doc = r#"{"type":"doc","content":[{"type":"taskList"}]}"#;
+        let n = save(&conn, NoteDraft { id: None, title: "Groceries".into(), body: "eggs".into(), doc: Some(doc.into()) }, 1).unwrap();
+        assert_eq!(n.doc.as_deref(), Some(doc));
+        // A title-only edit (no doc) keeps the document.
+        let n = save(&conn, NoteDraft { id: Some(n.id), title: "Shopping".into(), body: "eggs".into(), doc: None }, 2).unwrap();
+        assert_eq!(n.doc.as_deref(), Some(doc));
+        assert!(save(&conn, NoteDraft { id: Some(n.id), title: "x".into(), body: "".into(), doc: Some("{not json".into()) }, 3).is_err());
     }
 }

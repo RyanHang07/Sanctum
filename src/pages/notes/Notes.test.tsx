@@ -1,29 +1,37 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
 import { NotesPage, edited } from "./NotesPage";
-import { noteTitle, notePreview, toggleLine, useNotes } from "../../state/notes";
+import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { useStore } from "../../state/store";
+import { usePlanner } from "../../state/planner";
 import { isTabLocked } from "../../state/appState";
 import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
+import { bodyToDoc, docOf } from "../../lib/noteDoc";
+import { sanctumLinks } from "../../components/editor/extensions";
+import { addDays, todayKey } from "../../lib/planner";
 
 const initial = useStore.getState();
 const initialNotes = useNotes.getState();
+const initialPlanner = usePlanner.getState();
 
 beforeEach(() => {
   resetMockBackend();
   useStore.setState(initial, true);
   useNotes.setState(initialNotes, true);
+  usePlanner.setState(initialPlanner, true);
 });
 
+/** The open note's editor (TipTap keeps it on its element). */
+const editorOf = () => (document.querySelector(".note-doc") as unknown as { editor: Editor }).editor;
+
 describe("note helpers", () => {
-  it("titles, previews, and ticks checkboxes", () => {
+  it("titles and previews", () => {
     expect(noteTitle({ title: " Books ", body: "" })).toBe("Books");
     expect(noteTitle({ title: "", body: "- Dune\n- Piranesi" })).toBe("Dune");
     expect(noteTitle({ title: "", body: "" })).toBe("Untitled");
     expect(notePreview({ title: "", body: "Groceries\n\n[ ] eggs" })).toBe("eggs");
     expect(notePreview({ title: "Groceries", body: "[x] eggs" })).toBe("eggs");
-    expect(toggleLine("a\n[ ] eggs\n  [x] milk", 1)).toBe("a\n[x] eggs\n  [x] milk");
-    expect(toggleLine("a\n[ ] eggs\n  [x] milk", 2)).toBe("a\n[ ] eggs\n  [ ] milk");
     const now = new Date(2026, 8, 30, 15, 0).getTime();
     expect(edited(new Date(2026, 8, 30, 9, 5).getTime(), now)).toBe("9:05 AM");
     expect(edited(new Date(2026, 8, 29, 23, 0).getTime(), now)).toBe("Yesterday");
@@ -35,32 +43,85 @@ describe("note helpers", () => {
   });
 });
 
+describe("old plain notes become documents (v0.2)", () => {
+  it("turns lists, checkboxes, and headings into blocks", () => {
+    const doc = bodyToDoc("## Week\n- shipped it\n- two seals broken\n[x] dentist\n[ ] plan\nthoughts\n\n");
+    expect(doc.content!.map((b) => b.type)).toEqual(["heading", "bulletList", "taskList", "paragraph"]);
+    expect(doc.content![1]!.content).toHaveLength(2);
+    expect(doc.content![2]!.content!.map((i) => i.attrs!.checked)).toEqual([true, false]);
+    expect(bodyToDoc("").content).toEqual([{ type: "paragraph", content: [] }]);
+  });
+
+  it("prefers a saved document, and falls back to the text when it's damaged", () => {
+    const saved = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "hi" }] }] });
+    expect(docOf({ doc: saved, body: "x" }).content![0]!.content![0]!.text).toBe("hi");
+    expect(docOf({ doc: "{broken", body: "- a" }).content![0]!.type).toBe("bulletList");
+  });
+});
+
 describe("Notes page", () => {
-  it("writes a note that saves itself, renders lists and checkboxes, and searches", async () => {
+  it("edits blocks, saves the document and its text, and searches the text", async () => {
     render(<NotesPage />);
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Groceries" } });
-    const text = screen.getByLabelText("Note text");
-    fireEvent.change(text, { target: { value: "- from the market\n[ ] eggs\n[x] milk" } });
-    await act(async () => fireEvent.blur(text));
-    // Saved without a Save button.
-    expect((await native.listNotes())[0]).toMatchObject({ title: "Groceries", body: "- from the market\n[ ] eggs\n[x] milk" });
-
-    const doc = within(screen.getByRole("document", { name: "Note" }));
-    expect(doc.getByText("from the market")).toBeInTheDocument();
-    await act(async () => fireEvent.click(doc.getByRole("checkbox", { name: "eggs" })));
-    expect(doc.getByRole("checkbox", { name: "eggs" })).toHaveAttribute("aria-checked", "true");
+    const editor = editorOf();
+    await act(async () => {
+      editor.chain().focus().insertContent("From the market").run();
+      editor.chain().focus().enter().toggleTaskList().insertContent("eggs").run();
+      editor.chain().focus().enter().insertContent("milk").run();
+    });
+    // A checklist rendered as real checkboxes.
+    const doc = within(screen.getByLabelText("Note text"));
+    expect(doc.getAllByRole("checkbox")).toHaveLength(2);
     await act(() => useNotes.getState().flush());
-    expect((await native.listNotes())[0]!.body).toBe("- from the market\n[x] eggs\n[x] milk");
+    const [saved] = await native.listNotes();
+    expect(saved).toMatchObject({ title: "Groceries", body: "From the market\neggs\nmilk" });
+    // (The editor keeps an empty line at the end, so there's always room to click below.)
+    expect(JSON.parse(saved!.doc!).content.map((b: { type: string }) => b.type).slice(0, 2)).toEqual(["paragraph", "taskList"]);
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "New note" })));
-    fireEvent.change(screen.getByLabelText("Note text"), { target: { value: "Book: Piranesi" } });
+    await act(async () => void editorOf().chain().focus().insertContent("Book: Piranesi").run());
     await act(() => useNotes.getState().flush());
     const list = within(screen.getByRole("complementary", { name: "All notes" }));
     expect(list.getAllByRole("button").map((b) => b.textContent)).toEqual([expect.stringContaining("Book: Piranesi"), expect.stringContaining("Groceries")]);
     fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "milk" } });
     expect(list.getAllByRole("button")).toHaveLength(1);
     expect(list.getByRole("button")).toHaveTextContent("Groceries");
+  });
+
+  it("opens an old plain note as blocks, with its checkboxes", async () => {
+    await native.saveNote({ title: "Weekly review", body: "- Shipped the refactor\n[x] Book the dentist\n[ ] Plan next week" });
+    render(<NotesPage />);
+    const doc = within(await screen.findByLabelText("Note text"));
+    expect(doc.getByText("Shipped the refactor").closest("ul")).not.toBeNull();
+    const boxes = doc.getAllByRole("checkbox");
+    expect(boxes.map((b) => (b as HTMLInputElement).checked)).toEqual([true, false]);
+  });
+
+  it("moves a block with Alt+Down, and makes tables and callouts from the menu's commands", async () => {
+    render(<NotesPage />);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    const editor = editorOf();
+    await act(async () => {
+      editor.chain().focus().insertContent("first").enter().insertContent("second").run();
+      editor.commands.setTextSelection(2);
+    });
+    await act(async () => void fireEvent.keyDown(editor.view.dom, { key: "ArrowDown", altKey: true }));
+    expect(editor.getText({ blockSeparator: "|" })).toBe("second|first");
+    await act(async () => {
+      editor.chain().focus("end").enter().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
+    });
+    expect(screen.getByLabelText("Note text").querySelector("table")).not.toBeNull();
+    await act(async () => void editor.chain().focus("end").enter().insertContent("heads up").wrapIn("callout").run());
+    expect(screen.getByLabelText("Note text").querySelector("[data-callout]")).toHaveTextContent("heads up");
+  });
+
+  it("links to Sanctum: tasks, routines, trackers, and days", async () => {
+    const day = todayKey();
+    await native.saveTodo({ title: "Send the weekly update", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    expect(sanctumLinks("weekly").map((l) => l.title)).toEqual(["Send the weekly update"]);
+    expect(sanctumLinks("").slice(0, 2).map((l) => l.title)).toEqual(["Today", "Tomorrow"]);
   });
 
   it("pins to the top and deletes", async () => {
@@ -74,6 +135,6 @@ describe("Notes page", () => {
     expect(list.getAllByRole("button")[0]).toHaveTextContent("Old idea");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Delete note" })));
     expect(list.queryByRole("button", { name: /Old idea/ })).toBeNull();
-    expect((await native.listNotes()).map((n) => n.id)).not.toContain(a.id);
+    await waitFor(async () => expect((await native.listNotes()).map((n) => n.id)).not.toContain(a.id));
   });
 });

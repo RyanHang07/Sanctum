@@ -273,10 +273,10 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (draft.id !== undefined) {
       const n = state.notes.find((x) => x.id === draft.id);
       if (!n) throw "That note no longer exists.";
-      Object.assign(n, { title: draft.title.slice(0, 200), body: draft.body, updatedAt: now });
+      Object.assign(n, { title: draft.title.slice(0, 200), body: draft.body, updatedAt: now }, draft.doc != null ? { doc: draft.doc } : {});
       return clone(n);
     }
-    const n: Note = { id: state.nextId++, title: draft.title.slice(0, 200), body: draft.body, pinned: false, createdAt: now, updatedAt: now };
+    const n: Note = { id: state.nextId++, title: draft.title.slice(0, 200), body: draft.body, doc: draft.doc ?? null, pinned: false, createdAt: now, updatedAt: now };
     state.notes.push(n);
     return clone(n);
   },

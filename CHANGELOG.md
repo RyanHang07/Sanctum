@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2 (in progress)
+
+- **Notes are block documents** (TipTap/ProseMirror, fully offline). Type "/" for a menu of blocks (text, headings, bulleted and numbered lists, checklist, table, quote, callout, toggle, divider, code, and "Make it a task for today", which puts the line on Today and links it), "@" to link a task, routine, tracker, or day in Sanctum, and markdown shortcuts as you type ("- ", "1. ", "[] ", "## ", "> ", "---"). Checklists nest with Tab; tables resize and Tab between cells. Drag a block by the handle at its left, or move it with Alt+↑/↓. Older plain notes convert the first time they open (lists, checkboxes, headings kept). Notes keep a plain-text copy for search, previews, and exports. Migration 0021.
+
 ## v0.1.4 (in progress)
 
 - **Start with Windows:** a switch in Setup › General that is the same switch as Windows' Settings › Apps › Startup (either one shows the other). Fix: the startup entry was written only on the very first run, so an update or reinstall could drop it for good and Sanctum quietly stopped starting with Windows; it's now rewritten on every launch with the current install's path, never touching your on/off choice.
