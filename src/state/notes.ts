@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { errorText, native } from "../lib/native";
 import type { Note } from "../lib/types";
 import { useStore } from "./store";
+import { DEFAULT_NOTE_SIZE } from "../components/editor/NoteToolbar";
 
 // Notes (decided 2026-09-30): edits apply locally at once and save after a short pause, so
 // typing never waits on the backend. Pinned first, then most recently edited.
@@ -22,6 +23,9 @@ export interface NotesStore {
   flush: () => Promise<void>;
   pin: (id: number, pinned: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  /** Text size for every note, in px (the note toolbar's A− / A+). */
+  fontSize: number;
+  setFontSize: (px: number) => void;
 }
 
 const pending = new Map<number, ReturnType<typeof setTimeout>>();
@@ -52,11 +56,18 @@ export const useNotes = create<NotesStore>()((set, get) => {
     notes: [],
     loaded: false,
     openId: null,
+    fontSize: DEFAULT_NOTE_SIZE,
+
+    setFontSize: (fontSize) => {
+      set({ fontSize });
+      void native.setSetting("note_font_size", String(fontSize)).catch(fail);
+    },
 
     load: async () => {
       try {
-        const notes = await native.listNotes();
-        set({ notes, loaded: true, openId: get().openId ?? notes[0]?.id ?? null });
+        const [notes, size] = await Promise.all([native.listNotes(), native.getSetting("note_font_size").catch(() => null)]);
+        const fontSize = Number(size);
+        set({ notes, loaded: true, openId: get().openId ?? notes[0]?.id ?? null, ...(fontSize >= 10 && fontSize <= 30 ? { fontSize } : {}) });
       } catch (e) {
         set({ loaded: true });
         fail(e);

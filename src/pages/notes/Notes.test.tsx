@@ -116,6 +116,23 @@ describe("Notes page", () => {
     expect(screen.getByLabelText("Note text").querySelector("[data-callout]")).toHaveTextContent("heads up");
   });
 
+  it("has a toolbar: text size for every note (saved), and formats on the selection", async () => {
+    render(<NotesPage />);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    const tools = within(screen.getByRole("toolbar", { name: "Note tools" }));
+    const sized = () => (document.querySelector(".note-editor") as HTMLElement).style.getPropertyValue("--note-size");
+    expect(sized()).toBe("14px");
+    await act(async () => fireEvent.click(tools.getByRole("button", { name: "Larger text" })));
+    await act(async () => fireEvent.click(tools.getByRole("button", { name: "Larger text" })));
+    expect(sized()).toBe("16px");
+    expect(await native.getSetting("note_font_size")).toBe("16");
+    const editor = editorOf();
+    await act(async () => void editor.chain().focus().insertContent("loud").selectAll().run());
+    await act(async () => fireEvent.click(tools.getByRole("button", { name: "Bold" })));
+    expect(screen.getByLabelText("Note text").querySelector("strong")).toHaveTextContent("loud");
+    expect(tools.getByRole("button", { name: "Bold" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("links to Sanctum: tasks, routines, trackers, and days", async () => {
     const day = todayKey();
     await native.saveTodo({ title: "Send the weekly update", dueDate: day, dueTime: null, durationMin: null, profileId: null });

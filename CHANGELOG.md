@@ -2,7 +2,7 @@
 
 ## v0.2 (in progress)
 
-- **Notes are block documents** (TipTap/ProseMirror, fully offline). Type "/" for a menu of blocks (text, headings, bulleted and numbered lists, checklist, table, quote, callout, toggle, divider, code, and "Make it a task for today", which puts the line on Today and links it), "@" to link a task, routine, tracker, or day in Sanctum, and markdown shortcuts as you type ("- ", "1. ", "[] ", "## ", "> ", "---"). Checklists nest with Tab; tables resize and Tab between cells. Drag a block by the handle at its left, or move it with Alt+↑/↓. Older plain notes convert the first time they open (lists, checkboxes, headings kept). Notes keep a plain-text copy for search, previews, and exports. Migration 0021.
+- **Notes are block documents** (TipTap/ProseMirror, fully offline). Type "/" for a menu of blocks (text, headings, bulleted and numbered lists, checklist, table, quote, callout, toggle, divider, code, and "Make it a task for today", which puts the line on Today and links it), "@" to link a task, routine, tracker, or day in Sanctum, and markdown shortcuts as you type ("- ", "1. ", "[] ", "## ", "> ", "---"). Checklists nest with Tab; tables resize and Tab between cells. Drag a block by the handle at its left, or move it with Alt+↑/↓. Older plain notes convert the first time they open (lists, checkboxes, headings kept). Notes keep a plain-text copy for search, previews, and exports. Migration 0021. A small toolbar sits above each note: text size for every note (A− / A+, 12 to 22 px, remembered), bold, italic, strikethrough, two heading sizes, lists, checklist, table, and callout. The note panel has wider margins so the drag handle (now bigger) never spills past its edge.
 
 ## v0.1.4 (in progress)
 
