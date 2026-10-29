@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NotesPage } from "./NotesPage";
 import { useNotes } from "../../state/notes";
 import { useStore } from "../../state/store";
@@ -68,8 +68,8 @@ describe("sharing a note (v0.2)", () => {
     act(() => useNotes.getState().edit(useNotes.getState().notes[0]!.id, { title: "Launch plan v2" }));
     await act(async () => void (await vi.advanceTimersByTimeAsync(1600)));
     vi.useRealTimers();
-    await act(async () => void (await new Promise((r) => setTimeout(r, 20))));
-    expect((await decryptJson<{ title: string }>(share.key, [...mockShares.values()][0]!.cipher)).title).toBe("Launch plan v2");
+    // Encryption is async: wait for the push to land rather than a fixed time.
+    await waitFor(async () => expect((await decryptJson<{ title: string }>(share.key, [...mockShares.values()][0]!.cipher)).title).toBe("Launch plan v2"));
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Stop sharing" })));
     expect(useNotes.getState().notes[0]!.share).toBeNull();

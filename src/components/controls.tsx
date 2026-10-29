@@ -74,7 +74,7 @@ export function Dialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-40 animate-fade-in bg-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-40 animate-fade-in bg-scrim backdrop-blur-[3px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         role="dialog"
         aria-modal="true"

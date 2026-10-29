@@ -15,7 +15,7 @@ import { Wheel } from "../components/Wheel";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
 import { CounterRow } from "./CounterRow";
-import { Glide } from "../lib/motion";
+import { Glide, useRolling } from "../lib/motion";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
@@ -679,6 +679,7 @@ function FocusStrip() {
   }, []);
   // Finished sessions from the backend, plus the running one as it ticks.
   const total = done + (live ? Math.floor(live.elapsedMs / 60_000) : 0);
+  const rolledTotal = useRolling(total);
   return (
     <div data-testid="focus-strip" className="flex h-10 shrink-0 items-center gap-3 border-t border-line bg-panel-footer px-[14px] text-meta">
       <span className="shrink-0 text-muted">Focus today</span>
@@ -686,7 +687,7 @@ function FocusStrip() {
         <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
       </div>
       <span className="shrink-0 font-mono text-text">
-        {minutes(total)} / {minutes(goal)}
+        {minutes(Math.round(rolledTotal))} / {minutes(goal)}
       </span>
       <span className="ml-auto flex min-w-0 items-center gap-[6px]">
         <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>

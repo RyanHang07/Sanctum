@@ -84,7 +84,7 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
     <div
       data-kind={item.kind}
       {...dragProps(item)}
-      className={`row-in group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-colors duration-ui ease-ui hover:border-line-input ${edge}`}
+      className={`row-in group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-[color,background-color,border-color,transform,box-shadow] duration-ui ease-ui hover:-translate-y-px hover:border-line-input hover:shadow-lift ${edge}`}
     >
       <button
         type="button"

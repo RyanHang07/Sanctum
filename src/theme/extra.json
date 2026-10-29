@@ -8,18 +8,28 @@
     "broken-tint": "#2A1418",
     "broken-text": "#FF8A8E",
     "broken-line": "#5A2328",
-    "heat": { "1": "#1C2A52", "2": "#2A4288", "3": "#3F63C4" },
+    "heat": {
+      "1": "#1C2A52",
+      "2": "#2A4288",
+      "3": "#3F63C4"
+    },
     "scrim": "rgba(5, 6, 10, 0.66)"
   },
   "shadow": {
     "toast": "0 12px 32px rgba(0, 0, 0, 0.45)",
-    "dialog": "0 24px 64px rgba(0, 0, 0, 0.55)"
+    "dialog": "0 24px 64px rgba(0, 0, 0, 0.55)",
+    "lift": "0 8px 20px -10px rgba(0, 0, 0, 0.7)"
   },
   "size": {
     "sidebar-rail": 60
   },
   "motion": {
-    "duration": { "ui": "120ms", "enter": "180ms" },
-    "easing": { "ui": "cubic-bezier(0.2, 0, 0, 1)" }
+    "duration": {
+      "ui": "120ms",
+      "enter": "180ms"
+    },
+    "easing": {
+      "ui": "cubic-bezier(0.2, 0, 0, 1)"
+    }
   }
 }

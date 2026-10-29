@@ -146,7 +146,6 @@
 @keyframes check-pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
 @keyframes row-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
 .page-in { animation: page-in 180ms cubic-bezier(0.2, 0, 0, 1) both; }
-.check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1); }
 .row-in { animation: row-in 160ms cubic-bezier(0.2, 0, 0, 1) both; }
 
 /* Notes and journal (v0.2): the block editor. Every color is a token. */
@@ -229,4 +228,17 @@
   .note-doc [data-picked] img, .note-doc img[data-picked] { outline: 2px solid theme(colors.sealed.DEFAULT); outline-offset: 2px; }
   .note-doc .ProseMirror-selectednode { outline: 2px solid theme(colors.sealed.DEFAULT / 50%); outline-offset: 2px; border-radius: 4px; }
   .note-doc .ProseMirror-gapcursor::after { border-top-color: theme(colors.text); }
+}
+
+/* Motion (v0.2): a soft glow as a box is checked, and a shimmer across a counter's bar when it
+   reaches its goal. Both are skipped with reduced motion (the global rule above). */
+@keyframes check-glow { from { box-shadow: 0 0 0 0 theme(colors.sealed.DEFAULT / 55%); } to { box-shadow: 0 0 0 7px theme(colors.sealed.DEFAULT / 0%); } }
+.check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1), check-glow 420ms cubic-bezier(0.2, 0, 0, 1); }
+@keyframes goal-shine { from { background-position: -120% 0; } to { background-position: 220% 0; } }
+.goal-shine { position: relative; }
+.goal-shine::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, theme(colors.sealed.text-hover / 85%) 50%, transparent 100%);
+  background-size: 50% 100%; background-repeat: no-repeat;
+  animation: goal-shine 900ms cubic-bezier(0.2, 0, 0, 1) both;
 }

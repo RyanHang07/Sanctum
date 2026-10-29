@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRolling } from "../lib/motion";
 import { CheckIcon, ChevronIcon, XIcon } from "../components/icons";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
@@ -23,6 +24,19 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
   const total = entries.reduce((sum, e) => sum + (e.value ?? 0), 0);
   const goal = routine.goalAmount ?? 0;
   const met = goal > 0 && total >= goal;
+  const rolled = useRolling(total);
+  // A shimmer across the bar, once, when the goal is reached (not on load).
+  const [shine, setShine] = useState(false);
+  const wasMet = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (wasMet.current === false && met) {
+      setShine(true);
+      const t = setTimeout(() => setShine(false), 900);
+      wasMet.current = met;
+      return () => clearTimeout(t);
+    }
+    wasMet.current = met;
+  }, [met]);
   const unit = tracker?.unit ? ` ${tracker.unit}` : "";
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -64,12 +78,12 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
           onClick={() => setOpen(!open)}
           className="flex shrink-0 items-center gap-[6px] rounded-control px-1 font-mono text-[11px] text-muted transition-colors duration-ui ease-ui hover:text-text-2"
         >
-          <span className={met ? "text-sealed-text" : "text-text-2"}>{fmt(total)}</span> / {fmt(goal)}
+          <span className={met ? "text-sealed-text" : "text-text-2"}>{fmt(Math.round(rolled * 10) / 10)}</span> / {fmt(goal)}
           {unit}
           <ChevronIcon size={9} className={`transition-transform duration-ui ease-ui ${open ? "" : "-rotate-90"}`} />
         </button>
       </div>
-      <div className="ml-[26px] h-1 overflow-hidden rounded-full bg-line">
+      <div className={`ml-[26px] h-1 overflow-hidden rounded-full bg-line ${shine ? "goal-shine" : ""}`}>
         <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${goal > 0 ? Math.min(100, (total / goal) * 100) : 0}%` }} />
       </div>
       <form
