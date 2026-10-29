@@ -357,7 +357,7 @@ The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed sessi
 | event | `#FF8A6B` coral (tint `#2A1712`, line `#5A2E24`; was teal `#5FD4C8`, changed 2026-09-30) | calendar event state |
 | held mesh | `#1F3FD9` / `#2F5BFF` / `#6A4CFF` / `#12A8C9` | Sanctum held page only |
 
-Radius 6 controls, 8 panels, 12 dialogs. 32px controls, 34px list rows, 1px borders, shadows only on dialogs. The UI is monochrome; color only ever means a state.
+Radius 6 controls, 8 panels, 12 dialogs. 32px controls, 38px list rows (was 34; roomier, 2026-10-29), 1px borders, shadows only on dialogs. The UI is monochrome; color only ever means a state.
 
 ### Type
 - **Moments only** (Home headline, sealed dialogs, held dialog, onboarding step titles): Geist 700, letter-spacing -0.03em, bold statement + Instrument Serif italic payoff in `#8C96AB` at 1.12em

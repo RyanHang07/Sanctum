@@ -5,6 +5,7 @@ import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { GUTTER, NoteEditor } from "../../components/editor/NoteEditor";
 import { docOf } from "../../lib/noteDoc";
 import { ShareMenu } from "./ShareMenu";
+import { Glide } from "../../lib/motion";
 import { clock } from "../../lib/time";
 import { shortDate } from "../../lib/trackers";
 import type { Note } from "../../lib/types";
@@ -160,7 +161,10 @@ export function NotesPage() {
             </label>
             <nav className="flex min-h-0 grow flex-col gap-px overflow-y-auto">
               {shown.map((n) => (
-                <NoteRow key={n.id} n={n} active={n.id === openId} onOpen={() => open(n.id)} />
+                // Glides up as it becomes the most recently edited.
+                <Glide key={n.id}>
+                  <NoteRow n={n} active={n.id === openId} onOpen={() => open(n.id)} />
+                </Glide>
               ))}
               {!shown.length ? <p className="m-0 px-3 py-2 text-meta text-muted">No notes match.</p> : null}
             </nav>

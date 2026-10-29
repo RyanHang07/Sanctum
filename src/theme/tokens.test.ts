@@ -47,7 +47,7 @@ describe("design tokens", () => {
     const ext = tailwindConfig.theme.extend;
     expect(ext).toBe(theme);
     expect(ext.borderRadius).toEqual({ control: "6px", panel: "8px", dialog: "12px" });
-    expect(ext.spacing).toEqual({ control: "32px", row: "34px", sidebar: "220px", "sidebar-rail": "60px" });
+    expect(ext.spacing).toEqual({ control: "32px", row: "38px", sidebar: "220px", "sidebar-rail": "60px" });
     expect(ext.fontFamily.sans[0]).toContain("Geist");
     expect(ext.fontFamily.mono[0]).toContain("Geist Mono");
     expect(ext.fontFamily.serif[0]).toContain("Instrument Serif");

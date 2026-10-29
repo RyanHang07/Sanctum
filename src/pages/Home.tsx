@@ -750,7 +750,7 @@ export function Home() {
   const open = appState === "open";
 
   return (
-    <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
+    <div className="flex h-full flex-col gap-5 px-8 pb-7 pt-6">
       <div className="flex h-control items-center justify-between">
         <span className={`text-body transition-colors duration-700 ease-ui ${open ? "text-muted" : "text-text"}`}>{formatDate(new Date())}</span>
         {/* Sealed or in an event, the tools step aside and come back when the state returns to Open. */}
