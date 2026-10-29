@@ -115,6 +115,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - **Offline indicator:** a subtle "Offline" tag in the sidebar state pill and the tray panel. Nothing else changes
 - **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to a 5-minute wait (changed 2026-10-06; was the solo 30 min cooldown)
 - **Google Calendar offline:** edits queue locally and sync on reconnect; last edit wins on conflicts
+- **Downtime mid-seal (decided 2026-10-29):** if Sanctum is gone for more than a minute during a seal, the seal is broken and logged as **tamper**: kind `shutdown` when Windows rebooted since the session was last seen (the PC went off), `killed` when it didn't (Sanctum was closed or crashed). The partner is told, and the window says why on the next start
 - **Clock changes:** session timers use a monotonic clock. If the Windows system clock jumps (forward or back) during a session, treat it as tampering: the seal breaks, the streak resets, and the partner is notified. **Built 2026-09-30 (M12):** a jump is more than 2 minutes of wall-clock change beyond GetTickCount64 (which counts through sleep, so waking a laptop never counts). A broken seal stays on until its planned end
 
 ### 4.0.4 Release, startup, extension, uninstall (**Decided**)

@@ -300,10 +300,22 @@ fn show_intercept(app: &AppHandle, payload: &Intercept) {
 /// Picks up an unfinished session after a restart or crash (SPEC 6).
 pub fn resume_on_startup(app: &AppHandle) {
     let shared = app.state::<Shared>();
-    let resumed = {
+    let now = session::now_ms();
+    let booted_at = now - crate::tamper::uptime_ms() as i64;
+    let (resumed, downtime) = {
         let conn = shared.db.lock().unwrap();
-        session::resume(&conn, session::now_ms()).ok().flatten()
+        session::resume_at(&conn, now, Some(booted_at)).unwrap_or((None, None))
     };
+    // Downtime broke the seal (the PC went off, or Sanctum was closed): it's tamper, so the
+    // partner hears, and the window says why once it's up.
+    if let Some(d) = downtime {
+        crate::cloud::notify(app, "session_broken", format!("{}: {}", d.profile_name, d.detail()));
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(4));
+            crate::tamper::announce(&app, d.kind, d.detail().to_string());
+        });
+    }
     let Some(mut active) = resumed else { return };
     let profile = active.profile_id.and_then(|id| load_profile(&shared, id).ok());
     let seal = seal_set(&shared, profile.as_ref());

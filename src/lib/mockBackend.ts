@@ -556,7 +556,12 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   activity_summary: () => clone(state.summary),
 
-  list_routines: () => clone([...state.routines].sort((a, b) => a.sort - b.sort || a.id - b.id)),
+  list_routines: () => {
+    // Like ON DELETE SET NULL: a counter whose tracker is gone is a plain routine.
+    const ids = new Set((trackerHandlers.list_trackers({}) as { id: number }[]).map((t) => t.id));
+    for (const r of state.routines) if (r.trackerId !== null && !ids.has(r.trackerId)) Object.assign(r, { trackerId: null, goalAmount: null });
+    return clone([...state.routines].sort((a, b) => a.sort - b.sort || a.id - b.id));
+  },
   save_routine: ({ draft }: { draft: RoutineDraft }) => {
     const title = draft.title.trim();
     if (!title) throw "Give it a name.";

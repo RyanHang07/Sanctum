@@ -33,7 +33,7 @@ pub struct State {
     guard_down_since: Mutex<Option<Instant>>,
 }
 
-fn uptime_ms() -> u64 {
+pub(crate) fn uptime_ms() -> u64 {
     unsafe { windows::Win32::System::SystemInformation::GetTickCount64() }
 }
 
@@ -76,6 +76,11 @@ pub fn check(app: &AppHandle, n: u64) {
 struct Tampered {
     kind: &'static str,
     detail: String,
+}
+
+/// Tells the window a seal was broken (its toast), without logging anything new.
+pub fn announce(app: &AppHandle, kind: &'static str, detail: String) {
+    let _ = app.emit(EV_TAMPER, Tampered { kind, detail });
 }
 
 /// Breaks the running seal once: logs it, tells the partner, and tells the window.
