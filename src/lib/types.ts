@@ -531,6 +531,20 @@ export interface Note {
   share?: NoteShare | null;
 }
 
+/** The journal (v0.2): one page per day. */
+export interface JournalDay {
+  date: string;
+  doc: string | null;
+  body: string;
+  updatedAt: number;
+}
+
+export interface JournalLock {
+  lock: "none" | "hello" | "pin";
+  unlocked: boolean;
+  helloAvailable: boolean;
+}
+
 /** A shared note's link: the URL (key in its #fragment), expiry, key, and images already up. */
 export interface NoteShare {
   url: string;

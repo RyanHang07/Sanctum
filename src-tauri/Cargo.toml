@@ -26,6 +26,8 @@ tauri-plugin-updater = "2"
 sysinfo = "0.39"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "blocking", "json", "form", "query"] }
 sha2 = "0.10"
+argon2 = "0.5"
+windows-future = "0.3"
 rand = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 base64 = "0.23"
@@ -50,4 +52,7 @@ windows = { version = "0.62", features = [
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_System_WinRT",
+  "Foundation",
+  "Security_Credentials_UI",
 ] }

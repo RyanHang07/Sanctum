@@ -46,6 +46,8 @@ import type {
   UpdateInfo,
   StartupStatus,
   SharedImage,
+  JournalDay,
+  JournalLock,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
 import { bus } from "./bus";
@@ -203,6 +205,14 @@ export const native = {
   shareNote: (id: number, hours: number, key: string) => call<{ url: string; expiresAt: number }>("share_note", { id, hours, key }),
   updateNoteShare: (id: number, cipher: string, images: SharedImage[]) => call<number[]>("update_note_share", { id, cipher, images }),
   stopNoteShare: (id: number) => call<void>("stop_note_share", { id }),
+  journalStatus: () => call<JournalLock>("journal_status"),
+  journalGet: (date: string) => call<JournalDay | null>("journal_get", { date }),
+  journalSave: (date: string, doc: string | null, body: string) => call<JournalDay | null>("journal_save", { date, doc, body }),
+  journalWritten: (from: string, to: string) => call<string[]>("journal_written", { from, to }),
+  journalSetLock: (kind: JournalLock["lock"], pin: string | null = null) => call<JournalLock>("journal_set_lock", { kind, pin }),
+  journalUnlockPin: (pin: string) => call<JournalLock>("journal_unlock_pin", { pin }),
+  journalUnlockHello: () => call<JournalLock>("journal_unlock_hello"),
+  journalLock: () => call<void>("journal_lock"),
   updateInstall: () => call<void>("update_install"),
   diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),
