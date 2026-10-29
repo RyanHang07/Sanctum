@@ -476,3 +476,43 @@ a.button.ghost {
 .danger-button:disabled {
   opacity: 0.5;
 }
+
+/* A shared note (v0.2): wider than the phone cards, the note drawn from its blocks. */
+.sheet {
+  width: min(760px, 100% - 32px);
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-self: start;
+}
+.shared-empty { display: flex; flex-direction: column; gap: 6px; padding: 24px 0; }
+.shared-title { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+.shared-note { display: flex; flex-direction: column; gap: 10px; padding: 26px 28px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+.shared-note p { margin: 0; }
+.shared-note h1, .shared-note h2, .shared-note h3 { margin: 0.6em 0 0; letter-spacing: -0.015em; line-height: 1.25; }
+.shared-note h1 { font-size: 1.55em; }
+.shared-note h2 { font-size: 1.28em; }
+.shared-note h3 { font-size: 1.07em; color: var(--text-2); }
+.shared-note ul, .shared-note ol { margin: 0; padding-left: 1.35em; }
+.shared-note li::marker { color: var(--muted); }
+.shared-note ul.tasks { list-style: none; padding-left: 0; }
+.shared-note ul.tasks ul.tasks { padding-left: 1.4em; }
+.shared-note ul.tasks > li { display: flex; gap: 10px; align-items: flex-start; }
+.shared-note ul.tasks > li > input { margin-top: 5px; accent-color: var(--sealed); }
+.shared-note ul.tasks > li.done > div { color: var(--faint); text-decoration: line-through; }
+.shared-note blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--line-input); color: var(--text-2); }
+.shared-note .callout { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--sealed-line); background: var(--sealed-tint); }
+.shared-note hr { border: 0; border-top: 1px solid var(--line); width: 100%; }
+.shared-note code { font-family: var(--font-mono); font-size: 0.89em; padding: 1px 5px; border-radius: 4px; background: var(--raised); }
+.shared-note pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--app); border: 1px solid var(--line); overflow-x: auto; }
+.shared-note pre code { padding: 0; background: none; }
+.shared-note a { color: var(--sealed-text); }
+.shared-note .link { padding: 1px 6px; border-radius: 4px; background: var(--sealed-tint); color: var(--sealed-text); border: 1px solid var(--sealed-line); white-space: nowrap; }
+.shared-note .table { overflow-x: auto; }
+.shared-note table { border-collapse: collapse; width: 100%; }
+.shared-note th, .shared-note td { padding: 6px 10px; border: 1px solid var(--line-input); text-align: left; vertical-align: top; }
+.shared-note th { background: var(--raised); }
+.shared-note img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); }
+.shared-note .img-wait { height: 160px; border-radius: 8px; background: var(--raised); }
+.shared-note details > summary { cursor: pointer; font-weight: 500; }

@@ -15,6 +15,9 @@ import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
+/** Shared notes in the preview: token -> the latest ciphertext and the image ids uploaded. */
+export const mockShares = new Map<string, { cipher: string; images: number[] }>();
+
 /** Images pasted into notes in the preview: id -> data URL (the app keeps them in SQLite). */
 const mockImages = new Map<number, string>();
 let mockImageId = 1;
@@ -307,6 +310,33 @@ const handlers: Record<string, (a: any) => unknown> = {
     const id = mockImageId++;
     mockImages.set(id, `data:${mime};base64,${data}`);
     return id;
+  },
+  // Sharing (v0.2): the mock keeps the latest ciphertext per token, like the server would.
+  share_note: ({ id, hours, key }: { id: number; hours: number; key: string }) => {
+    if (!state.cloud.email) throw "Sign in first.";
+    if (![1, 24, 168].includes(hours)) throw "Share for 1 hour, 1 day, or 7 days.";
+    const n = state.notes.find((x) => x.id === id);
+    if (!n) throw "That note no longer exists.";
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+    const expiresAt = Date.now() + hours * 3_600_000;
+    n.share = { url: `http://localhost:5174/n/${token}#${key}`, expiresAt, key, imageIds: [] };
+    mockShares.set(token, { cipher: "", images: [] });
+    return { url: n.share.url, expiresAt };
+  },
+  update_note_share: ({ id, cipher, images }: { id: number; cipher: string; images: { id: number; data: string }[] }) => {
+    const n = state.notes.find((x) => x.id === id);
+    if (!n?.share) throw "This note isn't shared.";
+    const token = /\/n\/([0-9a-f]+)#/.exec(n.share.url)![1]!;
+    const s = mockShares.get(token)!;
+    s.cipher = cipher;
+    for (const img of images) if (!s.images.includes(img.id)) s.images.push(img.id);
+    n.share.imageIds = [...s.images];
+    return [...s.images];
+  },
+  stop_note_share: ({ id }: { id: number }) => {
+    const n = state.notes.find((x) => x.id === id);
+    if (n?.share) mockShares.delete(/\/n\/([0-9a-f]+)#/.exec(n.share.url)![1]!);
+    if (n) n.share = null;
   },
   startup_status: () => ({ enabled: state.settings.get("mock_startup") !== "0", registered: true }),
   set_startup: ({ on }: { on: boolean }) => {

@@ -38,6 +38,45 @@ export async function storeImage(file: Blob): Promise<string> {
   return `${PREFIX}${id}`;
 }
 
+/**
+ * The picture without its metadata (GPS location, camera, times taken): redrawn on a canvas,
+ * which keeps only pixels. Used before an image leaves this PC in a shared note. A GIF comes
+ * out as its first frame, as a PNG.
+ */
+export async function stripMetadata(image: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(image);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const type = image.type === "image/jpeg" || image.type === "image/webp" ? image.type : "image/png";
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject("That image couldn't be prepared.")), type, 0.92));
+}
+
+/** An image's bytes as stored by Sanctum. */
+export async function imageBytes(id: number): Promise<Blob> {
+  const url = noteImageUrl(`${PREFIX}${id}`);
+  if (!url) throw "That image is missing.";
+  return (await fetch(url)).blob();
+}
+
+/** Every image a note's document shows, by id. */
+export function imageIdsIn(doc: unknown): number[] {
+  const out = new Set<number>();
+  const walk = (n: unknown) => {
+    if (!n || typeof n !== "object") return;
+    const node = n as { type?: string; attrs?: { src?: string }; content?: unknown[] };
+    if (node.type === "image") {
+      const id = imageId(node.attrs?.src);
+      if (id !== null) out.add(id);
+    }
+    node.content?.forEach(walk);
+  };
+  walk(doc);
+  return [...out];
+}
+
 /** Opens the file picker for images; resolves with what was chosen (maybe nothing). */
 export function pickImages(): Promise<File[]> {
   return new Promise((resolve) => {

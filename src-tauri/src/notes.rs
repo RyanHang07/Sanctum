@@ -24,6 +24,18 @@ pub struct Note {
     pub pinned: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    /// The live link while the note is shared (v0.2): its URL (key in the #fragment), when it
+    /// expires, the key the window encrypts with, and the images already uploaded.
+    pub share: Option<NoteShare>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteShare {
+    pub url: String,
+    pub expires_at: i64,
+    pub key: String,
+    pub image_ids: Vec<i64>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -39,10 +51,17 @@ pub struct NoteDraft {
 }
 
 fn row(r: &rusqlite::Row) -> rusqlite::Result<Note> {
-    Ok(Note { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, pinned: r.get::<_, i64>(3)? != 0, created_at: r.get(4)?, updated_at: r.get(5)?, doc: r.get(6)? })
+    let share = match (r.get::<_, Option<String>>(7)?, r.get::<_, Option<i64>>(8)?, r.get::<_, Option<String>>(9)?) {
+        (Some(token), Some(expires_at), Some(key)) => {
+            let images: std::collections::BTreeMap<i64, String> = serde_json::from_str(&r.get::<_, Option<String>>(10)?.unwrap_or_default()).unwrap_or_default();
+            Some(NoteShare { url: crate::note_share::share_url(&token, &key), expires_at, key, image_ids: images.into_keys().collect() })
+        }
+        _ => None,
+    };
+    Ok(Note { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, pinned: r.get::<_, i64>(3)? != 0, created_at: r.get(4)?, updated_at: r.get(5)?, doc: r.get(6)?, share })
 }
 
-const COLS: &str = "id, title, body, pinned, created_at, updated_at, doc";
+const COLS: &str = "id, title, body, pinned, created_at, updated_at, doc, share_token, share_expires_at, share_key, share_images";
 
 pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(&format!("SELECT {COLS} FROM notes ORDER BY pinned DESC, updated_at DESC, id DESC"))?;

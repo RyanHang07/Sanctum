@@ -4,6 +4,7 @@ import { PlusIcon, SearchIcon, XIcon } from "../../components/icons";
 import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { GUTTER, NoteEditor } from "../../components/editor/NoteEditor";
 import { docOf } from "../../lib/noteDoc";
+import { ShareMenu } from "./ShareMenu";
 import { clock } from "../../lib/time";
 import { shortDate } from "../../lib/trackers";
 import type { Note } from "../../lib/types";
@@ -81,6 +82,7 @@ function Editor({ n }: { n: Note }) {
           className="min-w-0 grow bg-transparent text-[20px] font-semibold tracking-[-0.02em] text-text outline-none placeholder:text-faint"
         />
         <span className="shrink-0 text-meta text-faint">Edited {edited(n.updatedAt)}</span>
+        <ShareMenu n={n} />
         <button
           type="button"
           aria-pressed={n.pinned}

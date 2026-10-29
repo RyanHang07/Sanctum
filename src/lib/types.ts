@@ -527,6 +527,22 @@ export interface Note {
   pinned: boolean;
   createdAt: number;
   updatedAt: number;
+  /** The live link while it's shared (v0.2), else null. */
+  share?: NoteShare | null;
+}
+
+/** A shared note's link: the URL (key in its #fragment), expiry, key, and images already up. */
+export interface NoteShare {
+  url: string;
+  expiresAt: number;
+  key: string;
+  imageIds: number[];
+}
+
+export interface SharedImage {
+  id: number;
+  /** The image's encrypted bytes, base64. */
+  data: string;
 }
 
 export interface NoteDraft {
