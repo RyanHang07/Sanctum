@@ -47,20 +47,33 @@ export const plainText = (editor: Editor) =>
 
 export const changeOf = (editor: Editor): NoteChange => ({ doc: JSON.stringify(editor.getJSON()), text: plainText(editor) });
 
-/** The top-level block under the pointer: its position and element. */
-function blockAt(editor: Editor, target: EventTarget | null): { pos: number; el: HTMLElement } | null {
-  const root = editor.view.dom;
-  let el = target instanceof HTMLElement ? target : null;
-  while (el && el.parentElement !== root) el = el.parentElement;
-  if (!el || el.parentElement !== root) return null;
-  const inside = editor.view.posAtDOM(el, 0);
+/**
+ * The top-level block on the pointer's row, found by height, so the text, the margins, and the
+ * gutter where the handle sits all count (not only the element under the pointer).
+ */
+function blockAtY(editor: Editor, y: number): { pos: number; el: HTMLElement } | null {
+  const blocks = [...editor.view.dom.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
+  let best: HTMLElement | null = null;
+  for (const el of blocks) {
+    const r = el.getBoundingClientRect();
+    // Each block owns the band down to the next one's top, so the gaps between blocks count too.
+    if (y >= r.top - 4) best = el;
+    else break;
+  }
+  if (!best) return null;
+  const inside = editor.view.posAtDOM(best, 0);
   const $pos = editor.state.doc.resolve(Math.max(0, Math.min(inside, editor.state.doc.content.size)));
-  return { pos: $pos.depth >= 1 ? $pos.before(1) : inside, el };
+  return { pos: $pos.depth >= 1 ? $pos.before(1) : inside, el: best };
 }
+
+/** The gutter on the left that holds the handle, inside the editor so reaching it never leaves. */
+const GUTTER = 28;
 
 export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode; label: string; placeholder: string; onChange: (c: NoteChange) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [handle, setHandle] = useState<{ top: number; pos: number } | null>(null);
+  // A short grace period before the handle hides, so a quick move toward it doesn't lose it.
+  const hide = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const editor = useEditor({
     extensions: editorExtensions(placeholder),
     content: doc,
@@ -79,20 +92,28 @@ export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode
   });
 
   const track = (e: React.MouseEvent) => {
-    if (!editor || !box.current) return;
-    const hit = blockAt(editor, e.target);
+    clearTimeout(hide.current);
+    // Over the handle itself: keep it where it is.
+    if (!editor || !box.current || (e.target as HTMLElement).closest?.("[data-block-handle]")) return;
+    const hit = blockAtY(editor, e.clientY);
     if (!hit) return;
     const top = hit.el.getBoundingClientRect().top - box.current.getBoundingClientRect().top;
     if (handle?.pos !== hit.pos || handle.top !== top) setHandle({ top, pos: hit.pos });
   };
+  const leave = () => {
+    clearTimeout(hide.current);
+    hide.current = setTimeout(() => setHandle(null), 250);
+  };
 
   return (
-    <div ref={box} className="note-editor relative" onMouseMove={track} onMouseLeave={() => setHandle(null)}>
+    <div ref={box} className="note-editor relative" style={{ paddingLeft: GUTTER }} onMouseMove={track} onMouseLeave={leave}>
       {editor && handle ? (
         <button
           type="button"
           draggable
           aria-label="Drag to move this block"
+          data-block-handle=""
+          onMouseEnter={() => clearTimeout(hide.current)}
           title="Drag to move · Alt+↑ / Alt+↓"
           tabIndex={-1}
           onMouseDown={(e) => e.stopPropagation()}
@@ -110,8 +131,8 @@ export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode
             if (el instanceof HTMLElement) e.dataTransfer.setDragImage(el, 0, 0);
             (view as unknown as { dragging: { slice: typeof slice; move: boolean } | null }).dragging = { slice, move: true };
           }}
-          style={{ top: handle.top + 2 }}
-          className="absolute -left-6 flex h-6 w-5 cursor-grab items-center justify-center rounded-control text-faint opacity-70 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
+          style={{ top: handle.top, left: 0, width: GUTTER - 4 }}
+          className="absolute flex h-7 cursor-grab items-center justify-center rounded-control text-faint opacity-70 transition-[opacity,color,background-color,top] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
         >
           <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
             {[2, 7, 12].map((y) => (
