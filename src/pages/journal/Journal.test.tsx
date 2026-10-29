@@ -52,22 +52,23 @@ describe("journal prompts (v0.2)", () => {
 });
 
 describe("journal page (v0.2)", () => {
-  it("runs its own setup on first visit, and starts it over if closed part way", async () => {
+  it("is the page on first visit (no dialog), and starts over if left part way", async () => {
     const page = render(<JournalPage />);
-    let dialog = within(await screen.findByRole("dialog", { name: "Journal setup" }));
-    fireEvent.click(dialog.getByRole("button", { name: "Set it up" }));
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
-    // Closed before the end: not done, so it starts over.
+    let setup = within(await screen.findByRole("region", { name: "Journal setup" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Journal settings" })).toBeNull();
+    fireEvent.click(setup.getByRole("button", { name: "Set it up" }));
+    // Left before the end: not done, so it starts over.
     page.unmount();
     expect(useJournal.getState().setup.done).toBe(false);
     render(<JournalPage />);
-    dialog = within(await screen.findByRole("dialog", { name: "Journal setup" }));
-    expect(dialog.getByRole("button", { name: "Set it up" })).toBeInTheDocument();
+    setup = within(await screen.findByRole("region", { name: "Journal setup" }));
+    expect(setup.getByRole("button", { name: "Set it up" })).toBeInTheDocument();
   });
 
   it("sets up evening prompts and a PIN, writes a page, relocks on leaving, and unlocks with the PIN", async () => {
     const page = render(<JournalPage />);
-    const dialog = within(await screen.findByRole("dialog", { name: "Journal setup" }));
+    const dialog = within(await screen.findByRole("region", { name: "Journal setup" }));
     fireEvent.click(dialog.getByRole("button", { name: "Set it up" }));
     fireEvent.click(dialog.getByRole("button", { name: /Evening reflection/ }));
     fireEvent.change(dialog.getByLabelText("Prompts a day"), { target: { value: "0" } });
@@ -75,8 +76,7 @@ describe("journal page (v0.2)", () => {
     fireEvent.click(dialog.getByRole("radio", { name: /A journal PIN/ }));
     fireEvent.change(dialog.getByLabelText("New PIN"), { target: { value: "4821" } });
     fireEvent.change(dialog.getByLabelText("PIN again"), { target: { value: "4821" } });
-    await act(async () => fireEvent.click(dialog.getByRole("button", { name: "Finish" })));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Open today" })));
+    await act(async () => fireEvent.click(dialog.getByRole("button", { name: "Open today" })));
     expect(useJournal.getState().setup).toMatchObject({ done: true, perDay: 0 });
     expect(mockJournal.lock).toBe("pin");
 
