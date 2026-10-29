@@ -154,7 +154,7 @@
   .note-doc {
     outline: none;
     min-height: 320px;
-    font-size: 14px;
+    font-size: var(--note-size, 14px);
     line-height: 1.65;
     color: theme(colors.text);
     user-select: text;
@@ -163,9 +163,9 @@
   .note-doc p { margin: 0; }
   .note-doc h1, .note-doc h2, .note-doc h3 { margin: 1.1em 0 0.2em; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; }
   .note-doc > h1:first-child, .note-doc > h2:first-child, .note-doc > h3:first-child { margin-top: 0; }
-  .note-doc h1 { font-size: 22px; }
-  .note-doc h2 { font-size: 18px; }
-  .note-doc h3 { font-size: 15px; color: theme(colors.text-2); }
+  .note-doc h1 { font-size: 1.57em; }
+  .note-doc h2 { font-size: 1.29em; }
+  .note-doc h3 { font-size: 1.07em; color: theme(colors.text-2); }
   .note-doc ul, .note-doc ol { margin: 0; padding-left: 1.35em; }
   .note-doc ul { list-style: disc; }
   .note-doc ol { list-style: decimal; }
@@ -191,7 +191,7 @@
   .note-doc .note-callout { padding: 10px 14px; border-radius: 8px; border: 1px solid theme(colors.sealed.line); background: theme(colors.sealed.tint); }
   .note-doc hr { border: 0; border-top: 1px solid theme(colors.line); margin: 1em 0; }
   .note-doc hr.ProseMirror-selectednode { border-top-color: theme(colors.sealed.DEFAULT); }
-  .note-doc code { font-family: theme(fontFamily.mono); font-size: 12.5px; padding: 1px 5px; border-radius: 4px; background: theme(colors.raised); }
+  .note-doc code { font-family: theme(fontFamily.mono); font-size: 0.89em; padding: 1px 5px; border-radius: 4px; background: theme(colors.raised); }
   .note-doc pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: theme(colors.app); border: 1px solid theme(colors.line); overflow-x: auto; }
   .note-doc pre code { padding: 0; background: none; }
   .note-doc a { color: theme(colors.sealed.text); text-decoration: underline; text-underline-offset: 2px; }

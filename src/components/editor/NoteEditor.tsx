@@ -7,6 +7,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import { NodeSelection } from "@tiptap/pm/state";
 import { BlockMove, Callout, SanctumMention, SlashCommands, openLink } from "./extensions";
+import { DEFAULT_NOTE_SIZE, NoteToolbar } from "./NoteToolbar";
 import type { DocNode } from "../../lib/noteDoc";
 
 // The block editor for notes (and the journal, v0.2): Notion-style. Type "/" for blocks, "@" to
@@ -67,9 +68,24 @@ function blockAtY(editor: Editor, y: number): { pos: number; el: HTMLElement } |
 }
 
 /** The gutter on the left that holds the handle, inside the editor so reaching it never leaves. */
-const GUTTER = 28;
+export const GUTTER = 32;
 
-export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode; label: string; placeholder: string; onChange: (c: NoteChange) => void }) {
+export function NoteEditor({
+  doc,
+  label,
+  placeholder,
+  onChange,
+  size = DEFAULT_NOTE_SIZE,
+  onSize,
+}: {
+  doc: DocNode;
+  label: string;
+  placeholder: string;
+  onChange: (c: NoteChange) => void;
+  /** Text size in px, for every note; the toolbar changes it. */
+  size?: number;
+  onSize?: (px: number) => void;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [handle, setHandle] = useState<{ top: number; pos: number } | null>(null);
   // A short grace period before the handle hides, so a quick move toward it doesn't lose it.
@@ -106,7 +122,12 @@ export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode
   };
 
   return (
-    <div ref={box} className="note-editor relative" style={{ paddingLeft: GUTTER }} onMouseMove={track} onMouseLeave={leave}>
+    <div ref={box} className="note-editor relative" style={{ paddingLeft: GUTTER, ["--note-size" as string]: `${size}px` }} onMouseMove={track} onMouseLeave={leave}>
+      {editor && onSize ? (
+        <div className="sticky top-0 z-10 -mt-px mb-3 bg-panel pb-1 pt-px">
+          <NoteToolbar editor={editor} size={size} onSize={onSize} />
+        </div>
+      ) : null}
       {editor && handle ? (
         <button
           type="button"
@@ -131,14 +152,14 @@ export function NoteEditor({ doc, label, placeholder, onChange }: { doc: DocNode
             if (el instanceof HTMLElement) e.dataTransfer.setDragImage(el, 0, 0);
             (view as unknown as { dragging: { slice: typeof slice; move: boolean } | null }).dragging = { slice, move: true };
           }}
-          style={{ top: handle.top, left: 0, width: GUTTER - 4 }}
-          className="absolute flex h-7 cursor-grab items-center justify-center rounded-control text-faint opacity-70 transition-[opacity,color,background-color,top] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
+          style={{ top: handle.top - 2, left: 2, width: GUTTER - 8 }}
+          className="absolute z-[5] flex h-8 cursor-grab items-center justify-center rounded-control text-faint opacity-70 transition-[opacity,color,background-color,top] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
         >
-          <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
-            {[2, 7, 12].map((y) => (
+          <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
+            {[3, 9, 15].map((y) => (
               <g key={y}>
-                <circle cx="2.5" cy={y} r="1.2" />
-                <circle cx="7.5" cy={y} r="1.2" />
+                <circle cx="3" cy={y} r="1.6" />
+                <circle cx="9" cy={y} r="1.6" />
               </g>
             ))}
           </svg>
