@@ -318,6 +318,18 @@ describe("Streak settings", () => {
   });
 });
 
+describe("Start with Windows (v0.1.4)", () => {
+  it("shows Windows' startup switch and changes it", async () => {
+    await renderSetup(false);
+    await openTab("General");
+    const sw = await screen.findByRole("switch", { name: "Start with Windows" });
+    await waitFor(() => expect(sw).toHaveAttribute("aria-checked", "true"));
+    await act(async () => fireEvent.click(sw));
+    await waitFor(() => expect(sw).toHaveAttribute("aria-checked", "false"));
+    expect((await native.startupStatus()).enabled).toBe(false);
+  });
+});
+
 describe("Email the invite", () => {
   it("emails the open invite link to a friend", async () => {
     await renderSetup(false);

@@ -2,6 +2,7 @@
 
 ## v0.1.4 (in progress)
 
+- **Start with Windows:** a switch in Setup › General that is the same switch as Windows' Settings › Apps › Startup (either one shows the other). Fix: the startup entry was written only on the very first run, so an update or reinstall could drop it for good and Sanctum quietly stopped starting with Windows; it's now rewritten on every launch with the current install's path, never touching your on/off choice.
 - **A seal broken by downtime is logged as tamper:** more than a minute gone mid-seal breaks it, as before, but now it's recorded as tamper, `shutdown` when the PC rebooted (Windows' uptime tells) or `killed` when Sanctum was closed or crashed, and the partner is told and the window says why on the next start. Migration 0020.
 - Deleting a counter's tracker turns the routine back into a plain checkbox at once.
 - **Counter routines:** a routine can be a counter ("Protein, 150 g a day"). Turn on Counter in the routine editor, set a daily goal, a unit, and whether each entry needs a note (required, optional, or off). On Home, counters sit at the top of Routines with a progress bar and a small box to add an amount and a note; it checks itself off when the day's total reaches the goal (and unchecks if you remove an entry). Every entry lands in a number tracker of the same name, so Trackers keeps the chart and table. Number tracker entries can now carry a note. Migration 0019.

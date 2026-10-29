@@ -297,6 +297,11 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   app_version: () => "0.1.0",
   update_check: () => null,
+  startup_status: () => ({ enabled: state.settings.get("mock_startup") !== "0", registered: true }),
+  set_startup: ({ on }: { on: boolean }) => {
+    state.settings.set("mock_startup", on ? "1" : "0");
+    return { enabled: on, registered: true };
+  },
   update_install: () => {
     throw "Sanctum is up to date.";
   },

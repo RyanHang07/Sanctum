@@ -21,6 +21,7 @@ mod planner;
 mod profiles;
 mod quiet;
 mod session;
+mod startup;
 mod stats;
 mod tamper;
 mod trackers;
@@ -632,18 +633,6 @@ fn show_main(app: AppHandle) {
     show_main_window(&app);
 }
 
-/// Autostart is on by default (SPEC 4.11 step 6). Registered once, in release builds only,
-/// so dev builds never write a Run key pointing at a debug binary.
-fn init_autostart(app: &AppHandle, conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-    if cfg!(debug_assertions) || db::get_setting(conn, "autostart_initialized")?.is_some() {
-        return Ok(());
-    }
-    use tauri_plugin_autostart::ManagerExt;
-    if app.autolaunch().enable().is_ok() {
-        db::set_setting(conn, "autostart_initialized", "1")?;
-    }
-    Ok(())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -669,7 +658,10 @@ pub fn run() {
                 let _ = guard::log_restart(&conn, session::now_ms());
             }
 
-            init_autostart(app.handle(), &conn)?;
+            // Start with Windows is on by default (SPEC 4.11 step 6). The startup entry is
+            // rewritten on every launch (v0.1.4), so an update or reinstall can't lose it; the
+            // on/off switch is Windows' own (src/startup.rs).
+            startup::ensure(app.handle());
             let start_in_tray = std::env::args().any(|a| a == AUTOSTART_ARG)
                 && db::get_setting(&conn, "on_login")?.as_deref() == Some("tray");
 
@@ -795,6 +787,8 @@ pub fn run() {
             notes::pin_note,
             notes::delete_note,
             updates::update_check,
+            startup::startup_status,
+            startup::set_startup,
             updates::update_install,
             updates::app_version,
             updates::diagnostics,
