@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon, LockIcon } from "../../components/icons";
 import { NoteEditor, type NoteChange } from "../../components/editor/NoteEditor";
-import { useJournal } from "../../state/journal";
+import { flushJournal, holdJournalSave, useJournal } from "../../state/journal";
 import { useStore } from "../../state/store";
 import { useNotes } from "../../state/notes";
 import { usePlanner } from "../../state/planner";
@@ -247,17 +247,24 @@ function Page({ date }: { date: string }) {
 
   const save = (c: NoteChange) => {
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+    // Held until typing pauses; the lock, leaving the page, or quitting saves it sooner.
+    holdJournalSave(() => {
+      clearTimeout(timer.current);
       // Only the prompts, nothing written: no page (and an existing one goes).
       const wrote = writtenText(c.text, prompts);
-      void native.journalSave(date, wrote ? c.doc : null, wrote ? c.text : "").catch((e) => {
-        // Locked meanwhile (idle, or hidden): show the lock; anything else, say so.
-        if (/locked/.test(errorText(e))) useJournal.getState().relock();
-        else useStore.getState().showNotice({ lead: errorText(e) });
-      });
-    }, SAVE_MS);
+      return native.journalSave(date, wrote ? c.doc : null, wrote ? c.text : "").then(
+        () => undefined,
+        (e) => {
+          // Locked meanwhile: show the lock; anything else, say so.
+          if (/locked/.test(errorText(e))) useJournal.getState().relock();
+          else useStore.getState().showNotice({ lead: errorText(e) });
+        },
+      );
+    });
+    timer.current = setTimeout(() => void flushJournal(), SAVE_MS);
   };
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // Moving to another day, or leaving, saves what's waiting.
+  useEffect(() => () => void flushJournal(), [date]);
 
   if (!doc) return <p className="m-0 text-body text-muted">Opening…</p>;
   return (

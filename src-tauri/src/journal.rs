@@ -25,6 +25,12 @@ const MAX_BODY: usize = 100_000;
 const TRIES: u32 = 5;
 const PAUSE: Duration = Duration::from_secs(30);
 
+/// The pause after `fails` wrong PINs in a row: 30 s, then 1 min, 2 min, … up to an hour.
+pub fn pause_after(fails: u32) -> Duration {
+    let rounds = (fails / TRIES).saturating_sub(1).min(7);
+    (PAUSE * 2u32.pow(rounds)).min(Duration::from_secs(3600))
+}
+
 #[derive(Default)]
 pub struct State {
     unlocked: AtomicBool,
@@ -222,9 +228,11 @@ pub fn journal_unlock_pin(shared: TauriState<Shared>, pin: String) -> Result<Loc
         let hash = db::get_setting(c, PIN_KEY).map_err(|e| e.to_string())?.ok_or("The journal has no PIN.")?;
         if !pin_matches(&hash, &pin) {
             fails.0 += 1;
-            if fails.0 >= TRIES {
-                *fails = (0, Some(Instant::now() + PAUSE));
-                return Err(format!("Too many tries. Wait {} s.", PAUSE.as_secs()));
+            if fails.0 % TRIES == 0 {
+                // The pause doubles with each round of wrong PINs, up to an hour.
+                let pause = pause_after(fails.0);
+                fails.1 = Some(Instant::now() + pause);
+                return Err(format!("Too many tries. Wait {} s.", pause.as_secs()));
             }
             return Err("That isn't the PIN.".into());
         }
@@ -236,6 +244,10 @@ pub fn journal_unlock_pin(shared: TauriState<Shared>, pin: String) -> Result<Loc
 
 #[tauri::command]
 pub async fn journal_unlock_hello(app: AppHandle) -> Result<LockStatus, String> {
+    // Only a Hello lock opens with Hello (a PIN lock asks for its PIN).
+    if with(&app.state::<Shared>(), |c| Ok(lock_kind(c)))? != "hello" {
+        return Err("This journal unlocks with its PIN.".into());
+    }
     let verified = tauri::async_runtime::spawn_blocking({
         let app = app.clone();
         move || hello_verify(&app)
@@ -288,6 +300,11 @@ mod tests {
         assert!(h.starts_with("$argon2"), "{h}");
         assert!(pin_matches(&h, "4821"));
         assert!(!pin_matches(&h, "4822"));
+        // Wrong PINs pause longer each round: 30 s, 1 min, 2 min, … at most an hour.
+        assert_eq!(pause_after(5), Duration::from_secs(30));
+        assert_eq!(pause_after(10), Duration::from_secs(60));
+        assert_eq!(pause_after(15), Duration::from_secs(120));
+        assert_eq!(pause_after(500), Duration::from_secs(3600));
         assert_eq!(lock_kind(&fresh()), "none");
     }
 }

@@ -5,6 +5,7 @@ import { useCalendar } from "./calendar";
 import { usePlanner } from "./planner";
 import { useStore } from "./store";
 import { useTrackers } from "./trackers";
+import { quitSaved } from "./quit";
 
 /** Coming back to the window syncs with Google, at most this often. */
 const FOCUS_SYNC_MS = 30_000;
@@ -17,6 +18,7 @@ export function connectNativeEvents(): () => void {
   const store = useStore.getState;
   const offs = [
     onNative(EVENTS.closeRequested, () => store().openCloseDialog()),
+    onNative(EVENTS.quit, () => void quitSaved()),
     // From the tray menu, or the tray panel with its own picks.
     onNative<{ profileId: number; minutes: number } | null>(EVENTS.enterFocus, (pick) => {
       store().navigate("today");

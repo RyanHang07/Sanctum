@@ -60,6 +60,8 @@ export const EVENTS = {
   intercept: "sanctum://intercept",
   endEarly: "sanctum://end-early",
   closeRequested: "sanctum://close-requested",
+  /** Quitting from the tray or a remembered close: save what's waiting, then quit_app. */
+  quit: "sanctum://quit",
   enterFocus: "sanctum://enter-focus",
   gcal: "sanctum://gcal",
   planner: "sanctum://planner",
@@ -96,6 +98,8 @@ export const native = {
   setAppState: (state: AppState) => call<void>("set_app_state", { state }),
   hideToTray: () => call<void>("hide_to_tray"),
   quitApp: () => call<void>("quit_app"),
+  /** Quits through the main window, so it saves first (the tray panel's Quit). */
+  requestQuit: () => call<void>("request_quit"),
   showCompact: () => call<void>("show_compact"),
   showMain: () => call<void>("show_main"),
 

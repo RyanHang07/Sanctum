@@ -4,6 +4,7 @@ import { Button, Kbd } from "./Button";
 import { canQuit } from "../state/appState";
 import { useStore } from "../state/store";
 import { native } from "../lib/native";
+import { quitSaved } from "../state/quit";
 
 type Choice = "tray" | "quit";
 
@@ -22,7 +23,7 @@ export function CloseDialog() {
   const confirm = () => {
     if (remember) setCloseAction(choice);
     dismiss();
-    if (choice === "quit" && canQuit(useStore.getState().appState)) void native.quitApp();
+    if (choice === "quit" && canQuit(useStore.getState().appState)) void quitSaved();
     else void native.hideToTray();
   };
 

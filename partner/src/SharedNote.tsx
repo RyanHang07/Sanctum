@@ -55,6 +55,10 @@ function Text({ n }: { n: Node }): ReactNode {
   return out;
 }
 
+/** Only signed links into Sanctum's shared-images bucket are fetched. */
+const IMAGE_PREFIX = `${import.meta.env.VITE_SUPABASE_URL ?? ""}/storage/v1/object/sign/note-shares/`;
+const safeImageUrl = (url: unknown) => (typeof url === "string" && url.startsWith(IMAGE_PREFIX) && !url.includes("..") ? url : undefined);
+
 /** An image: its encrypted bytes from the signed URL, decrypted here into a local blob. */
 function SharedImage({ url, alt, k }: { url: string | undefined; alt: string; k: string }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -158,7 +162,7 @@ function Block({ n, ctx }: { n: Node; ctx: Ctx }): ReactNode {
       );
     case "image": {
       const id = /^noteimg:(\d+)$/.exec(String(n.attrs?.src ?? ""))?.[1];
-      return <SharedImage url={id ? ctx.images[id] : undefined} alt={typeof n.attrs?.alt === "string" ? n.attrs.alt : ""} k={ctx.k} />;
+      return <SharedImage url={id ? safeImageUrl(ctx.images[id]) : undefined} alt={typeof n.attrs?.alt === "string" ? n.attrs.alt : ""} k={ctx.k} />;
     }
     case "mention":
       return <span className="link">@{typeof n.attrs?.label === "string" ? n.attrs.label : ""}</span>;

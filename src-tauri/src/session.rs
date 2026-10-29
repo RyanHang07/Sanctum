@@ -284,6 +284,7 @@ impl Downtime {
     }
 }
 
+#[cfg(test)]
 pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
     resume_at(conn, now, None).map(|(a, _)| a)
 }

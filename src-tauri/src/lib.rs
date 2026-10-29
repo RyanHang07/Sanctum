@@ -627,6 +627,32 @@ fn quit_app(app: AppHandle, shared: State<Shared>) -> Result<(), String> {
     Ok(())
 }
 
+/// Quits by way of the main window, which saves what's still waiting (typing, deletes in
+/// their undo window) and then calls quit_app. If the window doesn't answer, quits anyway.
+pub fn quit_via_window(app: &AppHandle) {
+    if app.state::<Shared>().sealed() {
+        return;
+    }
+    if app.get_webview_window("main").is_none() || app.emit_to("main", "sanctum://quit", ()).is_err() {
+        app.exit(0);
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        app.exit(0);
+    });
+}
+
+#[tauri::command]
+fn request_quit(app: AppHandle, shared: State<Shared>) -> Result<(), String> {
+    if shared.sealed() {
+        return Err("Sanctum stays open while sealed.".into());
+    }
+    quit_via_window(&app);
+    Ok(())
+}
+
 #[tauri::command]
 fn show_compact(app: AppHandle) {
     show_compact_window(&app);
@@ -739,7 +765,7 @@ pub fn run() {
                     CloseAction::Tray => {
                         let _ = window.hide();
                     }
-                    CloseAction::Quit => app.exit(0),
+                    CloseAction::Quit => quit_via_window(app),
                     CloseAction::Ask => {
                         let _ = app.emit("sanctum://close-requested", ());
                     }
@@ -776,6 +802,7 @@ pub fn run() {
             set_app_state,
             hide_to_tray,
             quit_app,
+            request_quit,
             show_compact,
             show_main,
             list_profiles,
