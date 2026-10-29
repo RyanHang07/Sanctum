@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.4 (in progress)
+
+- **Counter routines:** a routine can be a counter ("Protein, 150 g a day"). Turn on Counter in the routine editor, set a daily goal, a unit, and whether each entry needs a note (required, optional, or off). On Home, counters sit at the top of Routines with a progress bar and a small box to add an amount and a note; it checks itself off when the day's total reaches the goal (and unchecks if you remove an entry). Every entry lands in a number tracker of the same name, so Trackers keeps the chart and table. Number tracker entries can now carry a note. Migration 0019.
+- **Break the seal:** solo, the session ends after the paragraph (no 30-minute cooldown); a linked partner who can't be reached means one more 5-minute wait. Waits pause while you're away from the window instead of restarting. The emergency unlock is once a day, back at midnight.
+- **Extension:** a seal can't get stuck after a restart (the blocking rules and the extension's copy of the seal now survive a browser restart together, and stale rules clear themselves). Extension 0.2.1.
+
 ## v0.1.3 (in progress)
 
 - **Undo deletes:** deleting an item or routine hides it at once and shows "Deleted “Pay rent”." with **Undo** for 5 seconds; the real delete (and its Google Calendar event) waits until then. A reload in the meantime doesn't bring it back.

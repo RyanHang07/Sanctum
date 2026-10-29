@@ -43,7 +43,8 @@ function clean(tr: Tracker, e: NewEntry): Pick<TrackerEntry, "value" | "text"> {
   if (v === null || v === undefined || !Number.isFinite(v)) throw bad;
   if (tr.kind === "bool" && v !== 0 && v !== 1) throw bad;
   if (tr.kind === "scale" && (!Number.isInteger(v) || v < 1 || v > 10)) throw bad;
-  return { value: v, text: null };
+  // A number can carry a short note (a counter's "chicken at lunch").
+  return { value: v, text: e.text?.trim() || null };
 }
 
 export const trackerHandlers: Record<string, (a: any) => unknown> = {

@@ -563,6 +563,14 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (draft.daysMask < 1 || draft.daysMask > 127) throw "Pick at least one day.";
     const existing = draft.id !== undefined ? state.routines.find((r) => r.id === draft.id) : undefined;
     if (draft.id !== undefined && !existing) throw "That routine no longer exists.";
+    const trackerId = draft.trackerId ?? null;
+    if (trackerId !== null) {
+      const tr = trackerHandlers.list_trackers({}) as { id: number; kind: string }[];
+      const k = tr.find((x) => x.id === trackerId)?.kind;
+      if (!k) throw "That tracker no longer exists.";
+      if (k !== "number") throw "A counter needs a number tracker.";
+      if (!(draft.goalAmount && draft.goalAmount > 0)) throw "Set a daily goal above zero.";
+    }
     const r: Routine = {
       id: existing?.id ?? state.nextId++,
       sort: existing?.sort ?? state.routines.length,
@@ -572,6 +580,9 @@ const handlers: Record<string, (a: any) => unknown> = {
       daysMask: draft.daysMask,
       time: draft.time,
       durationMin: draft.durationMin,
+      trackerId,
+      goalAmount: trackerId !== null ? (draft.goalAmount ?? null) : null,
+      noteMode: draft.noteMode ?? "optional",
     };
     state.routines = [...state.routines.filter((x) => x.id !== r.id), r];
     return clone(r);

@@ -196,7 +196,12 @@ fn clean(t: &Tracker, e: &NewEntry) -> Result<(Option<f64>, Option<String>)> {
             if !ok {
                 return Err(bad());
             }
-            Ok((Some(v), None))
+            // A number can carry a short note (a counter's "chicken at lunch").
+            let note = e.text.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            if note.is_some_and(|s| s.chars().count() > MAX_TEXT) {
+                return Err(format!("Keep the note under {MAX_TEXT} characters."));
+            }
+            Ok((Some(v), note.map(String::from)))
         }
     }
 }
