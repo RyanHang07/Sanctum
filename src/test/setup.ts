@@ -9,3 +9,16 @@ for (const proto of [Range.prototype, Element.prototype] as { getClientRects?: (
   proto.getBoundingClientRect ??= emptyRect;
 }
 document.elementFromPoint ??= () => null;
+
+// Tests run as if Windows' "reduce motion" is on: numbers and rows land at once, so a test
+// reads final values (motion follows the same setting for real users).
+window.matchMedia ??= ((query: string) => ({
+  matches: query.includes("prefers-reduced-motion"),
+  media: query,
+  onchange: null,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;

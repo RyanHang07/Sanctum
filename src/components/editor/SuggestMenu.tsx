@@ -40,7 +40,7 @@ const MenuList = forwardRef<MenuHandle, ListProps>(function MenuList({ items, co
     return <div className="rounded-panel border border-line-input bg-panel px-3 py-2 text-meta text-muted shadow-toast">Nothing matches.</div>;
   }
   return (
-    <div role="listbox" aria-label={label} className="flex max-h-[300px] w-[260px] flex-col overflow-y-auto rounded-panel border border-line-input bg-panel p-1 shadow-toast">
+    <div role="listbox" aria-label={label} className="flex max-h-[300px] w-[260px] flex-col overflow-y-auto rounded-panel border border-line-input bg-panel/90 p-1 shadow-toast backdrop-blur-md">
       {items.map((item, i) => (
         <button
           key={item.id}
