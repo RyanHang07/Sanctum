@@ -74,6 +74,23 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect((fake.local.rules as { sealed: boolean }).sealed).toBe(true);
   });
 
+  it("an offline bridge doesn't count as Sanctum: an expired seal still lifts (v0.1.4)", async () => {
+    const fake = fakeChrome({ stored: SEALED(Date.now() + 60_000) });
+    await boot(fake);
+    const send = (m: unknown) => fake.listeners["port.message"]![0]!(m);
+    // Sanctum was there, then quit; the bridge says so.
+    await send({ type: "online" });
+    await send({ type: "offline" });
+    expect(fake.dynamic().length).toBeGreaterThan(0);
+    // Past the planned end, the heartbeat lifts it.
+    const later = Date.now() + 5 * 60_000;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    await fake.listeners["alarm"]![0]!({ name: "heartbeat" });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(fake.dynamic()).toEqual([]);
+    vi.restoreAllMocks();
+  });
+
   it("the blocked page's Open re-syncs before navigating", async () => {
     const fake = fakeChrome({ connectFails: true });
     await boot(fake);
