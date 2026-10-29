@@ -59,6 +59,8 @@ begin
   return null;
 end;
 $$;
+-- Only the trigger runs it, never a client.
+revoke all on function public.prune_note_shares() from public, anon, authenticated;
 create trigger note_shares_prune
   after insert on public.note_shares
   for each statement execute function public.prune_note_shares();
@@ -73,3 +75,7 @@ create policy "owner manages own share images" on storage.objects
   for all to authenticated
   using (bucket_id = 'note-shares' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'note-shares' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Link holders read only through get_note_share; the table itself is never open to anon
+-- (RLS already returns nothing; this removes the default grant too).
+revoke all on table public.note_shares from anon;
