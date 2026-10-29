@@ -148,3 +148,77 @@
 .page-in { animation: page-in 180ms cubic-bezier(0.2, 0, 0, 1) both; }
 .check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1); }
 .row-in { animation: row-in 160ms cubic-bezier(0.2, 0, 0, 1) both; }
+
+/* Notes and journal (v0.2): the block editor. Every color is a token. */
+@layer components {
+  .note-doc {
+    outline: none;
+    min-height: 320px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: theme(colors.text);
+    user-select: text;
+  }
+  .note-doc > * + * { margin-top: 0.45em; }
+  .note-doc p { margin: 0; }
+  .note-doc h1, .note-doc h2, .note-doc h3 { margin: 1.1em 0 0.2em; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; }
+  .note-doc > h1:first-child, .note-doc > h2:first-child, .note-doc > h3:first-child { margin-top: 0; }
+  .note-doc h1 { font-size: 22px; }
+  .note-doc h2 { font-size: 18px; }
+  .note-doc h3 { font-size: 15px; color: theme(colors.text-2); }
+  .note-doc ul, .note-doc ol { margin: 0; padding-left: 1.35em; }
+  .note-doc ul { list-style: disc; }
+  .note-doc ol { list-style: decimal; }
+  .note-doc li::marker { color: theme(colors.muted); }
+  .note-doc li > p { margin: 0; }
+  .note-doc ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+  .note-doc ul[data-type="taskList"] ul[data-type="taskList"] { padding-left: 1.4em; }
+  .note-doc ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 10px; }
+  .note-doc ul[data-type="taskList"] > li > label { flex: none; margin-top: 4px; user-select: none; }
+  .note-doc ul[data-type="taskList"] > li > div { flex: 1; min-width: 0; }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"] {
+    appearance: none; margin: 0; display: grid; place-content: center; width: 15px; height: 15px; cursor: pointer;
+    border: 1.5px solid theme(colors.check-line); border-radius: 4px; background: transparent;
+    transition: background-color 120ms, border-color 120ms;
+  }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:hover { border-color: theme(colors.sealed.DEFAULT); }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked { background: theme(colors.sealed.DEFAULT); border-color: theme(colors.sealed.DEFAULT); }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked::after {
+    content: ""; width: 8px; height: 5px; margin-top: -2px; border-left: 2px solid theme(colors.sealed.on); border-bottom: 2px solid theme(colors.sealed.on); transform: rotate(-45deg);
+  }
+  .note-doc li[data-checked="true"] > div { color: theme(colors.faint); text-decoration: line-through; }
+  .note-doc blockquote { margin: 0; padding-left: 14px; border-left: 2px solid theme(colors.line-input); color: theme(colors.text-2); }
+  .note-doc .note-callout { padding: 10px 14px; border-radius: 8px; border: 1px solid theme(colors.sealed.line); background: theme(colors.sealed.tint); }
+  .note-doc hr { border: 0; border-top: 1px solid theme(colors.line); margin: 1em 0; }
+  .note-doc hr.ProseMirror-selectednode { border-top-color: theme(colors.sealed.DEFAULT); }
+  .note-doc code { font-family: theme(fontFamily.mono); font-size: 12.5px; padding: 1px 5px; border-radius: 4px; background: theme(colors.raised); }
+  .note-doc pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: theme(colors.app); border: 1px solid theme(colors.line); overflow-x: auto; }
+  .note-doc pre code { padding: 0; background: none; }
+  .note-doc a { color: theme(colors.sealed.text); text-decoration: underline; text-underline-offset: 2px; }
+  .note-doc .note-link {
+    padding: 1px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+    background: theme(colors.sealed.tint); color: theme(colors.sealed.text); border: 1px solid theme(colors.sealed.line);
+  }
+  .note-doc .note-link:hover { color: theme(colors.sealed.text-hover); }
+  /* Tables: borders from the line tokens, a raised header, resize handles on hover. */
+  .note-doc .tableWrapper { overflow-x: auto; margin: 0.6em 0; }
+  .note-doc table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 0; }
+  .note-doc th, .note-doc td { position: relative; min-width: 60px; padding: 6px 10px; border: 1px solid theme(colors.line-input); vertical-align: top; }
+  .note-doc th { background: theme(colors.raised); font-weight: 600; text-align: left; }
+  .note-doc .selectedCell::after { content: ""; position: absolute; inset: 0; background: theme(colors.sealed.DEFAULT / 15%); pointer-events: none; }
+  .note-doc .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 3px; background: theme(colors.sealed.DEFAULT); pointer-events: none; }
+  .note-doc.resize-cursor { cursor: col-resize; }
+  /* Toggles (details). */
+  .note-doc div[data-type="details"] { display: flex; gap: 6px; }
+  .note-doc div[data-type="details"] > button { flex: none; width: 18px; height: 22px; display: grid; place-content: center; color: theme(colors.muted); background: none; border: 0; cursor: pointer; }
+  .note-doc div[data-type="details"] > button::before { content: "▸"; transition: transform 150ms; }
+  .note-doc div[data-type="details"].is-open > button::before { transform: rotate(90deg); }
+  .note-doc div[data-type="details"] > div { flex: 1; min-width: 0; }
+  .note-doc div[data-type="details"]:not(.is-open) div[data-type="detailsContent"] { display: none; }
+  .note-doc summary { list-style: none; font-weight: 500; }
+  /* The empty-line hint. */
+  .note-doc p.is-editor-empty:first-child::before,
+  .note-doc .is-empty::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: theme(colors.faint); }
+  .note-doc .ProseMirror-selectednode { outline: 2px solid theme(colors.sealed.DEFAULT / 50%); outline-offset: 2px; border-radius: 4px; }
+  .note-doc .ProseMirror-gapcursor::after { border-top-color: theme(colors.text); }
+}

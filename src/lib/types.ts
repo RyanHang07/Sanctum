@@ -520,7 +520,10 @@ export interface UpdateInfo {
 export interface Note {
   id: number;
   title: string;
+  /** Plain text of the note (search, previews, exports). */
   body: string;
+  /** The block document as JSON (v0.2); null for a note that's only been plain text. */
+  doc: string | null;
   pinned: boolean;
   createdAt: number;
   updatedAt: number;
@@ -530,4 +533,6 @@ export interface NoteDraft {
   id?: number;
   title: string;
   body: string;
+  /** Left out: the saved document stays as it is. */
+  doc?: string | null;
 }

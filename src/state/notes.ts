@@ -18,7 +18,7 @@ export interface NotesStore {
   /** Makes an empty note and opens it. */
   create: (body?: string) => Promise<Note | null>;
   /** Edits the open note; saved after a pause (or right away with flush). */
-  edit: (id: number, patch: { title?: string; body?: string }) => void;
+  edit: (id: number, patch: { title?: string; body?: string; doc?: string }) => void;
   flush: () => Promise<void>;
   pin: (id: number, pinned: boolean) => Promise<void>;
   remove: (id: number) => Promise<void>;
@@ -40,7 +40,7 @@ export const useNotes = create<NotesStore>()((set, get) => {
     const n = get().notes.find((x) => x.id === id);
     if (!n) return;
     try {
-      const saved = await native.saveNote({ id, title: n.title, body: n.body });
+      const saved = await native.saveNote({ id, title: n.title, body: n.body, doc: n.doc });
       // Keep what's been typed since; take the server's timestamps.
       set({ notes: sorted(get().notes.map((x) => (x.id === id ? { ...x, updatedAt: saved.updatedAt } : x))) });
     } catch (e) {
@@ -117,23 +117,14 @@ export const useNotes = create<NotesStore>()((set, get) => {
 
 /** "Books to read", or the first line of the body, or "Untitled". */
 export function noteTitle(n: Pick<Note, "title" | "body">): string {
-  return n.title.trim() || n.body.trim().split("\n")[0]?.replace(/^(- |\[[ x]\] )/i, "").slice(0, 60) || "Untitled";
+  return n.title.trim() || n.body.trim().split("\n")[0]?.replace(/^(- |\[[ x]\] |#{1,3} )/i, "").slice(0, 60) || "Untitled";
 }
 
 /** The first line of the body that isn't the title, for the list. */
 export function notePreview(n: Pick<Note, "title" | "body">): string {
   const lines = n.body.split("\n").map((l) => l.trim()).filter(Boolean);
   const rest = n.title.trim() ? lines : lines.slice(1);
-  return rest[0]?.replace(/^(- |\[[ x]\] )/i, "") ?? "";
-}
-
-/** Flips the checkbox on one line of a body ("[ ] x" <-> "[x] x"). */
-export function toggleLine(body: string, index: number): string {
-  const lines = body.split("\n");
-  const line = lines[index];
-  if (line === undefined) return body;
-  lines[index] = /^(\s*)\[ \]/.test(line) ? line.replace(/^(\s*)\[ \]/, "$1[x]") : line.replace(/^(\s*)\[x\]/i, "$1[ ]");
-  return lines.join("\n");
+  return rest[0]?.replace(/^(- |\[[ x]\] |#{1,3} )/i, "") ?? "";
 }
 
 // App-wide state: hot-swapping this module would split it into two copies. Reload instead.
