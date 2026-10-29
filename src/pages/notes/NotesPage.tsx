@@ -100,8 +100,8 @@ function Editor({ n }: { n: Note }) {
           <XIcon size={12} />
         </button>
       </div>
-      {/* Room on the left for the blocks' drag handle. */}
-      <div className="min-h-0 grow overflow-y-auto pl-7 pr-1">
+      {/* The editor has its own gutter for the blocks' drag handle; line it up with the title. */}
+      <div className="-ml-7 min-h-0 grow overflow-y-auto pr-1">
         <NoteEditor doc={doc} label="Note text" placeholder={PLACEHOLDER} onChange={(c) => edit(n.id, { doc: c.doc, body: c.text })} />
       </div>
     </article>
