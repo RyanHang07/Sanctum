@@ -8,7 +8,8 @@ import { isTabLocked } from "../../state/appState";
 import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { bodyToDoc, docOf } from "../../lib/noteDoc";
-import { sanctumLinks } from "../../components/editor/extensions";
+import { insertImages, sanctumLinks } from "../../components/editor/extensions";
+import { imageId, noteImageUrl } from "../../lib/noteImages";
 import { addDays, todayKey } from "../../lib/planner";
 
 const initial = useStore.getState();
@@ -131,6 +132,24 @@ describe("Notes page", () => {
     await act(async () => fireEvent.click(tools.getByRole("button", { name: "Bold" })));
     expect(screen.getByLabelText("Note text").querySelector("strong")).toHaveTextContent("loud");
     expect(tools.getByRole("button", { name: "Bold" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("takes images: stored by Sanctum, referenced in the note, shown from the store", async () => {
+    render(<NotesPage />);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    const png = new File([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], "whiteboard.png", { type: "image/png" });
+    await act(async () => void (await insertImages(editorOf(), [png])));
+    const img = screen.getByLabelText("Note text").querySelector("img")!;
+    expect(img.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
+    expect(img.getAttribute("alt")).toBe("whiteboard");
+    await act(() => useNotes.getState().flush());
+    expect((await native.listNotes())[0]!.doc).toContain('"src":"noteimg:1"');
+    // Not an image file: refused, nothing inserted.
+    await act(async () => void (await insertImages(editorOf(), [new File(["<svg/>"], "x.svg", { type: "image/svg+xml" })])));
+    expect(screen.getByLabelText("Note text").querySelectorAll("img")).toHaveLength(1);
+    // The reference reads back from the URLs it's shown at.
+    expect([imageId("noteimg:12"), imageId("http://noteimg.localhost/12"), imageId("https://example.com/a.png")]).toEqual([12, 12, null]);
+    expect(noteImageUrl("https://example.com/a.png")).toBe("https://example.com/a.png");
   });
 
   it("links to Sanctum: tasks, routines, trackers, and days", async () => {

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
+import { insertImages } from "./extensions";
+import { pickImages } from "../../lib/noteImages";
 
 // The small row of tools above a note (v0.2): text size for every note, then the formats you'd
 // otherwise type ("/" and markdown still work). Buttons keep the caret in the note.
@@ -94,6 +96,9 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
       </Tool>
       <Tool label="Table" onRun={() => run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))}>
         ▦
+      </Tool>
+      <Tool label="Image" onRun={() => void pickImages().then((files) => insertImages(editor, files))}>
+        ▣
       </Tool>
       <Tool label="Callout" active={on.callout} onRun={() => run((c) => (on.callout ? c.lift("callout") : c.wrapIn("callout")))}>
         !

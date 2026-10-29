@@ -219,6 +219,11 @@
   /* The empty-line hint. */
   .note-doc p.is-editor-empty:first-child::before,
   .note-doc .is-empty::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: theme(colors.faint); }
+  /* Images: never wider than the note, softly rounded, a cobalt ring and corner handles when picked. */
+  .note-doc img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid theme(colors.line); }
+  .note-doc [data-resize-wrapper] { max-width: 100%; }
+  .note-doc [data-resize-handle] { width: 10px; height: 10px; border-radius: 3px; background: theme(colors.sealed.DEFAULT); border: 2px solid theme(colors.panel); opacity: 0; transition: opacity 120ms; }
+  .note-doc [data-resize-wrapper]:hover [data-resize-handle], .note-doc .ProseMirror-selectednode [data-resize-handle] { opacity: 1; }
   .note-doc .ProseMirror-selectednode { outline: 2px solid theme(colors.sealed.DEFAULT / 50%); outline-offset: 2px; border-radius: 4px; }
   .note-doc .ProseMirror-gapcursor::after { border-top-color: theme(colors.text); }
 }

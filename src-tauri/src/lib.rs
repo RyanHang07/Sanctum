@@ -17,6 +17,7 @@ mod unlock;
 mod updates;
 mod launcher;
 mod notes;
+mod note_images;
 mod planner;
 mod profiles;
 mod quiet;
@@ -639,6 +640,8 @@ pub fn run() {
     tauri::Builder::default()
         // Must be registered first: a second launch focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
+        // Images in notes, from the database (src/note_images.rs).
+        .register_uri_scheme_protocol(note_images::SCHEME, |ctx, request| note_images::serve(ctx.app_handle(), &request))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -662,6 +665,8 @@ pub fn run() {
             // rewritten on every launch (v0.1.4), so an update or reinstall can't lose it; the
             // on/off switch is Windows' own (src/startup.rs).
             startup::ensure(app.handle());
+            // Images no note uses any more (a day old or older).
+            let _ = note_images::sweep(&conn, session::now_ms());
             let start_in_tray = std::env::args().any(|a| a == AUTOSTART_ARG)
                 && db::get_setting(&conn, "on_login")?.as_deref() == Some("tray");
 
@@ -789,6 +794,7 @@ pub fn run() {
             updates::update_check,
             startup::startup_status,
             startup::set_startup,
+            note_images::save_note_image,
             updates::update_install,
             updates::app_version,
             updates::diagnostics,
