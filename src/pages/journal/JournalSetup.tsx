@@ -5,11 +5,12 @@ import { useJournal } from "../../state/journal";
 import { PRESETS, THEMES, type JournalSetup as Setup } from "../../lib/journalPrompts";
 import type { JournalLock } from "../../lib/types";
 
-// The journal's own setup (v0.2), separate from the app's first-run setup. Shown the first time
-// the Journal opens; closing it before the end starts it over next time. Later, "Journal
-// settings" opens the same steps to change prompts or the lock.
+// The journal's own setup (v0.2), separate from the app's first-run setup. The first time, it
+// IS the Journal page (no dialog over a placeholder); leaving before the end starts it over next
+// time, and finishing opens today's page. Later, "Journal settings" opens the same steps in a
+// dialog to change prompts or the lock.
 
-type Step = "welcome" | "prompts" | "lock" | "done";
+type Step = "welcome" | "prompts" | "lock";
 const PER_DAY = [
   { value: 0, label: "All of them" },
   { value: 1, label: "1 a day" },
@@ -43,17 +44,17 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
       }
       const next: Setup = { done: true, prompts: picked, perDay };
       await saveSetup(next);
-      if (first) setStep("done");
-      else onClose();
+      // First time: the page takes over with today; later: the dialog closes.
+      if (!first) onClose();
     } finally {
       setBusy(false);
     }
   };
 
-  return (
-    <Dialog label="Journal setup" onClose={onClose} width={560} top={48}>
+  const body = (
+    <>
       {/* Scrolls on a short window so the buttons below always show. */}
-      <div className="flex max-h-[calc(100vh-170px)] flex-col gap-4 overflow-y-auto px-6 pb-5 pt-6">
+      <div className={`flex flex-col gap-4 overflow-y-auto px-6 pb-5 pt-6 ${first ? "min-h-0" : "max-h-[calc(100vh-170px)]"}`}>
         {step === "welcome" ? (
           <>
             <h1 className="headline m-0 text-[24px]">
@@ -62,7 +63,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
             <p className="m-0 text-body leading-relaxed text-text-2">
               One page for each day, with what the day held at the top: focus, tasks, counters, and how you felt. It stays on this PC, is never shared or synced, and you can write in it while sealed.
             </p>
-            <p className="m-0 text-meta text-muted">Two quick choices: what it asks you, and whether it locks.</p>
+            <p className="m-0 text-meta text-muted">Two quick choices: what it asks you, and whether it locks. Both change any time from Journal settings.</p>
           </>
         ) : null}
 
@@ -165,18 +166,9 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
             ) : null}
           </>
         ) : null}
-
-        {step === "done" ? (
-          <>
-            <h1 className="headline m-0 text-[24px]">
-              Ready. <em>Start with today.</em>
-            </h1>
-            <p className="m-0 text-body text-text-2">Change the prompts or the lock any time from Journal settings.</p>
-          </>
-        ) : null}
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
-        {first && step !== "done" ? <span className="text-meta text-faint">{step === "welcome" ? "1" : step === "prompts" ? "2" : "3"} of 3</span> : null}
+        {first ? <span className="text-meta text-faint">{step === "welcome" ? "1" : step === "prompts" ? "2" : "3"} of 3</span> : null}
         <span className="grow" />
         {step === "prompts" && first ? (
           <Button variant="ghost" onClick={() => setStep("welcome")}>
@@ -196,16 +188,22 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
           <Button variant="primary" onClick={() => setStep("lock")}>
             Next
           </Button>
-        ) : step === "lock" ? (
-          <Button variant="primary" disabled={busy || !pinOk} onClick={() => void finish()}>
-            {first ? "Finish" : "Save"}
-          </Button>
         ) : (
-          <Button variant="primary" onClick={onClose}>
-            Open today
+          <Button variant="primary" disabled={busy || !pinOk} onClick={() => void finish()}>
+            {first ? "Open today" : "Save"}
           </Button>
         )}
       </div>
+    </>
+  );
+
+  return first ? (
+    <section aria-label="Journal setup" className="m-auto flex max-h-full w-full max-w-[560px] flex-col overflow-hidden rounded-panel border border-line bg-panel">
+      {body}
+    </section>
+  ) : (
+    <Dialog label="Journal setup" onClose={onClose} width={560} top={48}>
+      {body}
     </Dialog>
   );
 }

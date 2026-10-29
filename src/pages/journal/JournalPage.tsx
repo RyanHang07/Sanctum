@@ -284,10 +284,6 @@ export function JournalPage() {
     void load();
     if (!useTrackers.getState().loaded) void useTrackers.getState().load();
   }, [load]);
-  // First visit: the journal's own setup.
-  useEffect(() => {
-    if (loaded && !setup.done) setSetupOpen(true);
-  }, [loaded, setup.done]);
 
   const locked = !!lock && !lock.unlocked;
   const today = todayKey();
@@ -303,21 +299,15 @@ export function JournalPage() {
             Today
           </Button>
         ) : null}
-        <Button variant="quiet" aria-label="Journal settings" onClick={() => setSetupOpen(true)} disabled={locked}>
-          Journal settings <ChevronRightIcon size={10} />
-        </Button>
+        {setup.done ? (
+          <Button variant="quiet" aria-label="Journal settings" onClick={() => setSetupOpen(true)} disabled={locked}>
+            Journal settings <ChevronRightIcon size={10} />
+          </Button>
+        ) : null}
       </div>
       {!loaded ? null : !setup.done ? (
-        // Setup was closed part way: it starts over from here.
-        <div className="m-auto flex max-w-[360px] flex-col items-center gap-3 text-center">
-          <h2 className="headline m-0 text-[22px]">
-            A page a day. <em>Yours alone.</em>
-          </h2>
-          <p className="m-0 text-body text-muted">Two quick choices first: what it asks you, and whether it locks.</p>
-          <Button variant="primary" onClick={() => setSetupOpen(true)}>
-            Set up the journal
-          </Button>
-        </div>
+        // First visit: the setup is the page (left part way, it starts over next time).
+        <JournalSetup first onClose={() => undefined} />
       ) : locked ? (
         <Locked />
       ) : (
@@ -329,7 +319,7 @@ export function JournalPage() {
           </section>
         </>
       )}
-      {setupOpen ? <JournalSetup first={!setup.done} onClose={() => setSetupOpen(false)} /> : null}
+      {setupOpen && setup.done ? <JournalSetup first={false} onClose={() => setSetupOpen(false)} /> : null}
     </div>
   );
 }
