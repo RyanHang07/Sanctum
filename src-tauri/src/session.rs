@@ -268,7 +268,29 @@ pub fn end_early(conn: &mut Connection, id: i64, reason: &str, level: i64, now: 
 
 /// Resumes the unfinished session, if any. Sessions that ended while Sanctum was down are
 /// closed as completed (or broken, if the downtime was too long) and nothing resumes.
+/// A seal that downtime broke, found on start-up: logged as tamper, and told to the partner.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Downtime {
+    pub session_id: i64,
+    pub profile_name: String,
+    /// "shutdown": the PC rebooted since the session was last seen. "killed": Sanctum was
+    /// closed or crashed without one.
+    pub kind: &'static str,
+}
+
+impl Downtime {
+    pub fn detail(&self) -> &'static str {
+        if self.kind == "shutdown" { "the PC was shut down or restarted mid-seal" } else { "Sanctum was closed mid-seal" }
+    }
+}
+
 pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
+    resume_at(conn, now, None).map(|(a, _)| a)
+}
+
+/// `resume`, also reporting a seal the downtime just broke. `booted_at` is when Windows last
+/// started (now minus uptime), which tells a shutdown from a closed or crashed Sanctum.
+pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlite::Result<(Option<Active>, Option<Downtime>)> {
     let row = conn
         .query_row(
             "SELECT id, profile_id, profile_name, started_at, planned_minutes, last_seen_at, gap_ms, broken_at, attempts_blocked, idle_ms
@@ -291,7 +313,7 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
         )
         .optional()?;
     let Some((id, profile_id, profile_name, started_at, minutes, last_seen, gap_so_far, broken_at, attempts, idle_ms)) = row else {
-        return Ok(None);
+        return Ok((None, None));
     };
     // Any older unfinished rows can only come from a crash loop; close them as broken.
     conn.execute(
@@ -302,11 +324,28 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
     let planned_ms = minutes * 60_000;
     let ends_at = started_at + planned_ms;
     // Idle before the restart already pushed the end later.
-    match resume_decision(now, started_at, ends_at + idle_ms, last_seen, broken_at.is_some()) {
+    let decision = resume_decision(now, started_at, ends_at + idle_ms, last_seen, broken_at.is_some());
+    let newly_broken = broken_at.is_none()
+        && match decision {
+            Resume::Finished { outcome, .. } => outcome == "broken",
+            Resume::Continue { broken, .. } => broken,
+        };
+    let downtime = if newly_broken {
+        let last = last_seen.unwrap_or(started_at).max(started_at);
+        let kind = if booted_at.is_some_and(|b| b > last) { "shutdown" } else { "killed" };
+        conn.execute("INSERT INTO tamper_events (session_id, ts, kind) VALUES (?1, ?2, ?3)", params![id, now, kind])?;
+        Some(Downtime { session_id: id, profile_name: profile_name.clone(), kind })
+    } else {
+        None
+    };
+    match decision {
         Resume::Finished { outcome, gap_ms } => {
-            conn.execute("UPDATE sessions SET gap_ms = gap_ms + ?1 WHERE id = ?2", params![gap_ms, id])?;
+            conn.execute(
+                "UPDATE sessions SET gap_ms = gap_ms + ?1, broken_at = CASE WHEN ?2 THEN COALESCE(broken_at, ?3) ELSE broken_at END WHERE id = ?4",
+                params![gap_ms, outcome == "broken", now, id],
+            )?;
             finish(conn, id, outcome, ends_at + idle_ms)?;
-            Ok(None)
+            Ok((None, downtime))
         }
         Resume::Continue { gap_ms, broken, .. } => {
             conn.execute(
@@ -315,7 +354,7 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
                 params![gap_ms, now, broken, id],
             )?;
             let task = load_task(conn, id)?;
-            Ok(Some(Active {
+            Ok((Some(Active {
                 id,
                 profile_id,
                 profile_name,
@@ -329,10 +368,11 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
                 idle_ms,
                 idle_since: None,
                 anchor_wall: now,
-                tampered: false,
+                // Already logged as tamper here; don't count it twice.
+                tampered: downtime.is_some(),
                 task,
                 anchor_mono: Instant::now(),
-            }))
+            }), downtime))
         }
     }
 }
@@ -422,6 +462,41 @@ mod tests {
         let r = resume(&conn, 1_000 + MIN + 5_000).unwrap().unwrap();
         let t = r.held().task.unwrap();
         assert_eq!((t.kind.as_str(), t.id, t.title.as_str()), ("todo", 7, "Write the essay"));
+    }
+
+    #[test]
+    fn downtime_that_breaks_a_seal_is_logged_as_tamper() {
+        let kinds = |conn: &Connection| -> Vec<String> {
+            let mut st = conn.prepare("SELECT kind FROM tamper_events ORDER BY id").unwrap();
+            st.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect()
+        };
+        // The PC went off 10 minutes into the seal and booted 30 minutes later.
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 90, 0).unwrap();
+        heartbeat(&conn, s.id, 10 * MIN).unwrap();
+        let (a, d) = resume_at(&conn, 42 * MIN, Some(40 * MIN)).unwrap();
+        assert!(a.as_ref().unwrap().broken && a.unwrap().tampered);
+        assert_eq!(d.unwrap().kind, "shutdown");
+        assert_eq!(kinds(&conn), vec!["shutdown"]);
+        // Resuming again doesn't log it twice.
+        assert!(resume_at(&conn, 43 * MIN, Some(40 * MIN)).unwrap().1.is_none());
+
+        // Sanctum closed with no reboot, and the seal ran out meanwhile: killed, ended broken.
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 30, 0).unwrap();
+        heartbeat(&conn, s.id, 5 * MIN).unwrap();
+        let (a, d) = resume_at(&conn, 50 * MIN, Some(-1_000 * MIN)).unwrap();
+        assert!(a.is_none());
+        assert_eq!(d.unwrap().kind, "killed");
+        let outcome: String = conn.query_row("SELECT outcome FROM sessions WHERE id = ?1", [s.id], |r| r.get(0)).unwrap();
+        assert_eq!(outcome, "broken");
+
+        // A short gap (under a minute) isn't tamper.
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 30, 0).unwrap();
+        heartbeat(&conn, s.id, 5 * MIN).unwrap();
+        assert!(resume_at(&conn, 5 * MIN + 30_000, Some(0)).unwrap().1.is_none());
+        assert!(kinds(&conn).is_empty());
     }
 
     #[test]

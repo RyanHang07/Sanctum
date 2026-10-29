@@ -78,6 +78,9 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
         entries: get().entries.filter((e) => e.trackerId !== id),
         checkins: get().checkins.map((c) => ({ ...c, trackerIds: c.trackerIds.filter((x) => x !== id) })),
       });
+      // A counter routine on this tracker is a plain routine now (the database unlinked it).
+      const { usePlanner } = await import("./planner");
+      if (usePlanner.getState().routines.some((r) => r.trackerId === id)) void usePlanner.getState().reload();
     }
     return !!ok;
   },
