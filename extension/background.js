@@ -64,6 +64,13 @@ function connect() {
 }
 
 async function onMessage(msg) {
+  // The bridge says "offline" when Sanctum isn't reachable. That's the one message that must
+  // NOT count as hearing from Sanctum, or a seal outlives a closed Sanctum forever (v0.1.4 fix).
+  if (msg.type === "offline") {
+    connected = false;
+    await heal();
+    return;
+  }
   connected = true;
   if (msg.type === "rules") {
     rules = msg;

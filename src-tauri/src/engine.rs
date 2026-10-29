@@ -335,6 +335,9 @@ fn tick(app: &AppHandle, n: u64) {
         if let Ok(conn) = shared.db.lock() {
             let _ = session::save_idle(&conn, id, total);
         }
+        // Idle pushed the end later: tell the browsers, so a seal they hold while Sanctum is
+        // unreachable lasts as long as the real one.
+        crate::browser::push_rules(app);
     }
     let Some(remaining) = engine.active.lock().unwrap().as_ref().map(Active::remaining_ms) else {
         quiet_tick(app);

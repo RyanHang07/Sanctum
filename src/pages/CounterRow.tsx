@@ -73,7 +73,7 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
         <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${goal > 0 ? Math.min(100, (total / goal) * 100) : 0}%` }} />
       </div>
       <form
-        className="ml-[26px] flex items-center gap-[6px]"
+        className="ml-[26px] mt-[3px] flex items-center gap-[6px]"
         onSubmit={(e) => {
           e.preventDefault();
           void add();
@@ -98,7 +98,7 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
         ) : (
           <span className="grow" />
         )}
-        <button type="submit" className="h-[26px] shrink-0 rounded-control px-2 text-meta font-medium text-sealed-text transition-colors duration-ui ease-ui hover:bg-line-soft">
+        <button type="submit" className="h-[26px] shrink-0 rounded-control bg-sealed px-3 text-meta font-medium text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110">
           Add
         </button>
       </form>
