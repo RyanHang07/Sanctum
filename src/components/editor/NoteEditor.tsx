@@ -6,7 +6,8 @@ import { TableKit } from "@tiptap/extension-table";
 import { Placeholder } from "@tiptap/extensions";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import { NodeSelection } from "@tiptap/pm/state";
-import { BlockMove, Callout, SanctumMention, SlashCommands, openLink } from "./extensions";
+import { BlockMove, Callout, NoteImage, SanctumMention, SlashCommands, insertImages, openLink } from "./extensions";
+import { IMAGE_TYPES } from "../../lib/noteImages";
 import { DEFAULT_NOTE_SIZE, NoteToolbar } from "./NoteToolbar";
 import type { DocNode } from "../../lib/noteDoc";
 
@@ -30,6 +31,7 @@ export function editorExtensions(placeholder: string) {
     DetailsSummary,
     DetailsContent,
     Callout,
+    NoteImage,
     BlockMove,
     SlashCommands,
     SanctumMention,
@@ -87,6 +89,7 @@ export function NoteEditor({
   onSize?: (px: number) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Editor | null>(null);
   const [handle, setHandle] = useState<{ top: number; pos: number } | null>(null);
   // A short grace period before the handle hides, so a quick move toward it doesn't lose it.
   const hide = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -96,6 +99,21 @@ export function NoteEditor({
     immediatelyRender: true,
     editorProps: {
       attributes: { "aria-label": label, class: "note-doc", spellcheck: "true" },
+      // Pasted or dropped image files go in the note (stored by Sanctum).
+      handlePaste: (_view, event) => {
+        const files = [...(event.clipboardData?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
+        if (!files.length || !editorRef.current) return false;
+        void insertImages(editorRef.current, files);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = [...(event.dataTransfer?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
+        if (moved || !files.length || !editorRef.current) return false;
+        event.preventDefault();
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        void insertImages(editorRef.current, files, at);
+        return true;
+      },
       handleClickOn: (_view, _pos, node) => {
         if (node.type.name === "mention" && typeof node.attrs.id === "string") {
           openLink(node.attrs.id);
@@ -106,6 +124,7 @@ export function NoteEditor({
     },
     onUpdate: ({ editor }) => onChange(changeOf(editor)),
   });
+  editorRef.current = editor;
 
   const track = (e: React.MouseEvent) => {
     clearTimeout(hide.current);

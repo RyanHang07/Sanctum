@@ -198,6 +198,7 @@ export const native = {
   updateCheck: () => call<UpdateInfo | null>("update_check"),
   startupStatus: () => call<StartupStatus>("startup_status"),
   setStartup: (on: boolean) => call<StartupStatus>("set_startup", { on }),
+  saveNoteImage: (data: string, mime: string) => call<number>("save_note_image", { data, mime }),
   updateInstall: () => call<void>("update_install"),
   diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),

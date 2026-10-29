@@ -1,6 +1,9 @@
 import { Extension, Node, mergeAttributes, type Editor, type Range } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import { Mention } from "@tiptap/extension-mention";
+import { Image } from "@tiptap/extension-image";
+import { imageId, noteImageUrl, pickImages, storeImage } from "../../lib/noteImages";
+import { errorText } from "../../lib/native";
 import { TextSelection } from "@tiptap/pm/state";
 import { menuRenderer, type MenuItem } from "./SuggestMenu";
 import { usePlanner } from "../../state/planner";
@@ -20,6 +23,43 @@ export const Callout = Node.create({
   parseHTML: () => [{ tag: "div[data-callout]" }],
   renderHTML: ({ HTMLAttributes }) => ["div", mergeAttributes(HTMLAttributes, { "data-callout": "", class: "note-callout" }), 0],
 });
+
+/**
+ * Images (v0.2): stored by Sanctum and referenced as "noteimg:<id>"; shown at the scheme's URL,
+ * resizable by their corners, aspect kept. Pasted images from elsewhere on the web are left out
+ * (the window doesn't load outside images); paste or drop the file instead.
+ */
+export const NoteImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      src: {
+        default: null,
+        parseHTML: (el: HTMLElement) => {
+          const id = imageId(el.getAttribute("src"));
+          return id === null ? null : `noteimg:${id}`;
+        },
+        renderHTML: (attrs: { src?: string | null }) => ({ src: noteImageUrl(attrs.src) }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "img[src]", getAttrs: (el: HTMLElement) => (imageId(el.getAttribute("src")) === null ? false : null) }];
+  },
+}).configure({ inline: false, allowBase64: false, resize: { enabled: true, minWidth: 80, minHeight: 40, alwaysPreserveAspectRatio: true } });
+
+/** Saves image files and puts them in the note, at `pos` or the caret. */
+export async function insertImages(editor: Editor, files: File[], pos?: number) {
+  for (const file of files) {
+    try {
+      const src = await storeImage(file);
+      const at = pos ?? editor.state.selection.to;
+      editor.chain().focus().insertContentAt(at, { type: "image", attrs: { src, alt: file.name.replace(/\.[^.]+$/, "") } }).run();
+    } catch (e) {
+      useStore.getState().showNotice({ lead: errorText(e) });
+    }
+  }
+}
 
 /** Moves the block the caret is in up or down past its neighbour, caret and all. */
 export function moveBlock(editor: Editor, dir: -1 | 1): boolean {
@@ -86,6 +126,17 @@ const COMMANDS: Command[] = [
   { id: "quote", title: "Quote", hint: "Or type “> ”", icon: "❝", run: (e, r) => e.chain().focus().deleteRange(r).toggleBlockquote().run() },
   { id: "callout", title: "Callout", hint: "A highlighted box", icon: "!", keywords: "note info", run: (e, r) => e.chain().focus().deleteRange(r).wrapIn("callout").run() },
   { id: "toggle", title: "Toggle", hint: "A section that folds away", icon: "▸", keywords: "details collapse fold", run: (e, r) => e.chain().focus().deleteRange(r).setDetails().run() },
+  {
+    id: "image",
+    title: "Image",
+    hint: "From a file, or paste or drop one",
+    icon: "▣",
+    keywords: "picture photo screenshot",
+    run: (e, r) => {
+      e.chain().focus().deleteRange(r).run();
+      void pickImages().then((files) => insertImages(e, files));
+    },
+  },
   { id: "divider", title: "Divider", hint: "Or type “---”", icon: "—", keywords: "hr line rule", run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run() },
   { id: "code", title: "Code", hint: "Or type “```”", icon: "{}", run: (e, r) => e.chain().focus().deleteRange(r).toggleCodeBlock().run() },
   {

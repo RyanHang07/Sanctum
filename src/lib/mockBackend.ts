@@ -15,6 +15,11 @@ import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
+/** Images pasted into notes in the preview: id -> data URL (the app keeps them in SQLite). */
+const mockImages = new Map<number, string>();
+let mockImageId = 1;
+export const mockNoteImageUrl = (id: number) => mockImages.get(id) ?? null;
+
 /** The emergency unlock comes back at the next local midnight (once a day). */
 const nextMidnight = (t: number) => {
   const d = new Date(t);
@@ -297,6 +302,12 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   app_version: () => "0.1.0",
   update_check: () => null,
+  save_note_image: ({ data, mime }: { data: string; mime: string }) => {
+    if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(mime)) throw "Use a PNG, JPEG, GIF, or WebP image.";
+    const id = mockImageId++;
+    mockImages.set(id, `data:${mime};base64,${data}`);
+    return id;
+  },
   startup_status: () => ({ enabled: state.settings.get("mock_startup") !== "0", registered: true }),
   set_startup: ({ on }: { on: boolean }) => {
     state.settings.set("mock_startup", on ? "1" : "0");
