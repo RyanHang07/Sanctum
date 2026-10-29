@@ -15,6 +15,9 @@ import type { QuietConfig } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
+/** The journal in the preview. */
+export const mockJournal = { days: new Map<string, { date: string; doc: string | null; body: string; updatedAt: number }>(), lock: "none" as "none" | "hello" | "pin", pin: null as string | null, unlocked: false };
+
 /** Shared notes in the preview: token -> the latest ciphertext and the image ids uploaded. */
 export const mockShares = new Map<string, { cipher: string; images: number[] }>();
 
@@ -87,6 +90,8 @@ export function resetMockBackend() {
   if (state?.timer) clearInterval(state.timer);
   mockLadder = null;
   resetMockTrackers();
+  mockShares.clear();
+  Object.assign(mockJournal, { days: new Map(), lock: "none", pin: null, unlocked: false });
   state = {
     settings: new Map([
       ["on_login", "home"],
@@ -310,6 +315,42 @@ const handlers: Record<string, (a: any) => unknown> = {
     const id = mockImageId++;
     mockImages.set(id, `data:${mime};base64,${data}`);
     return id;
+  },
+  // The journal (v0.2): pages by date, and the lock (the mock's PIN is kept plain; the app hashes it).
+  journal_status: () => ({ lock: mockJournal.lock, unlocked: mockJournal.lock === "none" || mockJournal.unlocked, helloAvailable: true }),
+  journal_get: ({ date }: { date: string }) => {
+    if (mockJournal.lock !== "none" && !mockJournal.unlocked) throw "The journal is locked.";
+    return clone(mockJournal.days.get(date) ?? null);
+  },
+  journal_save: ({ date, doc, body }: { date: string; doc: string | null; body: string }) => {
+    if (mockJournal.lock !== "none" && !mockJournal.unlocked) throw "The journal is locked.";
+    if (!body.trim()) {
+      mockJournal.days.delete(date);
+      return null;
+    }
+    const prev = mockJournal.days.get(date);
+    const day = { date, doc: doc ?? prev?.doc ?? null, body, updatedAt: Date.now() };
+    mockJournal.days.set(date, day);
+    return clone(day);
+  },
+  journal_written: ({ from, to }: { from: string; to: string }) => [...mockJournal.days.keys()].filter((d) => d >= from && d <= to).sort(),
+  journal_set_lock: ({ kind, pin }: { kind: "none" | "hello" | "pin"; pin: string | null }) => {
+    if (mockJournal.lock !== "none" && !mockJournal.unlocked) throw "The journal is locked.";
+    if (kind === "pin" && !/^\d{4,8}$/.test(pin ?? "")) throw "Use a PIN of 4 to 8 digits.";
+    Object.assign(mockJournal, { lock: kind, pin: kind === "pin" ? pin : null, unlocked: true });
+    return handlers.journal_status!({});
+  },
+  journal_unlock_pin: ({ pin }: { pin: string }) => {
+    if (pin !== mockJournal.pin) throw "That isn't the PIN.";
+    mockJournal.unlocked = true;
+    return handlers.journal_status!({});
+  },
+  journal_unlock_hello: () => {
+    mockJournal.unlocked = true;
+    return handlers.journal_status!({});
+  },
+  journal_lock: () => {
+    mockJournal.unlocked = false;
   },
   // Sharing (v0.2): the mock keeps the latest ciphertext per token, like the server would.
   share_note: ({ id, hours, key }: { id: number; hours: number; key: string }) => {

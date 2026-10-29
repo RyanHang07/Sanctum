@@ -11,6 +11,7 @@ import { HeldPage } from "../pages/HeldPage";
 import { Onboarding } from "../pages/onboarding/Onboarding";
 import { TrackersPage } from "../pages/trackers/TrackersPage";
 import { NotesPage } from "../pages/notes/NotesPage";
+import { JournalPage } from "../pages/journal/JournalPage";
 import { useNotes } from "../state/notes";
 import { CheckinDialog } from "./CheckinDialog";
 import { BootSplash } from "./BootSplash";
@@ -44,6 +45,8 @@ function Page({ tab }: { tab: TabId }) {
       return <TrackersPage />;
     case "notes":
       return <NotesPage />;
+    case "journal":
+      return <JournalPage />;
     case "setup":
       return <Setup />;
   }

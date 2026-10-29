@@ -17,6 +17,7 @@ mod unlock;
 mod updates;
 mod launcher;
 mod notes;
+mod journal;
 mod note_images;
 mod note_share;
 mod planner;
@@ -64,6 +65,7 @@ pub struct Shared {
     pub unlock: unlock::State,
     pub checkins: trackers::State,
     pub tamper: tamper::State,
+    pub journal: journal::State,
 }
 
 impl Shared {
@@ -685,6 +687,7 @@ pub fn run() {
                 unlock: unlock::State::default(),
                 checkins: trackers::State::new(),
                 tamper: tamper::State::default(),
+                journal: journal::State::default(),
             });
             // Windows are created here, not by Tauri, so no page can call a command before
             // Shared is managed (that panics inside WebView2 and aborts the app).
@@ -801,6 +804,14 @@ pub fn run() {
             note_share::share_note,
             note_share::update_note_share,
             note_share::stop_note_share,
+            journal::journal_status,
+            journal::journal_get,
+            journal::journal_save,
+            journal::journal_written,
+            journal::journal_set_lock,
+            journal::journal_unlock_pin,
+            journal::journal_unlock_hello,
+            journal::journal_lock,
             updates::update_install,
             updates::app_version,
             updates::diagnostics,

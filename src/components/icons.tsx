@@ -16,6 +16,10 @@ export const StatsIcon = ({ size = 15 }: P) => (
 export const NotesIcon = ({ size = 15 }: P) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3.5h8.5L19 8v12.5H6z" /><path d="M14 3.5V8h5M9 12.5h6M9 16h4" /></svg>
 );
+/** A closed book with a ribbon: the journal (v0.2). */
+export const JournalIcon = ({ size = 15 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.5h11.5v15H6.8A1.8 1.8 0 0 1 5 17.7V6.3A1.8 1.8 0 0 1 6.8 4.5" /><path d="M5 17.5a2 2 0 0 1 2-2h10.5M10 4.5v6l1.8-1.3 1.7 1.3v-6" /></svg>
+);
 export const SetupIcon = ({ size = 15 }: P) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
 );

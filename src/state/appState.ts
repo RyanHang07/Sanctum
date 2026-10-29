@@ -2,7 +2,7 @@
 export type AppState = "open" | "sealed" | "event";
 export const APP_STATES: readonly AppState[] = ["open", "sealed", "event"];
 
-export type TabId = "today" | "week" | "stats" | "trackers" | "notes" | "setup";
+export type TabId = "today" | "week" | "stats" | "trackers" | "notes" | "journal" | "setup";
 
 export interface TabDef {
   id: TabId;
@@ -19,6 +19,7 @@ export const TABS: readonly TabDef[] = [
   { id: "stats", label: "Stats", key: "Ctrl 3", hotkey: "3" },
   { id: "trackers", label: "Trackers", key: "Ctrl 4", hotkey: "4" },
   { id: "notes", label: "Notes", key: "Ctrl 5", hotkey: "5" },
+  { id: "journal", label: "Journal", key: "Ctrl 6", hotkey: "6" },
   { id: "setup", label: "Setup", key: "Ctrl ,", hotkey: "," },
 ];
 
@@ -26,7 +27,8 @@ export const tabLabel = (id: TabId) => TABS.find((t) => t.id === id)!.label;
 
 /** While sealed, every tab except Today and Notes is locked (jotting a thought down mid-focus is fine). */
 export function isTabLocked(state: AppState, tab: TabId): boolean {
-  return state === "sealed" && tab !== "today" && tab !== "notes";
+  // Notes and the journal stay open while sealed (v0.2 for the journal).
+  return state === "sealed" && tab !== "today" && tab !== "notes" && tab !== "journal";
 }
 
 /** Quitting while sealed is only possible through the break-the-seal ladder (SPEC 4.0.1). */
