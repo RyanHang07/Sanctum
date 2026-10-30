@@ -8,7 +8,7 @@ export const CONTACT = "ryan.hang3r@gmail.com";
 export const OPERATOR = "Ryan Hang";
 export const UPDATED = "October 29, 2026";
 const REPO = "https://github.com/ryanhang07/sanctum";
-export const SITE = "https://sanctum-app.vercel.app";
+export const SITE = "https://sanctum-desktop.vercel.app";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (

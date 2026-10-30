@@ -157,7 +157,7 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 3. First-run setup walks you through profiles and your Distractions list. Sanctum updates itself from Releases (Setup › General › About).
 
-Then, in the app (the [docs](https://sanctum-app.vercel.app/docs) walk through each step):
+Then, in the app (the [docs](https://sanctum-desktop.vercel.app/docs) walk through each step):
 
 - **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**.
 - **Protection** (Setup › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service.
@@ -176,7 +176,7 @@ Then, in the app (the [docs](https://sanctum-app.vercel.app/docs) walk through e
 
 ## Privacy
 
-Sanctum is local first. Sessions, activity (which app and window is in front), tasks, trackers, notes, the journal, and stats are stored in a database on your PC and never uploaded. A note you choose to share is encrypted on your PC first, with a key only the link carries. Google Calendar data travels only between your PC and Google. The optional account stores just what the partner and sharing features need: your email, partner links, a hashed PIN, unlock requests, and the ciphertext of notes you share until their links end. Read the full [privacy policy](https://sanctum-app.vercel.app/privacy) and [terms](https://sanctum-app.vercel.app/terms).
+Sanctum is local first. Sessions, activity (which app and window is in front), tasks, trackers, notes, the journal, and stats are stored in a database on your PC and never uploaded. A note you choose to share is encrypted on your PC first, with a key only the link carries. Google Calendar data travels only between your PC and Google. The optional account stores just what the partner and sharing features need: your email, partner links, a hashed PIN, unlock requests, and the ciphertext of notes you share until their links end. Read the full [privacy policy](https://sanctum-desktop.vercel.app/privacy) and [terms](https://sanctum-desktop.vercel.app/terms).
 
 ## FAQ
 
