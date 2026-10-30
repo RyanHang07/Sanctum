@@ -9,6 +9,12 @@ import { todayKey } from "../../lib/planner";
 
 const initial = { store: useStore.getState(), recap: useRecap.getState() };
 
+// A fixed afternoon: before the app's 04:00 day start, "today" is still yesterday, so a run
+// just after midnight (as on CI) would look for the data on the wrong day.
+const NOW = new Date(2026, 9, 28, 17, 0);
+beforeAll(() => vi.useFakeTimers({ toFake: ["Date"], now: NOW }));
+afterAll(() => vi.useRealTimers());
+
 beforeEach(() => {
   resetMockBackend();
   useStore.setState(initial.store, true);
@@ -16,7 +22,7 @@ beforeEach(() => {
 });
 
 const at = (key: string, h: number) => new Date(`${key}T${String(h).padStart(2, "0")}:00:00`).getTime();
-const today = todayKey(new Date(), "00:00");
+const today = todayKey(NOW, "00:00");
 
 async function openTab(name: string) {
   render(<StatsPage />);
