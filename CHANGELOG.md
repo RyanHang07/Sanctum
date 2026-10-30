@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3 (in progress)
+
+- **Themes, groundwork.** Every colour is now a theme variable (`--s-<name>` on `<html>`, src/theme/palette.ts) and Tailwind's colours and shadows point at them, so a theme swaps the whole app with no component changes. Sanctum Dark is design/tokens.json value for value, set before the first paint in every window; nothing looks different yet.
+
 ## v0.2.0 (2026-10-29)
 
 **Highlights**

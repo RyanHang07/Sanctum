@@ -5,7 +5,8 @@ import { theme } from "../theme/tokens";
 import type { HeldStats, SessionView } from "../lib/types";
 
 // Compact focus timer (SPEC 4.0.1, design/screens/MiniTimer.dc.html): 300x58, always on top,
-// draggable. Solid cobalt fills left to right with progress; text and ring stay white.
+// draggable. The theme's sealed colour fills left to right with progress; text and ring stay
+// on-sealed (white in Sanctum Dark).
 
 const colors = theme.colors as Record<string, string | Record<string, string>>;
 const sealed = (colors.sealed as Record<string, string>).DEFAULT;

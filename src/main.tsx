@@ -5,6 +5,10 @@ import { AppShell } from "./components/AppShell";
 import { TrayPanel } from "./windows/TrayPanel";
 import { CompactTimer } from "./windows/CompactTimer";
 import { InterceptWindow } from "./windows/Intercept";
+import { SANCTUM_DARK, applyTheme } from "./theme/palette";
+
+// Every colour is a theme variable (src/theme/palette.ts): set before the first paint.
+applyTheme(SANCTUM_DARK);
 
 // One bundle serves all three windows; the Tauri window config picks the view by hash.
 const view = window.location.hash.replace(/^#\/?/, "");
