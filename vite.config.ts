@@ -28,5 +28,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // The site's components (partner/) are tested here too: one React for both.
+    alias: [{ find: /^react(\/.*)?$/, replacement: `${process.cwd()}/node_modules/react$1` }, { find: /^react-dom(\/.*)?$/, replacement: `${process.cwd()}/node_modules/react-dom$1` }],
   },
 });

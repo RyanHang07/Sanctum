@@ -22,7 +22,7 @@ Everything it records stays in a database on your PC. The optional account holds
 
 ## Mac or Linux?
 
-Windows only for now. macOS is planned.
+Windows only for now. macOS is under way: a Mac build already compiles and passes its tests, and its own blocking comes next.
 
 ## Why does Windows warn about the installer?
 

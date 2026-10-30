@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { A, go } from "./nav";
 import { REPO } from "./releases";
 import { useTabTitle } from "../title";
+import { ThemePreview } from "./ThemePreview";
 
 // The docs (v0.2 site). Pages are Markdown in the repo (docs/guide/*.md, plus
 // docs/self-hosting.md), bundled at build time and drawn with react-markdown, which never
@@ -256,6 +257,12 @@ export function Docs({ slug }: { slug: string | null }) {
               <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
                 {page.text}
               </Markdown>
+              {/* The Themes page lets you try them (v0.3). */}
+              {page.slug === "themes" ? (
+                <div className="doc-preview">
+                  <ThemePreview />
+                </div>
+              ) : null}
             </div>
             <div className="doc-pager">
               {prev ? (

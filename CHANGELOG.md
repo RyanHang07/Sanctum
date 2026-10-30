@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.1 (in progress)
+
+- **Try the themes on the site.** The home page and the docs' Themes page have a small Sanctum window: pick any of the thirteen themes and see it open or sealed. It draws with the app's own theme colours (src/theme/themes.ts), so it can't drift from the app; only the window repaints, and the site keeps its light or dark.
+- **The README and docs, brought up to date** for v0.3: Stats' tabs and the Monday recap, themes (with a "Make it yours" section), one-click updates, the extension updating itself, counters and Start with Windows, the theme step in first-run setup, where macOS stands, and the site's place in the repo. "A light theme" is off the roadmap: it shipped.
+
 ## v0.3.0 (2026-10-29)
 
 **Highlights**

@@ -75,9 +75,13 @@ Routines and one-time tasks, synced two ways with Google Calendar. Tag a block w
 
 ### See where the time went
 
-Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting.
+Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting. Tabs go deeper: **Sessions** keeps every session for good, with what was blocked and how it ended (export it as CSV); **Activity** shows time by app and by site, and one click calls any of them productive or distracting, everywhere or in one profile; **Day** lays out a day as a timeline under its focus sessions. Each Monday, a short card says how last week went.
 
 <img src="docs/screenshots/stats.png" alt="Stats: streaks, daily focus against the goal, what tempted you, and where time went" />
+
+### Make it yours
+
+Thirteen themes, from Sanctum Dark and Light to Dracula, Nord, Tokyo Night, and Catppuccin. Every window follows, along with the title bar, the browser extension's pages, and the tray icon, and **Follow Windows** switches between a dark and a light pick with the system. [Try them on the site](https://sanctum-desktop.vercel.app/#themes).
 
 ### Track anything, keep notes, and journal
 
@@ -127,12 +131,19 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 - Today and Week: routines, one-time tasks, and Google Calendar events, synced two ways.
 - Focus blocks on your calendar suggest the right profile when they start.
 - In event: a meeting holds focus, and you can queue a session for when it ends.
-- Ctrl K to jump anywhere, add a task, flag a distraction, or start focus with any profile.
+- Counters: routines with a daily goal ("Protein, 150 g"), logged from Home.
+- Ctrl K to jump anywhere, add a task, flag a distraction, start focus with any profile, or change the theme.
 
 **Review**
 - Stats: streaks, rest days, kept and broken days, what tempted you, and where the time went.
+- Every session kept, filtered and exported as CSV; time by app and site, reclassified in one click; a timeline of each day; and a Monday recap of last week.
 - Trackers with charts and check-ins, block notes with encrypted sharing, and a journal.
 - Export everything as JSON or CSV, back up, and restore.
+
+**Make it yours**
+- Thirteen themes, colours only, held to the same contrast standard; Follow Windows picks dark or light with the system.
+- The theme reaches every window, the title bar, the extension's pages, and the tray icon (dark ink on a light taskbar).
+- Start with Windows, and updates in one click: Sanctum downloads them in the background and installs on **Restart to update**, never mid-seal.
 
 ---
 
@@ -155,11 +166,11 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 
 1. Download `Sanctum_x.y.z_x64-setup.exe` from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
-3. First-run setup walks you through profiles and your Distractions list. Sanctum updates itself from Releases (Setup › General › About).
+3. First-run setup walks you through profiles, your Distractions list, and a theme. After that Sanctum keeps itself up to date: it downloads new versions in the background, and **Restart to update** installs them.
 
 Then, in the app (the [docs](https://sanctum-desktop.vercel.app/docs) walk through each step):
 
-- **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**.
+- **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**. It updates along with Sanctum.
 - **Protection** (Setup › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service.
 - **Google Calendar and a partner** (Setup › Calendar, Setup › Partner) are optional.
 
@@ -190,7 +201,7 @@ The seal resumes where it left off, but being gone for more than a minute breaks
 Yes. Everything but Calendar sync and the partner works without a connection.
 
 **Mac or Linux?**
-Windows only for now. The code is designed for macOS later.
+Windows only for now. macOS is under way: a Mac build already compiles and passes its tests, and its own blocking comes next.
 
 **Is it really free?**
 Yes, MIT licensed, no account required, no ads, no tracking.
@@ -231,7 +242,7 @@ Google Calendar sync and the account and partner features need your own keys. Wi
 | `src/` | The React UI: pages, components, state (Zustand), and a mock backend for browser dev and tests |
 | `src-tauri/` | The Rust app: session engine, blocker, activity tracking, calendar sync, guard service, SQLite |
 | `extension/` | The Chromium MV3 extension, talking to the app through native messaging |
-| `partner/` | The partner's web page (Vite), deployed separately |
+| `partner/` | The site (Vite, on Vercel): home, docs, changelog, legal, and the partner's pages |
 | `supabase/` | Database migrations and Edge Functions for the account and partner |
 | `design/` | The design reference: screens, tokens, and the logo |
 | `SPEC.md` | What Sanctum does and why, milestone by milestone |
@@ -241,8 +252,7 @@ Google Calendar sync and the account and partner features need your own keys. Wi
 - The extension in the Chrome Web Store and Edge Add-ons, and Firefox, Opera, Vivaldi, and Arc support
 - A code-signed installer
 - Closing private windows while sealed until the extension is allowed there
-- A light theme
-- macOS
+- macOS (the groundwork is in, and a Mac build runs in CI)
 
 Ideas and votes welcome in [Issues](https://github.com/ryanhang07/sanctum/issues).
 

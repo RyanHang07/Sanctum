@@ -1,5 +1,5 @@
 /* The site (v0.2): home, docs, changelog, and the partner pages in one frame. Dark is the app's
-   own palette (design/tokens.css); light is the site's, as tokens, until the app gets themes. */
+   own palette (design/tokens.css); light is the site's, as tokens (the app's themes are tried in ThemePreview.tsx). */
 
 :root {
   --site-w: 1120px;

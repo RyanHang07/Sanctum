@@ -1,0 +1,313 @@
+/* The theme preview (v0.3): the controls use the site's tokens; the window inside uses only the
+   picked theme's, as --p-<name> (set from src/theme/themes.ts), so it shows the app as it is. */
+
+.tp {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.tp-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tp-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.tp-chip:hover {
+  color: var(--text);
+  border-color: var(--line-input);
+}
+
+.tp-chip[aria-checked="true"] {
+  color: var(--text);
+  border-color: var(--sealed-text);
+}
+
+.tp-chip:focus-visible,
+.tp-mode button:focus-visible {
+  outline: 2px solid var(--sealed-text);
+  outline-offset: 2px;
+}
+
+/* Each chip shows its theme: its background with its accent in the corner. */
+.tp-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--chip-app) 50%, var(--chip-accent) 50%);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.35);
+}
+
+.tp-mode {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--radius-control);
+}
+
+.tp-mode button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tp-mode button[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* The window, in the picked theme. */
+.tp-window {
+  position: relative;
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid var(--p-line);
+  border-radius: 10px;
+  background: var(--p-app);
+  color: var(--p-text);
+  box-shadow: var(--shot-shadow);
+  font-size: 13px;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+
+.tp-mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 15% 10%, var(--p-held-1), transparent 70%),
+    radial-gradient(55% 60% at 90% 20%, var(--p-held-2), transparent 70%),
+    radial-gradient(60% 70% at 80% 100%, var(--p-held-3), transparent 70%),
+    radial-gradient(50% 60% at 10% 95%, var(--p-held-4), transparent 70%);
+  transition: opacity 0.5s;
+}
+
+.tp-window.sealed .tp-mesh {
+  opacity: 0.55;
+}
+
+.tp-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--p-line);
+  background: var(--p-sidebar);
+  color: var(--p-muted);
+}
+
+.tp-window.sealed .tp-side {
+  background: transparent;
+}
+
+.tp-mark {
+  margin: 0 0 10px 6px;
+}
+
+.tp-side span {
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+
+.tp-side span.on {
+  background: var(--p-raised);
+  color: var(--p-text);
+  font-weight: 500;
+}
+
+.tp-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+
+.tp-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.tp-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tp-pill {
+  padding: 6px 10px;
+  border: 1px solid var(--p-line-input);
+  border-radius: 6px;
+  background: var(--p-panel);
+  color: var(--p-text-2);
+}
+
+.tp-button {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.tp-button.primary {
+  margin-left: auto;
+  background: var(--p-sealed);
+  color: var(--p-sealed-on);
+}
+
+.tp-button.ghost {
+  align-self: flex-start;
+  border: 1px solid var(--p-sealed-line);
+  color: var(--p-sealed-text);
+  font-weight: 500;
+}
+
+.tp-sealed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tp-state {
+  color: var(--p-sealed-text);
+  font-weight: 600;
+}
+
+.tp-time {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.tp-sub {
+  margin-bottom: 6px;
+  color: var(--p-muted);
+}
+
+.tp-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--p-line);
+  border-radius: 8px;
+  background: var(--p-panel);
+}
+
+.tp-task {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--p-line-soft);
+  color: var(--p-text);
+}
+
+.tp-task:first-child {
+  border-top: 0;
+}
+
+.tp-task.done {
+  color: var(--p-faint);
+  text-decoration: line-through;
+}
+
+.tp-check {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--p-check-line);
+  border-radius: 4px;
+}
+
+.tp-task.done .tp-check {
+  border-color: var(--p-sealed);
+  background: var(--p-sealed);
+}
+
+.tp-task.event {
+  color: var(--p-text-2);
+}
+
+.tp-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 2.5px;
+  border-radius: 50%;
+  background: var(--p-event);
+}
+
+.tp-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 560px) {
+  .tp-window {
+    grid-template-columns: 1fr;
+  }
+  .tp-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    border-right: 0;
+    border-bottom: 1px solid var(--p-line);
+  }
+  .tp-mark {
+    margin: 0 6px 0 4px;
+  }
+  .tp-side span:not(.on) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-window,
+  .tp-mesh,
+  .tp-chip {
+    transition: none;
+  }
+}

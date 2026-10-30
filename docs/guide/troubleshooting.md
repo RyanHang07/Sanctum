@@ -12,7 +12,7 @@ Apps run as administrator need Protection on. Check the app is on your Distracti
 
 ## The extension says it can't reach Sanctum
 
-Sanctum has to be running. Reload the extension on your browser's extensions page; after an update, reload it once.
+Sanctum has to be running. Reload the extension on your browser's extensions page. Extension 0.2.2 and earlier need one reload by hand after Sanctum updates; from 0.3.0 it reloads itself.
 
 ## The seal broke on its own
 
