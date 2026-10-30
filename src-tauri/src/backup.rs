@@ -140,11 +140,11 @@ pub fn check_backup(path: &Path) -> Result<usize, String> {
     Ok(version)
 }
 
-fn stamp(now: chrono::DateTime<chrono::Local>) -> String {
+pub(crate) fn stamp(now: chrono::DateTime<chrono::Local>) -> String {
     now.format("%Y-%m-%d %H%M%S").to_string()
 }
 
-fn folder(app: &AppHandle, sub: &str) -> Result<PathBuf, String> {
+pub(crate) fn folder(app: &AppHandle, sub: &str) -> Result<PathBuf, String> {
     let docs = app.path().document_dir().map_err(|e| e.to_string())?;
     let dir = docs.join("Sanctum").join(sub);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Couldn't create {}: {e}", dir.display()))?;
@@ -160,7 +160,7 @@ pub struct FileInfo {
     pub modified_at: i64,
 }
 
-fn info(path: &Path) -> Option<FileInfo> {
+pub(crate) fn info(path: &Path) -> Option<FileInfo> {
     let meta = std::fs::metadata(path).ok()?;
     let modified_at = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64;
     Some(FileInfo {

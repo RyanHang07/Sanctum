@@ -212,9 +212,13 @@ impl State {
 fn load_classifier(conn: &Connection, session_profile: Option<i64>) -> Classifier {
     let user = classify::list(conn).unwrap_or_default();
     let all = profiles::list(conn).unwrap_or_default();
+    // The sealed profile's own exceptions (Stats › Activity, v0.3) come first, then what it opens.
     let session = session_profile
-        .and_then(|id| all.iter().find(|p| p.id == id))
-        .map(classify::profile_rules)
+        .map(|id| {
+            let mut rules = crate::insights::exceptions(conn, id).unwrap_or_default();
+            rules.extend(all.iter().find(|p| p.id == id).map(classify::profile_rules).unwrap_or_default());
+            rules
+        })
         .unwrap_or_default();
     let flags = crate::distractions::as_rules(&crate::distractions::list(conn).unwrap_or_default());
     Classifier { flags, session, user, profiles: all.iter().flat_map(classify::profile_rules).collect() }

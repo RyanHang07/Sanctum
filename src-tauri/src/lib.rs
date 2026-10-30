@@ -17,6 +17,7 @@ mod unlock;
 mod updates;
 mod launcher;
 mod notes;
+mod insights;
 mod journal;
 mod note_images;
 mod note_share;
@@ -847,6 +848,13 @@ pub fn run() {
             updates::update_ready,
             updates::update_apply,
             updates::open_site,
+            insights::stats_sessions,
+            insights::stats_session,
+            insights::stats_sessions_csv,
+            insights::stats_activity,
+            insights::stats_reclassify,
+            insights::stats_day,
+            insights::stats_recap,
             updates::app_version,
             updates::diagnostics,
             guard_install,

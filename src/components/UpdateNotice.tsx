@@ -13,7 +13,7 @@ export function UpdateNotice() {
     <div
       role="region"
       aria-label="Update ready"
-      className="absolute bottom-7 right-7 z-20 flex w-[300px] animate-rise-in flex-col gap-3 rounded-panel border border-line-input bg-toast p-[14px] shadow-toast"
+      className="flex w-[300px] animate-rise-in flex-col gap-3 rounded-panel border border-line-input bg-toast p-[14px] shadow-toast"
     >
       <div className="flex flex-col gap-[2px]">
         <span className="text-body font-medium text-text">Sanctum {ready.version} is ready.</span>
