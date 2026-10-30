@@ -31,6 +31,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0024_journal", include_str!("../migrations/0024_journal.sql")),
     ("0025_class_exceptions", include_str!("../migrations/0025_class_exceptions.sql")),
     ("0026_focus_science", include_str!("../migrations/0026_focus_science.sql")),
+    ("0027_weekly_review", include_str!("../migrations/0027_weekly_review.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.

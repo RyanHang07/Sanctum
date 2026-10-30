@@ -8,6 +8,26 @@ import type { DndStatus } from "../../lib/types";
 // Setup › General › App (v0.1): Windows Do Not Disturb while sealed. Windows has no public switch,
 // so Sanctum uses the internal one; the hint says plainly when this Windows won't allow it.
 
+/** Also during quiet hours (v0.3.1, off to start): batching notifications helped well-being and
+ *  felt more productive (Fitz et al. 2019). */
+export function DndQuietRow() {
+  const [s, setS] = useState<DndStatus | null>(null);
+  useEffect(() => void native.dndStatus().then(setS, () => undefined), []);
+  if (!s?.supported) return null;
+  const toggle = async (on: boolean) => {
+    try {
+      setS(await native.dndSetQuiet(on));
+    } catch (e) {
+      useStore.getState().showNotice({ lead: errorText(e) });
+    }
+  };
+  return (
+    <Row label="Do not disturb in quiet hours" hint="Notifications hold until quiet hours end; alarms still ring.">
+      <Switch label="Do not disturb in quiet hours" checked={!!s.quiet} onChange={(v) => void toggle(v)} />
+    </Row>
+  );
+}
+
 export function DndRow() {
   const [s, setS] = useState<DndStatus | null>(null);
   const sealed = useStore((st) => st.appState === "sealed");

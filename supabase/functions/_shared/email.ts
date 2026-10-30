@@ -12,7 +12,8 @@ export type EmailKind =
   | "invite"
   | "unlock_decided"
   | "magic_link"
-  | "confirm_signup";
+  | "confirm_signup"
+  | "weekly_summary";
 
 export interface EmailData {
   /** Who it's about: the person sealed in (their display name or email). */
@@ -185,6 +186,16 @@ function parts(kind: EmailKind, d: EmailData): Parts {
             quoteLabel: `${partner} said`,
             foot: "Sent by Sanctum because you asked your partner to end a session early.",
           };
+    case "weekly_summary":
+      // v0.3.1, opt-in by the person sealed in: the week's totals, never sites or apps.
+      return {
+        subject: `${who}'s week in focus`,
+        preheader: d.detail || `How ${who}'s week went.`,
+        heading: `${who}'s week, in short.`,
+        lines: [d.detail ? `${d.detail}.` : `${who} kept at it last week.`, `A word from you goes a long way.`],
+        button: link ? { label: "Open the partner page", href: link } : undefined,
+        foot: `${who} chose to send you this each Monday. ${partnerFoot}`,
+      };
     case "magic_link":
       return {
         subject: "Your Sanctum sign-in link",
@@ -220,6 +231,7 @@ export const SAMPLES: { kind: EmailKind; label: string; data: EmailData }[] = [
   { kind: "invite", label: "Invite (to a future partner)", data: { who: "Ryan", link: "https://partner.example/invite/abc" } },
   { kind: "unlock_decided", label: "Unlock approved (to you)", data: { partner: "Alex", approved: true, note: "Go. Finish the set after." } },
   { kind: "unlock_decided", label: "Unlock denied (to you)", data: { partner: "Alex", approved: false, note: "Use your phone for the link. Finish the set." } },
+  { kind: "weekly_summary", label: "Weekly summary (to the partner, opt-in)", data: { who: "Ryan", detail: "11h 20m in focus over 12 sessions, 5 of 6 days kept, a 4-day streak", link: "https://partner.example/partner" } },
   { kind: "magic_link", label: "Sign-in link (Supabase template)", data: { link: "{{ .ConfirmationURL }}" } },
   { kind: "confirm_signup", label: "Confirm email (Supabase template)", data: { link: "{{ .ConfirmationURL }}" } },
 ];

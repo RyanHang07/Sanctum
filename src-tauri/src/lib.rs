@@ -19,6 +19,7 @@ mod launcher;
 mod notes;
 mod focus;
 mod pause;
+mod review;
 mod insights;
 mod journal;
 mod note_images;
@@ -886,6 +887,11 @@ pub fn run() {
             engine::preview_seal,
             engine::start_session,
             engine::quiet_status,
+            review::review_week_target,
+            review::review_set_week_target,
+            review::review_save,
+            review::review_suggestions,
+            review::review_recap_shown,
             engine::pause_status,
             engine::pause_save,
             engine::pause_answer,
@@ -902,6 +908,7 @@ pub fn run() {
             backup::backup_restore,
             backup::data_reveal,
             dnd::dnd_set_enabled,
+            dnd::dnd_set_quiet,
             engine::quiet_save,
             engine::quiet_pause,
             engine::quiet_resume,

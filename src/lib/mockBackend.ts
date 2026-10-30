@@ -5,14 +5,14 @@ import type { HeldStats, InstalledApp, Intercept, LaunchReport, NewRule, Profile
 import { guessDistraction, normalizeAllow, normalizeDomain } from "./rules";
 import { catalogClassRules, catalogDistractions } from "./catalog";
 import type { GuardStatus, ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
-import { addDays, fromKey, minutesOf, todayKey } from "./planner";
+import { addDays, fromKey, minutesOf, todayKey, weekStart } from "./planner";
 import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
 import { insightControls, insightHandlers, resetMockInsights } from "./mockInsights";
 import type { Note, NoteDraft } from "./types";
 import { dayStatus, streakAtRisk, streaks } from "./stats";
 import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
-import type { BreakView, PauseConfig, QuietConfig, SessionResult, TaskLink } from "./types";
+import type { BreakView, PauseConfig, QuietConfig, SessionResult, Suggestion, TaskLink } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
@@ -88,6 +88,8 @@ interface MockState {
   /** Pause mode and the break after a seal (v0.3.1). */
   pause: { config: PauseConfig; log: { what: string; kind: "app" | "site"; outcome: "went_on" | "turned_back"; ts: number }[] };
   brk: BreakView | null;
+  /** The week's target (minutes, or null for the default), reviews, and suggestions (v0.3.1). */
+  review: { target: number | null; saved: Record<string, { worked: string | null; change: string | null }>; suggestions: Suggestion[] };
   /** The seal's science (v0.3.1): each profile's last plan, and finished seals' wrap-ups. */
   focus: {
     plans: Record<number, string>;
@@ -141,6 +143,7 @@ export function resetMockBackend() {
     focus: { plans: {}, ended: {} },
     pause: { config: { mode: "off", daysMask: 127, start: "09:00", end: "17:00" }, log: [] },
     brk: null,
+    review: { target: null, saved: {}, suggestions: [] },
     guard: { installed: false, decline: false, restarts: [] },
     notes: [],
     quiet: { config: { ...DEFAULT_QUIET }, pausedUntil: null, pauses: [] },
@@ -500,7 +503,7 @@ const handlers: Record<string, (a: any) => unknown> = {
     state.settings.set("guard_close_elevated", enabled ? "1" : "0");
     return enabled;
   },
-  dnd_status: () => ({ enabled: state.settings.get("dnd_on_seal") !== "0", supported: true, active: !!state.session && state.settings.get("dnd_on_seal") !== "0" }),
+  dnd_status: () => ({ enabled: state.settings.get("dnd_on_seal") !== "0", quiet: state.settings.get("dnd_on_quiet") === "1", supported: true, active: !!state.session && state.settings.get("dnd_on_seal") !== "0" }),
   dnd_set_enabled: ({ enabled }: { enabled: boolean }) => {
     state.settings.set("dnd_on_seal", enabled ? "1" : "0");
     return handlers.dnd_status!({});
@@ -535,6 +538,28 @@ const handlers: Record<string, (a: any) => unknown> = {
     return state.distractions
       .filter((d) => d.kind === "app" && state.running.has(d.value) && !opens.has(d.value))
       .map((d) => d.label ?? d.value);
+  },
+  review_week_target: () => {
+    const reset = state.settings.get("daily_reset_time") ?? "04:00";
+    const today = todayKey(new Date(), reset);
+    const monday = weekStart(today);
+    const focus = statsOverview(monday, today).focusMin;
+    const goal = Number(state.settings.get("daily_goal_min") ?? 120);
+    return { week: monday, targetMin: state.review.target ?? goal * 5, isDefault: state.review.target === null, focusMin: focus };
+  },
+  review_set_week_target: ({ minutes }: { minutes: number | null }) => {
+    if (minutes !== null && (minutes < 30 || minutes > 4800)) throw "A week's target is 30 minutes to 80 hours.";
+    state.review.target = minutes;
+  },
+  review_save: ({ week, worked, change }: { week: string; worked: string | null; change: string | null }) => {
+    state.review.saved[week] = { worked: worked?.trim() || null, change: change?.trim() || null };
+    return { inJournal: mockJournal.lock === "none" || mockJournal.unlocked };
+  },
+  review_suggestions: () => clone(state.review.suggestions),
+  review_recap_shown: () => undefined,
+  dnd_set_quiet: ({ enabled }: { enabled: boolean }) => {
+    state.settings.set("dnd_on_quiet", enabled ? "1" : "0");
+    return handlers.dnd_status!({});
   },
   pause_status: () => ({ config: clone(state.pause.config), on: state.pause.config.mode === "all" || (state.pause.config.mode === "hours" && !!mockQuietStatus({ enabled: true, daysMask: state.pause.config.daysMask, start: state.pause.config.start, end: state.pause.config.end }, null, false).active) }),
   pause_save: ({ config }: { config: PauseConfig }) => {
@@ -1170,6 +1195,12 @@ export const mockControls = {
     state.gcal.events.push({ ...e, startMs: now - 10 * 60_000, endMs: now + minutesLeft * 60_000 });
     bus.emit(EV.gcal, gcalStatus());
   },
+  /** Suggestions from your own history, for Stats and the focus row. */
+  suggestions(list: Suggestion[]) {
+    state.review.suggestions = list;
+  },
+  /** What the Monday card saved. */
+  reviewState: () => state.review,
   /** The break after a seal runs out ("Next block?"). */
   breakOver() {
     const b = state.brk;

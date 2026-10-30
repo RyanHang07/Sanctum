@@ -12,6 +12,9 @@ const STATE_NAME: u64 = 0x0D83_063E_A3BF_1C75;
 /// Alarms only: nothing but alarms gets through while sealed.
 const ALARMS_ONLY: u32 = 2;
 const SETTING: &str = "dnd_on_seal";
+/// Also during quiet hours (v0.3.1, off to start): batching notifications helped well-being and
+/// felt more productive (Fitz et al. 2019).
+const QUIET_SETTING: &str = "dnd_on_quiet";
 const RESTORE: &str = "dnd_restore";
 
 #[cfg(windows)]
@@ -89,11 +92,30 @@ fn saved_restore(app: &AppHandle) -> Option<u32> {
 
 /// Seal started (or resumed): alarms only, remembering what was there. Seal ended: put it back.
 /// Runs off the caller's thread; the WNF calls are quick, but the database lock may not be.
+fn quiet_enabled(app: &AppHandle) -> bool {
+    let shared = app.state::<Shared>();
+    let v = shared.db.lock().ok().and_then(|c| db::get_setting(&c, QUIET_SETTING).ok().flatten());
+    v.as_deref() == Some("1")
+}
+
+/// Quiet hours started or ended (outside a seal): Do not disturb follows, if you asked.
+pub fn on_quiet(app: &AppHandle, quiet: bool) {
+    if app.state::<Shared>().sealed() || !quiet_enabled(app) {
+        return;
+    }
+    hold(app, quiet, true);
+}
+
 pub fn on_seal(app: &AppHandle, sealed: bool) {
+    hold(app, sealed, enabled(app));
+}
+
+/// Turns Do not disturb on (remembering what was there) or gives the old setting back.
+fn hold(app: &AppHandle, on: bool, wanted: bool) {
     let app = app.clone();
     std::thread::spawn(move || {
-        if sealed {
-            if !enabled(&app) {
+        if on {
+            if !wanted {
                 return;
             }
             // A resumed seal already saved the original; don't overwrite it with our own value.
@@ -123,6 +145,8 @@ pub fn restore(app: &AppHandle) {
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub enabled: bool,
+    /// Also during quiet hours (v0.3.1).
+    pub quiet: bool,
     /// The switch can be read on this Windows.
     pub supported: bool,
     /// Sanctum has it on right now (sealed).
@@ -132,7 +156,7 @@ pub struct Status {
 #[tauri::command]
 pub fn dnd_status(app: AppHandle) -> Status {
     let current = read();
-    Status { enabled: enabled(&app), supported: current.is_some(), active: current == Some(ALARMS_ONLY) && saved_restore(&app).is_some() }
+    Status { enabled: enabled(&app), quiet: quiet_enabled(&app), supported: current.is_some(), active: current == Some(ALARMS_ONLY) && saved_restore(&app).is_some() }
 }
 
 #[tauri::command]
@@ -144,6 +168,20 @@ pub fn dnd_set_enabled(app: AppHandle, shared: State<Shared>, enabled: bool) -> 
     // Turning it off mid-seal gives notifications back now; on, it starts with the next seal.
     if !enabled {
         restore(&app);
+    }
+    Ok(dnd_status(app))
+}
+
+#[tauri::command]
+pub fn dnd_set_quiet(app: AppHandle, shared: State<Shared>, enabled: bool) -> Result<Status, String> {
+    {
+        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        db::set_setting(&conn, QUIET_SETTING, if enabled { "1" } else { "0" }).map_err(|e| e.to_string())?;
+    }
+    // Inside quiet hours now: follow the switch right away.
+    let quiet_now = shared.engine.quiet_until().is_some();
+    if quiet_now && !shared.sealed() {
+        hold(&app, enabled, true);
     }
     Ok(dnd_status(app))
 }

@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppState } from "../state/appState";
 import type {
+  Suggestion,
+  WeekTarget,
   BreakView,
   PauseConfig,
   PauseStatus,
@@ -167,6 +169,12 @@ export const native = {
   // The seal's science (v0.3.1, src-tauri/src/focus.rs).
   focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
   pauseStatus: () => call<PauseStatus>("pause_status"),
+  reviewWeekTarget: () => call<WeekTarget>("review_week_target"),
+  reviewSetWeekTarget: (minutes: number | null) => call<void>("review_set_week_target", { minutes }),
+  reviewSave: (week: string, worked: string | null, change: string | null) => call<{ inJournal: boolean }>("review_save", { week, worked, change }),
+  reviewSuggestions: () => call<Suggestion[]>("review_suggestions"),
+  reviewRecapShown: () => call<void>("review_recap_shown"),
+  dndSetQuiet: (enabled: boolean) => call<DndStatus>("dnd_set_quiet", { enabled }),
   pauseSave: (config: PauseConfig) => call<PauseStatus>("pause_save", { config }),
   pauseAnswer: (goOn: boolean) => call<void>("pause_answer", { goOn }),
   pauseSummary: (from: string, to: string) => call<PauseSummary>("pause_summary", { from, to }),

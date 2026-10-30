@@ -26,6 +26,11 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 - [ ] **Pause hours:** set hours that start in a minute; the browsers start asking when they begin and stop when they end.
 - [ ] **Break:** from the held page, a 5-minute break keeps flagged apps and sites closed, Home counts down, and at the end "Break's over. Next block?" starts the same profile and length.
 
+- [ ] **Monday card:** the questions save (with the journal unlocked, they're on today's page; locked, the notice says they're kept with the week), and the target shows on Home's focus strip.
+- [ ] **Partner's weekly summary (live):** with the switch on and a partner linked, the Monday card's first showing sends one "{you}'s week in focus" email with totals only; the next start that week sends none. Needs `notify` deployed with `weekly_summary`.
+- [ ] **Suggestions on real data:** after a few weeks, Stats › Overview's "From your own history" says something true, and each "Use it" does what it says.
+- [ ] **Do not disturb in quiet hours:** with the switch on, Windows' Do not disturb turns on when quiet hours start and back off when they end (and stays right across a seal inside quiet hours).
+
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.

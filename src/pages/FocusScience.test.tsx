@@ -1,9 +1,14 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { HeldPage } from "./HeldPage";
 import { brokeLine, planLine } from "./headlines";
 import { ParkCard, PauseCard } from "../windows/Intercept";
 import { PauseModeSection } from "./setup/PauseMode";
+import { WeekTargetRow } from "./setup/WeekTarget";
+import { DndQuietRow } from "./setup/Dnd";
+import { Suggestions } from "./stats/Suggestions";
+import { RecapNotice } from "../components/RecapNotice";
+import { useRecap } from "../state/recap";
 import { useStore } from "../state/store";
 import { usePlanner } from "../state/planner";
 import { connectNativeEvents } from "../state/events";
@@ -192,5 +197,76 @@ describe("a break after a seal", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "End break" })));
     expect(useStore.getState().brk).toBeNull();
     expect(screen.getByTestId("focus-row")).toBeInTheDocument();
+  });
+});
+
+describe("the week, reviewed", () => {
+  const recap = { week: "2026-10-19", focusMin: 680, previousFocusMin: 560, kept: 5, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: "discord.exe", sessions: 12 };
+
+  it("the Monday card keeps your answers and this week's target", async () => {
+    useRecap.setState({ recap });
+    render(<RecapNotice />);
+    const card = within(screen.getByRole("region", { name: "Last week" }));
+    const target = await card.findByLabelText("This week's target, in hours");
+    // A new install starts at the daily goal for five days: 2h x 5.
+    await waitFor(() => expect(target).toHaveValue(10));
+    expect(card.getByText("· your recent average")).toBeInTheDocument();
+    fireEvent.change(card.getByLabelText("What worked?"), { target: { value: "Mornings, phone in the other room" } });
+    fireEvent.change(card.getByLabelText("What will you change?"), { target: { value: "Start before 9" } });
+    fireEvent.change(target, { target: { value: "12.5" } });
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Save" })));
+    expect(mockControls.reviewState().saved[Object.keys(mockControls.reviewState().saved)[0]!]).toEqual({ worked: "Mornings, phone in the other room", change: "Start before 9" });
+    expect((await native.reviewWeekTarget()).targetMin).toBe(750);
+    expect(useStore.getState().notice?.rest).toBe("It's on today's journal page too.");
+    expect(useRecap.getState().recap).toBeNull();
+  });
+
+  it("Home shows the week against its target; Setup changes it or goes back to the average", async () => {
+    render(<Home />);
+    expect(await screen.findByTestId("week-progress")).toHaveTextContent("Week 0m of 10h");
+    render(<WeekTargetRow />);
+    const input = await screen.findByLabelText("Week's focus target, in hours");
+    fireEvent.change(input, { target: { value: "8" } });
+    await act(async () => fireEvent.blur(input));
+    expect((await native.reviewWeekTarget()).targetMin).toBe(480);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Use my average" })));
+    expect((await native.reviewWeekTarget()).isDefault).toBe(true);
+  });
+
+  it("suggestions from your history do what they say", async () => {
+    const [p] = await native.listProfiles();
+    mockControls.suggestions([
+      { kind: "length", line: "Your 45-minute seals finish 90% of the time; 90-minute ones 55%.", profileId: p!.id, minutes: 45 },
+      { kind: "hours", line: "Your kept seals cluster 9 AM to 11 AM.", start: "09:00", end: "11:00", profileId: p!.id },
+      { kind: "tempted", line: "Discord gets in most after 40 minutes.", what: "discord.exe", afterMin: 40 },
+    ]);
+    render(<Suggestions />);
+    const card = within(await screen.findByRole("region", { name: "From your own history" }));
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Use 45 min" })));
+    expect((await native.listProfiles()).find((x) => x.id === p!.id)?.defaultMinutes).toBe(45);
+    expect(useStore.getState().durationMin).toBe(45);
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Add a focus block" })));
+    expect((await native.listRoutines()).find((r) => r.title === "Focus block")).toMatchObject({ time: "09:00", durationMin: 120, profileId: p!.id });
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Write an if-then" })));
+    expect(useStore.getState().activeTab).toBe("today");
+  });
+
+  it("the focus row says your best length when you've picked another", async () => {
+    const [p] = await native.listProfiles();
+    mockControls.suggestions([{ kind: "length", line: "Your 45-minute seals finish 90% of the time; 90-minute ones 55%.", profileId: p!.id, minutes: 45 }]);
+    useStore.getState().setDuration(90);
+    render(<Home />);
+    const tip = await screen.findByTestId("length-tip");
+    await act(async () => fireEvent.click(within(tip).getByRole("button", { name: "Use 45 min" })));
+    expect(useStore.getState().durationMin).toBe(45);
+    expect(screen.queryByTestId("length-tip")).toBeNull();
+  });
+
+  it("Do not disturb can follow quiet hours too", async () => {
+    render(<DndQuietRow />);
+    const sw = await screen.findByRole("switch", { name: "Do not disturb in quiet hours" });
+    expect(sw).not.toBeChecked();
+    await act(async () => fireEvent.click(sw));
+    expect((await native.dndStatus()).quiet).toBe(true);
   });
 });
