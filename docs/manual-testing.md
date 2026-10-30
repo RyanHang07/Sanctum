@@ -66,5 +66,5 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 
 ## macOS (no Mac on hand)
 
-- [ ] **CI:** the macOS workflow passes (compiles, Rust tests pass, unsigned `Sanctum.app` built).
+- [x] **CI:** the macOS workflow passes (compiles, Rust tests pass, unsigned `Sanctum.app` built).
 - [ ] **On a real Mac:** the app opens (right-click › Open the first time), the main window works, and the tray icon appears. Protection, Windows Hello, Do Not Disturb and app blocking are expected to say they aren't there yet.
