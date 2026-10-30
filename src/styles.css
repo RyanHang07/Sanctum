@@ -19,10 +19,25 @@
     overflow: hidden;
     user-select: none;
   }
-  /* The app is dark: native popups (select menus, date pickers) open dark too, instead of
-     Windows' white menu with washed-out text. */
+  /* Native popups (select menus, date pickers) follow the theme's light or dark, instead of
+     Windows' white menu with washed-out text; applyTheme (src/theme/palette.ts) sets it. */
   :root {
     color-scheme: dark;
+  }
+  /* The mark that fits the theme (components/Mark.tsx). */
+  .mark-for-light,
+  [data-scheme="light"] .mark-for-dark {
+    display: none;
+  }
+  [data-scheme="light"] .mark-for-light {
+    display: inline;
+  }
+  /* Switching themes swaps every colour at once, not through each control's colour fade. */
+  .theme-switching,
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
   }
   button,
   input,

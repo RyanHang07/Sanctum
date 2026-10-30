@@ -3,6 +3,7 @@
 ## v0.3 (in progress)
 
 - **Themes, groundwork.** Every colour is now a theme variable (`--s-<name>` on `<html>`, src/theme/palette.ts) and Tailwind's colours and shadows point at them, so a theme swaps the whole app with no component changes. Sanctum Dark is design/tokens.json value for value, set before the first paint in every window; nothing looks different yet.
+- **Themes.** Thirteen: Sanctum Dark and Sanctum Light, GitHub Dark and Light, Dracula, One Dark, Monokai, Tokyo Night, Catppuccin Mocha and Latte, Nord, Gruvbox Dark, and Solarized Light. Each brings its own accent as the sealed colour and its own lights for the sealed and event meshes; tints, lines, and text on the accent are worked out so every theme passes the same contrast checks (a test holds them to WCAG ratios). Colours only: type, spacing, and the mark stay Sanctum's, with the mark's dark-ink version on light themes. **Setup › Appearance** shows each theme as a small window in its own colours; hover one to see it across the app, click to keep it. **Follow Windows** (on for new installs) picks a theme for Windows' dark mode and one for its light mode; off, one theme shows. An install from before themes stays on Sanctum Dark. The title bar follows the theme's light or dark, every window (tray panel, compact timer, overlay) changes together, and switching swaps every colour in one frame.
 
 ## v0.2.0 (2026-10-29)
 

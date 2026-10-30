@@ -11,6 +11,8 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
+    "core:window:allow-set-background-color",
     "autostart:default"
   ]
 }

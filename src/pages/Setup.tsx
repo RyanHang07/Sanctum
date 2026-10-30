@@ -22,6 +22,7 @@ import { opensOf, ruleLabel } from "../lib/rules";
 import { hasDay, WEEKDAYS } from "../lib/planner";
 import { minutes } from "../lib/time";
 import type { CloseAction, OnLogin } from "../state/appState";
+import { AppearanceSection } from "./setup/Appearance";
 
 function ProfilesSection() {
   const profiles = useStore((s) => s.profiles);
@@ -193,6 +194,7 @@ const TABS: { id: SetupTab; label: string; blurb: string; group: string }[] = [
   { id: "calendar", group: "Connections", label: "Calendar", blurb: "Two-way sync with Google Calendar." },
   { id: "browser", group: "Connections", label: "Browser", blurb: "The extension that seals sites and tabs." },
   { id: "partner", group: "Connections", label: "Partner", blurb: "An optional account, and a friend who holds the key." },
+  { id: "appearance", group: "App", label: "Appearance", blurb: "How Sanctum looks: a theme, or one for Windows' light and one for its dark." },
   { id: "general", group: "App", label: "General", blurb: "Your goal, rest days, and how the app behaves." },
 ];
 
@@ -280,6 +282,7 @@ export function Setup() {
               <AccountSection />
             </div>
           ) : null}
+          {current.id === "appearance" ? <AppearanceSection /> : null}
           {current.id === "general" ? (
             <div className={narrow}>
               <PreferencesSection />
