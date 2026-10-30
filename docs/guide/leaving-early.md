@@ -18,4 +18,4 @@ One a day, back at midnight. It skips the steps and ends the seal now. It doesn'
 
 ## What counts as broken
 
-Closing Sanctum, killing it, changing the clock, or turning off the guard or the extension mid-seal breaks it. Your streak resets, and your partner hears about it.
+Sanctum being gone for more than a minute (closed, killed, or the PC off), changing the clock, or turning off the guard or the extension mid-seal breaks it. Your streak resets, and your partner hears about it.

@@ -163,6 +163,28 @@ try {
   await sleep(500);
   await shot(page, "notes");
 
+  // The journal (v0.2): set up with evening prompts, today's page written.
+  await page.evaluate(async () => {
+    const { native } = window.__m;
+    await native.setSetting("journal_setup", JSON.stringify({ done: true, prompts: ["refl-well", "focus-tempted"], perDay: 0 }));
+    const h = (text) => ({ type: "heading", attrs: { level: 3 }, content: [{ type: "text", text }] });
+    const p = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
+    const doc = {
+      type: "doc",
+      content: [
+        h("What went well?"),
+        p("Two seals before lunch, and the API refactor finally merged. Mornings really are the time."),
+        h("What tempted me, and when?"),
+        p("YouTube right after standup, twice. Sent back both times; the second one I didn't even notice I'd typed it."),
+      ],
+    };
+    const body = doc.content.map((n) => n.content[0].text).join("\n");
+    await native.journalSave("2026-10-01", JSON.stringify(doc), body);
+  });
+  await go(page, "6");
+  await sleep(600);
+  await shot(page, "journal");
+
   // Setup.
   await page.evaluate(async () => {
     const { native, store } = window.__m;

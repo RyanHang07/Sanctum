@@ -2,7 +2,7 @@
 
 ## Can't I just close it?
 
-While you're sealed, closing the window sends Sanctum to the tray, and Quit is off. With Protection on, a killed Sanctum is back within seconds, and the seal is logged as tampered.
+While you're sealed, closing the window sends Sanctum to the tray, and Quit is off. With Protection on, a killed Sanctum is back within seconds and the seal carries on; the restart is logged. Gone for more than a minute, and the seal breaks.
 
 ## What if my PC restarts mid-session?
 

@@ -1,6 +1,6 @@
 [package]
 name = "sanctum"
-version = "0.1.2"
+version = "0.2.0"
 description = "Focus hub and distraction blocker"
 edition = "2021"
 license = "MIT"
