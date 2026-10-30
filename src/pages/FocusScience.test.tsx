@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { HeldPage } from "./HeldPage";
 import { brokeLine, planLine } from "./headlines";
-import { ParkCard } from "../windows/Intercept";
+import { ParkCard, PauseCard } from "../windows/Intercept";
+import { PauseModeSection } from "./setup/PauseMode";
 import { useStore } from "../state/store";
 import { usePlanner } from "../state/planner";
 import { connectNativeEvents } from "../state/events";
@@ -129,5 +130,67 @@ describe("after a break", () => {
     expect(screen.getByTestId("held-page")).toHaveTextContent("Sanctum was closed 12 minutes in.");
     fireEvent.click(screen.getByRole("button", { name: "Turn on Protection" }));
     expect(useStore.getState().activeTab).toBe("setup");
+  });
+});
+
+describe("pause mode", () => {
+  it("is off until you pick a mode, and validates the hours", async () => {
+    render(<PauseModeSection />);
+    const mode = await screen.findByRole("combobox", { name: "Pause mode" });
+    expect(screen.getByTestId("pause-status")).toHaveTextContent("Off");
+    await act(async () => fireEvent.change(mode, { target: { value: "all" } }));
+    expect(await native.pauseStatus()).toMatchObject({ config: { mode: "all" }, on: true });
+    expect(screen.getByTestId("pause-status")).toHaveTextContent("Asking first right now");
+    await act(async () => fireEvent.change(mode, { target: { value: "hours" } }));
+    expect(screen.getByTestId("pause-hours")).toBeInTheDocument();
+    await act(async () => fireEvent.change(screen.getByRole("combobox", { name: "Until" }), { target: { value: "09:00" } }));
+    expect(useStore.getState().notice?.lead).toBe("Pause hours need a start and an end that differ.");
+  });
+
+  it("the card waits five seconds before Go on works; Not now is the default", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval"] });
+    const answer = vi.fn();
+    render(<PauseCard p={{ kind: "pause", label: "Discord", attempts: 0, profileName: "", elapsedMs: 0, remainingMs: 5000, backTo: null, keyword: null, endsAt: Date.now() + 5000 }} onAnswer={answer} />);
+    expect(screen.getByRole("alertdialog", { name: "Still want Discord?" })).toHaveTextContent("It opens in 5s");
+    expect(screen.getByRole("button", { name: "Go on" })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(answer).toHaveBeenLastCalledWith(false);
+    await act(async () => vi.advanceTimersByTime(5_500));
+    expect(screen.getByRole("button", { name: "Go on" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Go on" }));
+    expect(answer).toHaveBeenLastCalledWith(true);
+    vi.useRealTimers();
+  });
+});
+
+describe("a break after a seal", () => {
+  it("starts from the held page, shows on Home, and offers the next block when it ends", async () => {
+    await act(() => useStore.getState().enterFocus());
+    const profileId = useStore.getState().session!.profileId;
+    await act(async () => mockControls.fastForward(60 * 60_000));
+    const held = useStore.getState().held!;
+    const { unmount } = render(<HeldPage held={held} />);
+    await act(async () => fireEvent.click(within(screen.getByTestId("held-break")).getByRole("button", { name: "10 min" })));
+    unmount();
+    expect(useStore.getState().held).toBeNull();
+    render(<Home />);
+    expect(screen.getByTestId("break-bar")).toHaveTextContent("Break");
+    expect(screen.queryByTestId("focus-row")).toBeNull();
+    // Seals don't start inside a break by accident: the break card replaces the focus row.
+    await act(async () => mockControls.breakOver());
+    expect(screen.queryByTestId("break-bar")).toBeNull();
+    expect(useStore.getState().notice?.lead).toBe("Break's over.");
+    await act(async () => useStore.getState().notice!.action!.run());
+    expect(useStore.getState().session?.profileId).toBe(profileId);
+    expect(useStore.getState().session?.plannedMinutes).toBe(held.plannedMinutes);
+  });
+
+  it("ends early for free", async () => {
+    await act(async () => void (await native.breakStart(5, null, 60)));
+    render(<Home />);
+    await act(() => useStore.getState().loadBreak());
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "End break" })));
+    expect(useStore.getState().brk).toBeNull();
+    expect(screen.getByTestId("focus-row")).toBeInTheDocument();
   });
 });

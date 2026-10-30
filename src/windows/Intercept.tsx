@@ -89,10 +89,55 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
   );
 }
 
-/** Quiet hours caught a flagged app (v0.1): it waits until the window ends, or pause 15 minutes. */
+/** Pause mode (v0.3.1): a flagged app came to the front outside a seal. It waits, minimized,
+ *  while you take a breath: Not now closes it; Go on, after five seconds, brings it back. */
+export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolean) => void }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Enter" && onAnswer(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onAnswer]);
+  const left = Math.max(0, Math.ceil(((p.endsAt ?? 0) - now) / 1000));
+  return (
+    <div role="alertdialog" aria-label={`Still want ${p.label}?`} className="flex w-[420px] animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog">
+      <div className="flex flex-col gap-[6px] px-[22px] pb-[18px] pt-[22px]">
+        <h1 className="headline m-0 text-[24px]">
+          Still want {p.label}? <em>Take a breath.</em>
+        </h1>
+        <p className="m-0 text-body leading-normal text-text-2">
+          {left ? (
+            <>
+              It opens in <span className="font-mono text-text">{left}s</span> if you still want it, for 15 minutes.
+            </>
+          ) : (
+            "It's yours for 15 minutes if you still want it."
+          )}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
+        <Button variant="quiet" className="-ml-3" disabled={left > 0} onClick={() => onAnswer(true)}>
+          Go on
+        </Button>
+        <Button variant="primary" className="ml-auto gap-[10px] px-[14px]" onClick={() => onAnswer(false)}>
+          Not now
+          <Kbd onFill>↵</Kbd>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Quiet hours caught a flagged app (v0.1): it waits until the window ends, or pause 15 minutes.
+ *  In a break after a seal (v0.3.1) it waits for the break, with no pause. */
 export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => void; onPause: () => void }) {
   const left = useAutoReturn(p, onBack);
   const until = p.endsAt ? clock(p.endsAt) : "morning";
+  const onBreak = p.profileName === "Break";
   return (
     <div
       role="alertdialog"
@@ -108,14 +153,17 @@ export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => vo
             {p.label} waits <em>until {until}.</em>
           </h1>
           <p className="m-0 text-body leading-normal text-text-2">
-            Quiet hours keep your Distractions list closed. <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
+            {onBreak ? "A break is for your eyes and legs. Your Distractions list waits too. " : "Quiet hours keep your Distractions list closed. "}
+            <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
           </p>
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[22px] py-3">
-        <Button variant="quiet" className="-ml-3" onClick={onPause}>
-          Pause 15 min
-        </Button>
+        {onBreak ? null : (
+          <Button variant="quiet" className="-ml-3" onClick={onPause}>
+            Pause 15 min
+          </Button>
+        )}
         <span className="ml-auto whitespace-nowrap text-meta text-faint">
           Returning in <span className="font-mono">{Math.max(0, left)}s</span>
         </span>
@@ -218,7 +266,7 @@ export function InterceptWindow() {
     void native.getSetting("sounds").then((v) => setSoundsEnabled(v !== "0"));
     const off = onNative<Payload>(EVENTS.intercept, (p) => {
       setPayload(p);
-      if (p.kind !== "welcome" && p.kind !== "park") play("blocked");
+      if (p.kind !== "welcome" && p.kind !== "park" && p.kind !== "pause") play("blocked");
     });
     return () => void off.then((f) => f());
   }, []);
@@ -252,9 +300,15 @@ export function InterceptWindow() {
     setPayload(null);
     void native.interceptHide();
   };
+  const answerPause = (goOn: boolean) => {
+    setPayload(null);
+    void native.pauseAnswer(goOn).catch(() => undefined);
+  };
   return (
     <div className="flex h-full w-full items-center justify-center">
-      {payload.kind === "park" ? (
+      {payload.kind === "pause" ? (
+        <PauseCard key={payload.endsAt ?? 0} p={payload} onAnswer={answerPause} />
+      ) : payload.kind === "park" ? (
         <ParkCard key={payload.endsAt ?? 0} onDone={hide} />
       ) : payload.kind === "title" ? (
         <TitleNudge p={payload} />

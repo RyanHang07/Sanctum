@@ -199,6 +199,16 @@ export function HeldPage({ held }: { held: HeldStats }) {
   const broke = held.broken && held.broke ? brokeLine(held.broke) : null;
   const line = broke ? broke.line : heldLine({ sessionId: held.sessionId, broken: held.broken, attempts: held.attempts, focusMinutes: held.focusMinutes, todayMinutes: today, goalMinutes: goal, streak });
 
+  // A scheduled break, then "Next block?" with the same profile and length (v0.3.1).
+  const takeBreak = async (m: number) => {
+    try {
+      useStore.getState().applyBreak(await native.breakStart(m, held.profileId, held.plannedMinutes));
+      dismiss();
+    } catch {
+      // A seal started meanwhile: no break to take.
+    }
+  };
+
   const enterAgain = async () => {
     const s = useStore.getState();
     if (held.profileId !== null && s.profiles.some((p) => p.id === held.profileId)) s.selectProfile(held.profileId);
@@ -267,6 +277,19 @@ export function HeldPage({ held }: { held: HeldStats }) {
         ) : null}
         <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
         <Parked sessionId={held.sessionId} />
+        <div data-testid="held-break" className="held-r3 flex items-center gap-2">
+          <span className="text-meta text-sealed-on/72">Take a break, distractions still closed:</span>
+          {[5, 10, 15].map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => void takeBreak(m)}
+              className="flex h-8 items-center rounded-control border border-sealed-on/30 bg-app/35 px-3 font-mono text-meta text-sealed-on transition-colors duration-ui ease-ui hover:bg-app/55"
+            >
+              {m} min
+            </button>
+          ))}
+        </div>
         <div className="held-r3 flex gap-2">
           <button
             type="button"

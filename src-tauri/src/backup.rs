@@ -277,6 +277,7 @@ pub async fn backup_restore(app: AppHandle, path: String) -> Result<(), String> 
         }
         drop(conn);
         engine::load_quiet(&app);
+        engine::load_pause(&app);
         shared.unlock.clear();
         shared.activity.mark_dirty();
         Ok(())

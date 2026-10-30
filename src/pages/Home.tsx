@@ -426,6 +426,43 @@ function SessionBar() {
   );
 }
 
+/** A break after a seal (v0.3.1): a calm countdown, your Distractions list still closed, and
+ *  the next block one click away. Ending it early is free. */
+function BreakBar() {
+  const brk = useStore((s) => s.brk)!;
+  const now = useNow(1000);
+  const left = Math.max(0, brk.until - now);
+  const progress = 1 - left / (brk.minutes * 60_000);
+  const profileName = useStore((s) => s.profiles.find((p) => p.id === brk.profileId)?.name);
+  return (
+    <section data-testid="break-bar" aria-label="Break" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
+      <div className="relative flex h-11 items-center gap-3 overflow-hidden rounded-control border border-line-input bg-raised px-3">
+        <span className="truncate text-meta text-text-2">
+          <span className="font-medium text-text">Break</span> · stand up, look away from the screen · your Distractions list waits too
+        </span>
+        <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
+          <div className="h-full bg-open transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, progress * 100)}%` }} />
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-6">
+        <Field label="Break left" className="w-[112px] shrink-0">
+          <span role="timer" aria-label={`${countdown(left)} of break left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
+            {countdown(left)}
+          </span>
+        </Field>
+        <div className="flex w-[280px] min-w-0 shrink flex-col gap-[6px]">
+          <Button variant="primary" className="w-full" onClick={() => void useStore.getState().nextBlock(brk)}>
+            Next block{profileName ? `: ${profileName}` : ""}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => void native.breakEnd()}>
+            End break
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** The meeting holding focus (SPEC 4.0, In event): the same card as Open and Sealed, in coral. */
 function EventBar() {
   const meeting = useStore((s) => s.meeting);
@@ -843,6 +880,7 @@ function CustomizeMenu() {
 }
 
 export function Home() {
+  const brk = useStore((s) => s.brk);
   const appState = useStore((s) => s.appState);
   const hidden = useStore((s) => s.settings.homeLayout.hidden);
   const meeting = useStore((s) => s.meeting);
@@ -879,7 +917,7 @@ export function Home() {
         {a} <em>{b}</em>
       </h1>
 
-      {appState === "open" && <FocusPanel />}
+      {appState === "open" && (brk ? <BreakBar /> : <FocusPanel />)}
       {appState === "sealed" && <SessionBar />}
       {appState === "event" && <EventBar />}
 

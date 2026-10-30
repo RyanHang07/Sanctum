@@ -57,12 +57,18 @@ export function keywordHit(url, title, rules) {
   return (rules.keywords ?? []).find((k) => k && (rest.includes(k) || t.includes(k))) ?? null;
 }
 
-/** declarativeNetRequest rules: redirect each sealed site to the blocked page, with its exceptions allowed. */
-export function netRules(rules) {
-  if (!rules?.sealed) return [];
+/**
+ * declarativeNetRequest rules: redirect each sealed site to the blocked page, with its exceptions
+ * allowed. In pause mode (v0.3.1, not sealed) each flagged site goes to the same page asking
+ * "Still want it?", except the sites you said Go on to (`allowed`, bare domains).
+ */
+export function netRules(rules, allowed = []) {
+  const pausing = !rules?.sealed && rules?.pause;
+  if (!rules?.sealed && !pausing) return [];
   const out = [];
   let id = 1;
   for (const site of rules.sites ?? []) {
+    if (pausing && allowed.includes(site.domain)) continue;
     const slash = site.domain.indexOf("/");
     const condition =
       slash === -1
@@ -71,7 +77,7 @@ export function netRules(rules) {
     out.push({
       id: id++,
       priority: 1,
-      action: { type: "redirect", redirect: { extensionPath: `/blocked.html?site=${encodeURIComponent(site.domain)}` } },
+      action: { type: "redirect", redirect: { extensionPath: `/blocked.html?${pausing ? "pause=1&" : ""}site=${encodeURIComponent(site.domain)}` } },
       condition,
     });
     for (const prefix of site.allow ?? []) {

@@ -191,6 +191,32 @@ export interface FocusPrep {
 
 export type SessionResult = "done" | "partly" | "no";
 
+/** Pause mode (v0.3.1, src-tauri/src/pause.rs): outside seals, flagged apps and sites ask first. */
+export interface PauseConfig {
+  mode: "off" | "all" | "hours";
+  daysMask: number;
+  start: string;
+  end: string;
+}
+export interface PauseStatus {
+  config: PauseConfig;
+  /** Asking right now. */
+  on: boolean;
+}
+export interface PauseSummary {
+  paused: number;
+  turnedBack: number;
+}
+
+/** A break after a seal (v0.3.1): the Distractions list stays blocked until it ends. */
+export interface BreakView {
+  until: number;
+  minutes: number;
+  profileId: number | null;
+  /** The length "Next block?" offers. */
+  nextMinutes: number;
+}
+
 /** What broke a seal and how far in (v0.3.1): the tamper kind and minutes into the seal. */
 export interface Broke {
   kind: "clock" | "guard" | "extension" | "shutdown" | "killed" | "closed" | string;
@@ -223,7 +249,7 @@ export interface HeldStats {
 /** Payload for the intercept window (src-tauri/src/engine.rs). */
 export interface Intercept {
   /** "app" / "allowlist": sealed-app overlay. "title": corner nudge. "welcome": back from idle. */
-  kind: "app" | "allowlist" | "title" | "welcome" | "quiet" | "park";
+  kind: "app" | "allowlist" | "title" | "welcome" | "quiet" | "park" | "pause";
   label: string;
   attempts: number;
   profileName: string;

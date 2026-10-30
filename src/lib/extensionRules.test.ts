@@ -58,6 +58,16 @@ describe("extension rules", () => {
     expect(r[4]!.condition.urlFilter).toBe("||leetcode.com/discuss");
     expect(netRules({ ...rules, sealed: false })).toEqual([]);
   });
+
+  it("pause mode asks before each flagged site, except the ones you said Go on to (v0.3.1)", () => {
+    const pausing = { ...rules, sealed: false, pause: true };
+    const r = netRules(pausing, ["leetcode.com/discuss"]);
+    const redirects = r.filter((x) => x.action.type === "redirect").map((x) => x.action.redirect!.extensionPath);
+    expect(redirects[0]).toBe("/blocked.html?pause=1&site=youtube.com");
+    expect(redirects.some((p) => p.includes("leetcode.com%2Fdiscuss"))).toBe(false);
+    // Nothing blocks outright in pause mode, so open tabs are left alone.
+    expect(blockedSite("https://youtube.com/", pausing)).toBeNull();
+  });
 });
 
 describe("extension assets", () => {

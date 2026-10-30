@@ -7,7 +7,7 @@ import {
   isTabLocked,
 } from "./appState";
 import { errorText, native } from "../lib/native";
-import type { CalEvent, Distraction, FocusPrep, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, QuietStatus, SessionView, TaskLink } from "../lib/types";
+import type { BreakView, CalEvent, Distraction, FocusPrep, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, QuietStatus, SessionView, TaskLink } from "../lib/types";
 import { DEFAULT_STYLES, parseStyles, play, setSoundStyles, setSoundsEnabled, setSoundVolume, type Cue, type Style, type Styles } from "../lib/sound";
 import type { Suggestion } from "../lib/planner";
 
@@ -125,6 +125,8 @@ export interface Store {
   focusPlanFor: number | null;
   /** Quiet hours (v0.1): the schedule and whether it's blocking now. */
   quiet: QuietStatus | null;
+  /** A break after a seal, while it runs (v0.3.1). */
+  brk: BreakView | null;
   quietPauseOpen: boolean;
   activeTab: TabId;
   /** Tab whose locked toast is showing. */
@@ -196,6 +198,10 @@ export interface Store {
   setFocusQueued: (v: boolean) => void;
   loadQuiet: () => Promise<void>;
   applyQuiet: (q: QuietStatus) => void;
+  loadBreak: () => Promise<void>;
+  applyBreak: (b: BreakView | null) => void;
+  /** "Next block?": the profile and length the break offered, sealed now. */
+  nextBlock: (b: Pick<BreakView, "profileId" | "nextMinutes">) => Promise<void>;
   openQuietPause: () => void;
   closeQuietPause: () => void;
   /** Links the next session to a task and picks its profile, if it has one. */
@@ -285,6 +291,7 @@ export const useStore = create<Store>()((set, get) => {
     focusLeftOff: null,
     focusPlanFor: null,
     quiet: null,
+    brk: null,
     quietPauseOpen: false,
     activeTab: "today",
     lockedToast: null,
@@ -581,6 +588,15 @@ export const useStore = create<Store>()((set, get) => {
       }
     },
     applyQuiet: (quiet) => set({ quiet }),
+    loadBreak: async () => set({ brk: await native.breakStatus().catch(() => null) }),
+    applyBreak: (brk) => set({ brk }),
+    nextBlock: async (b) => {
+      const s = get();
+      if (b.profileId !== null && s.profiles.some((p) => p.id === b.profileId)) s.selectProfile(b.profileId);
+      if (b.nextMinutes) s.setDuration(b.nextMinutes);
+      s.navigate("today");
+      await get().enterFocus();
+    },
     openQuietPause: () => {
       if (get().quiet?.on) set({ quietPauseOpen: true });
     },
