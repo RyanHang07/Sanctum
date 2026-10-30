@@ -13,9 +13,14 @@
 //!   close without a chance to save.
 //!
 //! The block comes out when the seal ends, when the service stops, and on uninstall.
+//!
+//! v0.3 (macOS groundwork): the service, its installer, and the session launcher are Windows
+//! only. Elsewhere `--guard` says Protection isn't there yet, status reads not installed, and
+//! turning it on is refused; the pure parts (the hosts block, the seal's sites) are shared.
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::Serialize;
+#[cfg(windows)]
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -152,9 +157,15 @@ impl Backoff {
 
 // --- Paths ---
 
+#[cfg(windows)]
 pub fn hosts_path() -> PathBuf {
     let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
     Path::new(&root).join("System32\\drivers\\etc\\hosts")
+}
+
+#[cfg(not(windows))]
+pub fn hosts_path() -> PathBuf {
+    PathBuf::from("/etc/hosts")
 }
 
 fn guard_dir() -> PathBuf {
@@ -180,8 +191,19 @@ fn parse(args: &[String]) -> Option<Args> {
 pub fn cli() -> Option<u32> {
     let args: Vec<String> = std::env::args().collect();
     let a = parse(&args)?;
-    Some(match a.action.as_str() {
-        "install" => report(install(&a)),
+    Some(run_action(&a))
+}
+
+#[cfg(not(windows))]
+fn run_action(_a: &Args) -> u32 {
+    eprintln!("guard: Protection isn't on this platform yet.");
+    EXIT_FAILED
+}
+
+#[cfg(windows)]
+fn run_action(a: &Args) -> u32 {
+    match a.action.as_str() {
+        "install" => report(install(a)),
         "uninstall" => match uninstall(&a.db) {
             Ok(true) => EXIT_OK,
             Ok(false) => EXIT_SEALED,
@@ -190,14 +212,15 @@ pub fn cli() -> Option<u32> {
         "run" => {
             if let Err(e) = service::start() {
                 eprintln!("guard: {e}");
-                return Some(EXIT_FAILED);
+                return EXIT_FAILED;
             }
             EXIT_OK
         }
         _ => EXIT_FAILED,
-    })
+    }
 }
 
+#[cfg(windows)]
 fn report(r: Result<(), String>) -> u32 {
     match r {
         Ok(()) => EXIT_OK,
@@ -209,6 +232,7 @@ fn report(r: Result<(), String>) -> u32 {
     }
 }
 
+#[cfg(windows)]
 fn open_db(path: &Path) -> rusqlite::Result<Connection> {
     // Never create or migrate: the app owns the database.
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
@@ -216,6 +240,7 @@ fn open_db(path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+#[cfg(windows)]
 fn write_hosts(block: Option<&str>) -> std::io::Result<bool> {
     let path = hosts_path();
     let now = std::fs::read_to_string(&path).unwrap_or_default();
@@ -228,6 +253,7 @@ fn write_hosts(block: Option<&str>) -> std::io::Result<bool> {
     Ok(true)
 }
 
+#[cfg(windows)]
 fn flush_dns() {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -236,6 +262,7 @@ fn flush_dns() {
 
 // --- Install and uninstall (run elevated) ---
 
+#[cfg(windows)]
 fn service_info(exe: PathBuf, a: &Args) -> windows_service::service::ServiceInfo {
     use windows_service::service::*;
     ServiceInfo {
@@ -252,6 +279,7 @@ fn service_info(exe: PathBuf, a: &Args) -> windows_service::service::ServiceInfo
     }
 }
 
+#[cfg(windows)]
 fn stop_and_wait(s: &windows_service::service::Service) {
     use windows_service::service::ServiceState;
     let _ = s.stop();
@@ -263,6 +291,7 @@ fn stop_and_wait(s: &windows_service::service::Service) {
     }
 }
 
+#[cfg(windows)]
 fn install(a: &Args) -> Result<(), String> {
     use windows_service::service::*;
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
@@ -303,6 +332,7 @@ fn install(a: &Args) -> Result<(), String> {
 }
 
 /// Removes the service and the hosts block. Refused (false) while a seal is on.
+#[cfg(windows)]
 fn uninstall(db: &Path) -> Result<bool, String> {
     use windows_service::service::ServiceAccess;
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
@@ -323,6 +353,7 @@ fn uninstall(db: &Path) -> Result<bool, String> {
 
 // --- The service itself ---
 
+#[cfg(windows)]
 mod service {
     use super::*;
     use std::sync::mpsc;
@@ -468,6 +499,7 @@ pub fn app_running(sys: &mut sysinfo::System, app: &Path) -> bool {
 }
 
 /// Starts Sanctum in the signed-in user's desktop session (a service runs in session 0).
+#[cfg(windows)]
 fn launch_in_session(app: &Path) -> windows::core::Result<()> {
     use windows::core::{PCWSTR, PWSTR};
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
@@ -529,6 +561,13 @@ pub struct GuardStatus {
 }
 
 /// The guard service is installed and running.
+#[cfg(not(windows))]
+pub fn service_running() -> bool {
+    false
+}
+
+/// The guard service is installed and running.
+#[cfg(windows)]
 pub fn service_running() -> bool {
     use windows_service::service::{ServiceAccess, ServiceState};
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
@@ -539,18 +578,30 @@ pub fn service_running() -> bool {
         .is_some_and(|s| s.current_state == ServiceState::Running)
 }
 
-pub fn status(conn: &Connection) -> GuardStatus {
+/// Installed, and running (Windows only; elsewhere never).
+#[cfg(windows)]
+fn service_state() -> (bool, bool) {
     use windows_service::service::{ServiceAccess, ServiceState};
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
     let svc = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
         .ok()
         .and_then(|m| m.open_service(SERVICE, ServiceAccess::QUERY_STATUS).ok());
     let running = svc.as_ref().and_then(|s| s.query_status().ok()).is_some_and(|s| s.current_state == ServiceState::Running);
+    (svc.is_some(), running)
+}
+
+#[cfg(not(windows))]
+fn service_state() -> (bool, bool) {
+    (false, false)
+}
+
+pub fn status(conn: &Connection) -> GuardStatus {
+    let (installed, running) = service_state();
     let (restarts, last_restart_at) = conn
         .query_row("SELECT COUNT(*), MAX(ts) FROM tamper_events WHERE kind = 'killed'", [], |r| Ok((r.get(0)?, r.get(1)?)))
         .unwrap_or((0, None));
     GuardStatus {
-        installed: svc.is_some(),
+        installed,
         running,
         hosts_blocked: std::fs::read_to_string(hosts_path()).map(|h| blocked_in(&h)).unwrap_or(0),
         restarts,
@@ -565,7 +616,14 @@ pub fn log_restart(conn: &Connection, now: i64) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Protection isn't on this platform yet (v0.3 macOS groundwork).
+#[cfg(not(windows))]
+pub fn run_elevated(_action: &str, _db: &Path) -> Result<u32, String> {
+    Err("Protection isn't on macOS yet.".into())
+}
+
 /// Runs this exe elevated (the one UAC prompt) and waits for it. Returns its exit code.
+#[cfg(windows)]
 pub fn run_elevated(action: &str, db: &Path) -> Result<u32, String> {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::CloseHandle;

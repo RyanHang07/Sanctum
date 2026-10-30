@@ -27,15 +27,16 @@ sysinfo = "0.39"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "blocking", "json", "form", "query"] }
 sha2 = "0.10"
 argon2 = "0.5"
-windows-future = "0.3"
 rand = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 base64 = "0.23"
 
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
 windows-service = "0.8"
-image = { version = "0.25", default-features = false, features = ["png"] }
+windows-future = "0.3"
 windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
