@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { Toast } from "./Toast";
+import { UpdateNotice } from "./UpdateNotice";
+import { useUpdate } from "../state/update";
 import { CloseDialog } from "./CloseDialog";
 import { DevStateToggle } from "./DevStateToggle";
 import { BreakSealDialog } from "./BreakSealDialog";
@@ -108,6 +110,8 @@ function useStateFade(state: AppState) {
 function useNativeEvents() {
   useEffect(() => {
     const disconnect = connectNativeEvents();
+    // An update downloaded in the background, one click away (v0.3).
+    const stopUpdates = useUpdate.getState().start();
     void useStore.getState().loadSettings();
     // Quiet hours follow the clock; Rust pushes changes, and this catches the rest.
     void useStore.getState().loadQuiet();
@@ -131,6 +135,7 @@ function useNativeEvents() {
     return () => {
       clearInterval(quietTimer);
       disconnect();
+      stopUpdates();
     };
   }, []);
 }
@@ -176,6 +181,7 @@ export function AppShell() {
           </div>
         </div>
         <Toast />
+        <UpdateNotice />
         <BlockPrompt />
       </main>
       <CloseDialog />

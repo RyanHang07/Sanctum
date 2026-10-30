@@ -4,9 +4,13 @@ import { Row, Section } from "./parts";
 import { errorText, native } from "../../lib/native";
 import { useStore } from "../../state/store";
 import type { UpdateInfo } from "../../lib/types";
+import { useUpdate } from "../../state/update";
+import { useTheme } from "../../state/theme";
 
 // Setup > General > About (M13): the version, updates from GitHub Releases, and a diagnostics
 // summary to paste into a bug report. Nothing is sent anywhere automatically.
+// v0.3: Check now downloads what it finds, so "Restart to update" is one click (the same path
+// as the update notice); and the license, privacy policy, terms, and notices are a click away.
 
 type Check = { state: "idle" | "checking" | "installing" } | { state: "current" } | { state: "available"; update: UpdateInfo } | { state: "error"; message: string };
 
@@ -17,10 +21,18 @@ export function AboutSection() {
   const [check, setCheck] = useState<Check>({ state: "idle" });
   useEffect(() => void native.appVersion().then(setVersion).catch(() => undefined), []);
 
+  const ready = useUpdate((s) => s.ready);
+  const scheme = useTheme((s) => s.theme.scheme);
+  // A background download already waiting shows here too.
+  useEffect(() => {
+    if (ready) setCheck((c) => (c.state === "installing" ? c : { state: "available", update: ready }));
+  }, [ready]);
+
   const run = async () => {
     setCheck({ state: "checking" });
     try {
       const update = await native.updateCheck();
+      if (update) useUpdate.setState({ ready: update });
       setCheck(update ? { state: "available", update } : { state: "current" });
     } catch (e) {
       setCheck({ state: "error", message: errorText(e) });
@@ -29,11 +41,12 @@ export function AboutSection() {
   const install = async () => {
     setCheck({ state: "installing" });
     try {
-      await native.updateInstall();
+      await native.updateApply();
     } catch (e) {
       setCheck({ state: "error", message: errorText(e) });
     }
   };
+  const open = (page: string) => void native.openSite(page, scheme).catch((e) => showNotice({ lead: errorText(e) }));
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(await native.diagnostics());
@@ -47,18 +60,18 @@ export function AboutSection() {
     check.state === "current"
       ? "You have the latest version."
       : check.state === "available"
-        ? `Version ${check.update.version} is available.`
+        ? `Version ${check.update.version} is downloaded and ready.`
         : check.state === "error"
           ? check.message
           : check.state === "installing"
-            ? "Downloading. Sanctum restarts when it's done."
-            : "Updates come from GitHub Releases.";
+            ? "Installing. Sanctum restarts in a few seconds."
+            : "Sanctum checks for updates on its own and downloads them in the background.";
   return (
     <Section title="About">
       <Row label={version ? `Sanctum ${version}` : "Sanctum"} hint={hint}>
         {check.state === "available" ? (
           <Button variant="primary" size="sm" disabled={sealed} onClick={() => void install()}>
-            {sealed ? "Waits until the seal ends" : "Install and restart"}
+            {sealed ? "Waits until the seal ends" : "Restart to update"}
           </Button>
         ) : (
           <Button variant="ghost" size="sm" disabled={check.state === "checking" || check.state === "installing"} onClick={() => void run()}>
@@ -70,6 +83,21 @@ export function AboutSection() {
         <Button variant="ghost" size="sm" onClick={() => void copy()}>
           Copy diagnostics
         </Button>
+      </Row>
+      <Row label="Free and open source" hint="MIT license. Your data stays on this PC; the account holds only what sharing and the partner need.">
+        <span className="flex items-center gap-1">
+          {(
+            [
+              ["privacy", "Privacy"],
+              ["terms", "Terms"],
+              ["legal", "Legal"],
+            ] as const
+          ).map(([page, label]) => (
+            <Button key={page} variant="quiet" size="sm" onClick={() => open(page)}>
+              {label}
+            </Button>
+          ))}
+        </span>
       </Row>
     </Section>
   );

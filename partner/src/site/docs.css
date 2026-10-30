@@ -456,3 +456,81 @@ a.doc-edit:hover {
     gap: 10px;
   }
 }
+
+/* Legal (v0.3) */
+.legal-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 0 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.legal-page .headline {
+  font-size: clamp(30px, 4.4vw, 44px);
+  letter-spacing: -0.035em;
+}
+.legal-page a {
+  color: var(--sealed-text);
+}
+.legal-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.legal-block h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+.license {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--text-2);
+}
+.notice-search {
+  max-width: 360px;
+}
+.notice-group > summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+}
+.notice-group .doc-table {
+  max-height: 480px;
+  overflow: auto;
+}
+.notice-group table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.notice-group th,
+.notice-group td {
+  padding: 7px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.notice-group th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+.legal-links {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.legal-links a,
+.closing .small a {
+  color: var(--sealed-text);
+}

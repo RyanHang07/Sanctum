@@ -6,7 +6,30 @@ import { useEffect, useState } from "react";
 export type ThemePick = "system" | "light" | "dark";
 const KEY = "sanctum-theme";
 
+/** Opened from the app (v0.3): `?theme=light|dark` is the app's theme, for this visit. */
+const VISIT = "sanctum-theme-visit";
+
+function fromApp(): "light" | "dark" | null {
+  const v = new URLSearchParams(location.search).get("theme");
+  if (v === "light" || v === "dark") {
+    try {
+      sessionStorage.setItem(VISIT, v);
+    } catch {
+      // private window: this page still shows it
+    }
+    return v;
+  }
+  try {
+    const s = sessionStorage.getItem(VISIT);
+    return s === "light" || s === "dark" ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 function stored(): ThemePick {
+  const app = fromApp();
+  if (app) return app;
   try {
     const v = localStorage.getItem(KEY);
     return v === "light" || v === "dark" ? v : "system";
@@ -40,6 +63,8 @@ export function useTheme(): { dark: boolean; toggle: () => void } {
     setPick(next);
     applyTheme(next);
     try {
+      // Your own pick now outranks the app's for this visit.
+      sessionStorage.removeItem(VISIT);
       if (next === "system") localStorage.removeItem(KEY);
       else localStorage.setItem(KEY, next);
     } catch {

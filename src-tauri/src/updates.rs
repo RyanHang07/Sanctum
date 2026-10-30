@@ -2,12 +2,23 @@
 //! in place by tauri-plugin-updater (updates are signed with the project's updater key, so
 //! only published builds install). Crash reports stay local: a panic writes a log under app
 //! data, and Setup copies a diagnostics summary to paste into a GitHub issue.
+//!
+//! One-click updates (v0.3, decided 2026-10-29): Sanctum checks a little after start and every
+//! 6 hours, downloads a new version in the background, and says it's ready; one click installs
+//! it and restarts. Never while sealed (the restart would drop enforcement for a moment).
 
 use crate::{db, Shared};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager, State};
-use tauri_plugin_updater::UpdaterExt;
+use std::sync::Mutex;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_updater::{Update, UpdaterExt};
+
+/// A downloaded update, waiting for its click.
+pub const EV_READY: &str = "sanctum://update-ready";
+const FIRST_CHECK: Duration = Duration::from_secs(45);
+const EVERY: Duration = Duration::from_secs(6 * 3600);
 
 pub const REPO: &str = "https://github.com/ryanhang07/sanctum";
 const MAX_LOGS: usize = 5;
@@ -28,10 +39,75 @@ fn friendly(e: impl std::fmt::Display) -> String {
     }
 }
 
+/// The downloaded update, if one is waiting.
+#[derive(Default)]
+pub struct Ready {
+    inner: Mutex<Option<(Update, Vec<u8>)>>,
+}
+
+impl Ready {
+    fn info(&self) -> Option<UpdateInfo> {
+        self.inner.lock().unwrap().as_ref().map(|(u, _)| UpdateInfo { version: u.version.clone(), notes: u.body.clone() })
+    }
+}
+
+/// Checks, and downloads anything new. Returns what's ready, if anything.
+async fn fetch(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let ready = &app.state::<Shared>().update;
+    let Some(update) = app.updater().map_err(friendly)?.check().await.map_err(friendly)? else {
+        return Ok(ready.info());
+    };
+    if ready.info().is_some_and(|r| r.version == update.version) {
+        return Ok(ready.info());
+    }
+    let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| format!("The update didn't download: {e}"))?;
+    *ready.inner.lock().unwrap() = Some((update, bytes));
+    let info = ready.info();
+    if let Some(i) = &info {
+        let _ = app.emit(EV_READY, i);
+    }
+    Ok(info)
+}
+
+/// The quiet check: a little after start, then every 6 hours. Release builds only.
+pub fn spawn_background(app: AppHandle) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let _ = std::thread::Builder::new().name("sanctum-updates".into()).spawn(move || {
+        std::thread::sleep(FIRST_CHECK);
+        loop {
+            let _ = tauri::async_runtime::block_on(fetch(&app));
+            std::thread::sleep(EVERY);
+        }
+    });
+}
+
+/// What's downloaded and waiting (the window asks when it opens).
+#[tauri::command]
+pub fn update_ready(shared: State<Shared>) -> Option<UpdateInfo> {
+    shared.update.info()
+}
+
+/// The one click: installs what's downloaded (or downloads it now) and restarts.
+#[tauri::command]
+pub async fn update_apply(app: AppHandle) -> Result<(), String> {
+    if app.state::<Shared>().sealed() {
+        return Err("Updates wait until the seal ends.".into());
+    }
+    if app.state::<Shared>().update.info().is_none() && fetch(&app).await?.is_none() {
+        return Err("Sanctum is up to date.".into());
+    }
+    let taken = app.state::<Shared>().update.inner.lock().unwrap().take();
+    let Some((update, bytes)) = taken else { return Err("Sanctum is up to date.".into()) };
+    update.install(bytes).map_err(|e| format!("The update didn't install: {e}"))?;
+    app.restart();
+}
+
+/// Check now (Setup › About): also downloads what it finds, so the next click is instant.
 #[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let update = app.updater().map_err(friendly)?.check().await.map_err(friendly)?;
-    Ok(update.map(|u| UpdateInfo { version: u.version, notes: u.body }))
+    fetch(&app).await
 }
 
 /// Downloads, installs, and restarts. Never while sealed: the restart would drop the seal's
@@ -46,6 +122,25 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
     };
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("The update didn't install: {e}"))?;
     app.restart();
+}
+
+/// The site's pages the app links to (v0.3).
+const SITE_PAGES: &[&str] = &["privacy", "terms", "legal", "docs", "changelog", "partner"];
+
+/// A page on Sanctum's site, opened in your theme's light or dark. Only the site's own pages.
+pub fn site_url(page: &str, scheme: &str) -> Option<String> {
+    let page = page.trim_matches('/');
+    SITE_PAGES.contains(&page).then(|| {
+        let scheme = if scheme == "light" { "light" } else { "dark" };
+        format!("{}/{page}?theme={scheme}", crate::cloud::PARTNER_URL.trim_end_matches('/'))
+    })
+}
+
+#[tauri::command]
+pub fn open_site(app: AppHandle, page: String, scheme: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = site_url(&page, &scheme).ok_or("That page isn't on Sanctum's site.")?;
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -131,6 +226,15 @@ pub fn diagnostics(app: AppHandle, shared: State<Shared>) -> Result<String, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opens_only_the_sites_own_pages_in_your_light_or_dark() {
+        let url = site_url("privacy", "light").unwrap();
+        assert!(url.ends_with("/privacy?theme=light"), "{url}");
+        assert!(site_url("/legal/", "sepia").unwrap().ends_with("/legal?theme=dark"));
+        assert!(site_url("https://evil.example", "dark").is_none());
+        assert!(site_url("../admin", "dark").is_none());
+    }
 
     #[test]
     fn keeps_the_last_few_crash_logs() {
