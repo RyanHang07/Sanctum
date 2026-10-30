@@ -238,10 +238,14 @@ export function Home() {
           <div className="pillar spot" data-reveal="" style={at(2)}>
             <strong>No account needed</strong>
             <p>
-              An account exists only for the partner and note sharing. It holds your email, partner links, and a hashed PIN. <A href="/privacy">Privacy policy</A>.
+              An account exists only for the partner and note sharing. It holds your email, partner links, and a hashed PIN; shared notes are encrypted
+              before they leave your PC.
             </p>
           </div>
         </div>
+        <p className="legal-links" data-reveal="">
+          The details, in plain words: <A href="/privacy">Privacy policy</A> · <A href="/terms">Terms of service</A> · <A href="/legal">License and notices</A>
+        </p>
       </section>
 
       <section className="closing" data-reveal="zoom">
@@ -249,6 +253,10 @@ export function Home() {
         <Download />
         <p className="small">
           Sanctum isn't code-signed yet, so Windows may say it protected your PC. Choose <strong>More info</strong>, then <strong>Run anyway</strong>.
+          After that it updates itself, one click each time.
+        </p>
+        <p className="small">
+          Free and open source, MIT. <A href="/privacy">Privacy</A> · <A href="/terms">Terms</A> · <A href="/legal">Legal</A>
         </p>
       </section>
     </div>

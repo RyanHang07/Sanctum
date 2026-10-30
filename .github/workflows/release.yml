@@ -52,7 +52,8 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Sanctum ${{ github.ref_name }}
           releaseBody: ${{ steps.notes.outputs.body }}
-          releaseDraft: true
+          # Published as soon as it builds (decided 2026-10-29): installed copies see it within hours.
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           # Update artifacts need the private key, so only releases make them.

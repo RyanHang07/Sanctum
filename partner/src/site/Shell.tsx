@@ -88,6 +88,7 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
           <A href="/changelog">Changelog</A>
           <A href="/privacy">Privacy</A>
           <A href="/terms">Terms</A>
+          <A href="/legal">Legal</A>
           <a href={REPO}>GitHub</a>
         </div>
       </footer>

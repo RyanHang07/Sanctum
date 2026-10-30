@@ -19,6 +19,8 @@ const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctu
 export const mockJournal = { days: new Map<string, { date: string; doc: string | null; body: string; updatedAt: number }>(), lock: "none" as "none" | "hello" | "pin", pin: null as string | null, unlocked: false };
 
 /** Shared notes in the preview: token -> the latest ciphertext and the image ids uploaded. */
+/** The browser preview's updates (v0.3): what a check finds, and whether one was applied. */
+export const mockUpdates: { available: { version: string; notes: string | null } | null; applied: boolean } = { available: null, applied: false };
 /** The theme last sent to the extension (v0.3). */
 export const mockExtension: { theme: { id: string; scheme: string } | null } = { theme: null };
 export const mockShares = new Map<string, { cipher: string; images: number[] }>();
@@ -94,6 +96,7 @@ export function resetMockBackend() {
   resetMockTrackers();
   mockShares.clear();
   mockExtension.theme = null;
+  Object.assign(mockUpdates, { available: null, applied: false });
   Object.assign(mockJournal, { days: new Map(), lock: "none", pin: null, unlocked: false });
   state = {
     settings: new Map([
@@ -315,7 +318,6 @@ const handlers: Record<string, (a: any) => unknown> = {
     state.settings.set("dev_seeded", "1");
   },
   app_version: () => "0.1.0",
-  update_check: () => null,
   save_note_image: ({ data, mime }: { data: string; mime: string }) => {
     if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(mime)) throw "Use a PNG, JPEG, GIF, or WebP image.";
     const id = mockImageId++;
@@ -379,6 +381,13 @@ const handlers: Record<string, (a: any) => unknown> = {
     for (const img of images) if (!s.images.includes(img.id)) s.images.push(img.id);
     n.share.imageIds = [...s.images];
     return [...s.images];
+  },
+  update_check: () => mockUpdates.available,
+  update_ready: () => mockUpdates.available,
+  update_apply: () => {
+    if (state.session) throw "Updates wait until the seal ends.";
+    if (!mockUpdates.available) throw "Sanctum is up to date.";
+    mockUpdates.applied = true;
   },
   browser_set_theme: ({ id, scheme }: { id: string; scheme: string }) => {
     mockExtension.theme = { id, scheme };

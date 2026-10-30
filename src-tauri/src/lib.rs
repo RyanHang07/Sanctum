@@ -66,6 +66,8 @@ pub struct Shared {
     pub checkins: trackers::State,
     pub tamper: tamper::State,
     pub journal: journal::State,
+    /// A downloaded update waiting for its click (v0.3).
+    pub update: updates::Ready,
 }
 
 impl Shared {
@@ -714,6 +716,7 @@ pub fn run() {
                 checkins: trackers::State::new(),
                 tamper: tamper::State::default(),
                 journal: journal::State::default(),
+                update: updates::Ready::default(),
             });
             // Windows are created here, not by Tauri, so no page can call a command before
             // Shared is managed (that panics inside WebView2 and aborts the app).
@@ -744,6 +747,7 @@ pub fn run() {
                 eprintln!("browser bridge server failed: {e}");
             }
             browser::spawn_watch(app.handle().clone());
+            updates::spawn_background(app.handle().clone());
 
             // On login, open Home by default; "Start in tray" keeps the window hidden.
             if !start_in_tray {
@@ -840,6 +844,9 @@ pub fn run() {
             journal::journal_unlock_hello,
             journal::journal_lock,
             updates::update_install,
+            updates::update_ready,
+            updates::update_apply,
+            updates::open_site,
             updates::app_version,
             updates::diagnostics,
             guard_install,

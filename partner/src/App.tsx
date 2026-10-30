@@ -18,6 +18,8 @@ import { go } from "./site/nav";
 // Docs and the changelog carry the Markdown renderer: loaded when opened.
 const Docs = lazy(() => import("./site/Docs").then((m) => ({ default: m.Docs })));
 const Changelog = lazy(() => import("./site/Changelog").then((m) => ({ default: m.Changelog })));
+// The legal page carries the notices list (scripts/licenses.mjs): loaded when opened.
+const LegalPage = lazy(() => import("./site/LegalPage").then((m) => ({ default: m.LegalPage })));
 
 // Dev only: /emails renders every email; /demo/approve shows the approve screen with sample data.
 const EmailPreview = import.meta.env.DEV ? lazy(() => import("./EmailPreview")) : () => null;
@@ -27,6 +29,7 @@ type Route =
   | { page: "partner" }
   | { page: "docs"; slug: string | null }
   | { page: "changelog" }
+  | { page: "legal" }
   | { page: "invite"; token: string }
   | { page: "approve"; id: string }
   | { page: "emails" }
@@ -46,6 +49,7 @@ function routeOf(path: string): Route {
   const docs = /^\/docs(?:\/([a-z0-9-]+))?\/?$/.exec(path);
   if (docs) return { page: "docs", slug: docs[1] ?? null };
   if (/^\/changelog\/?$/.test(path)) return { page: "changelog" };
+  if (/^\/legal\/?$/.test(path)) return { page: "legal" };
   // Public pages for Google's consent screen: the home page (/about is the old address), privacy, and terms.
   const legal = /^\/(privacy|terms)\/?$/.exec(path);
   if (legal) return { page: legal[1] as "privacy" | "terms" };
@@ -657,6 +661,15 @@ export function App() {
       <Shell>
         <Suspense fallback={null}>
           <Changelog />
+        </Suspense>
+      </Shell>
+    );
+  }
+  if (route.page === "legal") {
+    return (
+      <Shell>
+        <Suspense fallback={null}>
+          <LegalPage />
         </Suspense>
       </Shell>
     );

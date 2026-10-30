@@ -60,6 +60,8 @@ export const EVENTS = {
   intercept: "sanctum://intercept",
   endEarly: "sanctum://end-early",
   closeRequested: "sanctum://close-requested",
+  /** An update downloaded in the background (v0.3). */
+  updateReady: "sanctum://update-ready",
   /** Quitting from the tray or a remembered close: save what's waiting, then quit_app. */
   quit: "sanctum://quit",
   enterFocus: "sanctum://enter-focus",
@@ -218,6 +220,12 @@ export const native = {
   journalUnlockHello: () => call<JournalLock>("journal_unlock_hello"),
   journalLock: () => call<void>("journal_lock"),
   updateInstall: () => call<void>("update_install"),
+  /** A downloaded update waiting for its click (v0.3). */
+  updateReady: () => call<UpdateInfo | null>("update_ready"),
+  /** Installs the downloaded update (downloading it now if needed) and restarts. */
+  updateApply: () => call<void>("update_apply"),
+  /** A page on Sanctum's site (privacy, terms, legal, docs, changelog, partner), in your light or dark. */
+  openSite: (page: string, scheme: string) => call<void>("open_site", { page, scheme }),
   diagnostics: () => call<string>("diagnostics"),
   guardStatus: () => call<GuardStatus>("guard_status"),
   guardInstall: () => call<GuardStatus>("guard_install"),
