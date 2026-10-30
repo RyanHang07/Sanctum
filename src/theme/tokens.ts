@@ -1,26 +1,29 @@
 import tokens from "../../design/tokens.json";
 import extra from "./extra.json";
-
-/** camelCase -> kebab-case, so `textHover` becomes the class suffix `text-hover`. */
-const kebab = (s: string) => s.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
+import { cssVar, kebab } from "./palette";
 
 type ColorValue = string | Record<string, string>;
 
-/** Flattens design/tokens.json colors into the shape Tailwind expects. */
+/** A colour by its flat name, as the theme's variable (src/theme/palette.ts). */
+const ref = (flat: string) => `var(${cssVar(flat)})`;
+
+/**
+ * The colour names from design/tokens.json (and extra.json) in the shape Tailwind expects,
+ * each pointing at its theme variable: `bg-sealed-tint` draws `var(--s-sealed-tint)`.
+ */
 export function buildColors(): Record<string, ColorValue> {
   const out: Record<string, ColorValue> = {};
-  for (const [name, value] of Object.entries(tokens.color)) {
+  for (const [name, value] of Object.entries({ ...tokens.color, ...extra.color })) {
     if (typeof value === "string") {
-      out[name] = value;
+      out[name] = ref(name);
     } else if (Array.isArray(value)) {
-      out[name] = Object.fromEntries(value.map((v, i) => [String(i + 1), v]));
+      out[name] = Object.fromEntries(value.map((_, i) => [String(i + 1), ref(`${name}-${i + 1}`)]));
     } else {
       out[name] = Object.fromEntries(
-        Object.entries(value).map(([k, v]) => [k === "DEFAULT" ? k : kebab(k), v]),
+        Object.keys(value).map((k) => (k === "DEFAULT" ? [k, ref(name)] : [kebab(k), ref(`${name}-${kebab(k)}`)])),
       );
     }
   }
-  for (const [name, value] of Object.entries(extra.color)) out[name] = value;
   return out;
 }
 
@@ -43,7 +46,8 @@ export const theme = {
     meta: px(tokens.type.meta[0]),
     moment: [px(tokens.type.moment[0]), { fontWeight: String(tokens.type.moment[1]) }],
   },
-  boxShadow: extra.shadow,
+  // Shadows are part of the theme too (a light theme casts a softer one).
+  boxShadow: Object.fromEntries(Object.keys(extra.shadow).map((k) => [k, ref(`shadow-${k}`)])),
   transitionDuration: extra.motion.duration,
   transitionTimingFunction: extra.motion.easing,
   keyframes: {

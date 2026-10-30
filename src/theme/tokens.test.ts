@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildColors, durationsMin, theme, tokens, windowSize } from "./tokens";
+import { KEYS, SANCTUM_DARK, applyTheme } from "./palette";
 import tailwindConfig from "../../tailwind.config";
 
 const root = resolve(__dirname, "../..");
@@ -25,22 +26,50 @@ describe("design tokens", () => {
     tokens.color.ember.forEach((v, i) => expect(cssVar(`ember-${i + 1}`)).toBe(v));
   });
 
-  it("exposes every token color to Tailwind by name", () => {
+  it("exposes every token color to Tailwind by name, as its theme variable", () => {
     const colors = buildColors();
-    expect(colors.app).toBe("#0B0D12");
-    expect(colors["text-2"]).toBe("#B8BFCC");
+    expect(colors.app).toBe("var(--s-app)");
+    expect(colors["text-2"]).toBe("var(--s-text-2)");
     expect(colors.sealed).toMatchObject({
-      DEFAULT: "#2F5BFF",
-      text: "#7A95FF",
-      "text-hover": "#A9BBFF",
-      on: "#FFFFFF",
-      tint: "#172040",
-      line: "#1F3482",
+      DEFAULT: "var(--s-sealed)",
+      text: "var(--s-sealed-text)",
+      "text-hover": "var(--s-sealed-text-hover)",
+      on: "var(--s-sealed-on)",
+      tint: "var(--s-sealed-tint)",
+      line: "var(--s-sealed-line)",
     });
-    expect(colors.event).toMatchObject({ DEFAULT: "#FF8A6B", tint: "#2A1712", line: "#5A2E24" });
-    expect(colors.held).toEqual({ "1": "#1F3FD9", "2": "#2F5BFF", "3": "#6A4CFF", "4": "#12A8C9" });
-    expect(colors.ember).toEqual({ "1": "#C8402A", "2": "#FF8A6B", "3": "#D9466A", "4": "#F2A33A" });
+    expect(colors.held).toEqual({ "1": "var(--s-held-1)", "2": "var(--s-held-2)", "3": "var(--s-held-3)", "4": "var(--s-held-4)" });
+    expect(colors.heat).toEqual({ "1": "var(--s-heat-1)", "2": "var(--s-heat-2)", "3": "var(--s-heat-3)" });
     for (const name of Object.keys(tokens.color)) expect(colors, name).toHaveProperty(name);
+    // Every variable a class can point at is one a palette defines.
+    const refs = JSON.stringify(colors).match(/--s-[a-z0-9-]+/g)!;
+    for (const r of refs) expect(KEYS, r).toContain(r.slice(4));
+  });
+
+  it("Sanctum Dark is the design tokens, value for value", () => {
+    const p = SANCTUM_DARK.palette;
+    expect(p.app).toBe(tokens.color.app);
+    expect(p["text-2"]).toBe(tokens.color["text-2"]);
+    expect([p.sealed, p["sealed-text"], p["sealed-text-hover"], p["sealed-on"], p["sealed-tint"], p["sealed-line"]]).toEqual([
+      tokens.color.sealed.DEFAULT,
+      tokens.color.sealed.text,
+      tokens.color.sealed.textHover,
+      tokens.color.sealed.on,
+      tokens.color.sealed.tint,
+      tokens.color.sealed.line,
+    ]);
+    expect([p["held-1"], p["held-2"], p["held-3"], p["held-4"]]).toEqual(tokens.color.held);
+    expect([p["ember-1"], p["ember-2"], p["ember-3"], p["ember-4"]]).toEqual(tokens.color.ember);
+    expect(p["shadow-dialog"]).toMatch(/^0 24px/);
+  });
+
+  it("puts a theme on <html> as variables", () => {
+    applyTheme(SANCTUM_DARK);
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue("--s-app")).toBe(tokens.color.app);
+    expect(root.style.getPropertyValue("--s-sealed-on")).toBe(tokens.color.sealed.on);
+    expect(root.dataset.theme).toBe("sanctum-dark");
+    expect(root.style.colorScheme).toBe("dark");
   });
 
   it("wires radii, control and row heights, sidebar width, and fonts into the Tailwind config", () => {

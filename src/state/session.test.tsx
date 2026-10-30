@@ -265,7 +265,7 @@ describe("intercept overlay", () => {
 
 describe("compact timer and formatting", () => {
   it("fills cobalt left to right with progress", () => {
-    expect(fillStyle(0.36).background).toBe("linear-gradient(90deg, #2F5BFF 0%, #2F5BFF 36.0%, #12151C 36.0%)");
+    expect(fillStyle(0.36).background).toBe("linear-gradient(90deg, var(--s-sealed) 0%, var(--s-sealed) 36.0%, var(--s-panel) 36.0%)");
     expect(fillStyle(2).background).toContain("100.0%");
   });
 
