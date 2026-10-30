@@ -61,7 +61,7 @@ export function RecapNotice() {
       <div className="flex flex-col gap-2 border-t border-line pt-3">
         <textarea rows={2} maxLength={2000} value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked?" aria-label="What worked?" className={FIELD} />
         <textarea rows={2} maxLength={2000} value={change} onChange={(e) => setChange(e.target.value)} placeholder="What will you change?" aria-label="What will you change?" className={FIELD} />
-        <label className="flex items-center gap-2 text-meta text-text-2">
+        <label className="flex items-center gap-2 whitespace-nowrap text-meta text-text-2">
           This week's target
           <input
             type="number"
@@ -74,9 +74,12 @@ export function RecapNotice() {
             className="h-7 w-[64px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-meta text-text outline-none focus:border-sealed-line"
           />
           hours
-          {target?.isDefault ? <span className="text-faint">· your recent average</span> : null}
         </label>
-        {target && target.focusMin > 0 ? <span className="text-[11px] text-muted">So far this week: {minutes(target.focusMin)}</span> : null}
+        {target && (target.focusMin > 0 || target.isDefault) ? (
+          <span className="text-[11px] text-muted">
+            {[target.focusMin > 0 ? `So far: ${minutes(target.focusMin)}` : null, target.isDefault ? "the target is your recent average" : null].filter(Boolean).join(" · ")}
+          </span>
+        ) : null}
       </div>
       <div className="flex items-center justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={() => void finish()}>
