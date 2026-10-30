@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { DEFAULT_PREFS, resolve, useTheme } from "./theme";
 import { AppearanceSection } from "../pages/setup/Appearance";
 import { native } from "../lib/native";
-import { resetMockBackend } from "../lib/mockBackend";
+import { mockExtension, resetMockBackend } from "../lib/mockBackend";
 import { commandsFor } from "../components/CommandBar";
 
 const initial = useTheme.getState();
@@ -42,6 +42,10 @@ describe("themes (v0.3)", () => {
     expect(JSON.parse((await native.getSetting("theme"))!)).toMatchObject({ dark: "dracula", light: "solarized-light" });
     // Other windows read the same choice.
     expect(JSON.parse(localStorage.getItem("sanctum-theme")!)).toMatchObject({ dark: "dracula" });
+    // The extension's pages follow what's kept (a hover preview isn't sent).
+    useTheme.getState().preview("nord");
+    expect(mockExtension.theme?.id).toBe(useTheme.getState().theme.id);
+    useTheme.getState().preview(null);
   });
 
   it("turning following off keeps what shows; a pick then is the one theme", async () => {

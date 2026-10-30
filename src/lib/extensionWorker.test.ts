@@ -91,6 +91,31 @@ describe("extension worker after a restart (v0.1.3)", () => {
     vi.restoreAllMocks();
   });
 
+  it("keeps the app's theme for its pages (v0.3)", async () => {
+    const fake = fakeChrome({});
+    await boot(fake);
+    const theme = { type: "theme", id: "nord", scheme: "dark", palette: { app: "#2E3440" } };
+    await fake.listeners["port.message"]![0]!(theme);
+    expect(fake.local.theme).toEqual(theme);
+  });
+
+  it("paints its pages in the theme, plain colours only, with the right mark (v0.3)", async () => {
+    // @ts-expect-error: plain JS module
+    const { applyTheme } = await import("../../extension/theme.js");
+    document.body.innerHTML = '<img data-mark src="icons/mark.svg" />';
+    const root = document.documentElement;
+    applyTheme({ id: "sanctum-light", scheme: "light", palette: { app: "#F7F8FA", "sealed-on": "#FFFFFF", text: "red;x:y", scrim: "rgba(0,0,0,.3)", "Bad Name": "#000000" } });
+    expect(root.style.getPropertyValue("--app")).toBe("#F7F8FA");
+    // tokens.css calls the text on the accent --on-sealed.
+    expect(root.style.getPropertyValue("--on-sealed")).toBe("#FFFFFF");
+    expect(root.style.getPropertyValue("--text")).toBe("");
+    expect(root.style.getPropertyValue("--scrim")).toBe("");
+    expect(root.style.colorScheme).toBe("light");
+    expect(document.querySelector("img")!.getAttribute("src")).toBe("icons/mark-light.svg");
+    applyTheme(null);
+    expect(root.style.getPropertyValue("--app")).toBe("#F7F8FA");
+  });
+
   it("the blocked page's Open re-syncs before navigating", async () => {
     const fake = fakeChrome({ connectFails: true });
     await boot(fake);

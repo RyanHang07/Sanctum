@@ -855,6 +855,7 @@ pub fn run() {
             cloud::cloud_email_invite,
             cloud::cloud_request_removal,
             browser::browser_open_extension_dir,
+            browser::browser_set_theme,
             list_installed_apps,
             app_icon,
             launch_profile,
