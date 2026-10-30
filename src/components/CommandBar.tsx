@@ -44,6 +44,17 @@ export function commandsFor(query: string): Command[] {
   for (const t of SETUP_TABS) out.push({ id: `setup:${t.id}`, group: "Setup", label: `Setup › ${t.label}`, run: () => s.openSetup(t.id) });
   if (sealed) {
     out.push({ id: "compact", group: "Focus", label: "Compact timer", hint: "Ctrl M", run: () => native.showCompact() });
+    // v0.3.1: the park box on Today (Ctrl Alt P does it from any app).
+    out.push({
+      id: "park",
+      group: "Focus",
+      label: "Park a thought for later",
+      hint: "Ctrl Alt P",
+      run: () => {
+        s.navigate("today");
+        setTimeout(() => document.querySelector<HTMLInputElement>('[aria-label="Park a thought for later"]')?.focus(), 50);
+      },
+    });
     out.push({ id: "break", group: "Focus", label: "Break the seal", run: () => s.openEndEarly() });
   } else if (s.appState === "open") {
     for (const p of s.profiles) {

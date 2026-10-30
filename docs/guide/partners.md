@@ -18,7 +18,7 @@ Three wrong PINs lock approvals for 30 minutes.
 
 ## What you're told
 
-Email only, for: unlock requests, emergency unlocks, broken seals, and a lost streak. Nothing about what they do on their PC, what sites they visit, or their notes.
+Email only, for: unlock requests, emergency unlocks, broken seals, and a lost streak. If they turn it on, also a short note each Monday with last week's totals: hours in focus, days kept, and the streak. Nothing about what they do on their PC, what sites they visit, or their notes.
 
 ## Stepping down
 

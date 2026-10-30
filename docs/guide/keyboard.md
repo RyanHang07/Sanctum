@@ -12,5 +12,6 @@
 | Ctrl 6 | Journal |
 | Ctrl , | Setup |
 | Ctrl M | Compact timer (while sealed) |
+| Ctrl Alt P | Park a thought for later, from any app (while sealed) |
 | Ctrl B | Collapse the sidebar |
 | Alt ↑ / Alt ↓ | Move a block in a note, or an item in a list |

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 export const CONTACT = "ryan.hang3r@gmail.com";
 export const OPERATOR = "Ryan Hang";
-export const UPDATED = "October 29, 2026";
+export const UPDATED = "October 30, 2026";
 const REPO = "https://github.com/ryanhang07/sanctum";
 export const SITE = "https://sanctum-desktop.vercel.app";
 
@@ -82,7 +82,7 @@ export function Privacy() {
           <li>who your partner is, and the people you're a partner for, plus any open invite links;</li>
           <li>your partner PIN, as a one-way hash (it can't be read back);</li>
           <li>unlock requests: your reason, the session's profile name and planned end, and your partner's answer and note;</li>
-          <li>notifications for your partner, such as a broken seal or an emergency unlock;</li>
+          <li>notifications for your partner, such as a broken seal or an emergency unlock, and, only if you turn it on, a weekly summary of your totals (hours in focus, days kept, and your streak);</li>
           <li>notes you share, only while their link lasts (see below).</li>
         </ul>
         <p>
