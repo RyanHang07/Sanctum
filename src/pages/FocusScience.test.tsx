@@ -210,7 +210,7 @@ describe("the week, reviewed", () => {
     const target = await card.findByLabelText("This week's target, in hours");
     // A new install starts at the daily goal for five days: 2h x 5.
     await waitFor(() => expect(target).toHaveValue(10));
-    expect(card.getByText("· your recent average")).toBeInTheDocument();
+    expect(card.getByText(/the target is your recent average/)).toBeInTheDocument();
     fireEvent.change(card.getByLabelText("What worked?"), { target: { value: "Mornings, phone in the other room" } });
     fireEvent.change(card.getByLabelText("What will you change?"), { target: { value: "Start before 9" } });
     fireEvent.change(target, { target: { value: "12.5" } });
