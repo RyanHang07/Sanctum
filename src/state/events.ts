@@ -1,4 +1,5 @@
 import { play } from "../lib/sound";
+import { brokeFix } from "../pages/headlines";
 import { EVENTS, onNative } from "../lib/native";
 import type { CheckinDue, GcalStatus, HeldStats, QuietStatus, SessionView } from "../lib/types";
 import { useCalendar } from "./calendar";
@@ -45,7 +46,14 @@ export function connectNativeEvents(): () => void {
     // Tampering broke the seal (M12): say why. The seal stays on until its planned end.
     onNative<{ kind: string; detail: string }>(EVENTS.tamper, (t) => {
       play("broken");
-      store().showNotice({ lead: "The seal is broken.", rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end.` });
+      // Plain, with the fix when there is one (v0.3.1).
+      const fix = brokeFix(t.kind);
+      store().showNotice({
+        lead: "The seal is broken.",
+        rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end.`,
+        action: fix ? { label: fix.label, run: () => store().openSetup(fix.tab) } : undefined,
+        ms: fix ? 9000 : undefined,
+      });
     }),
   ];
   // Check-ins queue while sealed; one that came due shows when the seal ends.

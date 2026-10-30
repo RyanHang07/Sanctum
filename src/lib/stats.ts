@@ -14,16 +14,33 @@ export function dayStatus(focusMin: number, broken: boolean, rest: boolean, goal
   return beforeStart ? "none" : "missed";
 }
 
-/** [current, longest] from statuses oldest first. Mirrors stats::streaks. */
+/** [current, longest] from statuses oldest first. Mirrors stats::streaks: never miss twice
+ *  (v0.3.1), so one missed day holds the run and a second in a row resets it. */
 export function streaks(statuses: readonly DayStatus[]): [number, number] {
   let run = 0;
   let longest = 0;
+  let missed = 0;
   for (const s of statuses) {
-    if (s === "kept" || s === "rest") run += 1;
-    else if (s === "missed" || s === "broken") run = 0;
+    if (s === "kept" || s === "rest") {
+      run += 1;
+      missed = 0;
+    } else if (s === "missed") {
+      missed += 1;
+      if (missed >= 2) run = 0;
+    } else if (s === "broken") {
+      run = 0;
+      missed = 0;
+    }
     longest = Math.max(longest, run);
   }
   return [run, longest];
+}
+
+/** Yesterday was missed once: the streak holds only if today counts. Mirrors stats::streak_at_risk. */
+export function streakAtRisk(statuses: readonly DayStatus[]): boolean {
+  const past = statuses.filter((s) => s !== "today" && s !== "future");
+  const last = past[past.length - 1];
+  return last === "missed" && past[past.length - 2] !== "missed";
 }
 
 export type StatsRange = "week" | "month";

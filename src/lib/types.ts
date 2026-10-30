@@ -175,6 +175,26 @@ export interface SessionView {
   /** Idle right now: the countdown is paused and the end moves later (SPEC 4.8). */
   idle: boolean;
   task?: TaskLink | null;
+  /** What will be done (v0.3.1). */
+  goal?: string | null;
+  /** "If I'm tempted, I'll …": the blank, shown on every catch (v0.3.1). */
+  plan?: string | null;
+}
+
+/** What the focus row prefills (v0.3.1, src-tauri/src/focus.rs). */
+export interface FocusPrep {
+  /** The profile's last if-then plan. */
+  plan: string | null;
+  /** Where you left off last time, on this task or in this profile. */
+  leftOff: { text: string; at: number } | null;
+}
+
+export type SessionResult = "done" | "partly" | "no";
+
+/** What broke a seal and how far in (v0.3.1): the tamper kind and minutes into the seal. */
+export interface Broke {
+  kind: "clock" | "guard" | "extension" | "shutdown" | "killed" | "closed" | string;
+  afterMin: number;
 }
 
 /** Shown on the Sanctum held page when a session completes. */
@@ -194,12 +214,16 @@ export interface HeldStats {
   broken: boolean;
   /** The task the session was for; the held page offers to check it off. */
   task?: TaskLink | null;
+  /** What it was meant to get done (v0.3.1). */
+  goal?: string | null;
+  /** What broke it, for a broken seal (v0.3.1). */
+  broke?: Broke | null;
 }
 
 /** Payload for the intercept window (src-tauri/src/engine.rs). */
 export interface Intercept {
   /** "app" / "allowlist": sealed-app overlay. "title": corner nudge. "welcome": back from idle. */
-  kind: "app" | "allowlist" | "title" | "welcome" | "quiet";
+  kind: "app" | "allowlist" | "title" | "welcome" | "quiet" | "park";
   label: string;
   attempts: number;
   profileName: string;
@@ -212,6 +236,8 @@ export interface Intercept {
   idleMs?: number | null;
   /** "welcome": the seal's end after the idle extension. */
   endsAt?: number | null;
+  /** The seal's if-then plan, shown on every catch (v0.3.1). */
+  plan?: string | null;
 }
 
 export type Category = "productive" | "neutral" | "distracting";
@@ -278,6 +304,8 @@ export interface Todo {
   sort: number;
   /** Pending: no day yet, parked on the week whose Monday is `dueDate`. */
   undated: boolean;
+  /** A thought parked mid-seal (v0.3.1): the session it came from. */
+  parkedFrom?: number | null;
 }
 
 /** `undated`: true parks it on a week (Pending), false gives it its day, left out keeps it as is. */
@@ -386,6 +414,12 @@ export interface SessionRow {
   outcome: SessionOutcome;
   attempts: number;
   task: string | null;
+  /** The seal's intent and how it went (v0.3.1). */
+  goal?: string | null;
+  plan?: string | null;
+  result?: SessionResult | null;
+  focusRating?: number | null;
+  leftOff?: string | null;
 }
 
 export interface SessionDetail {
@@ -438,6 +472,8 @@ export interface StatsOverview {
   restMask: number;
   currentStreak: number;
   longestStreak: number;
+  /** Yesterday was missed: one more miss resets the streak (never miss twice, v0.3.1). */
+  streakAtRisk: boolean;
   days: DayStat[];
   kept: number;
   broken: number;

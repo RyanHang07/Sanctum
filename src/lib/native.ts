@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppState } from "../state/appState";
 import type {
+  FocusPrep,
+  SessionResult,
   ActivitySummary,
   BrowserStatus,
   CalEvent,
@@ -152,7 +154,13 @@ export const native = {
   quietPause: (reason: string) => call<QuietStatus>("quiet_pause", { reason }),
   quietResume: () => call<QuietStatus>("quiet_resume"),
   interceptQuietPause: () => call<void>("intercept_quiet_pause"),
-  startSession: (profileId: number, minutes: number, task: TaskLink | null = null) => call<SessionView>("start_session", { profileId, minutes, task }),
+  startSession: (profileId: number, minutes: number, task: TaskLink | null = null, goal: string | null = null, plan: string | null = null) =>
+    call<SessionView>("start_session", { profileId, minutes, task, goal, plan }),
+  // The seal's science (v0.3.1, src-tauri/src/focus.rs).
+  focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
+  focusPark: (text: string) => call<Todo>("focus_park", { text }),
+  focusWrap: (sessionId: number, result: SessionResult | null, rating: number | null, leftOff: string | null) =>
+    call<void>("focus_wrap", { sessionId, result, rating, leftOff }),
   ladderOpen: () => call<LadderView>("ladder_open"),
   ladderView: () => call<LadderView>("ladder_view"),
   ladderReason: (reason: string) => call<LadderView>("ladder_reason", { reason }),

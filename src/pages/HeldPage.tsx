@@ -4,11 +4,11 @@ import { Mesh } from "../components/Mesh";
 import { useStore } from "../state/store";
 import { play } from "../lib/sound";
 import { minutes } from "../lib/time";
-import type { HeldStats, TaskLink } from "../lib/types";
+import type { HeldStats, SessionResult, TaskLink } from "../lib/types";
 import { usePlanner } from "../state/planner";
 import { native } from "../lib/native";
 import { CheckIcon } from "../components/icons";
-import { heldLine } from "./headlines";
+import { brokeLine, heldLine } from "./headlines";
 import { addDays, todayKey } from "../lib/planner";
 
 // Full-page takeover when a session completes (SPEC 4.0.2, design/screens/HeldPage.dc.html).
@@ -63,10 +63,125 @@ function TaskDone({ task }: { task: TaskLink }) {
   );
 }
 
+const RESULTS: [SessionResult, string][] = [
+  ["done", "Done"],
+  ["partly", "Partly"],
+  ["no", "No"],
+];
+
+const CHIP = "flex h-8 items-center rounded-control border px-3 text-body transition-colors duration-ui ease-ui";
+const chipClass = (on: boolean) => `${CHIP} ${on ? "border-sealed-on bg-sealed-on text-app" : "border-sealed-on/30 bg-app/35 text-sealed-on hover:bg-app/55"}`;
+
+interface Wrap {
+  result: SessionResult | null;
+  rating: number | null;
+  leftOff: string;
+}
+
+const hasWrap = (w: Wrap) => w.result !== null || w.rating !== null || w.leftOff.trim() !== "";
+
+/** How it went (v0.3.1): Done / Partly / No and a 1-5 focus rating (feedback on a specific
+ *  goal, Locke & Latham), and where you left off, for the next seal (Leroy 2009). */
+function WrapUp({ held, wrap, setWrap }: { held: HeldStats; wrap: Wrap; setWrap: (w: Wrap) => void }) {
+  const what = held.goal ?? held.task?.title ?? null;
+  return (
+    <div data-testid="held-wrap" className="held-r3 flex w-[560px] max-w-full flex-col gap-3 rounded-[10px] border border-sealed-on/16 bg-app/35 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-body text-sealed-on/90">
+          {what ? (
+            <>
+              Did <span className="font-semibold text-sealed-on">{what}</span> get done?
+            </>
+          ) : (
+            "Did it get done?"
+          )}
+        </span>
+        <div role="radiogroup" aria-label="Did it get done?" className="flex gap-[6px]">
+          {RESULTS.map(([v, label]) => (
+            <button key={v} type="button" role="radio" aria-checked={wrap.result === v} className={chipClass(wrap.result === v)} onClick={() => setWrap({ ...wrap, result: wrap.result === v ? null : v })}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-body text-sealed-on/90">Focus, 1 to 5</span>
+        <div role="radiogroup" aria-label="Focus, 1 to 5" className="flex gap-[6px]">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={wrap.rating === n}
+              className={`${chipClass(wrap.rating === n)} w-8 justify-center px-0 font-mono`}
+              onClick={() => setWrap({ ...wrap, rating: wrap.rating === n ? null : n })}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <input
+        value={wrap.leftOff}
+        maxLength={200}
+        onChange={(e) => setWrap({ ...wrap, leftOff: e.target.value })}
+        onKeyDown={(e) => e.stopPropagation()}
+        placeholder="Where I left off (shown next time)"
+        aria-label="Where I left off"
+        className="h-9 rounded-control border border-sealed-on/30 bg-app/35 px-3 text-body text-sealed-on outline-none placeholder:text-sealed-on/55 focus:border-sealed-on/70"
+      />
+    </div>
+  );
+}
+
+/** Thoughts parked during this seal (v0.3.1): they're tasks for today; keep, move, or drop. */
+function Parked({ sessionId }: { sessionId: number }) {
+  const all = usePlanner((p) => p.todos);
+  const parked = all.filter((t) => t.parkedFrom === sessionId && !t.done);
+  if (!parked.length) return null;
+  const tomorrow = async (id: number, title: string) => {
+    await native.saveTodo({ id, title, dueDate: addDays(todayKey(), 1), dueTime: null, durationMin: null, profileId: null }).catch(() => undefined);
+    void usePlanner.getState().reload();
+  };
+  const drop = async (id: number) => {
+    await native.deleteTodo(id).catch(() => undefined);
+    void usePlanner.getState().reload();
+  };
+  return (
+    <div data-testid="held-parked" className="held-r3 flex w-[560px] max-w-full flex-col gap-1">
+      <span className="px-1 text-meta text-sealed-on/72">Parked during the seal, on today's list</span>
+      {parked.map((t) => (
+        <div key={t.id} className="flex h-9 items-center gap-2 rounded-control border border-sealed-on/16 bg-app/35 pl-3 pr-1">
+          <span className="min-w-0 flex-1 truncate text-body text-sealed-on">{t.title}</span>
+          <button type="button" className="h-7 rounded-[5px] px-2 text-meta text-sealed-on/80 hover:bg-sealed-on/10" onClick={() => void tomorrow(t.id, t.title)}>
+            Tomorrow
+          </button>
+          <button type="button" aria-label={`Delete ${t.title}`} className="h-7 rounded-[5px] px-2 text-meta text-sealed-on/80 hover:bg-sealed-on/10" onClick={() => void drop(t.id)}>
+            Delete
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HeldPage({ held }: { held: HeldStats }) {
   const today = useStore((s) => s.focusTodayMin);
   const goal = useStore((s) => s.settings.dailyGoalMin);
-  const dismiss = useStore((s) => s.dismissHeld);
+  const close = useStore((s) => s.dismissHeld);
+  const [wrap, setWrap] = useState<Wrap>({ result: null, rating: null, leftOff: "" });
+  // Saved a moment after each change, and again on the way out, so leaving any way keeps it.
+  const save = (w: Wrap) => void native.focusWrap(held.sessionId, w.result, w.rating, w.leftOff.trim() || null).catch(() => undefined);
+  useEffect(() => {
+    if (!hasWrap(wrap)) return;
+    const t = setTimeout(() => save(wrap), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wrap, held.sessionId]);
+  const dismiss = () => {
+    if (hasWrap(wrap)) save(wrap);
+    close();
+  };
   const [run, setRun] = useState(0);
   // The streak, for "3 days running." when this session met the goal.
   const [streak, setStreak] = useState<number | null>(null);
@@ -81,7 +196,8 @@ export function HeldPage({ held }: { held: HeldStats }) {
       live = false;
     };
   }, [held.sessionId]);
-  const line = heldLine({ sessionId: held.sessionId, broken: held.broken, attempts: held.attempts, focusMinutes: held.focusMinutes, todayMinutes: today, goalMinutes: goal, streak });
+  const broke = held.broken && held.broke ? brokeLine(held.broke) : null;
+  const line = broke ? broke.line : heldLine({ sessionId: held.sessionId, broken: held.broken, attempts: held.attempts, focusMinutes: held.focusMinutes, todayMinutes: today, goalMinutes: goal, streak });
 
   const enterAgain = async () => {
     const s = useStore.getState();
@@ -113,7 +229,7 @@ export function HeldPage({ held }: { held: HeldStats }) {
     <div data-testid="held-page" className="relative h-full w-full overflow-hidden bg-app font-sans text-sealed-on">
       <Mesh tone="held" />
 
-      <div key={run} className="relative flex h-full w-full flex-col items-center justify-center gap-7 p-10">
+      <div key={run} className="relative flex h-full w-full flex-col items-center gap-6 overflow-y-auto p-10 [&>*]:shrink-0 [&>:first-child]:mt-auto [&>:last-child]:mb-auto">
         <AnimatedMark size={96} rings />
         <div className="held-r1 flex flex-col items-center gap-[10px] text-center">
           <span className="text-body uppercase tracking-[0.08em] text-sealed-on/85">
@@ -125,6 +241,19 @@ export function HeldPage({ held }: { held: HeldStats }) {
           <p className="m-0 text-[17px] text-sealed-on/90">
             {line}
           </p>
+          {broke?.fix ? (
+            <button
+              type="button"
+              onClick={() => {
+                const tab = broke.fix!.tab;
+                dismiss();
+                useStore.getState().openSetup(tab);
+              }}
+              className="mt-1 h-8 rounded-control border border-sealed-on/30 px-3 text-body text-sealed-on transition-colors duration-ui ease-ui hover:bg-sealed-on/10"
+            >
+              {broke.fix.label}
+            </button>
+          ) : null}
         </div>
         <div className="held-r2 flex overflow-hidden rounded-[10px] border border-sealed-on/16 bg-app/35">
           <Stat value={minutes(held.focusMinutes)} label="in focus" />
@@ -136,6 +265,8 @@ export function HeldPage({ held }: { held: HeldStats }) {
             <TaskDone task={held.task} />
           </div>
         ) : null}
+        <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
+        <Parked sessionId={held.sessionId} />
         <div className="held-r3 flex gap-2">
           <button
             type="button"

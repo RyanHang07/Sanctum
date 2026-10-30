@@ -37,6 +37,9 @@ pub struct Active {
     pub tampered: bool,
     /// The Today task this session is for, if one was picked.
     pub task: Option<TaskLink>,
+    /// What will be done, and the if-then plan for temptation (v0.3.1, focus.rs).
+    pub goal: Option<String>,
+    pub plan: Option<String>,
     anchor_wall: i64,
     anchor_mono: Instant,
 }
@@ -88,6 +91,8 @@ impl Active {
             broken: self.broken,
             idle: self.idle_since.is_some(),
             task: self.task.clone(),
+            goal: self.goal.clone(),
+            plan: self.plan.clone(),
         }
     }
     pub fn held(&self) -> HeldStats {
@@ -100,6 +105,8 @@ impl Active {
             attempts: self.attempts,
             broken: self.broken,
             task: self.task.clone(),
+            goal: self.goal.clone(),
+            broke: None,
         }
     }
 }
@@ -157,6 +164,9 @@ pub struct SessionView {
     /// Idle right now: the countdown is paused.
     pub idle: bool,
     pub task: Option<TaskLink>,
+    pub goal: Option<String>,
+    /// "If I'm tempted, I'll …": shown on every catch.
+    pub plan: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -171,6 +181,27 @@ pub struct HeldStats {
     pub broken: bool,
     /// The task the session was for; the held page offers to check it off.
     pub task: Option<TaskLink>,
+    /// What it was meant to get done, for "Done / Partly / No".
+    pub goal: Option<String>,
+    /// What broke it and when (v0.3.1): the held page says so plainly and offers a fix.
+    pub broke: Option<Broke>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Broke {
+    /// The tamper kind: "clock", "guard", "extension", "shutdown", "killed", or "closed".
+    pub kind: String,
+    /// Minutes into the seal.
+    pub after_min: i64,
+}
+
+/// The first tamper of a session: what broke it, and how far in.
+pub fn first_break(conn: &Connection, id: i64, started_at: i64) -> rusqlite::Result<Option<Broke>> {
+    conn.query_row("SELECT kind, ts FROM tamper_events WHERE session_id = ?1 ORDER BY ts LIMIT 1", [id], |r| {
+        Ok(Broke { kind: r.get(0)?, after_min: ((r.get::<_, i64>(1)? - started_at).max(0)) / 60_000 })
+    })
+    .optional()
 }
 
 #[derive(Debug, PartialEq)]
@@ -215,6 +246,8 @@ pub fn start(conn: &Connection, profile_id: i64, profile_name: &str, minutes: i6
         anchor_wall: now,
         tampered: false,
         task: None,
+        goal: None,
+        plan: None,
         anchor_mono: Instant::now(),
     })
 }
@@ -355,6 +388,7 @@ pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlit
                 params![gap_ms, now, broken, id],
             )?;
             let task = load_task(conn, id)?;
+            let (goal, plan) = crate::focus::load_intent(conn, id)?;
             Ok((Some(Active {
                 id,
                 profile_id,
@@ -372,6 +406,8 @@ pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlit
                 // Already logged as tamper here; don't count it twice.
                 tampered: downtime.is_some(),
                 task,
+                goal,
+                plan,
                 anchor_mono: Instant::now(),
             }), downtime))
         }

@@ -1,4 +1,4 @@
-import { dayStatus, rangeOf, rangeTitle, shade, shiftRange, streaks, temptedLabel } from "./stats";
+import { dayStatus, rangeOf, rangeTitle, shade, shiftRange, streakAtRisk, streaks, temptedLabel } from "./stats";
 
 // Mirrors the Rust tests in src-tauri/src/stats.rs.
 
@@ -13,10 +13,15 @@ describe("streak rules", () => {
     expect(dayStatus(0, false, false, 120, 1, false)).toBe("future");
   });
 
-  it("counts kept and rest days, resets on missed or broken", () => {
+  it("counts kept and rest days; never miss twice; a broken seal resets", () => {
     expect(streaks(["none", "kept", "kept", "rest", "kept", "today"])).toEqual([4, 4]);
-    expect(streaks(["kept", "kept", "kept", "missed", "kept", "today"])).toEqual([1, 3]);
+    // One miss holds the run (v0.3.1); two in a row reset it.
+    expect(streaks(["kept", "kept", "kept", "missed", "kept", "today"])).toEqual([4, 4]);
+    expect(streaks(["kept", "kept", "kept", "missed", "missed", "kept", "today"])).toEqual([1, 3]);
     expect(streaks(["kept", "broken", "kept", "kept"])).toEqual([2, 2]);
+    expect(streakAtRisk(["kept", "kept", "missed", "today"])).toBe(true);
+    expect(streakAtRisk(["kept", "missed", "kept", "today"])).toBe(false);
+    expect(streakAtRisk(["kept", "missed", "missed", "today"])).toBe(false);
   });
 });
 

@@ -110,6 +110,8 @@ pub struct Intercept {
     /// "welcome": how long you were idle, and the seal's new end.
     pub idle_ms: Option<i64>,
     pub ends_at: Option<i64>,
+    /// The seal's if-then plan (v0.3.1), shown on every catch: "If I'm tempted, I'll …".
+    pub plan: Option<String>,
 }
 
 /// Sends the running session's view to the window now (outside the tick).
@@ -124,6 +126,7 @@ fn set_sealed(app: &AppHandle, sealed: bool) {
     *shared.app_state.lock().unwrap() = if sealed { AppState::Sealed } else { AppState::Open };
     crate::tamper::on_seal(app, sealed);
     crate::dnd::on_seal(app, sealed);
+    crate::focus::on_seal(app, sealed);
     let _ = tray::refresh(app, sealed);
     crate::browser::push_rules(app);
 }
@@ -176,11 +179,18 @@ pub fn preview_seal(shared: State<Shared>, profile_id: i64) -> Result<Vec<String
 }
 
 #[tauri::command]
-pub async fn start_session(app: AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>) -> Result<SessionView, String> {
-    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes, task)).await.map_err(|e| e.to_string())?
+pub async fn start_session(
+    app: AppHandle,
+    profile_id: i64,
+    minutes: i64,
+    task: Option<session::TaskLink>,
+    goal: Option<String>,
+    plan: Option<String>,
+) -> Result<SessionView, String> {
+    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes, task, goal, plan)).await.map_err(|e| e.to_string())?
 }
 
-fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>) -> Result<SessionView, String> {
+fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>, goal: Option<String>, plan: Option<String>) -> Result<SessionView, String> {
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
     if engine.is_active() {
@@ -199,6 +209,7 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::T
             session::set_task(&conn, a.id, &t).map_err(|e| e.to_string())?;
             a.task = Some(session::TaskLink { title: t.title.trim().to_string(), ..t });
         }
+        (a.goal, a.plan) = crate::focus::set_intent(&conn, a.id, a.profile_id, goal.as_deref(), plan.as_deref()).map_err(|e| e.to_string())?;
         a
     };
     active.sealed_count = seal.enforced_count() as i64;
@@ -263,6 +274,27 @@ pub fn intercept_break(app: AppHandle) {
     let _ = app.emit(EV_END_EARLY, ());
 }
 
+/// The park card (v0.3.1): Ctrl Alt P while sealed opens it in the corner, focused for typing.
+pub fn show_park(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let Some(view) = shared.engine.view() else { return };
+    let payload = Intercept {
+        kind: "park",
+        label: String::new(),
+        attempts: view.attempts,
+        profile_name: view.profile_name,
+        elapsed_ms: view.elapsed_ms,
+        remaining_ms: view.remaining_ms,
+        back_to: None,
+        keyword: None,
+        title: None,
+        idle_ms: None,
+        ends_at: Some(view.ends_at),
+        plan: None,
+    };
+    show_intercept(app, &payload);
+}
+
 fn hide_intercept(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("intercept") {
         let _ = w.hide();
@@ -275,11 +307,12 @@ fn show_intercept(app: &AppHandle, payload: &Intercept) {
     let scale = monitor.scale_factor();
     let area = monitor.work_area();
     let px = |v: f64| (v * scale).round() as i32;
-    let corner = payload.kind == "title" || payload.kind == "welcome";
+    let corner = matches!(payload.kind, "title" | "welcome" | "park");
     let (width, height) = match payload.kind {
-        "title" => (px(380.0), px(84.0)),
+        "title" => (px(380.0), px(if payload.plan.is_some() { 108.0 } else { 84.0 })),
         "welcome" => (px(400.0), px(118.0)),
-        _ => (px(480.0), px(290.0)),
+        "park" => (px(400.0), px(132.0)),
+        _ => (px(480.0), px(if payload.plan.is_some() { 320.0 } else { 290.0 })),
     };
     let (x, y) = if corner {
         // Corner nudge, bottom-right above the taskbar.
@@ -292,7 +325,8 @@ fn show_intercept(app: &AppHandle, payload: &Intercept) {
     let _ = app.emit(EV_INTERCEPT, payload.clone());
     let _ = w.show();
     let _ = w.set_always_on_top(true);
-    if !corner {
+    // The park card takes the keyboard so you can type; the other corner cards never steal it.
+    if !corner || payload.kind == "park" {
         let _ = w.set_focus();
     }
 }
@@ -461,6 +495,7 @@ fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>) {
                 title: None,
                 idle_ms: None,
                 ends_at,
+                plan: None,
             },
         );
     }
@@ -615,7 +650,7 @@ fn sweep_now(app: &AppHandle) {
 }
 
 fn make_intercept(shared: &Shared, kind: &'static str, label: String, attempts: i64, keyword: Option<String>) -> Intercept {
-    let (profile_name, elapsed_ms, remaining_ms) = shared
+    let (profile_name, elapsed_ms, remaining_ms, plan) = shared
         .engine
         .active
         .lock()
@@ -623,11 +658,11 @@ fn make_intercept(shared: &Shared, kind: &'static str, label: String, attempts: 
         .as_ref()
         .map(|a| {
             let v = a.view();
-            (v.profile_name, v.elapsed_ms, v.remaining_ms)
+            (v.profile_name, v.elapsed_ms, v.remaining_ms, v.plan)
         })
         .unwrap_or_default();
     let back_to = shared.engine.last_app.lock().unwrap().as_ref().map(|l| app_name(shared, &l.exe));
-    Intercept { kind, label, attempts, profile_name, elapsed_ms, remaining_ms, back_to, keyword, title: None, idle_ms: None, ends_at: None }
+    Intercept { kind, label, attempts, profile_name, elapsed_ms, remaining_ms, back_to, keyword, title: None, idle_ms: None, ends_at: None, plan }
 }
 
 /// Follows the tracker's idle state into the running seal (idle extends it, SPEC 4.8) and
@@ -663,6 +698,7 @@ pub fn on_idle_event(app: &AppHandle, event: &crate::activity::Event, threshold_
             title: before.map(|b| b.title),
             idle_ms: Some(until - since),
             ends_at: Some(view.ends_at),
+            plan: None,
         };
         show_intercept(app, &payload);
     }
@@ -705,7 +741,10 @@ fn complete(app: &AppHandle) {
         // The streak resets; the partner hears about it (SPEC 4.6). Tampering already told them.
         crate::cloud::notify(app, "session_broken", active.profile_name.clone());
     }
-    let held: HeldStats = active.held();
+    let mut held: HeldStats = active.held();
+    if active.broken {
+        held.broke = shared.db.lock().ok().and_then(|c| session::first_break(&c, active.id, active.started_at).ok().flatten());
+    }
     let _ = app.emit(EV_SESSION, None::<SessionView>);
     let _ = app.emit(EV_HELD, held);
     // The compact timer shows "Held." for a beat before the held page takes over.

@@ -48,6 +48,10 @@ function render() {
   } else {
     body.textContent = "You're sealed in. Scrolling is how mid happens.";
   }
+  // The seal's if-then plan (v0.3.1), and a place to park the thought that brought you here.
+  $("plan").hidden = !rules.plan;
+  if (rules.plan) $("plan").textContent = `If you're tempted, you said you'd ${rules.plan.trim().replace(/^i(?:'|’)ll\s+/i, "").replace(/[.!]+$/, "")}.`;
+  $("park").hidden = !(rules.session && connected);
   $("offline").hidden = connected;
 }
 
@@ -70,6 +74,16 @@ $("back").addEventListener("click", async () => {
   else window.close();
 });
 $("open").addEventListener("click", () => void chrome.runtime.sendMessage({ type: "open-sanctum" }));
+$("park").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = $("park-text");
+  const text = input.value.trim();
+  if (!text) return;
+  const ok = await chrome.runtime.sendMessage({ type: "park", text }).catch(() => false);
+  $("parked").hidden = false;
+  $("parked").textContent = ok ? "Parked. It's on today's list for after the seal." : "Couldn't park it. Sanctum isn't answering.";
+  if (ok) input.value = "";
+});
 
 void refresh();
 setInterval(render, 1000);

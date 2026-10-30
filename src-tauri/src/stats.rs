@@ -53,18 +53,38 @@ pub fn day_status(focus_min: i64, broken: bool, rest: bool, goal_min: i64, when:
     }
 }
 
-/// (current, longest) from statuses oldest first, ending today.
+/// (current, longest) from statuses oldest first, ending today. Never miss twice (v0.3.1): one
+/// missed day holds the streak where it was (missing once doesn't slow a habit, Lally 2010, and a
+/// reset tends to end the effort); a second in a row resets it. A broken seal always does.
 pub fn streaks(statuses: &[DayStatus]) -> (i64, i64) {
-    let (mut run, mut longest) = (0i64, 0i64);
+    let (mut run, mut longest, mut missed) = (0i64, 0i64, 0);
     for s in statuses {
         match s {
-            DayStatus::Kept | DayStatus::Rest => run += 1,
-            DayStatus::Missed | DayStatus::Broken => run = 0,
+            DayStatus::Kept | DayStatus::Rest => {
+                run += 1;
+                missed = 0;
+            }
+            DayStatus::Missed => {
+                missed += 1;
+                if missed >= 2 {
+                    run = 0;
+                }
+            }
+            DayStatus::Broken => {
+                run = 0;
+                missed = 0;
+            }
             DayStatus::None | DayStatus::Today | DayStatus::Future => {}
         }
         longest = longest.max(run);
     }
     (run, longest)
+}
+
+/// The day before today was missed once: the streak holds, but only if today counts.
+pub fn streak_at_risk(statuses: &[DayStatus]) -> bool {
+    let past: Vec<&DayStatus> = statuses.iter().filter(|s| !matches!(s, DayStatus::Today | DayStatus::Future)).collect();
+    matches!(past.as_slice(), [.., a, DayStatus::Missed] if **a != DayStatus::Missed) || matches!(past.as_slice(), [DayStatus::Missed])
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -99,6 +119,8 @@ pub struct Overview {
     pub rest_mask: i64,
     pub current_streak: i64,
     pub longest_streak: i64,
+    /// Yesterday was missed: one more miss resets the streak ("Don't miss today").
+    pub streak_at_risk: bool,
     pub days: Vec<DayStat>,
     pub kept: i64,
     pub broken: i64,
@@ -218,6 +240,7 @@ pub fn overview(conn: &Connection, from: NaiveDate, to: NaiveDate, today: NaiveD
         d += Duration::days(1);
     }
     let (current_streak, longest_streak) = streaks(&history);
+    let streak_at_risk = current_streak > 0 && streak_at_risk(&history);
 
     let mut out = Vec::new();
     let mut d = from;
@@ -252,6 +275,7 @@ pub fn overview(conn: &Connection, from: NaiveDate, to: NaiveDate, today: NaiveD
         rest_mask,
         current_streak,
         longest_streak,
+        streak_at_risk,
         kept: count(DayStatus::Kept),
         broken: count(DayStatus::Broken),
         missed: count(DayStatus::Missed),
@@ -308,7 +332,13 @@ mod tests {
     #[test]
     fn streaks_count_kept_and_rest_days() {
         assert_eq!(streaks(&[None, None, Kept, Kept, Rest, Kept, Today]), (4, 4));
-        assert_eq!(streaks(&[Kept, Kept, Kept, Missed, Kept, Today]), (1, 3));
+        // Never miss twice: one miss holds the run, two in a row reset it.
+        assert_eq!(streaks(&[Kept, Kept, Kept, Missed, Kept, Today]), (4, 4));
+        assert_eq!(streaks(&[Kept, Kept, Kept, Missed, Missed, Kept, Today]), (1, 3));
+        assert_eq!(streaks(&[Kept, Missed, Kept, Missed, Kept]), (3, 3), "misses apart never reset");
+        assert!(streak_at_risk(&[Kept, Kept, Missed, Today]));
+        assert!(!streak_at_risk(&[Kept, Kept, Missed, Kept, Today]));
+        assert!(!streak_at_risk(&[Kept, Missed, Missed, Today]), "already reset");
         assert_eq!(streaks(&[Kept, Broken, Kept, Kept]), (2, 2));
         assert_eq!(streaks(&[]), (0, 0));
     }
@@ -360,8 +390,9 @@ mod tests {
         assert_eq!(o.days[1].focus_min, 90);
         assert_eq!(o.days[1].attempts, 3);
         assert_eq!(o.days[6].focus_min, 20, "the running session counts today");
-        // Broken Friday reset the streak; Saturday's rest counts.
-        assert_eq!((o.current_streak, o.longest_streak), (1, 2));
+        // Wednesday's one miss held the run (Mon, Tue, Thu: 3); broken Friday reset it; Saturday's rest counts.
+        assert_eq!((o.current_streak, o.longest_streak), (1, 3));
+        assert!(!o.streak_at_risk);
         assert_eq!((o.kept, o.broken, o.missed), (3, 1, 1));
         assert_eq!(o.tempted[0], Tempted { what: "discord.exe".into(), kind: "app".into(), count: 2 });
         assert_eq!((o.productive_min, o.distracting_min), (60, 10));

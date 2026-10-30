@@ -5,13 +5,21 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 ## Updates and releases
 
 - [ ] **0.1.2 → 0.2.0:** v0.2.0 is published (2026-10-29); Setup › General › About › Check for updates finds 0.2.0 and installs it.
-- [ ] **Automatic publishing:** the next `v*` tag publishes the release by itself (not as a draft), and its notes are that version's CHANGELOG section.
+- [x] **Automatic publishing:** the next `v*` tag publishes the release by itself (not as a draft), and its notes are that version's CHANGELOG section.
 - [ ] **One-click updates (from 0.3.0):**
   - A little after Sanctum starts, the update downloads in the background and "Sanctum x is ready." appears, and **Restart to update** installs and restarts it.
   - While sealed, the button waits; it works once the seal ends.
   - "Later" hides the note until the next start.
 - [ ] **Restart to update saves first:** type in a note, then click Restart to update right away; the words are there after the restart.
 - [ ] **Recap and update stacked:** the weekly recap and the update note stack bottom right without overlapping.
+
+## The seal's science (v0.3.1)
+
+- [ ] **Ctrl Alt P:** while sealed, from another app (VS Code, a browser), Ctrl Alt P opens the park card bottom right with the cursor in it; Enter parks, Esc closes, and focus goes back. After the seal, Ctrl Alt P does nothing in Sanctum and reaches other apps again.
+- [ ] **Plan on catches:** with an if-then plan set, the app overlay, the keyword nudge, and the extension's sealed page show "If you're tempted, you said you'd …", and the overlay is tall enough for it.
+- [ ] **Park from the extension:** the sealed page's Park box adds a task for today and says so; during quiet hours it's hidden.
+- [ ] **Held page:** Done / Partly / No, the rating, and "where I left off" are kept after Done, Esc, or Enter again; the next seal of that task shows "Last time: …".
+- [ ] **After a break:** a real broken seal (close Sanctum mid-seal without Protection) shows "Sanctum was closed N minutes in." and Turn on Protection opens Setup › Protection.
 
 ## Browser extension
 

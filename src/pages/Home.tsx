@@ -7,7 +7,7 @@ import { useTrackers } from "../state/trackers";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { EVENTS, native, onNative } from "../lib/native";
+import { EVENTS, errorText, native, onNative } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
@@ -94,6 +94,8 @@ function StreakChip() {
     >
       <span className="font-mono font-medium">{n}</span>
       <span className="text-muted">day streak</span>
+      {/* Never miss twice (v0.3.1): yesterday was missed, so today keeps it alive. */}
+      {o?.streakAtRisk && o.days.at(-1)?.status === "today" ? <span className="text-text-2">· keep it today</span> : null}
       <span className="flex gap-[3px]" aria-hidden="true">
         {(o?.days ?? []).map((d) => (
           <span key={d.date} data-status={d.status} className={`box-border h-3 w-[6px] rounded-[2px] ${MARK[d.status]}`} />
@@ -206,6 +208,57 @@ function Strip({ tone, children, progress }: { tone: "sealed" | "event"; childre
   );
 }
 
+/** One labeled line of the next seal's intent (v0.3.1): the label reads into what you type. */
+function IntentField({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-line-input bg-raised px-3 transition-colors duration-ui ease-ui focus-within:border-sealed-line">
+      <span className="shrink-0 text-meta text-faint">{label}</span>
+      <input
+        value={value}
+        maxLength={200}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter starts the seal from here too.
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            void enterFocus();
+          }
+        }}
+        className="min-w-0 flex-1 bg-transparent text-body text-text outline-none placeholder:text-faint"
+      />
+    </label>
+  );
+}
+
+/** The next seal's intent (v0.3.1): a specific goal, the if-then plan, and where you left off.
+ *  Both are optional; the plan is remembered per profile. */
+function IntentRow() {
+  const profileId = useStore(selectedProfile)?.id;
+  const task = useStore((s) => s.focusTask);
+  const goal = useStore((s) => s.focusGoal);
+  const plan = useStore((s) => s.focusPlan);
+  const leftOff = useStore((s) => s.focusLeftOff);
+  useEffect(() => {
+    void useStore.getState().prepareFocus();
+  }, [profileId, task]);
+  return (
+    <div data-testid="focus-intent" className="flex flex-col gap-2 border-t border-line-soft pt-3">
+      {leftOff ? (
+        <p data-testid="left-off" className="m-0 truncate text-meta text-text-2" title={leftOff.text}>
+          <span className="text-faint">Last time: </span>
+          {leftOff.text}
+        </p>
+      ) : null}
+      <div className="flex gap-3">
+        <IntentField label="Will be done" value={goal} placeholder={task ? task.title : "What this seal is for"} onChange={useStore.getState().setFocusGoal} />
+        <IntentField label="If I'm tempted, I'll" value={plan} placeholder="stand up and stretch" onChange={useStore.getState().setFocusPlan} />
+      </div>
+    </div>
+  );
+}
+
 function FocusPanel() {
   const profiles = useStore((s) => s.profiles);
   const profile = useStore(selectedProfile);
@@ -266,7 +319,53 @@ function FocusPanel() {
           </div>
         </div>
       )}
+      {profiles.length ? <IntentRow /> : null}
     </section>
+  );
+}
+
+/** Park a thought for later (v0.3.1): it becomes a task for today, out of your head and off
+ *  the screen. Ctrl Alt P does the same from any app while sealed. */
+function ParkField() {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const park = async () => {
+    const t = text.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    try {
+      await native.focusPark(t);
+      setText("");
+      void usePlanner.getState().reload();
+      useStore.getState().showNotice({ lead: "Parked.", rest: "It's on today's list for after the seal." });
+    } catch (e) {
+      useStore.getState().showNotice({ lead: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form
+      data-testid="park"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void park();
+      }}
+      className="flex h-8 items-center gap-2 rounded-control border border-line-input bg-raised pl-3 pr-1 transition-colors duration-ui ease-ui focus-within:border-sealed-line"
+    >
+      <input
+        value={text}
+        maxLength={200}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Park a thought for later"
+        aria-label="Park a thought for later"
+        className="min-w-0 flex-1 bg-transparent text-body text-text outline-none placeholder:text-faint"
+      />
+      <Kbd>Ctrl Alt P</Kbd>
+      <Button type="submit" variant="quiet" size="sm" disabled={!text.trim() || busy}>
+        Park
+      </Button>
+    </form>
   );
 }
 
@@ -291,6 +390,7 @@ function SessionBar() {
       <Strip tone="sealed" progress={progress}>
         <span className="truncate">
           <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.task ? <span className="font-medium text-text">{session.task.title} · </span> : null}
+          {session?.goal && session.goal !== session.task?.title ? <span className="font-medium text-text">{session.goal} · </span> : null}
           {name} · {planned} min · ends {clock(ends)}
           {session?.idle ? " · Idle, the seal extends until you're back" : ""}
           {session?.broken ? " · Seal broken, the streak resets" : ""}
@@ -321,6 +421,7 @@ function SessionBar() {
           </div>
         </div>
       </div>
+      {session ? <ParkField /> : null}
     </section>
   );
 }

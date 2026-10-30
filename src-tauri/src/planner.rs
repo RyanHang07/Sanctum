@@ -69,6 +69,8 @@ pub struct Todo {
     pub sort: i64,
     /// Pending: no day yet, parked on the week whose Monday is `due_date`.
     pub undated: bool,
+    /// A thought parked mid-seal (v0.3.1): the session it came from.
+    pub parked_from: Option<i64>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -265,10 +267,11 @@ fn todo_row(r: &rusqlite::Row) -> rusqlite::Result<Todo> {
         done: r.get::<_, Option<i64>>(6)?.is_some(),
         sort: r.get(7)?,
         undated: r.get::<_, i64>(8)? != 0,
+        parked_from: r.get(9)?,
     })
 }
 
-const TODO_COLS: &str = "id, title, due_date, due_time, duration_min, profile_id, done_at, sort, undated";
+const TODO_COLS: &str = "id, title, due_date, due_time, duration_min, profile_id, done_at, sort, undated, parked_session";
 
 pub fn list_todos(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<Vec<Todo>> {
     let mut stmt = conn.prepare(&format!(

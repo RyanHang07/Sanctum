@@ -10,9 +10,9 @@ import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
 import { insightControls, insightHandlers, resetMockInsights } from "./mockInsights";
 import type { Note, NoteDraft } from "./types";
-import { dayStatus, streaks } from "./stats";
+import { dayStatus, streakAtRisk, streaks } from "./stats";
 import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
-import type { QuietConfig } from "./types";
+import type { QuietConfig, SessionResult, TaskLink } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
@@ -85,6 +85,11 @@ interface MockState {
   quiet: { config: QuietConfig; pausedUntil: number | null; pauses: string[] };
   backups: { name: string; path: string; bytes: number; modifiedAt: number }[];
   cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[]; invitesEmailed?: string[] };
+  /** The seal's science (v0.3.1): each profile's last plan, and finished seals' wrap-ups. */
+  focus: {
+    plans: Record<number, string>;
+    ended: Record<number, { profileId: number | null; task: TaskLink | null; endedAt: number; result: SessionResult | null; rating: number | null; leftOff: string | null }>;
+  };
 }
 
 let state: MockState;
@@ -130,6 +135,7 @@ export function resetMockBackend() {
     tempted: [],
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
+    focus: { plans: {}, ended: {} },
     guard: { installed: false, decline: false, restarts: [] },
     notes: [],
     quiet: { config: { ...DEFAULT_QUIET }, pausedUntil: null, pauses: [] },
@@ -525,7 +531,32 @@ const handlers: Record<string, (a: any) => unknown> = {
       .filter((d) => d.kind === "app" && state.running.has(d.value) && !opens.has(d.value))
       .map((d) => d.label ?? d.value);
   },
-  start_session: ({ profileId, minutes, task }) => {
+  focus_prepare: ({ profileId, task }: { profileId: number; task: TaskLink | null }) => {
+    const ended = Object.values(state.focus.ended)
+      .filter((e) => e.leftOff)
+      .sort((a, b) => b.endedAt - a.endedAt);
+    const hit =
+      (task && ended.find((e) => e.task?.kind === task.kind && e.task.id === task.id)) || ended.find((e) => e.profileId === profileId && !e.task) || null;
+    return { plan: state.focus.plans[profileId] ?? null, leftOff: hit ? { text: hit.leftOff!, at: hit.endedAt } : null };
+  },
+  focus_park: ({ text }: { text: string }) => {
+    if (!state.session) throw "Parking works while sealed.";
+    const title = focusLine(text);
+    if (!title) throw "Write the thought first.";
+    const t = handlers.save_todo!({ draft: { title, dueDate: todayKey(new Date(), state.settings.get("daily_reset_time") ?? "04:00"), dueTime: null, durationMin: null, profileId: null } }) as Todo;
+    const stored = state.todos.find((x) => x.id === t.id)!;
+    stored.parkedFrom = state.session.id;
+    bus.emit("sanctum://planner", null);
+    return clone(stored);
+  },
+  focus_wrap: ({ sessionId, result, rating, leftOff }: { sessionId: number; result: SessionResult | null; rating: number | null; leftOff: string | null }) => {
+    const e = state.focus.ended[sessionId];
+    if (!e) throw "That session isn't finished.";
+    if (result && !["done", "partly", "no"].includes(result)) throw "Pick Done, Partly, or No.";
+    if (rating !== null && (rating < 1 || rating > 5)) throw "Rate focus from 1 to 5.";
+    Object.assign(e, { result, rating, leftOff: focusLine(leftOff) });
+  },
+  start_session: ({ profileId, minutes, task, goal, plan }) => {
     if (state.session) throw "A session is already running.";
     if (!DURATIONS.includes(minutes)) throw "Focus length must be 15 minutes to 2 hours, in 15-minute steps.";
     const p = find(profileId);
@@ -544,7 +575,11 @@ const handlers: Record<string, (a: any) => unknown> = {
       broken: false,
       idle: false,
       task: task ? { ...task, title: task.title.trim() } : null,
+      goal: focusLine(goal),
+      plan: focusLine(plan),
     };
+    state.focus.plans[p.id] = state.session.plan ?? "";
+    if (!state.session.plan) delete state.focus.plans[p.id];
     state.idleSince = null;
     state.idleTotal = 0;
     // Sealed apps close at the start.
@@ -906,6 +941,7 @@ function statsOverview(from: string, to: string): StatsOverview {
   const history: DayStatus[] = [];
   for (let k = [started ?? from, from].sort()[0]!; k <= today; k = addDays(k, 1)) history.push(statusOf(k));
   const [currentStreak, longestStreak] = streaks(history);
+  const atRisk = currentStreak > 0 && streakAtRisk(history);
   const list: StatsOverview["days"] = [];
   for (let k = from; k <= to; k = addDays(k, 1)) {
     const d = days[k];
@@ -931,6 +967,7 @@ function statsOverview(from: string, to: string): StatsOverview {
     restMask,
     currentStreak,
     longestStreak,
+    streakAtRisk: atRisk,
     days: list,
     kept: count("kept"),
     broken: count("broken"),
@@ -1011,9 +1048,16 @@ function view(): SessionView {
   return { ...s, endsAt, remainingMs, elapsedMs: s.plannedMinutes * 60_000 - remainingMs, idle: state.idleSince !== null };
 }
 
+/** Mirrors focus::line: trimmed, whitespace folded, at most 200 characters; empty is null. */
+function focusLine(s: string | null | undefined): string | null {
+  const t = (s ?? "").split(/\s+/).filter(Boolean).join(" ").slice(0, 200);
+  return t || null;
+}
+
 function finishSession() {
   const s = state.session;
   if (!s) return;
+  state.focus.ended[s.id] = { profileId: s.profileId, task: s.task ?? null, endedAt: Date.now(), result: null, rating: null, leftOff: null };
   if (state.timer) clearInterval(state.timer);
   state.finished.push([s.startedAt, view().elapsedMs]);
   state.session = null;
@@ -1034,6 +1078,8 @@ function tick() {
     attempts: s.attempts,
     broken: s.broken,
     task: s.task ?? null,
+    goal: s.goal ?? null,
+    broke: s.broken ? { kind: "killed", afterMin: Math.floor(s.plannedMinutes / 2) } : null,
   };
   finishSession();
   bus.emit(EV.session, null);

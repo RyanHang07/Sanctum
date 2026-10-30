@@ -5,10 +5,13 @@ import { EVENTS, native, onNative } from "../lib/native";
 import { play, setSoundsEnabled } from "../lib/sound";
 import { clock, countdown, minutes, minutesIn } from "../lib/time";
 import type { Intercept as Payload } from "../lib/types";
-import { overlayLine, welcomeLine } from "../pages/headlines";
+import { overlayLine, planLine, welcomeLine } from "../pages/headlines";
 
 const RETURN_AFTER_S = 5;
 const NUDGE_MS = 3500;
+/** A nudge carrying your plan stays long enough to read it. */
+const PLAN_NUDGE_MS = 5500;
+const PARKED_MS = 900;
 const WELCOME_MS = 7000;
 
 export function ordinal(n: number): string {
@@ -58,6 +61,11 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
             go. {overlayLine(`${p.label}:${p.attempts}`, clock(Date.now() + p.remainingMs))}
           </p>
         </div>
+        {p.plan ? (
+          <p data-testid="overlay-plan" className="m-0 rounded-[4px] border-l-2 border-sealed bg-sealed-tint px-3 py-2 text-body text-text">
+            {planLine(p.plan)}
+          </p>
+        ) : null}
         <div className="flex gap-4 text-meta text-muted">
           <span>{ordinal(p.attempts)} attempt this session</span>
           {p.kind === "allowlist" ? <span>Allowlist mode</span> : null}
@@ -128,6 +136,7 @@ export function TitleNudge({ p }: { p: Payload }) {
       <div className="flex min-w-0 flex-col gap-[2px]">
         <span className="text-body text-text">“{p.keyword}” stays sealed.</span>
         <span className="truncate text-meta text-muted">Minimized {p.label}</span>
+        {p.plan ? <span className="text-meta text-text-2">{planLine(p.plan)}</span> : null}
       </div>
     </div>
   );
@@ -154,6 +163,53 @@ export function WelcomeCard({ p }: { p: Payload }) {
   );
 }
 
+/** Park a thought (v0.3.1): Ctrl Alt P while sealed. It becomes a task for today, so it stops
+ *  pulling at you (Masicampo & Baumeister 2011). Enter parks, Esc closes. */
+export function ParkCard({ onDone }: { onDone: () => void }) {
+  const [text, setText] = useState("");
+  const [state, setState] = useState<"typing" | "parked" | "failed">("typing");
+  const park = async () => {
+    const t = text.trim();
+    if (!t) return onDone();
+    try {
+      await native.focusPark(t);
+      setState("parked");
+      setTimeout(onDone, PARKED_MS);
+    } catch {
+      setState("failed");
+    }
+  };
+  return (
+    <form
+      role="dialog"
+      aria-label="Park a thought"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void park();
+      }}
+      onKeyDown={(e) => e.key === "Escape" && onDone()}
+      className="flex w-[372px] animate-rise-in flex-col gap-2 rounded-panel border border-sealed-line bg-panel px-4 py-3 shadow-toast"
+    >
+      <span className="headline text-[16px]">
+        Park it. <em>Back to work.</em>
+      </span>
+      <input
+        autoFocus
+        value={text}
+        maxLength={200}
+        disabled={state === "parked"}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="The thought, as a task for later"
+        aria-label="The thought"
+        className="h-8 rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none placeholder:text-faint focus:border-sealed-line"
+      />
+      <span role="status" className="text-meta text-muted">
+        {state === "parked" ? "Parked. It's on today's list." : state === "failed" ? "Couldn't park it. Try again from Home." : "Enter parks it · Esc closes"}
+      </span>
+    </form>
+  );
+}
+
 /** The always-on-top intercept window. Rust sizes and positions it per kind. */
 export function InterceptWindow() {
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -162,7 +218,7 @@ export function InterceptWindow() {
     void native.getSetting("sounds").then((v) => setSoundsEnabled(v !== "0"));
     const off = onNative<Payload>(EVENTS.intercept, (p) => {
       setPayload(p);
-      if (p.kind !== "welcome") play("blocked");
+      if (p.kind !== "welcome" && p.kind !== "park") play("blocked");
     });
     return () => void off.then((f) => f());
   }, []);
@@ -174,7 +230,7 @@ export function InterceptWindow() {
         setPayload(null);
         void native.interceptHide();
       },
-      payload.kind === "welcome" ? WELCOME_MS : NUDGE_MS,
+      payload.kind === "welcome" ? WELCOME_MS : payload.plan ? PLAN_NUDGE_MS : NUDGE_MS,
     );
     return () => clearTimeout(t);
   }, [payload]);
@@ -192,9 +248,15 @@ export function InterceptWindow() {
     setPayload(null);
     void native.interceptQuietPause();
   };
+  const hide = () => {
+    setPayload(null);
+    void native.interceptHide();
+  };
   return (
     <div className="flex h-full w-full items-center justify-center">
-      {payload.kind === "title" ? (
+      {payload.kind === "park" ? (
+        <ParkCard key={payload.endsAt ?? 0} onDone={hide} />
+      ) : payload.kind === "title" ? (
         <TitleNudge p={payload} />
       ) : payload.kind === "welcome" ? (
         <WelcomeCard p={payload} />

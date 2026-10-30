@@ -7,6 +7,7 @@ function fakeChrome(opts: { stored?: unknown; dnr?: Rule[]; connectFails?: boole
   let dynamic = [...(opts.dnr ?? [])];
   const local: Record<string, unknown> = opts.stored ? { rules: opts.stored } : {};
   const listeners: Record<string, ((...a: unknown[]) => unknown)[]> = {};
+  const posted: Record<string, unknown>[] = [];
   const on = (name: string) => ({ addListener: (f: (...a: unknown[]) => unknown) => (listeners[name] ??= []).push(f) });
   const chrome = {
     runtime: {
@@ -14,7 +15,7 @@ function fakeChrome(opts: { stored?: unknown; dnr?: Rule[]; connectFails?: boole
       getManifest: () => ({ version: "0.1.3" }),
       connectNative: () => {
         if (opts.connectFails) throw new Error("no host");
-        return { onMessage: on("port.message"), onDisconnect: on("port.disconnect"), postMessage: () => undefined };
+        return { onMessage: on("port.message"), onDisconnect: on("port.disconnect"), postMessage: (m: Record<string, unknown>) => void posted.push(m) };
       },
       onMessage: on("runtime.message"),
     },
@@ -33,7 +34,7 @@ function fakeChrome(opts: { stored?: unknown; dnr?: Rule[]; connectFails?: boole
     windows: { getLastFocused: async () => null, onFocusChanged: on("windows.focus") },
     alarms: { create: () => undefined, onAlarm: on("alarm") },
   };
-  return { chrome, dynamic: () => dynamic, local, listeners };
+  return { chrome, dynamic: () => dynamic, local, listeners, posted };
 }
 
 async function boot(fake: ReturnType<typeof fakeChrome>) {
@@ -97,6 +98,21 @@ describe("extension worker after a restart (v0.1.3)", () => {
     const theme = { type: "theme", id: "nord", scheme: "dark", palette: { app: "#2E3440" } };
     await fake.listeners["port.message"]![0]!(theme);
     expect(fake.local.theme).toEqual(theme);
+  });
+
+  it("parks a thought from the sealed page, during a seal only (v0.3.1)", async () => {
+    const fake = fakeChrome({});
+    await boot(fake);
+    const page = (msg: unknown) => fake.listeners["runtime.message"]![0]!(msg, {}) as Promise<boolean>;
+    // Quiet hours (no session) can't park.
+    await fake.listeners["port.message"]![0]!({ type: "rules", ...SEALED(Date.now() + 60_000) });
+    expect(await page({ type: "park", text: "Email Alex" })).toBe(false);
+    await fake.listeners["port.message"]![0]!({ type: "rules", ...SEALED(Date.now() + 60_000), session: true, plan: "stand up" });
+    const answer = page({ type: "park", text: "  Email Alex  " });
+    expect(fake.posted.at(-1)).toEqual({ type: "park", text: "Email Alex" });
+    await fake.listeners["port.message"]![0]!({ type: "parked", ok: true });
+    expect(await answer).toBe(true);
+    expect(await page({ type: "park", text: "   " })).toBe(false);
   });
 
   it("reloads itself when Sanctum ships a newer copy (v0.3)", async () => {
