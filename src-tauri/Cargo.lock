@@ -3421,7 +3421,7 @@ dependencies = [
 
 [[package]]
 name = "sanctum"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "argon2",
  "base64 0.23.1",
