@@ -534,3 +534,8 @@ a.doc-edit:hover {
 .closing .small a {
   color: var(--sealed-text);
 }
+
+/* The theme preview on the Themes page (v0.3). */
+.doc-preview {
+  margin: 28px 0 8px;
+}

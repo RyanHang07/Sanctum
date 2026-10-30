@@ -3,6 +3,7 @@ import { A } from "./nav";
 import { DOWNLOAD, REPO, useReleases } from "./releases";
 import { useTabTitle } from "../title";
 import { useHomeMotion } from "./homeMotion";
+import { ThemePreview } from "./ThemePreview";
 import hero from "../../../docs/screenshots/sanctum.webp";
 import overlay from "../../../docs/screenshots/blocked-overlay.png";
 import extension from "../../../docs/screenshots/extension-blocked.png";
@@ -217,7 +218,24 @@ export function Home() {
           </div>
         }
       >
-        <p>Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting. Trackers for anything else: numbers, yes or no, 1 to 10, or text.</p>
+        <p>Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting.</p>
+        <ul className="ticks">
+          <li>Every session kept for good, with what was blocked and how it ended. Export it as CSV.</li>
+          <li>Time by app and by site, and one click to call any of them productive or distracting.</li>
+          <li>A timeline of each day, and a few lines on last week every Monday.</li>
+        </ul>
+        <p className="muted">Trackers for anything else: numbers, yes or no, 1 to 10, or text.</p>
+        <A className="more" href="/docs/stats">
+          Stats in depth →
+        </A>
+      </Feature>
+
+      <Feature flip id="themes" kicker="Themes" lead="Pick a look." payoff="Every window follows." media={<ThemePreview />}>
+        <p>Thirteen themes, from Sanctum Dark and Light to Dracula, Nord, Tokyo Night, and Catppuccin. Each one reaches the tray, the compact timer, the browser extension's pages, and the tray icon.</p>
+        <p className="muted">Follow Windows switches between your dark and light picks with the system. Try them here.</p>
+        <A className="more" href="/docs/themes">
+          Themes →
+        </A>
       </Feature>
 
       <section className="pillars" aria-label="Principles">

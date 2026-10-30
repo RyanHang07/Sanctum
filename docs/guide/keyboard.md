@@ -3,7 +3,7 @@
 | Keys | Does |
 |---|---|
 | Ctrl Enter | Enter focus |
-| Ctrl K | Search or command: jump anywhere, add a task, flag a distraction, start focus |
+| Ctrl K | Search or command: jump anywhere, add a task, flag a distraction, start focus, change the theme |
 | Ctrl 1 | Today |
 | Ctrl 2 | Week |
 | Ctrl 3 | Stats |
