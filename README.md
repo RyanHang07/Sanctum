@@ -26,7 +26,7 @@ A focus app for Windows that actually holds. Pick what you're working on, enter 
 Most blockers are easy to talk your way out of. Sanctum is built around three ideas:
 
 - **A seal that holds.** Flagged apps close the moment they open, sites and keyword tabs are blocked in every browser, and the seal survives restarts. If Sanctum is killed mid-session, a Windows service brings it back.
-- **Someone else holds the key.** Leaving early means a written reason, a wait, retyping a paragraph, and then a cooldown, or your accountability partner approving it from their phone with a PIN only they know.
+- **Someone else holds the key.** Leaving early means a written reason, a wait, and retyping a paragraph, and with a partner, their approval from their phone with a PIN only they know.
 - **Your day in one place.** Today's tasks, routines, and Google Calendar sit next to the focus button, so the next block starts the right profile with one keystroke.
 
 It's free, open source, and local first: your activity, history, trackers, and notes never leave your PC.
@@ -79,13 +79,15 @@ Streaks, focus against your daily goal, what tempted you most, and how your time
 
 <img src="docs/screenshots/stats.png" alt="Stats: streaks, daily focus against the goal, what tempted you, and where time went" />
 
-### Track anything, and keep notes
+### Track anything, keep notes, and journal
 
-Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled check-ins, plus plain notes with lists and checkboxes for everything that isn't a task.
+Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled check-ins. Notes are block documents: type `/` for headings, checklists, tables, callouts, toggles, and images, and `@` to link a task or a day. Share one as a live, end-to-end encrypted, read-only link that expires when you choose. The journal gives each day a page, with optional prompts and a lock (Windows Hello or a PIN).
 
 | Trackers | Notes |
 |---|---|
-| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, sleep, and mood charts" /> | <img src="docs/screenshots/notes.png" alt="Notes: a note with bullets and checkboxes" /> |
+| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, sleep, and mood charts" /> | <img src="docs/screenshots/notes.png" alt="Notes: a block note with bullets and a checklist, and the toolbar" /> |
+
+<img src="docs/screenshots/journal.png" alt="Journal: the day's strip, its focus and mood card, and a page under the evening prompts" />
 
 ### An accountability partner, on their phone
 
@@ -116,7 +118,7 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 - Windows Do Not Disturb while sealed; your setting comes back after.
 
 **Holding the seal**
-- Leaving early: a reason and a wait, retyping a paragraph, then a 30-minute cooldown, or your partner's approval. One emergency unlock a week.
+- Leaving early: a reason and a 5-minute wait, then retyping a paragraph, then (with a partner) their approval. One emergency unlock a day.
 - Protection (optional, one admin prompt): blocks flagged sites in the hosts file for every browser, reopens Sanctum within seconds if it's closed, and can close flagged apps run as administrator.
 - Tamper detection: changing the clock, stopping the guard, or turning off the extension mid-seal breaks the seal, and your partner hears about it.
 - Quiet hours: your Distractions list blocked on a schedule outside sessions, with a 15-minute pause that asks why.
@@ -129,7 +131,7 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 
 **Review**
 - Stats: streaks, rest days, kept and broken days, what tempted you, and where the time went.
-- Trackers with charts and check-ins, and notes.
+- Trackers with charts and check-ins, block notes with encrypted sharing, and a journal.
 - Export everything as JSON or CSV, back up, and restore.
 
 ---
@@ -155,7 +157,7 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 3. First-run setup walks you through profiles and your Distractions list. Sanctum updates itself from Releases (Setup › General › About).
 
-Then, in the app:
+Then, in the app (the [docs](https://sanctum-partner.vercel.app/docs) walk through each step):
 
 - **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**.
 - **Protection** (Setup › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service.
@@ -167,22 +169,22 @@ Then, in the app:
 |---|---|
 | Ctrl Enter | Enter focus |
 | Ctrl K | Search or command |
-| Ctrl 1 to 5 | Today, Week, Stats, Trackers, Notes |
+| Ctrl 1 to 6 | Today, Week, Stats, Trackers, Notes, Journal |
 | Ctrl , | Setup |
 | Ctrl M | Compact timer (while sealed) |
 | Ctrl B | Collapse the sidebar |
 
 ## Privacy
 
-Sanctum is local first. Sessions, activity (which app and window is in front), tasks, trackers, notes, and stats are stored in a database on your PC and never uploaded. Google Calendar data travels only between your PC and Google. The optional account stores just what the partner feature needs: your email, partner links, a hashed PIN, and unlock requests. Read the full [privacy policy](https://sanctum-partner.vercel.app/privacy) and [terms](https://sanctum-partner.vercel.app/terms).
+Sanctum is local first. Sessions, activity (which app and window is in front), tasks, trackers, notes, the journal, and stats are stored in a database on your PC and never uploaded. A note you choose to share is encrypted on your PC first, with a key only the link carries. Google Calendar data travels only between your PC and Google. The optional account stores just what the partner and sharing features need: your email, partner links, a hashed PIN, unlock requests, and the ciphertext of notes you share until their links end. Read the full [privacy policy](https://sanctum-partner.vercel.app/privacy) and [terms](https://sanctum-partner.vercel.app/terms).
 
 ## FAQ
 
 **Can't I just close it?**
-While you're sealed, closing the window sends Sanctum to the tray, and Quit is disabled. With Protection on, a Windows service reopens it within seconds if it's killed, and the restart is logged.
+While you're sealed, closing the window sends Sanctum to the tray, and Quit is disabled. With Protection on, a Windows service reopens it within seconds if it's killed, the seal carries on, and the restart is logged.
 
 **What if my PC restarts mid-session?**
-The seal resumes where it left off. Downtime longer than a minute counts against the session, so it can't finish as kept.
+The seal resumes where it left off, but being gone for more than a minute breaks it and is logged, so plan restarts between seals.
 
 **Does it work offline?**
 Yes. Everything but Calendar sync and the partner works without a connection.

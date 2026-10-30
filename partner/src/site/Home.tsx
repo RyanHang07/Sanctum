@@ -9,6 +9,7 @@ import extension from "../../../docs/screenshots/extension-blocked.png";
 import approve from "../../../docs/screenshots/partner-approve.png";
 import week from "../../../docs/screenshots/week.png";
 import notes from "../../../docs/screenshots/notes.png";
+import journal from "../../../docs/screenshots/journal.png";
 import stats from "../../../docs/screenshots/stats.png";
 import trackers from "../../../docs/screenshots/trackers.png";
 
@@ -191,7 +192,12 @@ export function Home() {
         kicker="Notes and journal"
         lead="Write it down."
         payoff="Keep it yours."
-        media={<Shot src={notes} alt="Notes: a note with headings, lists, and checkboxes" />}
+        media={
+          <div className="stack-shots">
+            <Shot src={notes} alt="Notes: a block note with bullets and a checklist" />
+            <Shot src={journal} alt="Journal: today's page under the evening prompts" className="offset" />
+          </div>
+        }
       >
         <p>Notes with headings, checklists, tables, images, and links to your tasks. A journal with a page a day, the day's focus at the top, optional prompts, and a lock.</p>
         <p className="muted">Share a note as a live, read-only link that's end-to-end encrypted and expires when you choose.</p>

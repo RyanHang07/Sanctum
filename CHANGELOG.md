@@ -1,6 +1,20 @@
 # Changelog
 
-## v0.2 (in progress)
+## v0.2.0 (2026-10-29)
+
+**Highlights**
+
+- **Notes, rebuilt.** Type `/` for headings, checklists, tables, callouts, toggles, and images; `@` links a task, routine, or day.
+- **Share a note** as a live, read-only link, end-to-end encrypted, for an hour, a day, or a week.
+- **A journal**: a page a day with the day's focus at the top, optional prompts, a one-tap mood, and a lock (Windows Hello or a PIN).
+- **Counters**: routines with a daily goal ("Protein, 150 g"), logged from Home.
+- **Start with Windows**, the same switch as Windows' own.
+- **Leaving early, simpler:** solo, the seal ends after the paragraph; the emergency unlock is daily.
+- **Motion and room:** rows glide, numbers roll, and lists breathe.
+- **Sanctum's site:** a home page, docs, and this changelog.
+
+**Everything in detail**
+
 
 - **Notes are block documents** (TipTap/ProseMirror, fully offline). Type "/" for a menu of blocks (text, headings, bulleted and numbered lists, checklist, table, quote, callout, toggle, divider, code, and "Make it a task for today", which puts the line on Today and links it), "@" to link a task, routine, tracker, or day in Sanctum, and markdown shortcuts as you type ("- ", "1. ", "[] ", "## ", "> ", "---"). Checklists nest with Tab; tables resize and Tab between cells. Drag a block by the handle at its left, or move it with Alt+↑/↓. Older plain notes convert the first time they open (lists, checkboxes, headings kept). Notes keep a plain-text copy for search, previews, and exports. Migration 0021. A small toolbar sits above each note: text size for every note (A− / A+, 12 to 22 px, remembered), bold, italic, strikethrough, two heading sizes, lists, checklist, table, and callout. The note panel has wider margins so the drag handle (now bigger) never spills past its edge. **Images:** paste or drop an image file into a note, or use "/image" or the toolbar. PNG, JPEG, GIF, or WebP up to 10 MB, stored in Sanctum's database (so backups carry them; the same image is kept once), shown on a private scheme, and resizable by their corners. Images no note uses any more are cleared after a day. Migration 0022.
 
@@ -16,7 +30,7 @@
 - **Journal setup lives on the page.** The first visit shows the setup steps in the Journal itself, not in a dialog over a placeholder that said the same thing; finishing opens today's page directly (the extra "Ready" step is gone). Journal settings still opens the steps in a dialog later.
 - **Pre-release pass (security, bugs).** Deleting a shared note takes its link down first; before, the encrypted copy stayed online until it expired. Quitting from the tray, the close button, or the tray panel saves what's still waiting (typing in a note or the journal, deletes in their 5 s undo window) before Sanctum exits; before, those were lost. The journal saves the last words typed before it relocks, or when you move to another day. A Windows Hello prompt no longer opens a PIN-locked journal, and wrong PINs pause longer each round (30 s, doubling, up to an hour). Note images are served with `nosniff`, and the shared-note page fetches images only from Sanctum's own bucket.
 
-## v0.1.4 (in progress)
+### Also in v0.2.0 (planned as v0.1.4)
 
 - **Start with Windows:** a switch in Setup › General that is the same switch as Windows' Settings › Apps › Startup (either one shows the other). Fix: the startup entry was written only on the very first run, so an update or reinstall could drop it for good and Sanctum quietly stopped starting with Windows; it's now rewritten on every launch with the current install's path, never touching your on/off choice.
 - **A seal broken by downtime is logged as tamper:** more than a minute gone mid-seal breaks it, as before, but now it's recorded as tamper, `shutdown` when the PC rebooted (Windows' uptime tells) or `killed` when Sanctum was closed or crashed, and the partner is told and the window says why on the next start. Migration 0020.
@@ -26,7 +40,9 @@
 - **Extension:** a seal can't get stuck after a restart (the blocking rules and the extension's copy of the seal now survive a browser restart together, and stale rules clear themselves). Extension 0.2.1.
 - **Extension, Sanctum closed with the browser open:** the bridge's "offline" message counted as hearing from Sanctum, so a seal outlived a closed (or crashed) Sanctum forever. It now lifts at its planned end, like any seal Sanctum can't vouch for. Idle time that extends a seal now reaches the extension too, so that end is the real one. Extension 0.2.2.
 
-## v0.1.3 (in progress)
+## v0.1.3 (2026-10-01)
+
+Released with the v0.1.2 fix below in one installer (its About says 0.1.2).
 
 - **Undo deletes:** deleting an item or routine hides it at once and shows "Deleted “Pay rent”." with **Undo** for 5 seconds; the real delete (and its Google Calendar event) waits until then. A reload in the meantime doesn't bring it back.
 - **No day yet in the item editor:** a checkbox beside Date parks the item on this week or next (Pending); unchecking gives a pending item its day.
