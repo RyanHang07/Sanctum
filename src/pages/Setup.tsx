@@ -14,7 +14,8 @@ import { DistractionsTab } from "./setup/Distractions";
 import { TrackersTab } from "./setup/Trackers";
 import { AboutSection, StartOverSection } from "./setup/About";
 import { SoundsSection } from "./setup/Sounds";
-import { DndRow } from "./setup/Dnd";
+import { DndQuietRow, DndRow } from "./setup/Dnd";
+import { WeekTargetRow } from "./setup/WeekTarget";
 import { DataSection } from "./setup/Data";
 import { ProtectionSection } from "./setup/Protection";
 import { useStore, type SetupTab } from "../state/store";
@@ -131,6 +132,7 @@ function PreferencesSection() {
       <Row label="Rest days" hint="Planned days off never break the streak">
         <RestDays mask={settings.restDaysMask} onChange={setRestDays} />
       </Row>
+      <WeekTargetRow />
     </Section>
     <Section
       title="App"
@@ -151,6 +153,7 @@ function PreferencesSection() {
         <Switch label="Go compact when focus starts" checked={settings.compactOnFocus} onChange={setCompactOnFocus} />
       </Row>
       <DndRow />
+      <DndQuietRow />
     </Section>
     <SoundsSection />
     <DataSection />

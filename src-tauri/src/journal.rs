@@ -111,6 +111,11 @@ pub fn pin_matches(hash: &str, pin: &str) -> bool {
     PasswordHash::new(hash).is_ok_and(|h| Argon2::default().verify_password(pin.as_bytes(), &h).is_ok())
 }
 
+/// The journal can be written now: no lock, or unlocked.
+pub fn is_open(shared: &Shared, conn: &Connection) -> bool {
+    open(shared, conn).is_ok()
+}
+
 /// Pages can be read and written now.
 fn open(shared: &Shared, conn: &Connection) -> Result<(), String> {
     if lock_kind(conn) == "none" || shared.journal.unlocked.load(Ordering::SeqCst) {

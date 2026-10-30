@@ -141,6 +141,8 @@ export interface FileInfo {
 
 /** Windows Do Not Disturb while sealed (src-tauri/src/dnd.rs). */
 export interface DndStatus {
+  /** Also during quiet hours (v0.3.1). */
+  quiet?: boolean;
   enabled: boolean;
   /** The internal switch can be read on this Windows. */
   supported: boolean;
@@ -207,6 +209,22 @@ export interface PauseSummary {
   paused: number;
   turnedBack: number;
 }
+
+/** The week's focus target (v0.3.1, src-tauri/src/review.rs). */
+export interface WeekTarget {
+  /** This week's Monday. */
+  week: string;
+  targetMin: number;
+  /** Not set by you: the average of the last four weeks (or the daily goal x 5). */
+  isDefault: boolean;
+  focusMin: number;
+}
+
+/** Suggestions from your own history (v0.3.1). */
+export type Suggestion =
+  | { kind: "length"; line: string; profileId: number | null; minutes: number }
+  | { kind: "hours"; line: string; start: string; end: string; profileId: number | null }
+  | { kind: "tempted"; line: string; what: string; afterMin: number };
 
 /** A break after a seal (v0.3.1): the Distractions list stays blocked until it ends. */
 export interface BreakView {

@@ -5,7 +5,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { admin, caller, cors, fail, json, partnerSite, sendEmail } from "../_shared/util.ts";
 import { renderEmail, type EmailKind } from "../_shared/email.ts";
 
-const KINDS: EmailKind[] = ["session_broken", "streak_lost", "emergency_unlock", "unlock_request"];
+const KINDS: EmailKind[] = ["session_broken", "streak_lost", "emergency_unlock", "unlock_request", "weekly_summary"];
 const DAILY_LIMIT = 20;
 
 Deno.serve(async (req) => {

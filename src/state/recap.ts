@@ -26,6 +26,8 @@ export const useRecap = create<RecapStore>()((set) => ({
     // Nothing happened last week: nothing to say, and no reason to ask again this week.
     if (!recap) return void native.setSetting(SEEN, week).catch(() => undefined);
     set({ recap });
+    // The partner's weekly summary goes out now, once a week, if you turned it on (v0.3.1).
+    void native.reviewRecapShown().catch(() => undefined);
   },
 
   close: () => {

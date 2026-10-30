@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Suggestions } from "./Suggestions";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon } from "../../components/icons";
 import { Section } from "../setup/parts";
@@ -395,6 +396,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
               )}
             </section>
             <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+              <Suggestions />
               <TemptedPanel o={o} />
               <TimePanel o={o} />
             </div>

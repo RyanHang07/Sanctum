@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/Button";
+import { Switch } from "../../components/controls";
 import { EVENTS, errorText, native, onNative } from "../../lib/native";
 import type { CloudStatus, PartnerStatus } from "../../lib/types";
 import { useStore } from "../../state/store";
@@ -58,6 +59,23 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
   );
 }
 
+/** Each Monday, last week's totals to your partner (v0.3.1, off to start): sharing progress
+ *  makes monitoring work better (Harkin et al. 2016). Totals only, never sites or apps. */
+function WeeklySummaryRow({ who }: { who: string }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  useEffect(() => void native.getSetting("partner_weekly_summary").then((v) => setOn(v === "1"), () => setOn(false)), []);
+  if (on === null) return null;
+  const toggle = (v: boolean) => {
+    setOn(v);
+    void native.setSetting("partner_weekly_summary", v ? "1" : "0");
+  };
+  return (
+    <Row label={`Send ${who} my week each Monday`} hint="Hours in focus, days kept, and the streak. Never sites or apps.">
+      <Switch label={`Send ${who} my week each Monday`} checked={on} onChange={toggle} />
+    </Row>
+  );
+}
+
 function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p: PartnerStatus) => void; onError: (e: string) => void }) {
   const sealed = useStore((s) => s.appState === "sealed");
   const [copied, setCopied] = useState(false);
@@ -88,11 +106,14 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
           </Button>
         </Row>
       ) : (
-        <Row label={`Partner: ${who}`} hint={p.partner.email && p.partner.name ? p.partner.email : "Approves early unlocks and hears when a seal breaks."}>
-          <Button variant="quiet" size="sm" disabled={sealed} onClick={() => run(() => native.cloudRequestRemoval(false))}>
-            Ask to remove
-          </Button>
-        </Row>
+        <>
+          <Row label={`Partner: ${who}`} hint={p.partner.email && p.partner.name ? p.partner.email : "Approves early unlocks and hears when a seal breaks."}>
+            <Button variant="quiet" size="sm" disabled={sealed} onClick={() => run(() => native.cloudRequestRemoval(false))}>
+              Ask to remove
+            </Button>
+          </Row>
+          <WeeklySummaryRow who={who} />
+        </>
       );
   } else if (p.invite) {
     const link = p.invite.link;

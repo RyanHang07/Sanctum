@@ -577,6 +577,7 @@ fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>, on_break: bool) {
 fn quiet_changed(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let status = shared.engine.quiet.lock().unwrap().status();
+    crate::dnd::on_quiet(app, status.on);
     let _ = app.emit(EV_QUIET, status);
     let _ = tray::refresh(app, shared.sealed());
     crate::browser::push_rules(app);

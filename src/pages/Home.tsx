@@ -20,7 +20,7 @@ import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
 import { addDays, blockTimes, canReorder, longTime, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
-import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
+import type { DayStatus, StatsOverview, Suggestion as Insight, TaskLink, WeekTarget } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -240,11 +240,32 @@ function IntentRow() {
   const goal = useStore((s) => s.focusGoal);
   const plan = useStore((s) => s.focusPlan);
   const leftOff = useStore((s) => s.focusLeftOff);
+  const duration = useStore((s) => s.durationMin);
   useEffect(() => {
     void useStore.getState().prepareFocus();
   }, [profileId, task]);
+  // Your own best length, when your history says so and you've picked another (v0.3.1).
+  const [lengthTip, setLengthTip] = useState<Extract<Insight, { kind: "length" }> | null>(null);
+  useEffect(() => {
+    let live = true;
+    void native.reviewSuggestions().then(
+      (list) => live && setLengthTip((list.find((s) => s.kind === "length" && (s.profileId === null || s.profileId === profileId)) as Extract<Insight, { kind: "length" }>) ?? null),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [profileId]);
   return (
     <div data-testid="focus-intent" className="flex flex-col gap-2 border-t border-line-soft pt-3">
+      {lengthTip && lengthTip.minutes !== duration ? (
+        <p data-testid="length-tip" className="m-0 flex items-center gap-2 text-meta text-text-2">
+          <span className="truncate">{lengthTip.line}</span>
+          <button type="button" onClick={() => useStore.getState().setDuration(lengthTip.minutes)} className="shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
+            Use {lengthTip.minutes} min
+          </button>
+        </p>
+      ) : null}
       {leftOff ? (
         <p data-testid="left-off" className="m-0 truncate text-meta text-text-2" title={leftOff.text}>
           <span className="text-faint">Last time: </span>
@@ -805,6 +826,29 @@ function TodayPanel({ strip }: { strip: boolean }) {
   );
 }
 
+/** This week against its target (v0.3.1): "Week 6h 20m of 10h". */
+function WeekProgress() {
+  const [t, setT] = useState<WeekTarget | null>(null);
+  const session = useStore((s) => s.session);
+  const done = useStore((s) => s.focusTodayMin);
+  useEffect(() => {
+    let live = true;
+    const load = () => void native.reviewWeekTarget().then((v) => live && setT(v), () => undefined);
+    load();
+    const timer = setInterval(load, 60_000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [session?.id, done]);
+  if (!t) return null;
+  return (
+    <span data-testid="week-progress" title={t.isDefault ? "Your recent weekly average. Change it in Setup or on Monday's card." : undefined} className="shrink-0 whitespace-nowrap text-muted">
+      · Week <span className="font-mono text-text">{minutes(t.focusMin)}</span> of <span className="font-mono">{minutes(t.targetMin)}</span>
+    </span>
+  );
+}
+
 /** Focus today against the goal, and the next check-in: one line under the list. */
 function FocusStrip() {
   const done = useStore((s) => s.focusTodayMin);
@@ -827,6 +871,7 @@ function FocusStrip() {
       <span className="shrink-0 font-mono text-text">
         {minutes(Math.round(rolledTotal))} / {minutes(goal)}
       </span>
+      <WeekProgress />
       <span className="ml-auto flex min-w-0 items-center gap-[6px]">
         <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
         <span className="truncate text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
