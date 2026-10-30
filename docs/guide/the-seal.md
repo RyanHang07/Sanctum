@@ -23,3 +23,5 @@ Sanctum saves the seal every few seconds and picks it up where it left off. Bein
 ## Your streak
 
 A day is **kept** when focus reaches your daily goal and no seal broke. Rest days you choose never break the streak.
+
+**Never miss twice:** one missed day holds the streak where it was, and the streak chip says "keep it today". A second missed day in a row resets it. A broken seal always does. Missing once doesn't slow a habit down; giving up after a reset does.

@@ -119,6 +119,9 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 - Flagged apps close within a fraction of a second of starting. Keyword windows are minimized.
 - Idle pauses the countdown and pushes the end back, so the time you get is the time you focused.
 - Link a session to a task, and check it off when the seal holds.
+- Say what the seal is for and what you'll do when tempted ("stand up and stretch"); every catch reminds you.
+- Park a stray thought from any app with Ctrl Alt P: it's a task for later, out of your head.
+- At the end: did it get done, focus from 1 to 5, where you left off (shown next time), and an optional break with your distractions still closed.
 - Windows Do Not Disturb while sealed; your setting comes back after.
 
 **Holding the seal**
@@ -126,6 +129,8 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 - Protection (optional, one admin prompt): blocks flagged sites in the hosts file for every browser, reopens Sanctum within seconds if it's closed, and can close flagged apps run as administrator.
 - Tamper detection: changing the clock, stopping the guard, or turning off the extension mid-seal breaks the seal, and your partner hears about it.
 - Quiet hours: your Distractions list blocked on a schedule outside sessions, with a 15-minute pause that asks why.
+- Pause mode (optional): outside seals, flagged apps and sites ask "Still want it?" for five seconds before they open.
+- Never miss twice: one missed day holds the streak; two in a row reset it.
 
 **Your day**
 - Today and Week: routines, one-time tasks, and Google Calendar events, synced two ways.
@@ -136,7 +141,8 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 
 **Review**
 - Stats: streaks, rest days, kept and broken days, what tempted you, and where the time went.
-- Every session kept, filtered and exported as CSV; time by app and site, reclassified in one click; a timeline of each day; and a Monday recap of last week.
+- Every session kept, filtered and exported as CSV; time by app and site, reclassified in one click; a timeline of each day; and a Monday recap of last week, with two questions and the week's target.
+- Suggestions from your own history: the length you finish, the hours you keep, and when temptation comes.
 - Trackers with charts and check-ins, block notes with encrypted sharing, and a journal.
 - Export everything as JSON or CSV, back up, and restore.
 
@@ -183,6 +189,7 @@ Then, in the app (the [docs](https://sanctum-desktop.vercel.app/docs) walk throu
 | Ctrl 1 to 6 | Today, Week, Stats, Trackers, Notes, Journal |
 | Ctrl , | Setup |
 | Ctrl M | Compact timer (while sealed) |
+| Ctrl Alt P | Park a thought for later, from any app (while sealed) |
 | Ctrl B | Collapse the sidebar |
 
 ## Privacy
