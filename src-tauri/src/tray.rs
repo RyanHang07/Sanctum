@@ -1,6 +1,8 @@
 //! System tray (SPEC 4.0.1). Left click toggles the tray panel window, right click opens the
 //! native menu. Quit is disabled while sealed. While sealed, the keyhole breathes
 //! (LogoMotion.dc.html, "Sealed idle pulse", 3.2 s loop).
+//! v0.3: on a light taskbar the mark is drawn in the dark ink of design/logo's light-background
+//! mark (sanctum-mark-light.svg), following Windows' setting as it changes.
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -46,12 +48,47 @@ const ICON: &[u8] = include_bytes!("../icons/tray/32x32.png");
 const PULSE_FRAMES: usize = 16;
 const PULSE_MS: u64 = 3200;
 
+/// The cobalt keyhole, as opposed to the torii's ink.
+fn is_keyhole(r: i32, g: i32, b: i32) -> bool {
+    b - r > 80 && b - g > 60
+}
+
+/// The dark ink of design/logo/sanctum-mark-light.svg.
+const LIGHT_INK: [u8; 3] = [0x12, 0x15, 0x1C];
+
+/// The mark for a light taskbar: the torii in dark ink, the keyhole and every edge's
+/// smoothing (alpha) untouched.
+pub fn for_light_taskbar(rgba: &[u8]) -> Vec<u8> {
+    let mut out = rgba.to_vec();
+    for px in out.chunks_exact_mut(4) {
+        if px[3] > 0 && !is_keyhole(px[0] as i32, px[1] as i32, px[2] as i32) {
+            px[..3].copy_from_slice(&LIGHT_INK);
+        }
+    }
+    out
+}
+
+/// Windows' taskbar (and Start) uses its light theme.
+#[cfg(windows)]
+pub fn taskbar_light() -> bool {
+    use winreg::{enums::HKEY_CURRENT_USER, RegKey};
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        .and_then(|k| k.get_value::<u32, _>("SystemUsesLightTheme"))
+        .is_ok_and(|v| v == 1)
+}
+
+#[cfg(not(windows))]
+pub fn taskbar_light() -> bool {
+    false
+}
+
 /// Fades only the cobalt keyhole pixels, so the torii stays solid. `opacity` in 0..=1.
 pub fn fade_keyhole(rgba: &[u8], opacity: f32) -> Vec<u8> {
     let mut out = rgba.to_vec();
     for px in out.chunks_exact_mut(4) {
         let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
-        if b - r > 80 && b - g > 60 {
+        if is_keyhole(r, g, b) {
             px[3] = (px[3] as f32 * opacity).round() as u8;
         }
     }
@@ -64,28 +101,47 @@ pub fn breath(frame: usize, frames: usize) -> f32 {
     0.725 + 0.275 * (2.0 * std::f32::consts::PI * t).cos()
 }
 
-/// Animates the tray icon while sealed; restores it when the seal ends.
+/// How often the taskbar's light or dark is looked at again (a registry read).
+const TASKBAR_EVERY: usize = 25;
+
+/// Animates the tray icon while sealed and restores it when the seal ends; follows the
+/// taskbar's light or dark (v0.3).
 pub fn spawn_pulse(app: AppHandle) {
     std::thread::Builder::new()
         .name("sanctum-tray-pulse".into())
         .spawn(move || {
             let Ok(decoded) = image::load_from_memory(ICON) else { return };
-            let base = decoded.to_rgba8();
-            let (w, h) = base.dimensions();
-            let frames: Vec<Vec<u8>> = (0..PULSE_FRAMES).map(|i| fade_keyhole(base.as_raw(), breath(i, PULSE_FRAMES))).collect();
+            let dark_base = decoded.to_rgba8();
+            let (w, h) = dark_base.dimensions();
+            let mut light: Option<bool> = None;
+            let mut base: Vec<u8> = Vec::new();
+            let mut frames: Vec<Vec<u8>> = Vec::new();
             let mut i = 0;
+            let mut tick = 0;
             let mut pulsing = false;
             loop {
                 std::thread::sleep(Duration::from_millis(PULSE_MS / PULSE_FRAMES as u64));
                 let Some(shared) = app.try_state::<Shared>() else { continue };
                 let sealed = shared.sealed();
                 let Some(tray) = app.tray_by_id(TRAY_ID) else { continue };
+                if tick % TASKBAR_EVERY == 0 {
+                    let now = taskbar_light();
+                    if light != Some(now) {
+                        light = Some(now);
+                        base = if now { for_light_taskbar(dark_base.as_raw()) } else { dark_base.as_raw().clone() };
+                        frames = (0..PULSE_FRAMES).map(|f| fade_keyhole(&base, breath(f, PULSE_FRAMES))).collect();
+                        if !sealed {
+                            let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
+                        }
+                    }
+                }
+                tick += 1;
                 if sealed {
                     let _ = tray.set_icon(Some(Image::new_owned(frames[i].clone(), w, h)));
                     i = (i + 1) % PULSE_FRAMES;
                     pulsing = true;
                 } else if pulsing {
-                    let _ = tray.set_icon(Image::from_bytes(ICON).ok());
+                    let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
                     pulsing = false;
                     i = 0;
                 }
@@ -207,6 +263,24 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_light_taskbar_gets_the_dark_ink_mark_with_the_keyhole_kept() {
+        // A torii pixel (light ink), a keyhole pixel (cobalt), a half-transparent edge, empty.
+        let rgba = [230, 233, 239, 255, 47, 91, 255, 255, 230, 233, 239, 128, 0, 0, 0, 0];
+        let out = for_light_taskbar(&rgba);
+        assert_eq!(&out[0..4], &[0x12, 0x15, 0x1C, 255]);
+        assert_eq!(&out[4..8], &[47, 91, 255, 255]);
+        assert_eq!(&out[8..12], &[0x12, 0x15, 0x1C, 128]);
+        assert_eq!(&out[12..16], &[0, 0, 0, 0]);
+        // The real icon: every opaque torii pixel turns dark, the keyhole stays cobalt.
+        let icon = image::load_from_memory(ICON).unwrap().to_rgba8();
+        let light = for_light_taskbar(icon.as_raw());
+        let keyhole = icon.as_raw().chunks_exact(4).filter(|p| p[3] > 0 && is_keyhole(p[0] as i32, p[1] as i32, p[2] as i32)).count();
+        let kept = light.chunks_exact(4).filter(|p| p[3] > 0 && is_keyhole(p[0] as i32, p[1] as i32, p[2] as i32)).count();
+        assert!(keyhole > 0);
+        assert_eq!(keyhole, kept);
+    }
 
     #[test]
     fn the_panel_sits_beside_the_taskbar_on_any_edge() {
