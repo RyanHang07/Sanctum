@@ -3,6 +3,7 @@ import { DEFAULT_PREFS, resolve, useTheme } from "./theme";
 import { AppearanceSection } from "../pages/setup/Appearance";
 import { native } from "../lib/native";
 import { resetMockBackend } from "../lib/mockBackend";
+import { commandsFor } from "../components/CommandBar";
 
 const initial = useTheme.getState();
 
@@ -51,6 +52,25 @@ describe("themes (v0.3)", () => {
     await act(() => useTheme.getState().pick("gruvbox-dark"));
     expect(useTheme.getState().prefs.fixed).toBe("gruvbox-dark");
     expect(shown()).toBe("gruvbox-dark");
+  });
+
+  it("Ctrl K switches light and dark, and finds a theme by name", async () => {
+    await act(() => useTheme.getState().load());
+    const flip = commandsFor("").find((c) => c.id === "theme-flip")!;
+    expect(flip.label).toBe(`Switch to ${useTheme.getState().theme.scheme === "dark" ? "light" : "dark"}`);
+    const before = useTheme.getState().theme.scheme;
+    await act(async () => void (await flip.run()));
+    expect(useTheme.getState().theme.scheme).not.toBe(before);
+    expect(useTheme.getState().prefs.follow).toBe(false);
+    // Back to following, from the same bar.
+    await act(async () => void (await commandsFor("").find((c) => c.id === "theme-follow")!.run()));
+    expect(useTheme.getState().prefs.follow).toBe(true);
+
+    // Themes only list once you type, and run as a pick.
+    expect(commandsFor("").some((c) => c.id.startsWith("theme:"))).toBe(false);
+    const dracula = commandsFor("dracula").find((c) => c.label === "Theme: Dracula")!;
+    await act(async () => void (await dracula.run()));
+    expect(useTheme.getState().prefs.dark).toBe("dracula");
   });
 
   it("Setup › Appearance previews on hover and keeps a theme on click", async () => {
