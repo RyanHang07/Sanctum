@@ -12,7 +12,7 @@ Sanctum isn't code-signed yet, so SmartScreen may stop the installer the first t
 
 ## Updates
 
-Sanctum checks GitHub Releases for new versions and updates in place. Setup › General › About shows the version you have and checks now. Updates are signed, and Sanctum refuses one that isn't.
+Sanctum checks for a new version a little after it starts and every 6 hours, and downloads it in the background. When it's ready, a small note says so: **Restart to update** installs it in a few seconds. During a seal it waits until the seal ends. Setup › General › About shows your version and can check now. Updates are signed, and Sanctum refuses one that isn't.
 
 ## Uninstall
 

@@ -14,7 +14,7 @@ const source = (slug: string) => Object.entries(files).find(([path]) => path.end
 
 const SECTIONS: { title: string; pages: string[] }[] = [
   { title: "Getting started", pages: ["install", "first-setup", "extension", "first-seal"] },
-  { title: "Using Sanctum", pages: ["profiles", "the-seal", "leaving-early", "protection", "planning", "notes", "journal", "stats", "keyboard"] },
+  { title: "Using Sanctum", pages: ["profiles", "the-seal", "leaving-early", "protection", "planning", "notes", "journal", "stats", "themes", "keyboard"] },
   { title: "Partners", pages: ["partners", "add-a-partner"] },
   { title: "Help", pages: ["faq", "troubleshooting", "self-hosting"] },
 ];

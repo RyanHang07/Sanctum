@@ -17,6 +17,10 @@ Setup shows each browser connect live once it's loaded.
 
 Only what blocking needs. It gets the rules from Sanctum and reports the active tab's domain (never the full address or the title) so Stats can sort time by site. It never reports history, and nothing from it reaches your partner.
 
+## Updates
+
+When Sanctum updates, it puts the new copy of the extension in its folder and asks the browser to reload it (after a seal, never during one). Extension 0.2.2 and earlier don't know how: reload those once on your browser's extensions page.
+
 ## While sealed
 
 A browser that has had the extension and runs without it for 90 seconds during a seal breaks the seal. Closing the browser doesn't. Private windows are covered only when **Allow in Incognito** is on.
