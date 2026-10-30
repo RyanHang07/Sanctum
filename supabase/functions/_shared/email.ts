@@ -43,7 +43,7 @@ export interface Email {
 
 /** The app icon as a PNG (email clients drop SVG), served by the partner site. Fixed, because
  *  Supabase's sign-in templates are static HTML. Self-hosters: point this at your own copy. */
-export const LOGO = "https://sanctum-partner.vercel.app/email-icon.png";
+export const LOGO = "https://sanctum-desktop.vercel.app/email-icon.png";
 
 const C = {
   page: "#F4F5F7",
