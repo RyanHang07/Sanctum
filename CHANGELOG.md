@@ -1,6 +1,16 @@
 # Changelog
 
-## v0.3 (in progress)
+## v0.3.0 (2026-10-29)
+
+**Highlights**
+
+- **Themes.** Thirteen of them, from Sanctum Dark and Light to Dracula, Nord, and Catppuccin, across every window, the title bar, the tray icon, and the browser extension. Follow Windows switches light and dark with it.
+- **Stats, in depth.** Sessions (every one, with details and CSV export), Activity (time by app and site, reclassified in one click), Day (a timeline of the day), and a short recap of last week each Monday.
+- **One-click updates.** Sanctum downloads new versions in the background; **Restart to update** installs them. Never during a seal.
+- **The extension updates itself** from 0.3.0 on. Reload it once by hand after this update.
+- **Legal.** Privacy and Terms refreshed, and a Legal page with the license and every open-source notice.
+
+**Everything in detail**
 
 - **One-click updates.** Sanctum checks GitHub Releases a little after it starts and every 6 hours, downloads a new version in the background, and says "Sanctum 0.3.0 is ready." with **Restart to update**: one click installs it and restarts. While sealed it waits for the seal to end; "Later" hides it until the next start. Setup › About's Check for updates downloads too, so its button is the same one click. Why 0.1.2 saw no update: the v0.2.0 release was still a draft, which the updater can't see. Releases now publish as soon as they build.
 - **Stats, in depth.** Stats has tabs. **Overview** is the page as it was (plus a link to today's timeline). **Sessions**: every finished session, kept for good, grouped by day, with totals (sessions, focus, kept, broken); filter by 7 days, 30 days, or all time, by outcome, and by profile; open one for when it ran, focus against the plan, idle time, what was blocked, the linked task, and anything that happened (asking to leave, tamper); export the list as CSV (Documents\Sanctum\Exports). **Activity**: time by app and by site for today, 7 days, or 30 days; pick a category for any of them, everywhere or only in one profile ("YouTube is productive in Study"), and the days already kept are recounted. Migration 0025 adds per-profile exceptions, checked first while that profile is sealed. **Day**: one strip from the day's first activity to its last, productive / neutral / distracting, with each focus session as a band above it (broken ones outlined); hover a stretch to see what it was, and the day's biggest apps and sites are listed below. **The Monday recap**: the first time you open Sanctum each week, a card says last week in a few lines (focus and the change from the week before, days kept, the best day, what tempted you most), once, never as a system notification.
