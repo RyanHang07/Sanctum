@@ -15,6 +15,8 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 
 ## The seal's science (v0.3.1)
 
+Checked in the browser preview on 2026-10-30 (screens and flows, with the mock backend): the goal and plan lines, parking from Home and the park card, the held page's wrap-up, parked list, and break, "Break's over. Next block?", "Last time: …", the Monday card's questions and target, Pause mode's settings and card, the suggestions and their buttons, Sessions' Got done and details, the broken-seal page and its fix, the extension's sealed page (plan, Park) and pause page, and the site's theme preview. What's left needs real Windows, a browser with the extension, or the live services:
+
 - [ ] **Ctrl Alt P:** while sealed, from another app (VS Code, a browser), Ctrl Alt P opens the park card bottom right with the cursor in it; Enter parks, Esc closes, and focus goes back. After the seal, Ctrl Alt P does nothing in Sanctum and reaches other apps again.
 - [ ] **Plan on catches:** with an if-then plan set, the app overlay, the keyword nudge, and the extension's sealed page show "If you're tempted, you said you'd …", and the overlay is tall enough for it.
 - [ ] **Park from the extension:** the sealed page's Park box adds a task for today and says so; during quiet hours it's hidden.

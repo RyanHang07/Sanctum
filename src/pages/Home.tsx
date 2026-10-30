@@ -7,7 +7,7 @@ import { useTrackers } from "../state/trackers";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { EVENTS, errorText, native, onNative } from "../lib/native";
+import { EVENTS, errorText, native, onNative, WEEK_TARGET_EVENT } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
@@ -836,9 +836,11 @@ function WeekProgress() {
     const load = () => void native.reviewWeekTarget().then((v) => live && setT(v), () => undefined);
     load();
     const timer = setInterval(load, 60_000);
+    window.addEventListener(WEEK_TARGET_EVENT, load);
     return () => {
       live = false;
       clearInterval(timer);
+      window.removeEventListener(WEEK_TARGET_EVENT, load);
     };
   }, [session?.id, done]);
   if (!t) return null;

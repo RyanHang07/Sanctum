@@ -2,6 +2,7 @@
 // the popup can be looked at in any browser. npm run ext:preview, then open
 //   http://localhost:5175/blocked.html?site=youtube.com&state=sealed
 //   http://localhost:5175/blocked.html?site=example.com&keyword=shorts&state=offline
+//   http://localhost:5175/blocked.html?site=youtube.com&pause=1&state=open   (Pause mode)
 //   http://localhost:5175/popup.html?state=sealed   (or open, offline)
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -15,8 +16,9 @@ const q = new URLSearchParams(location.search);
 const kind = q.get("state") ?? "sealed";
 const endsAt = Date.now() + 32 * 60000 + 14000;
 const rules = kind === "open" ? { sealed: false, sites: [], keywords: [] }
-  : { sealed: true, profile: "Deep Work", endsAt, sites: [{ domain: "youtube.com" }, { domain: "reddit.com" }, { domain: "x.com" }], keywords: ["shorts"] };
-window.chrome = { runtime: { sendMessage: async (m) => m.type === "state?" ? { rules, connected: kind !== "offline", back: "https://neetcode.io/practice" } : m.type === "rules?" ? rules : undefined } };
+  : { sealed: true, session: true, plan: "stand up and stretch", profile: "Deep Work", endsAt, sites: [{ domain: "youtube.com" }, { domain: "reddit.com" }, { domain: "x.com" }], keywords: ["shorts"] };
+const answers = { "state?": () => ({ rules, connected: kind !== "offline", back: "https://neetcode.io/practice" }), "rules?": () => rules, park: () => true, "pause-go": () => false };
+window.chrome = { runtime: { sendMessage: async (m) => answers[m.type]?.() } };
 </script>`;
 
 createServer(async (req, res) => {

@@ -119,6 +119,8 @@ export interface DbStatus {
   path: string;
 }
 
+export const WEEK_TARGET_EVENT = "sanctum:week-target";
+
 export const native = {
   dbStatus: () => call<DbStatus | null>("db_status"),
   getSetting: (key: string) => call<string | null>("get_setting", { key }),
@@ -170,7 +172,9 @@ export const native = {
   focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
   pauseStatus: () => call<PauseStatus>("pause_status"),
   reviewWeekTarget: () => call<WeekTarget>("review_week_target"),
-  reviewSetWeekTarget: (minutes: number | null) => call<void>("review_set_week_target", { minutes }),
+  /** Sets the week's target; Home's focus strip listens for WEEK_TARGET_EVENT to redraw. */
+  reviewSetWeekTarget: (minutes: number | null) =>
+    call<void>("review_set_week_target", { minutes }).then(() => void window.dispatchEvent(new Event(WEEK_TARGET_EVENT))),
   reviewSave: (week: string, worked: string | null, change: string | null) => call<{ inJournal: boolean }>("review_save", { week, worked, change }),
   reviewSuggestions: () => call<Suggestion[]>("review_suggestions"),
   reviewRecapShown: () => call<void>("review_recap_shown"),

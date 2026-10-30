@@ -31,13 +31,14 @@ function renderPause() {
   const left = Math.max(0, PAUSE_WAIT_S - Math.floor((Date.now() - shownAt) / 1000));
   $("chip").hidden = true;
   headline(`Still want ${site || "this site"}?`, "Take a breath.");
-  $("body").textContent = left ? `It opens in ${left}s if you still want it, for 15 minutes.` : "It's yours for 15 minutes if you still want it.";
+  $("body").textContent = left ? `Go on unlocks in ${left}s, for 15 minutes if you still want it.` : "It's yours for 15 minutes if you still want it.";
   $("back").textContent = "Not now";
   $("open").textContent = "Go on";
   $("open").disabled = left > 0;
   $("plan").hidden = true;
   $("park").hidden = true;
   $("offline").hidden = true;
+  document.querySelector(".foot").textContent = "Asked by Sanctum's Pause mode. Only the site's name is logged, with your answer.";
 }
 
 function render() {

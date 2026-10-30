@@ -30,7 +30,8 @@ const allowedNow = () => Object.keys(allowed).filter((s) => allowed[s] > Date.no
 
 /** Go on, after the pause: the site opens for 15 minutes. */
 async function pauseGo(site) {
-  if (!rules.pause || rules.sealed || !site) return false;
+  // Only a site on the list: blocked.html is web-accessible, so any page could open it.
+  if (!rules.pause || rules.sealed || !rules.sites?.some((s) => s.domain === site)) return false;
   allowed[site] = Date.now() + ALLOW_MS;
   await chrome.storage.session.set({ allowed });
   await applyRules();
@@ -192,7 +193,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
   if (msg?.type === "park") return park(msg.text);
   if (msg?.type === "pause-go") return pauseGo(String(msg.site ?? ""));
-  if (msg?.type === "pause-back" && msg.site) send({ type: "paused", site: String(msg.site), outcome: "turned_back" });
+  if (msg?.type === "pause-back" && rules.pause && !rules.sealed && msg.site) send({ type: "paused", site: String(msg.site), outcome: "turned_back" });
   if (msg?.type === "rules?") return Promise.resolve(rules);
   // The blocked page's "Open youtube.com": make sure no stale rule redirects it straight back.
   if (msg?.type === "resync") return applyRules().then(() => rules);
