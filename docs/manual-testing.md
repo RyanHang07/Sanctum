@@ -4,7 +4,7 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 
 ## Updates and releases
 
-- [ ] **0.1.2 → 0.2.0:** after the v0.2.0 draft is published, Setup › General › About › Check for updates finds 0.2.0 and installs it.
+- [ ] **0.1.2 → 0.2.0:** v0.2.0 is published (2026-10-29); Setup › General › About › Check for updates finds 0.2.0 and installs it.
 - [ ] **Automatic publishing:** the next `v*` tag publishes the release by itself (not as a draft), and its notes are that version's CHANGELOG section.
 - [ ] **One-click updates (from 0.3.0):**
   - A little after Sanctum starts, the update downloads in the background and "Sanctum x is ready." appears, and **Restart to update** installs and restarts it.
@@ -58,9 +58,7 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 
 ## Live services (your accounts)
 
-- [ ] **Email logo:**
-  - Redeploy `notify`, `invite` and `unlock-respond` so emails use the sanctum-desktop logo address. The deploy was blocked by a permission setting; allow it, or deploy them yourself.
-  - Paste `supabase/templates/confirmation.html` and `supabase/templates/magic_link.html` into Supabase › Auth › Email Templates.
+- [ ] **Emails:** `notify`, `invite` and `unlock-respond` are redeployed with the sanctum-desktop logo (2026-10-29) and the sign-in templates are pasted. Check a real sign-in email, an invite email, and an unlock request email: the logo shows, and the buttons open sanctum-desktop.vercel.app.
 - [ ] **New address:**
   - `sanctum-desktop.vercel.app` serves the home page, docs, changelog, /legal and /partner.
   - Sign-in redirects back there. Supabase Auth's URL settings need the new address.
