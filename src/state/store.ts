@@ -29,7 +29,7 @@ export interface UnlockResult {
   partner: string | null;
 }
 
-export type SetupTab = "profiles" | "distractions" | "protection" | "trackers" | "tracking" | "calendar" | "browser" | "partner" | "general";
+export type SetupTab = "profiles" | "distractions" | "protection" | "trackers" | "tracking" | "calendar" | "browser" | "partner" | "appearance" | "general";
 
 export interface Settings {
   closeAction: CloseAction;

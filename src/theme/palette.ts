@@ -47,8 +47,12 @@ export const cssVar = (key: string) => `--s-${key}`;
 
 /** Puts a theme's colours on <html> (and its scheme, so scrollbars and inputs match). */
 export function applyTheme(theme: Theme, root: HTMLElement = document.documentElement) {
+  // Every colour lands in the same frame (styles.css turns transitions off meanwhile).
+  root.classList.add("theme-switching");
   for (const key of KEYS) root.style.setProperty(cssVar(key), theme.palette[key] ?? DARK[key]!);
   root.style.colorScheme = theme.scheme;
   root.dataset.theme = theme.id;
   root.dataset.scheme = theme.scheme;
+  // Two frames: the new colours paint, then fades come back for everything else.
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
 }
