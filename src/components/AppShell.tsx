@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { Sidebar } from "./Sidebar";
 import { Toast } from "./Toast";
 import { UpdateNotice } from "./UpdateNotice";
+import { RecapNotice } from "./RecapNotice";
+import { useRecap } from "../state/recap";
 import { useUpdate } from "../state/update";
 import { CloseDialog } from "./CloseDialog";
 import { DevStateToggle } from "./DevStateToggle";
@@ -129,7 +131,9 @@ function useNativeEvents() {
       .then(() => seedDevTrackers())
       .then(() => useTrackers.getState().load())
       .then(() => useTrackers.getState().checkPending())
-      .then(() => useNotes.getState().load());
+      .then(() => useNotes.getState().load())
+      // Last week in short, once a week (v0.3); after setup, so a new install isn't greeted with it.
+      .then(() => (useStore.getState().onboarding ? undefined : useRecap.getState().check()));
     // Keep the Rust side (tray menu, close handling) in sync with the store on startup.
     void native.setAppState(useStore.getState().appState);
     return () => {
@@ -181,7 +185,11 @@ export function AppShell() {
           </div>
         </div>
         <Toast />
-        <UpdateNotice />
+        {/* Notices that wait for you, bottom right, one above the other. */}
+        <div className="pointer-events-none absolute bottom-7 right-7 z-20 flex flex-col items-end gap-3 [&>*]:pointer-events-auto">
+          <RecapNotice />
+          <UpdateNotice />
+        </div>
         <BlockPrompt />
       </main>
       <CloseDialog />

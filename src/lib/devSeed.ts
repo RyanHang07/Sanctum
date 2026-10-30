@@ -90,6 +90,36 @@ export function seedDevStats(): void {
     { what: "“shorts”", kind: "title", count: 4 },
     { what: "steam.exe", kind: "allowlist", count: 2 },
   ]);
+
+  // Stats in depth (v0.3): sessions and activity for the last two weeks, and last week's recap.
+  const at = (key: string, h: number, m = 0) => new Date(`${key}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`).getTime();
+  const PLAN: [string, number, number, "completed" | "unlocked_early" | "broken"][] = [
+    ["Deep Work", 9, 90, "completed"],
+    ["Interview Prep", 13, 60, "completed"],
+    ["Study", 16, 45, "completed"],
+  ];
+  // Once: StrictMode mounts the shell twice in development.
+  if (mockControls.insightState().sessions.length) return;
+  for (let i = 13; i >= 0; i--) {
+    const k = addDays(today, -i);
+    PLAN.forEach(([profileName, hour, plannedMin, outcome], j) => {
+      if ((i + j) % 5 === 4) return;
+      const broken = i === 6 && j === 1;
+      const startedAt = at(k, hour);
+      mockControls.insightSession(
+        { profileName, startedAt, plannedMin, focusMin: broken ? 22 : plannedMin, outcome: broken ? "broken" : i === 3 && j === 2 ? "unlocked_early" : outcome },
+        { blocked: (i + j) % 3 ? [{ what: "discord.exe", kind: "app", count: 1 + ((i + j) % 3) }] : [], tamper: broken ? [{ at: startedAt + 22 * 60_000, what: "Sanctum was closed" }] : [] },
+      );
+      const s = startedAt;
+      mockControls.insightActivity([
+        { ts: s, seconds: plannedMin * 30, exe: "code.exe", title: "main.rs - Sanctum", category: "productive", sessionId: null },
+        { ts: s + plannedMin * 30_000, seconds: plannedMin * 15, exe: "chrome.exe", title: "Two Sum - LeetCode — leetcode.com", category: "productive", sessionId: null },
+        { ts: s + plannedMin * 45_000 + 60_000, seconds: 240, exe: "chrome.exe", title: "Shorts - YouTube — youtube.com", category: "distracting", sessionId: null },
+        { ts: s + plannedMin * 60_000 + 120_000, seconds: 900, exe: "slack.exe", title: "Slack", category: "neutral", sessionId: null },
+      ]);
+    });
+  }
+  mockControls.insightRecap({ week: addDays(today, -7), focusMin: 1140, previousFocusMin: 960, kept: 5, broken: 1, days: 6, bestDay: addDays(today, -5), bestDayMin: 240, mostTempting: "discord.exe", sessions: 16 });
 }
 
 /**

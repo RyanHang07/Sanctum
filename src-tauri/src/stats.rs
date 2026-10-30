@@ -267,7 +267,7 @@ pub fn overview(conn: &Connection, from: NaiveDate, to: NaiveDate, today: NaiveD
 }
 
 /// When the planner day `d` starts, in ms.
-fn start_ms(days: &Days, d: NaiveDate) -> i64 {
+pub fn start_ms(days: &Days, d: NaiveDate) -> i64 {
     use chrono::TimeZone;
     let local = d.and_time(NaiveTime::MIN) + days.reset;
     Local.from_local_datetime(&local).earliest().map(|t| t.timestamp_millis()).unwrap_or(0)

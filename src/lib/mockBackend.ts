@@ -8,6 +8,7 @@ import type { GuardStatus, ActivitySummary, BrowserStatus, CalEvent, Distraction
 import { addDays, fromKey, minutesOf, todayKey } from "./planner";
 import { bus } from "./bus";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
+import { insightControls, insightHandlers, resetMockInsights } from "./mockInsights";
 import type { Note, NoteDraft } from "./types";
 import { dayStatus, streaks } from "./stats";
 import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
@@ -94,6 +95,7 @@ export function resetMockBackend() {
   if (state?.timer) clearInterval(state.timer);
   mockLadder = null;
   resetMockTrackers();
+  resetMockInsights();
   mockShares.clear();
   mockExtension.theme = null;
   Object.assign(mockUpdates, { available: null, applied: false });
@@ -1041,6 +1043,7 @@ function tick() {
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
 export const mockControls = {
   ...trackerControls,
+  ...insightControls,
   /** The partner answers the pending unlock request. */
   partnerAnswers(approve: boolean, note: string | null = null) {
     if (mockLadder?.third?.kind !== "partner") return;
@@ -1153,7 +1156,7 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 }
 
 export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const h = handlers[cmd] ?? gcalHandlers[cmd] ?? trackerHandlers[cmd];
+  const h = handlers[cmd] ?? gcalHandlers[cmd] ?? trackerHandlers[cmd] ?? insightHandlers[cmd];
   // Window and tray commands have nothing to do outside Tauri.
   if (!h) return undefined as T;
   return h(args ?? {}) as T;

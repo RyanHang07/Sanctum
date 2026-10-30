@@ -371,6 +371,66 @@ export interface Tempted {
   count: number;
 }
 
+/** Stats › Sessions (v0.3): a finished session. */
+export type SessionOutcome = "completed" | "unlocked_early" | "broken";
+
+export interface SessionRow {
+  id: number;
+  profileId: number | null;
+  profileName: string;
+  startedAt: number;
+  endedAt: number;
+  plannedMin: number;
+  focusMin: number;
+  idleMin: number;
+  outcome: SessionOutcome;
+  attempts: number;
+  task: string | null;
+}
+
+export interface SessionDetail {
+  session: SessionRow;
+  blocked: { what: string; kind: string; count: number }[];
+  unlocks: { at: number; what: string }[];
+  tamper: { at: number; what: string }[];
+}
+
+/** Stats › Activity (v0.3): time in one app or on one site. */
+export interface Usage {
+  kind: "exe" | "domain";
+  key: string;
+  seconds: number;
+  category: Category;
+}
+
+export interface ActivityView {
+  apps: Usage[];
+  sites: Usage[];
+}
+
+/** Stats › Day (v0.3). */
+export interface DayView {
+  date: string;
+  hasActivity: boolean;
+  blocks: { start: number; end: number; category: Category; label: string }[];
+  sessions: { id: number; start: number; end: number; profileName: string; outcome: SessionOutcome }[];
+  top: Usage[];
+}
+
+/** The Monday recap (v0.3): last week against the one before. */
+export interface Recap {
+  week: string;
+  focusMin: number;
+  previousFocusMin: number;
+  kept: number;
+  broken: number;
+  days: number;
+  bestDay: string | null;
+  bestDayMin: number;
+  mostTempting: string | null;
+  sessions: number;
+}
+
 export interface StatsOverview {
   from: string;
   to: string;

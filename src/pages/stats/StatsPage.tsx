@@ -8,10 +8,15 @@ import { addMonths, fromKey, todayKey, WEEKDAYS } from "../../lib/planner";
 import { dayDetail, rangeOf, rangeTitle, shade, shiftRange, TEMPTED_KIND, temptedLabel, type StatsRange } from "../../lib/stats";
 import { minutes } from "../../lib/time";
 import type { DayStat, StatsOverview } from "../../lib/types";
+import { SessionsTab } from "./SessionsTab";
+import { ActivityTab } from "./ActivityTab";
+import { DayTab } from "./DayTab";
 
 // Stats (SPEC 4.9, 4.10): the streak, focus by day against the goal, what tempted you, and
 // where the time went. No design screen; built from Month.dc.html (summary row, heatmap,
 // legend) and Tracking.dc.html (panels, range toggle).
+// v0.3 (decided 2026-10-29): tabs. Overview is the page as it was; Sessions, Activity, and Day
+// go deeper (SessionsTab, ActivityTab, DayTab).
 
 function RangeSwitch({ range, onChange }: { range: StatsRange; onChange: (r: StatsRange) => void }) {
   return (
@@ -271,7 +276,50 @@ function TimePanel({ o }: { o: StatsOverview }) {
   );
 }
 
+export type StatsTab = "overview" | "sessions" | "activity" | "day";
+const TABS: { id: StatsTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "sessions", label: "Sessions" },
+  { id: "activity", label: "Activity" },
+  { id: "day", label: "Day" },
+];
+
 export function StatsPage() {
+  const [tab, setTab] = useState<StatsTab>("overview");
+  // The Day tab opens on a date picked elsewhere (a day in Overview, a session's day).
+  const [dayKey, setDayKey] = useState(todayKey());
+  const openDay = (key: string) => (setDayKey(key), setTab("day"));
+  return (
+    <div className="flex h-full flex-col gap-[14px] px-7 pb-6 pt-5">
+      <div className="flex h-control shrink-0 items-center justify-between gap-3">
+        <h1 className="page-title m-0 whitespace-nowrap">Stats</h1>
+        <div role="tablist" aria-label="Stats" className="flex rounded-control border border-line-input p-[2px]">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
+                tab === t.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div key={tab} className="page-in flex min-h-0 grow flex-col gap-[14px]">
+        {tab === "overview" ? <Overview onOpenDay={openDay} /> : null}
+        {tab === "sessions" ? <SessionsTab onOpenDay={openDay} /> : null}
+        {tab === "activity" ? <ActivityTab /> : null}
+        {tab === "day" ? <DayTab date={dayKey} onDate={setDayKey} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const today = todayKey();
   const [range, setRange] = useState<StatsRange>("week");
   const [anchor, setAnchor] = useState(today);
@@ -298,10 +346,9 @@ export function StatsPage() {
 
   const unit = range === "week" ? "week" : "month";
   return (
-    <div className="flex h-full flex-col gap-[14px] px-7 pb-6 pt-5">
+    <>
       <div className="flex h-control items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h1 className="page-title m-0 whitespace-nowrap">Stats</h1>
           <span className="whitespace-nowrap text-body text-muted">{rangeTitle(range, anchor)}</span>
           <div className="flex items-center gap-1">
             <Button variant="quiet" aria-label={`Previous ${unit}`} className="w-control px-0" onClick={() => setAnchor(shiftRange(range, anchor, -1))}>
@@ -337,6 +384,11 @@ export function StatsPage() {
             <section aria-label={range === "week" ? "Focus by day" : "Focus heatmap"} className="flex min-h-0 flex-col gap-3 rounded-panel border border-line bg-panel p-[14px]">
               {range === "week" ? <WeekBars o={o} onHover={setHover} /> : <Heatmap o={o} month={anchor} onHover={setHover} />}
               <Legend hover={hover} o={o} />
+              {hover ? null : (
+                <button type="button" className="self-start text-meta text-sealed-text hover:text-sealed-text-hover" onClick={() => onOpenDay(today)}>
+                  See today's timeline →
+                </button>
+              )}
             </section>
             <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
               <TemptedPanel o={o} />
@@ -345,6 +397,6 @@ export function StatsPage() {
           </div>
         </>
       ) : null}
-    </div>
+    </>
   );
 }

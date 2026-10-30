@@ -48,8 +48,22 @@ import type {
   SharedImage,
   JournalDay,
   JournalLock,
+  SessionRow,
+  SessionDetail,
+  SessionOutcome,
+  ActivityView,
+  DayView,
+  Recap,
 } from "./types";
 import { mockInvoke } from "./mockBackend";
+
+/** Stats › Sessions filters (v0.3). */
+export interface SessionQuery {
+  from?: string;
+  to?: string;
+  outcome?: SessionOutcome | null;
+  profile?: number | null;
+}
 import { bus } from "./bus";
 
 /** Events the Rust side emits (src-tauri/src/engine.rs). */
@@ -159,6 +173,16 @@ export const native = {
   removeClassRule: (id: number) => call<void>("remove_class_rule", { id }),
   activitySummary: (since: number) => call<ActivitySummary>("activity_summary", { since }),
   statsOverview: (from: string, to: string) => call<StatsOverview>("stats_overview", { from, to }),
+  // Stats in depth (v0.3). Dates are planner days; no range means all time.
+  statsSessions: (q: SessionQuery) => call<SessionRow[]>("stats_sessions", { ...q }),
+  statsSession: (id: number) => call<SessionDetail | null>("stats_session", { id }),
+  statsSessionsCsv: (q: SessionQuery) => call<FileInfo>("stats_sessions_csv", { ...q }),
+  statsActivity: (from: string, to: string) => call<ActivityView>("stats_activity", { from, to }),
+  /** Sets an app's or site's category everywhere, or only in one profile; returns entries recounted. */
+  statsReclassify: (kind: "exe" | "domain", pattern: string, category: Category, profile: number | null) =>
+    call<number>("stats_reclassify", { kind, pattern, category, profile }),
+  statsDay: (date: string) => call<DayView>("stats_day", { date }),
+  statsRecap: () => call<Recap | null>("stats_recap"),
 
   listRoutines: () => call<Routine[]>("list_routines"),
   saveRoutine: (draft: RoutineDraft) => call<Routine>("save_routine", { draft }),
