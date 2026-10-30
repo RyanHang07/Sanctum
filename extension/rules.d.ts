@@ -7,6 +7,12 @@ export interface SiteRule {
 
 export interface Rules {
   sealed: boolean;
+  /** Pause mode (v0.3.1): not sealed, but flagged sites ask first. */
+  pause?: boolean;
+  /** A seal (not quiet hours or a break): the sealed page can park a thought. */
+  session?: boolean;
+  /** The seal's if-then plan. */
+  plan?: string;
   profile?: string;
   endsAt?: number | null;
   sites?: SiteRule[];
@@ -17,7 +23,7 @@ export function bare(url: string): string | null;
 export function hostOf(url: string): string | null;
 export function blockedSite(url: string, rules: Rules | null | undefined): string | null;
 export function keywordHit(url: string, title: string | null | undefined, rules: Rules | null | undefined): string | null;
-export function netRules(rules: Rules | null | undefined): Array<{
+export function netRules(rules: Rules | null | undefined, allowed?: string[]): Array<{
   id: number;
   priority: number;
   action: { type: string; redirect?: { extensionPath: string } };

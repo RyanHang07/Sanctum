@@ -12,7 +12,7 @@ import { insightControls, insightHandlers, resetMockInsights } from "./mockInsig
 import type { Note, NoteDraft } from "./types";
 import { dayStatus, streakAtRisk, streaks } from "./stats";
 import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
-import type { QuietConfig, SessionResult, TaskLink } from "./types";
+import type { BreakView, PauseConfig, QuietConfig, SessionResult, TaskLink } from "./types";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
@@ -85,6 +85,9 @@ interface MockState {
   quiet: { config: QuietConfig; pausedUntil: number | null; pauses: string[] };
   backups: { name: string; path: string; bytes: number; modifiedAt: number }[];
   cloud: { email: string | null; partner: PartnerStatus["partner"]; invite: PartnerStatus["invite"]; partnerOf: string[]; invitesEmailed?: string[] };
+  /** Pause mode and the break after a seal (v0.3.1). */
+  pause: { config: PauseConfig; log: { what: string; kind: "app" | "site"; outcome: "went_on" | "turned_back"; ts: number }[] };
+  brk: BreakView | null;
   /** The seal's science (v0.3.1): each profile's last plan, and finished seals' wrap-ups. */
   focus: {
     plans: Record<number, string>;
@@ -136,6 +139,8 @@ export function resetMockBackend() {
     gcal: { email: null, lastSyncAt: null, calendars: [], events: [] },
     cloud: { email: null, partner: null, invite: null, partnerOf: [] },
     focus: { plans: {}, ended: {} },
+    pause: { config: { mode: "off", daysMask: 127, start: "09:00", end: "17:00" }, log: [] },
+    brk: null,
     guard: { installed: false, decline: false, restarts: [] },
     notes: [],
     quiet: { config: { ...DEFAULT_QUIET }, pausedUntil: null, pauses: [] },
@@ -531,6 +536,35 @@ const handlers: Record<string, (a: any) => unknown> = {
       .filter((d) => d.kind === "app" && state.running.has(d.value) && !opens.has(d.value))
       .map((d) => d.label ?? d.value);
   },
+  pause_status: () => ({ config: clone(state.pause.config), on: state.pause.config.mode === "all" || (state.pause.config.mode === "hours" && !!mockQuietStatus({ enabled: true, daysMask: state.pause.config.daysMask, start: state.pause.config.start, end: state.pause.config.end }, null, false).active) }),
+  pause_save: ({ config }: { config: PauseConfig }) => {
+    if (!["off", "all", "hours"].includes(config.mode)) throw "Pick off, all day, or set hours.";
+    if (config.mode === "hours") {
+      const err = quietError({ enabled: true, daysMask: config.daysMask, start: config.start, end: config.end });
+      if (err) throw err.replace("Quiet hours need", "Pause hours need");
+    }
+    state.pause.config = clone(config);
+    const s = handlers.pause_status!({});
+    bus.emit("sanctum://pause", s);
+    return s;
+  },
+  pause_answer: ({ goOn }: { goOn: boolean }) => {
+    state.pause.log.push({ what: "discord.exe", kind: "app", outcome: goOn ? "went_on" : "turned_back", ts: Date.now() });
+  },
+  pause_summary: () => ({ paused: state.pause.log.length, turnedBack: state.pause.log.filter((l) => l.outcome === "turned_back").length }),
+  break_start: ({ minutes, profileId, nextMinutes }: { minutes: number; profileId: number | null; nextMinutes: number }) => {
+    if (state.session) throw "A break comes after the seal.";
+    if (![5, 10, 15].includes(minutes)) throw "A break is 5, 10, or 15 minutes.";
+    state.brk = { until: Date.now() + minutes * 60_000, minutes, profileId, nextMinutes };
+    bus.emit("sanctum://break", clone(state.brk));
+    return clone(state.brk);
+  },
+  break_end: () => {
+    if (!state.brk) return;
+    state.brk = null;
+    bus.emit("sanctum://break", null);
+  },
+  break_status: () => (state.brk && state.brk.until > Date.now() ? clone(state.brk) : null),
   focus_prepare: ({ profileId, task }: { profileId: number; task: TaskLink | null }) => {
     const ended = Object.values(state.focus.ended)
       .filter((e) => e.leftOff)
@@ -1135,6 +1169,18 @@ export const mockControls = {
     const e = mockEvent("primary@example.com", `meeting${state.nextId++}`, title, todayKey(start, "00:00"), time, 10 + minutesLeft, { attendees: 2 });
     state.gcal.events.push({ ...e, startMs: now - 10 * 60_000, endMs: now + minutesLeft * 60_000 });
     bus.emit(EV.gcal, gcalStatus());
+  },
+  /** The break after a seal runs out ("Next block?"). */
+  breakOver() {
+    const b = state.brk;
+    if (!b) return;
+    state.brk = null;
+    bus.emit("sanctum://break", null);
+    bus.emit("sanctum://break-over", b);
+  },
+  /** Pause mode answers, for Stats. */
+  pauseLog(entries: MockState["pause"]["log"]) {
+    state.pause.log.push(...entries);
   },
   /** Idle since `ms` ago (the countdown pauses). */
   goIdle(ms = 3 * 60_000) {

@@ -117,6 +117,7 @@ function useNativeEvents() {
     void useStore.getState().loadSettings();
     // Quiet hours follow the clock; Rust pushes changes, and this catches the rest.
     void useStore.getState().loadQuiet();
+    void useStore.getState().loadBreak();
     const quietTimer = setInterval(() => void useStore.getState().loadQuiet(), 30_000);
     seedDevStats();
     // A session may have resumed after a restart; Rust decides.

@@ -21,6 +21,11 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 - [ ] **Held page:** Done / Partly / No, the rating, and "where I left off" are kept after Done, Esc, or Enter again; the next seal of that task shows "Last time: …".
 - [ ] **After a break:** a real broken seal (close Sanctum mid-seal without Protection) shows "Sanctum was closed N minutes in." and Turn on Protection opens Setup › Protection.
 
+- [ ] **Pause mode, apps:** with Pause mode on, opening Discord (on the Distractions list) outside a seal minimizes it behind "Still want Discord?"; Go on is greyed for 5 seconds, then restores Discord and leaves it alone for 15 minutes; Not now closes it. Apps run as administrator may not minimize.
+- [ ] **Pause mode, sites:** a flagged site shows "Still want youtube.com?" before loading; Go on opens it for 15 minutes; with Sanctum closed, sites open normally. Stats › Overview shows "Pauses turned back".
+- [ ] **Pause hours:** set hours that start in a minute; the browsers start asking when they begin and stop when they end.
+- [ ] **Break:** from the held page, a 5-minute break keeps flagged apps and sites closed, Home counts down, and at the end "Break's over. Next block?" starts the same profile and length.
+
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.

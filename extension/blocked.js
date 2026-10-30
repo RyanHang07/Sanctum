@@ -6,6 +6,10 @@ import { countdown, siteLabel } from "./rules.js";
 const params = new URLSearchParams(location.search);
 const site = params.get("site") ?? "";
 const keyword = params.get("keyword");
+/** Pause mode (v0.3.1): not sealed, but asking first. */
+const pausing = params.get("pause") === "1";
+const PAUSE_WAIT_S = 5;
+const shownAt = Date.now();
 
 const $ = (id) => document.getElementById(id);
 document.title = `${keyword ? `“${keyword}”` : site || "Sealed"} · Sanctum`;
@@ -22,7 +26,22 @@ function headline(lead, payoff) {
   h.replaceChildren(`${lead} `, Object.assign(document.createElement("em"), { textContent: payoff }));
 }
 
+/** "Still want youtube.com?": Not now goes back; Go on opens it after five seconds, for 15 minutes. */
+function renderPause() {
+  const left = Math.max(0, PAUSE_WAIT_S - Math.floor((Date.now() - shownAt) / 1000));
+  $("chip").hidden = true;
+  headline(`Still want ${site || "this site"}?`, "Take a breath.");
+  $("body").textContent = left ? `It opens in ${left}s if you still want it, for 15 minutes.` : "It's yours for 15 minutes if you still want it.";
+  $("back").textContent = "Not now";
+  $("open").textContent = "Go on";
+  $("open").disabled = left > 0;
+  $("plan").hidden = true;
+  $("park").hidden = true;
+  $("offline").hidden = true;
+}
+
 function render() {
+  if (pausing) return renderPause();
   if (!state) return;
   const { rules, connected, back } = state;
   const backLabel = back ? siteLabel(back) : null;
@@ -57,7 +76,7 @@ function render() {
 
 async function refresh() {
   state = await chrome.runtime.sendMessage({ type: "state?" }).catch(() => null);
-  if (state?.rules?.sealed && !reported) {
+  if (state?.rules?.sealed && !reported && !pausing) {
     reported = true;
     void chrome.runtime.sendMessage({ type: "blocked", site, keyword });
   }
@@ -65,6 +84,12 @@ async function refresh() {
 }
 
 $("back").addEventListener("click", async () => {
+  if (pausing) {
+    void chrome.runtime.sendMessage({ type: "pause-back", site });
+    if (state?.back) location.href = state.back;
+    else window.close();
+    return;
+  }
   const rules = state?.rules;
   if (rules && !rules.sealed && site) {
     // Clear any blocking rule left over first, or the site would redirect straight back here.
@@ -73,7 +98,11 @@ $("back").addEventListener("click", async () => {
   } else if (state?.back) location.href = state.back;
   else window.close();
 });
-$("open").addEventListener("click", () => void chrome.runtime.sendMessage({ type: "open-sanctum" }));
+$("open").addEventListener("click", async () => {
+  if (!pausing) return void chrome.runtime.sendMessage({ type: "open-sanctum" });
+  if (Date.now() - shownAt < PAUSE_WAIT_S * 1000) return;
+  if (await chrome.runtime.sendMessage({ type: "pause-go", site }).catch(() => false)) location.href = `https://${site}`;
+});
 $("park").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("park-text");

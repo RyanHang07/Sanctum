@@ -115,7 +115,12 @@ button {
   color: var(--text-2);
 }
 
-.ghost:hover {
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ghost:hover:not(:disabled) {
   background: var(--raised);
   color: var(--text);
 }

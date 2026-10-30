@@ -23,6 +23,21 @@ let lastDomain = undefined;
 let connected = false;
 /** Tab id -> the last page in it that wasn't sealed, for the blocked page's "Back to …". */
 let back = {};
+/** Pause mode (v0.3.1): site -> until (ms), the sites you said Go on to. Session storage. */
+let allowed = {};
+const ALLOW_MS = 15 * 60_000;
+const allowedNow = () => Object.keys(allowed).filter((s) => allowed[s] > Date.now());
+
+/** Go on, after the pause: the site opens for 15 minutes. */
+async function pauseGo(site) {
+  if (!rules.pause || rules.sealed || !site) return false;
+  allowed[site] = Date.now() + ALLOW_MS;
+  await chrome.storage.session.set({ allowed });
+  await applyRules();
+  send({ type: "paused", site, outcome: "went_on" });
+  return true;
+}
+
 /** A thought the sealed page parked, waiting for Sanctum's answer (v0.3.1). */
 let parking = null;
 const PARK_WAIT_MS = 5_000;
@@ -127,7 +142,7 @@ async function liftIfExpired() {
 /** Updates the site rules and moves open tabs that are now sealed to the blocked page. */
 async function applyRules() {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: existing.map((r) => r.id), addRules: netRules(rules) });
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: existing.map((r) => r.id), addRules: netRules(rules, allowedNow()) });
   if (!rules.sealed) return;
   for (const tab of await chrome.tabs.query({})) await checkTab(tab);
 }
@@ -176,6 +191,8 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "blocked") send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
   if (msg?.type === "park") return park(msg.text);
+  if (msg?.type === "pause-go") return pauseGo(String(msg.site ?? ""));
+  if (msg?.type === "pause-back" && msg.site) send({ type: "paused", site: String(msg.site), outcome: "turned_back" });
   if (msg?.type === "rules?") return Promise.resolve(rules);
   // The blocked page's "Open youtube.com": make sure no stale rule redirects it straight back.
   if (msg?.type === "resync") return applyRules().then(() => rules);
@@ -201,15 +218,30 @@ chrome.alarms.onAlarm.addListener((a) => {
 async function heal() {
   if (await liftIfExpired()) return;
   if (rules.sealed) return;
+  // Pause mode is Sanctum's: without it, sites open as usual.
+  if (rules.pause && !connected) {
+    rules = OPEN;
+    await chrome.storage.local.set({ rules });
+    await applyRules();
+    return;
+  }
+  // A Go on ran out: the site asks again.
+  if (rules.pause && Object.keys(allowed).some((s) => allowed[s] <= Date.now())) {
+    allowed = Object.fromEntries(Object.entries(allowed).filter(([, until]) => until > Date.now()));
+    await chrome.storage.session.set({ allowed });
+    await applyRules();
+    return;
+  }
   const left = await chrome.declarativeNetRequest.getDynamicRules();
   if (left.length) await applyRules();
 }
 
 // Start-up: restore the last rules and make the browser's blocking match them before anything
 // else, so a restart never leaves a site blocked that this worker thinks is open.
-Promise.all([chrome.storage.local.get("rules"), chrome.storage.session.get("back")]).then(async ([local, session]) => {
+Promise.all([chrome.storage.local.get("rules"), chrome.storage.session.get(["back", "allowed"])]).then(async ([local, session]) => {
   if (local.rules) rules = local.rules;
   if (session.back) back = session.back;
+  if (session.allowed) allowed = session.allowed;
   await liftIfExpired();
   await applyRules();
   connect();

@@ -18,6 +18,7 @@ mod updates;
 mod launcher;
 mod notes;
 mod focus;
+mod pause;
 mod insights;
 mod journal;
 mod note_images;
@@ -526,6 +527,7 @@ async fn reset_all(app: AppHandle) -> Result<(), String> {
         *conn = fresh;
         drop(conn);
         engine::load_quiet(&app);
+        engine::load_pause(&app);
         shared.unlock.clear();
         shared.activity.mark_dirty();
         Ok(())
@@ -731,6 +733,7 @@ pub fn run() {
             note_share::sweep_expired(app.handle());
             tray::spawn_pulse(app.handle().clone());
             engine::load_quiet(app.handle());
+            engine::load_pause(app.handle());
             engine::resume_on_startup(app.handle());
             // Sanctum closed mid-seal last time: give Do Not Disturb back if no seal resumed.
             if !app.state::<Shared>().sealed() {
@@ -883,6 +886,13 @@ pub fn run() {
             engine::preview_seal,
             engine::start_session,
             engine::quiet_status,
+            engine::pause_status,
+            engine::pause_save,
+            engine::pause_answer,
+            engine::pause_summary,
+            engine::break_start,
+            engine::break_end,
+            engine::break_status,
             dnd::dnd_status,
             guard_close_elevated,
             cloud::cloud_delete_account,

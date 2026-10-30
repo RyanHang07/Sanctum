@@ -16,7 +16,7 @@ import type { QuietConfig } from "../../lib/types";
 const selectClass =
   "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-7 text-body text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed disabled:cursor-not-allowed disabled:opacity-50";
 
-function TimeSelect({
+export function TimeSelect({
   label,
   value,
   disabled,

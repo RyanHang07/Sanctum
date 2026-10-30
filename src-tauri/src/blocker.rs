@@ -161,6 +161,22 @@ impl SystemBlocker {
         Some(seal.apps.iter().filter(|a| !seal.opens.contains(*a) && !is_protected(a)).cloned().collect())
     }
 
+    /// The running processes of an exe (pause mode hides their windows).
+    pub fn pids_of(&mut self, exe: &str) -> Vec<u32> {
+        self.refresh().into_iter().filter(|p| p.exe == exe).map(|p| p.pid).collect()
+    }
+
+    /// Closes every process of an exe, never Sanctum or what runs it ("Not now" on a pause).
+    pub fn close_exe(&mut self, exe: &str) {
+        let procs = self.refresh();
+        let keep = self.keep(&procs);
+        for p in procs.iter().filter(|p| p.exe == exe && !keep.contains(&p.pid)) {
+            if let Some(proc_) = self.sys.process(sysinfo::Pid::from_u32(p.pid)) {
+                proc_.kill();
+            }
+        }
+    }
+
     pub fn is_sealed(&self, exe: &str) -> bool {
         self.seal.as_ref().is_some_and(|s| s.apps.contains(exe))
     }

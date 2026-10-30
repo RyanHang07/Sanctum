@@ -7,7 +7,7 @@ import { useInstalledApps } from "../../lib/installedApps";
 import { addMonths, fromKey, todayKey, WEEKDAYS } from "../../lib/planner";
 import { dayDetail, rangeOf, rangeTitle, shade, shiftRange, TEMPTED_KIND, temptedLabel, type StatsRange } from "../../lib/stats";
 import { minutes } from "../../lib/time";
-import type { DayStat, StatsOverview } from "../../lib/types";
+import type { DayStat, StatsOverview, PauseSummary } from "../../lib/types";
 import { SessionsTab } from "./SessionsTab";
 import { ActivityTab } from "./ActivityTab";
 import { DayTab } from "./DayTab";
@@ -38,7 +38,7 @@ function RangeSwitch({ range, onChange }: { range: StatsRange; onChange: (r: Sta
   );
 }
 
-function Summary({ o }: { o: StatsOverview }) {
+function Summary({ o, paused }: { o: StatsOverview; paused: PauseSummary | null }) {
   const cells: [string, string][] = [
     [String(o.currentStreak), "Current streak"],
     [String(o.longestStreak), "Longest streak"],
@@ -46,8 +46,10 @@ function Summary({ o }: { o: StatsOverview }) {
     [String(o.broken), o.broken === 1 ? "Seal broken" : "Seals broken"],
     [minutes(o.focusMin), "Focused"],
   ];
+  // Pause mode (v0.3.1): how often "Still want it?" turned you back.
+  if (paused?.paused) cells.push([`${paused.turnedBack} of ${paused.paused}`, "Pauses turned back"]);
   return (
-    <div data-testid="stats-summary" className="grid shrink-0 grid-cols-5 overflow-hidden rounded-panel border border-line bg-panel">
+    <div data-testid="stats-summary" className={`grid shrink-0 ${cells.length > 5 ? "grid-cols-6" : "grid-cols-5"} overflow-hidden rounded-panel border border-line bg-panel`}>
       {cells.map(([v, k], i) => (
         <div key={k} className={`flex flex-col gap-[2px] px-[14px] py-3 ${i < cells.length - 1 ? "border-r border-line" : ""}`}>
           <span className="font-mono text-[18px] font-medium">{v}</span>
@@ -324,6 +326,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const [range, setRange] = useState<StatsRange>("week");
   const [anchor, setAnchor] = useState(today);
   const [o, setO] = useState<StatsOverview | null>(null);
+  const [paused, setPaused] = useState<PauseSummary | null>(null);
   const [hover, setHover] = useState<DayStat | null>(null);
   const { from, to } = rangeOf(range, anchor);
   const current = range === "week" ? from <= today && today <= to : addMonths(anchor, 0) === addMonths(today, 0);
@@ -333,6 +336,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
       .statsOverview(from, to)
       .then(setO)
       .catch(() => setO(null));
+    void native.pauseSummary(from, to).then(setPaused, () => setPaused(null));
   }, [from, to]);
   useEffect(() => {
     load();
@@ -379,7 +383,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
 
       {o ? (
         <>
-          <Summary o={o} />
+          <Summary o={o} paused={paused} />
           <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_280px] gap-4">
             <section aria-label={range === "week" ? "Focus by day" : "Focus heatmap"} className="flex min-h-0 flex-col gap-3 rounded-panel border border-line bg-panel p-[14px]">
               {range === "week" ? <WeekBars o={o} onHover={setHover} /> : <Heatmap o={o} month={anchor} onHover={setHover} />}

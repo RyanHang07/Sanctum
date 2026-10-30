@@ -1,4 +1,5 @@
 import { play } from "../lib/sound";
+import type { BreakView } from "../lib/types";
 import { brokeFix } from "../pages/headlines";
 import { EVENTS, onNative } from "../lib/native";
 import type { CheckinDue, GcalStatus, HeldStats, QuietStatus, SessionView } from "../lib/types";
@@ -42,6 +43,12 @@ export function connectNativeEvents(): () => void {
     onNative(EVENTS.quietPause, () => {
       store().navigate("today");
       void store().loadQuiet().then(() => store().openQuietPause());
+    }),
+    // A break after a seal started or ended (v0.3.1); when it runs out, offer the next block.
+    onNative<BreakView | null>(EVENTS.brk, (b) => store().applyBreak(b)),
+    onNative<BreakView>(EVENTS.breakOver, (b) => {
+      play("held");
+      store().showNotice({ lead: "Break's over.", rest: "Next block?", action: { label: "Enter focus", run: () => void store().nextBlock(b) }, ms: 15_000 });
     }),
     // Tampering broke the seal (M12): say why. The seal stays on until its planned end.
     onNative<{ kind: string; detail: string }>(EVENTS.tamper, (t) => {

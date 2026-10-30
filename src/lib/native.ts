@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppState } from "../state/appState";
 import type {
+  BreakView,
+  PauseConfig,
+  PauseStatus,
+  PauseSummary,
   FocusPrep,
   SessionResult,
   ActivitySummary,
@@ -87,6 +91,10 @@ export const EVENTS = {
   cloud: "sanctum://cloud",
   checkin: "sanctum://checkin",
   tamper: "sanctum://tamper",
+  // v0.3.1: a break started or ended; it ran out ("Next block?"); pause mode's settings changed.
+  brk: "sanctum://break",
+  breakOver: "sanctum://break-over",
+  pause: "sanctum://pause",
   quiet: "sanctum://quiet",
   quietPause: "sanctum://quiet-pause",
 } as const;
@@ -158,6 +166,13 @@ export const native = {
     call<SessionView>("start_session", { profileId, minutes, task, goal, plan }),
   // The seal's science (v0.3.1, src-tauri/src/focus.rs).
   focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
+  pauseStatus: () => call<PauseStatus>("pause_status"),
+  pauseSave: (config: PauseConfig) => call<PauseStatus>("pause_save", { config }),
+  pauseAnswer: (goOn: boolean) => call<void>("pause_answer", { goOn }),
+  pauseSummary: (from: string, to: string) => call<PauseSummary>("pause_summary", { from, to }),
+  breakStart: (minutes: number, profileId: number | null, nextMinutes: number) => call<BreakView>("break_start", { minutes, profileId, nextMinutes }),
+  breakEnd: () => call<void>("break_end"),
+  breakStatus: () => call<BreakView | null>("break_status"),
   focusPark: (text: string) => call<Todo>("focus_park", { text }),
   focusWrap: (sessionId: number, result: SessionResult | null, rating: number | null, leftOff: string | null) =>
     call<void>("focus_wrap", { sessionId, result, rating, leftOff }),

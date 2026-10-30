@@ -115,6 +115,29 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect(await page({ type: "park", text: "   " })).toBe(false);
   });
 
+  it("pause mode: Go on opens the site for a while and tells Sanctum; Not now is logged too (v0.3.1)", async () => {
+    const fake = fakeChrome({});
+    await boot(fake);
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    const port = async (msg: unknown) => {
+      await fake.listeners["port.message"]![0]!(msg);
+      await settle();
+    };
+    const page = (msg: unknown) => fake.listeners["runtime.message"]![0]!(msg, {}) as Promise<boolean> | undefined;
+    await port({ type: "rules", sealed: false, pause: true, sites: [{ domain: "youtube.com" }], keywords: [] });
+    expect(fake.dynamic().some((r) => JSON.stringify(r).includes("pause=1&site=youtube.com"))).toBe(true);
+    expect(await page({ type: "pause-go", site: "youtube.com" })).toBe(true);
+    expect(fake.posted.at(-1)).toEqual({ type: "paused", site: "youtube.com", outcome: "went_on" });
+    expect(fake.dynamic().some((r) => JSON.stringify(r).includes("youtube.com"))).toBe(false);
+    page({ type: "pause-back", site: "reddit.com" });
+    expect(fake.posted.at(-1)).toEqual({ type: "paused", site: "reddit.com", outcome: "turned_back" });
+    // Sanctum gone: pause mode lifts, and sites open as usual.
+    await port({ type: "rules", sealed: false, pause: true, sites: [{ domain: "reddit.com" }], keywords: [] });
+    expect(fake.dynamic().length).toBeGreaterThan(0);
+    await port({ type: "offline" });
+    expect(fake.dynamic()).toEqual([]);
+  });
+
   it("reloads itself when Sanctum ships a newer copy (v0.3)", async () => {
     const fake = fakeChrome({});
     const reload = vi.fn();

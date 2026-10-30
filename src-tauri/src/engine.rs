@@ -4,7 +4,7 @@
 
 use crate::blocker::{self, Blocker, SealSet, SystemBlocker};
 use crate::session::{self, Active, HeldStats, SessionView};
-use crate::{distractions, profiles, quiet, tray, winutil, AppState, Shared};
+use crate::{distractions, pause, profiles, quiet, tray, winutil, AppState, Shared};
 use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -19,6 +19,25 @@ pub const EV_END_EARLY: &str = "sanctum://end-early";
 pub const EV_QUIET: &str = "sanctum://quiet";
 /// Open the pause dialog (tray or the quiet overlay).
 pub const EV_QUIET_PAUSE: &str = "sanctum://quiet-pause";
+/// A break after a seal started or ended (v0.3.1). Payload: Option<BreakView>.
+pub const EV_BREAK: &str = "sanctum://break";
+/// Pause mode's settings changed. Payload: pause::Status.
+pub const EV_PAUSE: &str = "sanctum://pause";
+
+/// A break after a seal (v0.3.1, decided 2026-10-30): the Distractions list stays blocked, like
+/// quiet hours, until it ends; then "Next block?" offers the same profile. Ending it early is
+/// free; it never touches streaks. Scheduled breaks beat taking them ad hoc (Biwer et al. 2023).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BreakView {
+    pub until: i64,
+    pub minutes: i64,
+    /// The profile and length "Next block?" offers.
+    pub profile_id: Option<i64>,
+    pub next_minutes: i64,
+}
+
+pub const BREAK_LENGTHS: [i64; 3] = [5, 10, 15];
 
 const HEARTBEAT_EVERY_S: u64 = 10;
 
@@ -34,6 +53,14 @@ pub struct Engine {
     /// Last non-sealed app in front, for "Back to <app>".
     last_app: Mutex<Option<LastApp>>,
     pub quiet: Mutex<quiet::State>,
+    /// Pause mode (v0.3.1): asks before a flagged app opens, outside seals.
+    pub pause: Mutex<pause::State>,
+    /// A break after a seal, while it runs.
+    pub brk: Mutex<Option<BreakView>>,
+    /// The blocker holds the Distractions list outside a seal (quiet hours or a break).
+    outside: std::sync::atomic::AtomicBool,
+    /// What the browsers last heard about pause mode, so its hours reach them as they turn.
+    pausing_sent: std::sync::atomic::AtomicBool,
 }
 
 impl Engine {
@@ -43,6 +70,10 @@ impl Engine {
             blocker: Mutex::new(SystemBlocker::new()),
             last_app: Mutex::new(None),
             quiet: Mutex::new(quiet::State::default()),
+            pause: Mutex::new(pause::State::default()),
+            brk: Mutex::new(None),
+            outside: std::sync::atomic::AtomicBool::new(false),
+            pausing_sent: std::sync::atomic::AtomicBool::new(false),
         }
     }
     pub fn is_active(&self) -> bool {
@@ -65,6 +96,14 @@ impl Engine {
             return None;
         }
         q.evaluate(session::now_ms()).1
+    }
+    /// While a break is running: when it ends.
+    pub fn break_until(&self) -> Option<i64> {
+        self.brk.lock().unwrap().as_ref().map(|b| b.until).filter(|u| *u > session::now_ms())
+    }
+    /// Outside a seal and quiet hours, with pause mode on: the browsers ask before flagged sites.
+    pub fn pausing(&self) -> bool {
+        !self.is_active() && self.quiet_until().is_none() && self.break_until().is_none() && self.pause.lock().unwrap().on(session::now_ms())
     }
     /// For the tray: (blocking now, paused).
     pub fn quiet_menu(&self) -> (bool, bool) {
@@ -222,6 +261,10 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::T
     }
     let view = active.view();
     *engine.active.lock().unwrap() = Some(active);
+    if engine.brk.lock().unwrap().take().is_some() {
+        let _ = app.emit(EV_BREAK, None::<BreakView>);
+    }
+    engine.outside.store(false, std::sync::atomic::Ordering::SeqCst);
     set_sealed(app, true);
     let _ = app.emit(EV_SESSION, Some(view.clone()));
     Ok(view)
@@ -390,6 +433,7 @@ fn tick(app: &AppHandle, n: u64) {
         return;
     };
     // A session owns the blocker; quiet hours pick up again after it ends.
+    engine.outside.store(false, std::sync::atomic::Ordering::SeqCst);
     let was_quiet = std::mem::replace(&mut engine.quiet.lock().unwrap().on, false);
     if was_quiet {
         quiet_changed(app);
@@ -429,43 +473,71 @@ pub fn load_quiet(app: &AppHandle) {
     *shared.engine.quiet.lock().unwrap() = quiet::State { config, ..Default::default() };
 }
 
-/// Once a second with no session: starts or stops blocking with the window and the pause,
-/// then enforces the Distractions list like a seal.
+/// Once a second with no session: starts or stops blocking with quiet hours (and their pause)
+/// or a break, enforces the Distractions list like a seal while either runs, and otherwise
+/// lets pause mode ask before flagged apps.
 fn quiet_tick(app: &AppHandle) {
+    use std::sync::atomic::Ordering;
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
     let now = session::now_ms();
-    let (want, ends_at, changed) = {
+    let (quiet_want, quiet_end, quiet_flip) = {
         let mut q = engine.quiet.lock().unwrap();
         let (inside, end, paused) = q.evaluate(now);
         let want = inside && !paused;
-        let changed = q.on != want;
+        let flip = q.on != want;
         q.on = want;
-        (want, end, changed)
+        (want, end, flip)
     };
-    if changed {
-        {
-            let mut b = engine.blocker.lock().unwrap();
-            if want {
-                b.set_rules(seal_set(&shared, None));
-                // What's already open closes quietly, like the first sweep of a seal.
-                b.block_apps();
-            } else {
-                b.unblock_all();
-            }
+    let break_until = {
+        let mut b = engine.brk.lock().unwrap();
+        let until = b.as_ref().map(|x| x.until);
+        if until.is_some_and(|u| u <= now) {
+            // The break is over: the window offers the next block.
+            let ended = b.take();
+            drop(b);
+            let _ = app.emit(EV_BREAK, None::<BreakView>);
+            let _ = app.emit("sanctum://break-over", ended);
+            None
+        } else {
+            until
         }
+    };
+    let want = quiet_want || break_until.is_some();
+    let flip = engine.outside.swap(want, Ordering::SeqCst) != want;
+    if flip {
+        let mut b = engine.blocker.lock().unwrap();
+        if want {
+            b.set_rules(seal_set(&shared, None));
+            // What's already open closes quietly, like the first sweep of a seal.
+            b.block_apps();
+        } else {
+            b.unblock_all();
+        }
+    }
+    if quiet_flip || flip {
         quiet_changed(app);
         return;
     }
-    if !want {
+    if want {
+        track_foreground(&shared);
+        // A break inside quiet hours shows the later end.
+        let end = match (quiet_want.then_some(quiet_end).flatten(), break_until) {
+            (Some(q), Some(b)) => Some(q.max(b)),
+            (q, b) => q.or(b),
+        };
+        quiet_sweep(app, end, !quiet_want);
         return;
     }
-    track_foreground(&shared);
-    quiet_sweep(app, ends_at);
+    let pausing = engine.pausing();
+    if engine.pausing_sent.swap(pausing, Ordering::SeqCst) != pausing {
+        crate::browser::push_rules(app);
+    }
+    pause_tick(app, now);
 }
 
-/// One enforcement pass for quiet hours: the Distractions list, no attempts logged.
-fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>) {
+/// One enforcement pass for quiet hours or a break: the Distractions list, no attempts logged.
+fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>, on_break: bool) {
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
     let now = session::now_ms();
@@ -487,7 +559,7 @@ fn quiet_sweep(app: &AppHandle, ends_at: Option<i64>) {
                 kind,
                 label,
                 attempts: 0,
-                profile_name: "Quiet hours".into(),
+                profile_name: if on_break { "Break".into() } else { "Quiet hours".into() },
                 elapsed_ms: 0,
                 remaining_ms,
                 back_to,
@@ -547,6 +619,8 @@ pub fn quiet_pause(app: AppHandle, shared: State<Shared>, reason: String) -> Res
         q.on = false;
     }
     shared.engine.blocker.lock().unwrap().unblock_all();
+    // A break running alongside picks the blocker back up on the next tick.
+    shared.engine.outside.store(false, std::sync::atomic::Ordering::SeqCst);
     quiet_changed(&app);
     Ok(shared.engine.quiet.lock().unwrap().status())
 }
@@ -557,6 +631,157 @@ pub fn quiet_resume(shared: State<Shared>) -> quiet::Status {
     let mut q = shared.engine.quiet.lock().unwrap();
     q.paused_until = None;
     q.status()
+}
+
+// --- Pause mode (v0.3.1) ---
+
+/// Reads pause mode's settings into the engine (startup, and after Start over).
+pub fn load_pause(app: &AppHandle) {
+    let shared = app.state::<Shared>();
+    let config = shared.db.lock().map(|c| pause::load(&c)).unwrap_or_default();
+    *shared.engine.pause.lock().unwrap() = pause::State { config, ..Default::default() };
+}
+
+/// Outside seals and quiet hours, with pause mode on: a flagged app coming to the front is
+/// minimized behind "Still want it?" until you answer.
+fn pause_tick(app: &AppHandle, now: i64) {
+    let shared = app.state::<Shared>();
+    let engine = &shared.engine;
+    if !engine.pause.lock().unwrap().on(now) {
+        return;
+    }
+    track_foreground(&shared);
+    let Some(fg) = winutil::foreground() else { return };
+    if fg.pid == std::process::id() {
+        return;
+    }
+    let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
+    let exe = {
+        let b = engine.blocker.lock().unwrap();
+        b.exe_of(fg.pid)
+    };
+    let Some(exe) = exe.filter(|e| flags.iter().any(|d| d.kind == "app" && d.value.eq_ignore_ascii_case(e)) && !blocker::is_protected(e)) else {
+        return;
+    };
+    if !engine.pause.lock().unwrap().should_pause(&exe, now) {
+        return;
+    }
+    let pids = engine.blocker.lock().unwrap().pids_of(&exe);
+    winutil::minimize_windows_of(&pids);
+    engine.pause.lock().unwrap().pending = Some(pause::Pending { exe: exe.clone(), pids, at: now });
+    let back_to = engine.last_app.lock().unwrap().as_ref().map(|l| app_name(&shared, &l.exe));
+    show_intercept(
+        app,
+        &Intercept {
+            kind: "pause",
+            label: app_name(&shared, &exe),
+            attempts: 0,
+            profile_name: String::new(),
+            elapsed_ms: 0,
+            remaining_ms: pause::WAIT_MS,
+            back_to,
+            keyword: None,
+            title: None,
+            idle_ms: None,
+            ends_at: Some(now + pause::WAIT_MS),
+            plan: None,
+        },
+    );
+}
+
+/// "Go on" (after the wait) or "Not now" on the pause card.
+#[tauri::command]
+pub fn pause_answer(app: AppHandle, shared: State<Shared>, go_on: bool) -> Result<(), String> {
+    let now = session::now_ms();
+    let pending = {
+        let mut p = shared.engine.pause.lock().unwrap();
+        let pending = p.pending.clone().ok_or("Nothing is waiting.")?;
+        if go_on && !pause::ready(&pending, now) {
+            return Err("A few more seconds.".into());
+        }
+        p.pending = None;
+        if go_on {
+            p.allow(&pending.exe, now);
+        }
+        pending
+    };
+    if let Ok(conn) = shared.db.lock() {
+        let _ = pause::log(&conn, &pending.exe, "app", if go_on { "went_on" } else { "turned_back" }, now);
+    }
+    hide_intercept(&app);
+    if go_on {
+        winutil::focus_process_window(&pending.pids);
+    } else {
+        shared.engine.blocker.lock().unwrap().close_exe(&pending.exe);
+        if let Some(last) = shared.engine.last_app.lock().unwrap().clone() {
+            winutil::focus(last.hwnd);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn pause_status(shared: State<Shared>) -> pause::Status {
+    pause::status(&shared.engine.pause.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn pause_save(app: AppHandle, shared: State<Shared>, config: pause::Config) -> Result<pause::Status, String> {
+    {
+        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        pause::save(&conn, &config)?;
+    }
+    shared.engine.pause.lock().unwrap().config = config;
+    let status = pause::status(&shared.engine.pause.lock().unwrap());
+    let _ = app.emit(EV_PAUSE, status.clone());
+    crate::browser::push_rules(&app);
+    Ok(status)
+}
+
+/// A site the extension paused, and what you chose there.
+pub fn log_site_pause(app: &AppHandle, site: &str, went_on: bool) {
+    let shared = app.state::<Shared>();
+    if let Ok(conn) = shared.db.lock() {
+        let _ = pause::log(&conn, site, "site", if went_on { "went_on" } else { "turned_back" }, session::now_ms());
+    };
+}
+
+#[tauri::command]
+pub fn pause_summary(shared: State<Shared>, from: String, to: String) -> Result<pause::Summary, String> {
+    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let parse = |s: &str| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| format!("{s} is not a date."));
+    let days = crate::stats::Days::load(&conn);
+    let (f, t) = (parse(&from)?, parse(&to)?);
+    pause::summary(&conn, crate::stats::start_ms(&days, f), crate::stats::start_ms(&days, t + chrono::Duration::days(1))).map_err(|e| e.to_string())
+}
+
+// --- A break after a seal (v0.3.1) ---
+
+#[tauri::command]
+pub fn break_start(app: AppHandle, shared: State<Shared>, minutes: i64, profile_id: Option<i64>, next_minutes: i64) -> Result<BreakView, String> {
+    if shared.engine.is_active() {
+        return Err("A break comes after the seal.".into());
+    }
+    if !BREAK_LENGTHS.contains(&minutes) {
+        return Err("A break is 5, 10, or 15 minutes.".into());
+    }
+    let view = BreakView { until: session::now_ms() + minutes * 60_000, minutes, profile_id, next_minutes };
+    *shared.engine.brk.lock().unwrap() = Some(view.clone());
+    let _ = app.emit(EV_BREAK, Some(view.clone()));
+    Ok(view)
+}
+
+/// Ends the break now: free, no questions.
+#[tauri::command]
+pub fn break_end(app: AppHandle, shared: State<Shared>) {
+    if shared.engine.brk.lock().unwrap().take().is_some() {
+        let _ = app.emit(EV_BREAK, None::<BreakView>);
+    }
+}
+
+#[tauri::command]
+pub fn break_status(shared: State<Shared>) -> Option<BreakView> {
+    shared.engine.brk.lock().unwrap().clone().filter(|b| b.until > session::now_ms())
 }
 
 /// "Pause 15 min" on the quiet overlay: open Sanctum on the pause dialog.
@@ -645,7 +870,9 @@ fn sweep_now(app: &AppHandle) {
             emit_view(app);
         }
     } else if let Some(end) = shared.engine.quiet_until() {
-        quiet_sweep(app, Some(end));
+        quiet_sweep(app, Some(end), false);
+    } else if let Some(end) = shared.engine.break_until() {
+        quiet_sweep(app, Some(end), true);
     }
 }
 

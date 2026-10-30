@@ -170,6 +170,19 @@ pub fn sealed_message(profile: &str, ends_at: i64, flags: &[Distraction]) -> Val
     json!({ "type": "rules", "sealed": true, "profile": profile, "endsAt": ends_at, "sites": sites, "keywords": keywords })
 }
 
+/// Pause mode's rules: not sealed, but the flagged sites ask first. Keywords aren't paused.
+pub fn pause_message(flags: &[Distraction]) -> Value {
+    let mut msg = sealed_message("", 0, flags);
+    msg["sealed"] = json!(false);
+    msg["pause"] = json!(true);
+    msg["keywords"] = json!([]);
+    msg.as_object_mut().map(|m| {
+        m.remove("profile");
+        m.remove("endsAt")
+    });
+    msg
+}
+
 fn needs_extension(rules: &Value) -> bool {
     rules["sealed"].as_bool() == Some(true)
         && (rules["sites"].as_array().is_some_and(|s| !s.is_empty()) || rules["keywords"].as_array().is_some_and(|k| !k.is_empty()))
@@ -182,9 +195,13 @@ pub fn push_rules(app: &AppHandle) {
     let view = shared.engine.view();
     let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
     let quiet_until = if view.is_none() { shared.engine.quiet_until() } else { None };
-    let msg = match quiet_until {
-        Some(end) => sealed_message("Quiet hours", end, &flags),
-        None => rules_message(view.as_ref(), &flags),
+    let break_until = if view.is_none() { shared.engine.break_until() } else { None };
+    let msg = match (quiet_until, break_until) {
+        (Some(end), _) => sealed_message("Quiet hours", end, &flags),
+        (None, Some(end)) => sealed_message("Break", end, &flags),
+        // Pause mode (v0.3.1): flagged sites ask "Still want it?" before they open.
+        _ if view.is_none() && shared.engine.pausing() => pause_message(&flags),
+        _ => rules_message(view.as_ref(), &flags),
     };
     let mut inner = shared.browser.inner.lock().unwrap();
     inner.rules = msg.clone();
@@ -289,6 +306,12 @@ fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
             }
         }
         Some("open-sanctum") => crate::show_main_window(app),
+        // Pause mode (v0.3.1): what you chose on a paused site.
+        Some("paused") => {
+            if let Some(site) = msg["site"].as_str() {
+                engine::log_site_pause(app, site, msg["outcome"].as_str() == Some("went_on"));
+            }
+        }
         // A thought parked from the sealed page (v0.3.1): a task for today. The page hears back.
         Some("park") => {
             let ok = msg["text"].as_str().is_some_and(|t| crate::focus::park_now(app, t).is_ok());
