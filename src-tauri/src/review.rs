@@ -117,12 +117,15 @@ pub fn append_to_journal(conn: &Connection, date: &str, worked: Option<&str>, ch
         return Ok(false);
     }
     let day = journal::get(conn, date).map_err(|e| e.to_string())?;
-    let mut doc: serde_json::Value = day
-        .as_ref()
-        .and_then(|d| d.doc.as_deref())
-        .and_then(|d| serde_json::from_str(d).ok())
-        .filter(|d: &serde_json::Value| d["content"].is_array())
-        .unwrap_or_else(|| serde_json::json!({ "type": "doc", "content": [] }));
+    // A page that's there but doesn't read as a document is left alone: the answers stay with
+    // the week rather than writing over it.
+    let mut doc: serde_json::Value = match day.as_ref().and_then(|d| d.doc.as_deref()) {
+        Some(d) => match serde_json::from_str::<serde_json::Value>(d) {
+            Ok(v) if v["content"].is_array() => v,
+            _ => return Ok(false),
+        },
+        None => serde_json::json!({ "type": "doc", "content": [] }),
+    };
     doc["content"].as_array_mut().unwrap().extend(blocks);
     let body = match day.map(|d| d.body).filter(|b| !b.trim().is_empty()) {
         Some(b) => format!("{b}\n{text}"),
@@ -173,7 +176,7 @@ pub fn maybe_send_summary(app: &AppHandle) {
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Suggestion {
-    /// "Your 50-minute seals finish 85% of the time; 90-minute ones 60%."
+    /// "Your 45-minute seals finish 85% of the time; 90-minute ones 60%."
     Length { line: String, profile_id: Option<i64>, minutes: i64 },
     /// "Your kept seals cluster 9 to 11 AM."
     Hours { line: String, start: String, end: String, profile_id: Option<i64> },
@@ -226,7 +229,8 @@ pub fn suggestions(conn: &Connection, now: i64) -> rusqlite::Result<Vec<Suggesti
     // The length you finish: the best completion rate among lengths with 3+ seals, against the
     // length you pick most.
     let mut by_len: HashMap<i64, (usize, usize)> = HashMap::new();
-    for s in &seals {
+    // Only lengths a profile can take: an extended or imported seal can't become the default.
+    for s in seals.iter().filter(|s| crate::profiles::DURATIONS.contains(&s.planned)) {
         let e = by_len.entry(s.planned).or_default();
         e.0 += 1;
         if s.outcome == "completed" {
@@ -402,6 +406,10 @@ mod tests {
         let doc: serde_json::Value = serde_json::from_str(day.doc.as_deref().unwrap()).unwrap();
         assert_eq!(doc["content"].as_array().unwrap().len(), 5);
         assert!(!append_to_journal(&conn, "2026-10-27", None, Some("  "), 6).unwrap());
+        // A page that doesn't read as a document is never written over.
+        journal::save(&conn, "2026-10-28", Some("not a doc"), "Kept.", 7).unwrap();
+        assert!(!append_to_journal(&conn, "2026-10-28", Some("Mornings"), None, 8).unwrap());
+        assert_eq!(journal::get(&conn, "2026-10-28").unwrap().unwrap().doc.as_deref(), Some("not a doc"));
     }
 
     #[test]
@@ -429,16 +437,16 @@ mod tests {
         let now = at(NaiveDate::from_ymd_opt(2026, 10, 30).unwrap(), 18);
         let day = |n: i64| NaiveDate::from_ymd_opt(2026, 10, 30).unwrap() - Duration::days(n);
         assert!(suggestions(&conn, now).unwrap().is_empty(), "too little history");
-        // 50-minute seals at 9 AM finish; 90-minute ones in the evening break half the time.
+        // 45-minute seals at 9 AM finish; 90-minute ones in the evening break half the time.
         for n in 1..=5 {
-            seal(&conn, at(day(n), 9), 50, "completed");
+            seal(&conn, at(day(n), 9), 45, "completed");
         }
         for n in 1..=6 {
             let id = seal(&conn, at(day(n + 5), 19), 90, if n % 2 == 0 { "broken" } else { "completed" });
             conn.execute("INSERT INTO blocked_attempts (session_id, ts, exe, kind) VALUES (?1, ?2, 'discord.exe', 'app')", params![id, at(day(n + 5), 19) + 40 * 60_000]).unwrap();
         }
         let s = suggestions(&conn, now).unwrap();
-        assert!(s.contains(&Suggestion::Length { line: "Your 50-minute seals finish 100% of the time; 90-minute ones 50%.".into(), profile_id: Some(1), minutes: 50 }), "{s:?}");
+        assert!(s.contains(&Suggestion::Length { line: "Your 45-minute seals finish 100% of the time; 90-minute ones 50%.".into(), profile_id: Some(1), minutes: 45 }), "{s:?}");
         assert!(s.iter().any(|x| matches!(x, Suggestion::Hours { start, .. } if start == "09:00")), "{s:?}");
         assert!(s.contains(&Suggestion::Tempted { line: "Discord gets in most after 40 minutes.".into(), what: "discord.exe".into(), after_min: 40 }), "{s:?}");
     }

@@ -347,7 +347,6 @@ mod tests {
                     rule("launch_url", "https://leetcode.com/problemset/"),
                     rule("launch_app", "code.exe"), // duplicate after normalizing
                 ],
-                ..Default::default()
             },
         )
         .unwrap();

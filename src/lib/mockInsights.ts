@@ -152,6 +152,11 @@ export const insightControls = {
       outcome: row.outcome ?? "completed",
       attempts: extra.blocked?.reduce((a, b) => a + b.count, 0) ?? 0,
       task: row.task ?? null,
+      goal: row.goal ?? null,
+      plan: row.plan ?? null,
+      result: row.result ?? null,
+      focusRating: row.focusRating ?? null,
+      leftOff: row.leftOff ?? null,
       blocked: extra.blocked ?? [],
       tamper: extra.tamper ?? [],
     });

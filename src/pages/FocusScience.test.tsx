@@ -94,8 +94,10 @@ describe("parking a thought", () => {
     expect((await todayItems()).find((t) => t.title === "Buy printer ink")?.parkedFrom).toBe(useStore.getState().session!.id);
   });
 
-  it("needs a seal", async () => {
-    await expect(native.focusPark("Later")).rejects.toBe("Parking works while sealed.");
+  it("keeps a thought parked after the seal ends, as a plain task", async () => {
+    const t = await native.focusPark("Later");
+    expect(t.title).toBe("Later");
+    expect(t.parkedFrom).toBeNull();
   });
 });
 
@@ -156,7 +158,7 @@ describe("pause mode", () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval"] });
     const answer = vi.fn();
     render(<PauseCard p={{ kind: "pause", label: "Discord", attempts: 0, profileName: "", elapsedMs: 0, remainingMs: 5000, backTo: null, keyword: null, endsAt: Date.now() + 5000 }} onAnswer={answer} />);
-    expect(screen.getByRole("alertdialog", { name: "Still want Discord?" })).toHaveTextContent("It opens in 5s");
+    expect(screen.getByRole("alertdialog", { name: "Still want Discord?" })).toHaveTextContent("Go on unlocks in 5s");
     expect(screen.getByRole("button", { name: "Go on" })).toBeDisabled();
     fireEvent.keyDown(window, { key: "Enter" });
     expect(answer).toHaveBeenLastCalledWith(false);

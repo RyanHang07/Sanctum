@@ -53,12 +53,11 @@ export function connectNativeEvents(): () => void {
     // Tampering broke the seal (M12): say why. The seal stays on until its planned end.
     onNative<{ kind: string; detail: string }>(EVENTS.tamper, (t) => {
       play("broken");
-      // Plain, with the fix when there is one (v0.3.1).
+      // Plain (v0.3.1). Setup is locked until the seal ends, so the fix waits on the held page.
       const fix = brokeFix(t.kind);
       store().showNotice({
         lead: "The seal is broken.",
-        rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end.`,
-        action: fix ? { label: fix.label, run: () => store().openSetup(fix.tab) } : undefined,
+        rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end${fix ? "; the fix is on the page after" : ""}.`,
         ms: fix ? 9000 : undefined,
       });
     }),

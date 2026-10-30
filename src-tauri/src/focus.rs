@@ -82,11 +82,15 @@ pub fn profile_plan(conn: &Connection, profile_id: i64) -> rusqlite::Result<Opti
 }
 
 /// Parks a thought as a task for today, tagged with the seal it came from.
-pub fn park(conn: &Connection, session_id: i64, text: &str, today: &str) -> Result<planner::Todo, String> {
+/// Without a seal (it ended while the card was open) it's a plain task for today: a thought is
+/// never lost.
+pub fn park(conn: &Connection, session_id: Option<i64>, text: &str, today: &str) -> Result<planner::Todo, String> {
     let title = line(Some(text)).ok_or("Write the thought first.")?;
     let todo = planner::save_todo(conn, planner::TodoDraft { title, due_date: today.to_string(), ..Default::default() })?;
-    conn.execute("UPDATE todos SET parked_session = ?1 WHERE id = ?2", params![session_id, todo.id]).map_err(|e| e.to_string())?;
-    Ok(planner::Todo { parked_from: Some(session_id), ..todo })
+    if let Some(id) = session_id {
+        conn.execute("UPDATE todos SET parked_session = ?1 WHERE id = ?2", params![id, todo.id]).map_err(|e| e.to_string())?;
+    }
+    Ok(planner::Todo { parked_from: session_id, ..todo })
 }
 
 /// How a finished seal went: Done / Partly / No, a 1-5 rating, and where you left off.
@@ -136,7 +140,7 @@ pub fn focus_park(app: AppHandle, text: String) -> Result<planner::Todo, String>
 
 pub fn park_now(app: &AppHandle, text: &str) -> Result<planner::Todo, String> {
     let shared = app.state::<Shared>();
-    let id = shared.engine.session_ids().map(|s| s.0).ok_or("Parking works while sealed.")?;
+    let id = shared.engine.session_ids().map(|s| s.0);
     let todo = {
         let conn = shared.db.lock().map_err(|e| e.to_string())?;
         let today = stats::Days::load(&conn).of(session::now_ms()).format("%Y-%m-%d").to_string();
@@ -217,11 +221,13 @@ mod tests {
     fn a_parked_thought_is_a_task_for_today_from_that_seal() {
         let conn = fresh();
         let s = seal(&conn, 1, None, None);
-        let t = park(&conn, s, "  Email Alex about the lab ", "2026-10-30").unwrap();
+        let t = park(&conn, Some(s), "  Email Alex about the lab ", "2026-10-30").unwrap();
         assert_eq!((t.title.as_str(), t.due_date.as_str(), t.parked_from), ("Email Alex about the lab", "2026-10-30", Some(s)));
         let listed = planner::list_todos(&conn, "2026-10-30", "2026-10-30").unwrap();
         assert_eq!(listed[0].parked_from, Some(s));
-        assert!(park(&conn, s, "   ", "2026-10-30").is_err());
+        assert!(park(&conn, Some(s), "   ", "2026-10-30").is_err());
+        let late = park(&conn, None, "after the seal", "2026-10-30").unwrap();
+        assert_eq!(late.parked_from, None);
     }
 
     #[test]

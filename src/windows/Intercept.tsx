@@ -112,7 +112,7 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
         <p className="m-0 text-body leading-normal text-text-2">
           {left ? (
             <>
-              It opens in <span className="font-mono text-text">{left}s</span> if you still want it, for 15 minutes.
+              Go on unlocks in <span className="font-mono text-text">{left}s</span>, for 15 minutes if you still want it.
             </>
           ) : (
             "It's yours for 15 minutes if you still want it."

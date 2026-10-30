@@ -126,6 +126,7 @@ describe("extension worker after a restart (v0.1.3)", () => {
     const page = (msg: unknown) => fake.listeners["runtime.message"]![0]!(msg, {}) as Promise<boolean> | undefined;
     await port({ type: "rules", sealed: false, pause: true, sites: [{ domain: "youtube.com" }], keywords: [] });
     expect(fake.dynamic().some((r) => JSON.stringify(r).includes("pause=1&site=youtube.com"))).toBe(true);
+    expect(await page({ type: "pause-go", site: "example.com" })).toBe(false);
     expect(await page({ type: "pause-go", site: "youtube.com" })).toBe(true);
     expect(fake.posted.at(-1)).toEqual({ type: "paused", site: "youtube.com", outcome: "went_on" });
     expect(fake.dynamic().some((r) => JSON.stringify(r).includes("youtube.com"))).toBe(false);

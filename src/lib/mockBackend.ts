@@ -599,12 +599,11 @@ const handlers: Record<string, (a: any) => unknown> = {
     return { plan: state.focus.plans[profileId] ?? null, leftOff: hit ? { text: hit.leftOff!, at: hit.endedAt } : null };
   },
   focus_park: ({ text }: { text: string }) => {
-    if (!state.session) throw "Parking works while sealed.";
     const title = focusLine(text);
     if (!title) throw "Write the thought first.";
     const t = handlers.save_todo!({ draft: { title, dueDate: todayKey(new Date(), state.settings.get("daily_reset_time") ?? "04:00"), dueTime: null, durationMin: null, profileId: null } }) as Todo;
     const stored = state.todos.find((x) => x.id === t.id)!;
-    stored.parkedFrom = state.session.id;
+    stored.parkedFrom = state.session?.id ?? null;
     bus.emit("sanctum://planner", null);
     return clone(stored);
   },
@@ -1138,7 +1137,7 @@ function tick() {
     broken: s.broken,
     task: s.task ?? null,
     goal: s.goal ?? null,
-    broke: s.broken ? { kind: "killed", afterMin: Math.floor(s.plannedMinutes / 2) } : null,
+    broke: s.broken ? brokeOf(s) : null,
   };
   finishSession();
   bus.emit(EV.session, null);
@@ -1146,6 +1145,13 @@ function tick() {
 }
 
 /** Dev/test helpers: jump the running session forward, simulate a blocked launch, or go idle. */
+/** The first break of a seal, like session::first_break: what broke it and how far in. */
+const firstBreak = new WeakMap<object, { kind: string; afterMin: number }>();
+function brokeOf(s: { plannedMinutes: number }) {
+  // A seal broken some other way (a reboot found at startup) reads as killed halfway.
+  return firstBreak.get(s) ?? { kind: "killed", afterMin: Math.floor(s.plannedMinutes / 2) };
+}
+
 export const mockControls = {
   ...trackerControls,
   ...insightControls,
@@ -1170,6 +1176,7 @@ export const mockControls = {
   tamper(kind: "clock" | "guard" | "extension", detail: string) {
     if (!state.session || state.session.broken) return;
     state.session.broken = true;
+    firstBreak.set(state.session, { kind, afterMin: Math.floor(view().elapsedMs / 60_000) });
     bus.emit(EV.tick, view());
     bus.emit("sanctum://tamper", { kind, detail });
   },
@@ -1269,6 +1276,8 @@ export const mockControls = {
       remainingMs: v.remainingMs,
       backTo: "Figma",
       keyword: kind === "title" ? "shorts" : null,
+      // Pause mode's card counts down to Go on; a park card times out like a real one.
+      endsAt: kind === "pause" || kind === "park" ? Date.now() + 5_000 : undefined,
     } satisfies Intercept);
     if (state.session) bus.emit(EV.tick, v);
   },

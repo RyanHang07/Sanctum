@@ -1,6 +1,17 @@
 # Changelog
 
-## v0.3.1 (in progress)
+## v0.3.1 (2026-10-30)
+
+**Highlights**
+
+- **The seal's intent.** "Will be done" and "If I'm tempted, I'll ___" under the wheels; the plan comes back on every catch.
+- **Park a thought** with Ctrl Alt P while sealed, from any app.
+- **How it went**, a 1 to 5, and "where I left off", shown at the next seal. **Never miss twice** for streaks.
+- **Pause mode**: "Still want it?" before flagged apps and sites, outside seals. **Breaks** after a seal, then "Next block?".
+- **The week, reviewed** on Monday's card, with a weekly target, an opt-in summary for your partner, and suggestions from your own history.
+
+**Everything else**
+
 
 - **What the seal is for, and a plan for temptation.** Under the focus wheels, two optional lines: **Will be done** (what this seal is for) and **If I'm tempted, I'll ___** ("stand up and stretch"). Each profile remembers its plan. Whenever something is caught, the overlay, the keyword nudge, and the extension's sealed page say it back: "If you're tempted, you said you'd stand up and stretch." If-then plans make the plan run when the cue comes (Gollwitzer & Sheeran 2006, 94 studies). Migration 0026.
 - **Park a thought.** While sealed, **Ctrl Alt P** in any app opens a small card: type the thought, press Enter, and it's a task for today, tagged with the seal it came from. The sealed card on Home, the tray panel, and the extension's sealed page park too. Writing a stray thought down as a plan stops it pulling at you (Masicampo & Baumeister 2011). The hotkey exists only while sealed, so it never takes the keys from other apps otherwise (and it isn't Ctrl Shift P, which editors use).
@@ -10,9 +21,16 @@
 - **A break after a seal.** The held page offers **5, 10, or 15 min** of break: your Distractions list stays closed (like quiet hours), Home shows a calm countdown ("stand up, look away from the screen"), and when it ends, "Break's over. Next block?" starts the same profile and length in one click. Ending a break early is free, and breaks never touch streaks. Scheduled breaks lift energy and beat breaks taken whenever (Albulescu et al. 2022; Biwer et al. 2023).
 - **The week, reviewed.** The Monday card asks two optional questions, **What worked?** and **What will you change?**, and sets **this week's target** in hours. The answers are kept with the week and added to today's journal page when the journal is open (migration 0027). The target starts at your average over the last four weeks, rounded to the half hour (the daily goal × 5 on a new install); Setup › General › Goal and streak changes it or goes back to the average, and Home's focus strip shows "Week 6h 20m of 10h". Reflection improves what comes next (Di Stefano et al. 2014), and a Monday is a fresh start (Dai, Milkman & Riis 2014).
 - **Your partner can hear about the good weeks too.** Setup › Account › "Send Alex my week each Monday" (off to start) emails last week's totals: hours in focus, days kept, broken seals, the streak. Never sites, apps, or titles. Sanctum sends it when the Monday card first shows, once a week (the `notify` function's new `weekly_summary` email). Progress shared with someone works better (Harkin et al. 2016).
-- **From your own history.** Stats › Overview suggests, only when your sessions clearly say so: the length you finish ("Your 50-minute seals finish 85% of the time; 90-minute ones 60%." · Use 50 min), the hours you keep ("Your kept seals cluster 9 AM to 11 AM." · Add a focus block, a weekday routine), and when temptation comes ("Discord gets in most after 40 minutes." · Write an if-then). The length also shows by the focus wheels when you've picked another. Fixed rhythms like Pomodoro have little support; your own data does better.
+- **From your own history.** Stats › Overview suggests, only when your sessions clearly say so: the length you finish ("Your 45-minute seals finish 85% of the time; 90-minute ones 60%." · Use 45 min), the hours you keep ("Your kept seals cluster 9 AM to 11 AM." · Add a focus block, a weekday routine), and when temptation comes ("Discord gets in most after 40 minutes." · Write an if-then). The length also shows by the focus wheels when you've picked another. Fixed rhythms like Pomodoro have little support; your own data does better.
 - **Do not disturb in quiet hours.** Setup › General › App: Windows' Do not disturb can follow quiet hours as well as seals (off to start); your setting comes back when they end. Batching notifications helped well-being (Fitz et al. 2019).
-- **After a break, plainly.** A broken seal's held page says what happened and when ("Sanctum was closed 12 minutes in. Protection reopens it within seconds.") with the fix one click away (Turn on Protection, Check the extension), and the "seal is broken" notice carries the same button. The scolding line is gone. Self-compassion after a lapse raises the will to do better (Breines & Chen 2012).
+- **After a break, plainly.** A broken seal's held page says what happened and when ("Sanctum was closed 12 minutes in. Protection reopens it within seconds.") with the fix one click away (Turn on Protection, Check the extension). The "seal is broken" notice says the fix is on the page after, since Setup is locked until the seal ends. The scolding line is gone. Self-compassion after a lapse raises the will to do better (Breines & Chen 2012).
+- **Fixes from the manual and security pass:**
+  - A thought parked just as the seal ends (the Ctrl Alt P card still open, or from the extension) is kept as a plain task for today instead of failing.
+  - Home's "Week … of …" updates as soon as the target changes on Monday's card or in Setup.
+  - Length suggestions only come from lengths a profile can take (15-minute steps), so "Use it" always works.
+  - The weekly review is never written over a journal page that doesn't read as a document; it stays with the week.
+  - The pause card and page say "Go on unlocks in 5s" (it never opens by itself), and the extension's page footer says it's Pause mode asking, not a blocked attempt.
+  - The extension's Go on only lets through a site on your list, and Not now is logged only while Pause mode is on: its page can be opened by any site.
 
 - **Try the themes on the site.** The home page and the docs' Themes page have a small Sanctum window: pick any of the thirteen themes and see it open or sealed. It draws with the app's own theme colours (src/theme/themes.ts), so it can't drift from the app; only the window repaints, and the site keeps its light or dark.
 - **The README and docs, brought up to date** for v0.3: Stats' tabs and the Monday recap, themes (with a "Make it yours" section), one-click updates, the extension updating itself, counters and Start with Windows, the theme step in first-run setup, where macOS stands, and the site's place in the repo. "A light theme" is off the roadmap: it shipped.
