@@ -4,10 +4,15 @@ import { useStore } from "./store";
 import { UpdateNotice } from "../components/UpdateNotice";
 import { AboutSection } from "../pages/setup/About";
 import { mockUpdates, resetMockBackend } from "../lib/mockBackend";
+import { saveEverything } from "./quit";
+
+// The restart is a quit: what's still waiting must be saved before it, never after.
+vi.mock("./quit", () => ({ saveEverything: vi.fn(async () => void expect(mockUpdates.applied).toBe(false)) }));
 
 const initial = { update: useUpdate.getState(), store: useStore.getState() };
 
 beforeEach(() => {
+  vi.mocked(saveEverything).mockClear();
   resetMockBackend();
   useUpdate.setState(initial.update, true);
   useStore.setState(initial.store, true);
@@ -23,6 +28,7 @@ describe("one-click updates (v0.3)", () => {
     render(<UpdateNotice />);
     expect(await screen.findByText("Sanctum 0.3.0 is ready.")).toBeInTheDocument();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Restart to update" })));
+    expect(saveEverything).toHaveBeenCalledTimes(1);
     expect(mockUpdates.applied).toBe(true);
     stop();
   });
@@ -44,6 +50,7 @@ describe("one-click updates (v0.3)", () => {
     expect(screen.getByText("Version 0.3.0 is downloaded and ready.")).toBeInTheDocument();
     expect(useUpdate.getState().ready?.version).toBe("0.3.0");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Restart to update" })));
+    expect(saveEverything).toHaveBeenCalled();
     expect(mockUpdates.applied).toBe(true);
     // Privacy, terms, and the license and notices are a click away.
     for (const name of ["Privacy", "Terms", "Legal"]) expect(screen.getByRole("button", { name })).toBeInTheDocument();

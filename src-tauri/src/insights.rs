@@ -185,10 +185,23 @@ pub fn domain_of(exe: &str, title: &str) -> Option<String> {
     if !is_browser(exe) {
         return None;
     }
+    if !title.contains(" — ") {
+        return None;
+    }
     let tail = title.rsplit(" — ").next()?.trim().to_lowercase();
-    (tail != title.trim().to_lowercase() || title.contains(" — "))
-        .then_some(tail)
-        .filter(|t| t.contains('.') && !t.contains(' ') && t.len() <= 253)
+    looks_like_domain(&tail).then_some(tail)
+}
+
+/// "youtube.com" or "10.0.0.1", not "v1.2" or "notes.pdf" at the end of a page's own title.
+fn looks_like_domain(s: &str) -> bool {
+    let labels: Vec<&str> = s.split('.').collect();
+    let label_ok = |l: &&str| !l.is_empty() && l.len() <= 63 && !l.starts_with('-') && !l.ends_with('-') && l.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
+    if s.len() > 253 || labels.len() < 2 || !labels.iter().all(label_ok) {
+        return false;
+    }
+    let tld = labels[labels.len() - 1];
+    let ipv4 = labels.len() == 4 && labels.iter().all(|l| l.parse::<u8>().is_ok());
+    ipv4 || (tld.len() >= 2 && (tld.bytes().all(|b| b.is_ascii_lowercase()) || tld.starts_with("xn--")) && !matches!(tld, "pdf" | "txt" | "doc" | "docx" | "xlsx" | "pptx" | "png" | "jpg" | "jpeg" | "gif" | "ts" | "js" | "html" | "csv"))
 }
 
 /// Time by app and by site in [from, to), most first.
@@ -388,7 +401,7 @@ pub struct Recap {
     pub previous_focus_min: i64,
     pub kept: i64,
     pub broken: i64,
-    /// Days that counted (not rest days).
+    /// Days that counted (kept, missed, or broken).
     pub days: i64,
     pub best_day: Option<String>,
     pub best_day_min: i64,
@@ -407,14 +420,15 @@ pub fn recap(conn: &Connection, today: NaiveDate) -> rusqlite::Result<Option<Rec
     }
     let before = stats::overview(conn, monday - Duration::days(7), monday - Duration::days(1), today, 0)?;
     let best = o.days.iter().max_by_key(|d| d.focus_min).filter(|d| d.focus_min > 0);
-    let rest = o.days.iter().filter(|d| d.status == stats::DayStatus::Rest).count() as i64;
+    // Days that counted: kept, missed, or broken. Not rest days, nor days before the first session.
+    let counted = o.days.iter().filter(|d| matches!(d.status, stats::DayStatus::Kept | stats::DayStatus::Missed | stats::DayStatus::Broken)).count() as i64;
     Ok(Some(Recap {
         week: monday.format("%Y-%m-%d").to_string(),
         focus_min: o.focus_min,
         previous_focus_min: before.focus_min,
         kept: o.kept,
         broken: o.broken,
-        days: 7 - rest,
+        days: counted,
         best_day: best.map(|d| d.date.clone()),
         best_day_min: best.map_or(0, |d| d.focus_min),
         most_tempting: o.tempted.first().map(|t| t.what.clone()),
@@ -589,6 +603,11 @@ mod tests {
         assert_eq!(sites.iter().map(|u| (u.key.as_str(), u.category.as_str())).collect::<Vec<_>>(), vec![("youtube.com", "distracting"), ("leetcode.com", "productive")]);
         assert_eq!(domain_of("code.exe", "a — b.com"), None);
         assert_eq!(domain_of("msedge.exe", "Docs — docs.rs"), Some("docs.rs".into()));
+        // A page's own title ending in something with a dot isn't a site.
+        assert_eq!(domain_of("chrome.exe", "Release notes — v1.2"), None);
+        assert_eq!(domain_of("chrome.exe", "Syllabus — notes.pdf"), None);
+        assert_eq!(domain_of("chrome.exe", "Router — 192.168.1.1"), Some("192.168.1.1".into()));
+        assert_eq!(domain_of("chrome.exe", "youtube.com"), None, "only the appended domain counts");
     }
 
     #[test]
@@ -657,5 +676,13 @@ mod tests {
         let r = recap(&conn, today).unwrap().unwrap();
         assert_eq!((r.week.as_str(), r.focus_min, r.previous_focus_min, r.sessions), ("2026-10-19", 180, 30, 2));
         assert_eq!((r.best_day.as_deref(), r.best_day_min), (Some("2026-10-19"), 120));
+        assert_eq!(r.days, 7);
+
+        // A first week that started on Wednesday counts from Wednesday: "1 of 5", not "1 of 7".
+        let conn = fresh();
+        let deep = profile(&conn, "Deep Work");
+        session(&conn, deep, at(mon + Duration::days(2), 9, 0), 120, "completed");
+        let r = recap(&conn, today).unwrap().unwrap();
+        assert_eq!(r.days, 5);
     }
 }

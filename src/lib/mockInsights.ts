@@ -44,7 +44,10 @@ const BROWSERS = new Set(["chrome.exe", "msedge.exe", "brave.exe", "comet.exe", 
 export function domainOf(exe: string, title: string): string | null {
   if (!BROWSERS.has(exe) || !title.includes(" — ")) return null;
   const tail = title.split(" — ").pop()!.trim().toLowerCase();
-  return tail.includes(".") && !tail.includes(" ") ? tail : null;
+  // Like insights.rs: a domain or an IPv4 address, not "v1.2" or "notes.pdf".
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(tail);
+  const domain = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,}|xn--[a-z0-9-]+)$/.test(tail) && !/\.(pdf|txt|docx?|xlsx|pptx|png|jpe?g|gif|ts|js|html|csv)$/.test(tail);
+  return ipv4 || domain ? tail : null;
 }
 
 function usage(entries: ActivityEntry[]): ActivityView {
