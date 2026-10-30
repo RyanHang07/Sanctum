@@ -8,6 +8,8 @@ import { TABS } from "../state/appState";
 import { errorText, native } from "../lib/native";
 import { guessDistraction } from "../lib/rules";
 import { todayKey } from "../lib/planner";
+import { useTheme } from "../state/theme";
+import { THEMES } from "../theme/themes";
 
 // Command bar (SPEC 4.0, Ctrl K): jump anywhere, enter focus with any profile, and act on what
 // you typed (add it as a task for today, or flag it as a distraction). Arrow keys and Enter.
@@ -29,6 +31,7 @@ const SETUP_TABS: { id: SetupTab; label: string }[] = [
   { id: "calendar", label: "Calendar" },
   { id: "browser", label: "Browser extension" },
   { id: "partner", label: "Account and partner" },
+  { id: "appearance", label: "Appearance and themes" },
   { id: "general", label: "General" },
 ];
 
@@ -80,8 +83,22 @@ export function commandsFor(query: string): Command[] {
   out.push({ id: "export-json", group: "App", label: "Export data as JSON", run: () => native.exportData("json").then(saved("Exported."), failed) });
   out.push({ id: "export-csv", group: "App", label: "Export data as CSV", run: () => native.exportData("csv").then(saved("Exported."), failed) });
 
+  // Themes (v0.3): light or dark in one keystroke; each theme by name once you type.
+  const th = useTheme.getState();
+  const other = th.theme.scheme === "dark" ? "light" : "dark";
+  out.push({
+    id: "theme-flip",
+    group: "Appearance",
+    label: `Switch to ${other}`,
+    run: () => th.setPrefs({ ...th.prefs, follow: false, fixed: other === "light" ? th.prefs.light : th.prefs.dark }),
+  });
+  if (!th.prefs.follow) out.push({ id: "theme-follow", group: "Appearance", label: "Follow Windows' light and dark", run: () => th.setFollow(true) });
+
   const text = query.trim();
   const q = text.toLowerCase();
+  if (q)
+    for (const t of THEMES)
+      out.push({ id: `theme:${t.id}`, group: "Appearance", label: `Theme: ${t.name}`, hint: t.id === th.theme.id ? "Now" : undefined, run: () => th.pick(t.id) });
   const matched = q ? out.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q)) : out;
   // Notes whose title or text match, when you've typed something.
   if (q) {

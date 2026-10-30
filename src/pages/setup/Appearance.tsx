@@ -14,9 +14,9 @@ import { THEMES } from "../../theme/themes";
 export const themeVars = (t: Theme) => Object.fromEntries(KEYS.map((k) => [cssVar(k), t.palette[k]])) as CSSProperties;
 
 /** A small window in the theme's colours: sidebar, a headline, a list, and Enter focus. */
-function Miniature() {
+function Miniature({ small = false }: { small?: boolean }) {
   return (
-    <div aria-hidden="true" className="flex h-[84px] overflow-hidden rounded-[6px] border border-line bg-app">
+    <div aria-hidden="true" className={`flex ${small ? "h-[60px]" : "h-[84px]"} overflow-hidden rounded-[6px] border border-line bg-app`}>
       <div className="flex w-[30%] flex-col gap-[5px] bg-sidebar p-[7px]">
         <span className="h-[5px] w-[70%] rounded-full bg-text" />
         <span className="mt-[3px] h-[4px] w-[80%] rounded-full bg-raised" />
@@ -42,7 +42,7 @@ function Miniature() {
   );
 }
 
-function ThemeCard({ theme, chosen, tag }: { theme: Theme; chosen: boolean; tag?: string }) {
+function ThemeCard({ theme, chosen, tag, small }: { theme: Theme; chosen: boolean; tag?: string; small?: boolean }) {
   const { pick, preview } = useTheme();
   return (
     <button
@@ -60,7 +60,7 @@ function ThemeCard({ theme, chosen, tag }: { theme: Theme; chosen: boolean; tag?
       }`}
     >
       <div style={themeVars(theme)}>
-        <Miniature />
+        <Miniature small={small} />
       </div>
       <span className="flex items-center gap-[6px] px-[2px] text-meta">
         <span className={chosen ? "font-medium text-text" : "text-text-2"}>{theme.name}</span>
@@ -73,11 +73,11 @@ function ThemeCard({ theme, chosen, tag }: { theme: Theme; chosen: boolean; tag?
 }
 
 /** The cards for some themes, one of them chosen. */
-export function ThemeGrid({ themes, chosen, label, tag }: { themes: Theme[]; chosen: string; label: string; tag?: string }) {
+export function ThemeGrid({ themes, chosen, label, tag, small = false }: { themes: Theme[]; chosen: string; label: string; tag?: string; small?: boolean }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
+    <div role="radiogroup" aria-label={label} className={`grid gap-3 ${small ? "grid-cols-[repeat(auto-fill,minmax(122px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(168px,1fr))]"}`}>
       {themes.map((t) => (
-        <ThemeCard key={t.id} theme={t} chosen={t.id === chosen} tag={t.id === chosen ? tag : undefined} />
+        <ThemeCard key={t.id} theme={t} chosen={t.id === chosen} tag={t.id === chosen ? tag : undefined} small={small} />
       ))}
     </div>
   );

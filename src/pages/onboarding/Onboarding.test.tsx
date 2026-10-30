@@ -3,6 +3,7 @@ import { Onboarding } from "./Onboarding";
 import { useStore } from "../../state/store";
 import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
+import { useTheme } from "../../state/theme";
 
 const initial = useStore.getState();
 
@@ -26,11 +27,12 @@ describe("Onboarding", () => {
     expect(await native.getSetting("onboarded")).toBe("1");
   });
 
-  it("walks the seven steps, creates the picked profiles, and flags distractions", async () => {
+  it("walks the eight steps, creates the picked profiles, and flags distractions", async () => {
     await act(() => useStore.getState().loadSettings());
+    await act(() => useTheme.getState().load());
     useStore.setState({ onboarding: true });
     render(<Onboarding />);
-    expect(screen.getByText("Step 1 of 7 · Welcome")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 8 · Welcome")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("Optional"), { target: { value: "Ryan" } });
     await next();
 
@@ -59,6 +61,14 @@ describe("Onboarding", () => {
     // Goals.
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "Daily focus goal" })).getByRole("radio", { name: "1h 30m" }));
     fireEvent.click(screen.getByRole("button", { name: "Sun" }));
+    await next();
+
+    // Look (v0.3): following Windows, pick the theme for the mode it's in.
+    const look = screen.getByRole("radiogroup", { name: /^Theme in (dark|light) mode$/ });
+    const first = within(look).getAllByRole("radio")[1]!;
+    await act(async () => fireEvent.click(first));
+    expect(first).toHaveAttribute("aria-checked", "true");
+    expect(document.documentElement.dataset.theme).toBe(useTheme.getState().theme.id);
     await next();
 
     // Calendar and Browser can be skipped.

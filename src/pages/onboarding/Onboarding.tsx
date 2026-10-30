@@ -13,11 +13,15 @@ import { useCalendar } from "../../state/calendar";
 import { RestDays } from "../Setup";
 import { BrowsersSection } from "../setup/Browsers";
 import { ProtectionSection } from "../setup/Protection";
+import { ThemeGrid } from "../setup/Appearance";
+import { Switch } from "../../components/controls";
+import { useTheme } from "../../state/theme";
+import { THEMES } from "../../theme/themes";
 
 // First run (SPEC 4.11, design/screens/Onboarding.dc.html): welcome, profiles, distractions,
 // goals, calendar, browser, done. The partner (M6) and the watchdog (M8) join later.
 
-const STEPS = ["Welcome", "Profiles", "Distractions", "Goals", "Calendar", "Browser", "Ready"] as const;
+const STEPS = ["Welcome", "Profiles", "Distractions", "Goals", "Look", "Calendar", "Browser", "Ready"] as const;
 /** Picked by default: the catalog's always-sealed four. */
 const STARTER = ["Discord", "YouTube", "Instagram", "TikTok"];
 const GOALS = [60, 90, 120, 180, 240];
@@ -190,6 +194,32 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
   );
 }
 
+/** Pick a look (v0.3): following Windows, the theme for the mode Windows is in now. */
+function LookStep() {
+  const { prefs, theme, setFollow } = useTheme();
+  const mode = theme.scheme;
+  return (
+    <>
+      <Headline lead="Pick a look." payoff="Change it any time." sub="Colours only: Sanctum stays Sanctum. Hover a theme to see it." />
+      <label className="flex items-center gap-3 text-body">
+        <Switch checked={prefs.follow} onChange={(v) => void setFollow(v)} label="Follow Windows" />
+        <span>
+          Follow Windows{" "}
+          <span className="text-muted">{prefs.follow ? `(it's in ${mode} mode; pick the other in Setup › Appearance)` : "(one theme, always)"}</span>
+        </span>
+      </label>
+      <div className="max-h-[236px] overflow-y-auto pr-1">
+        <ThemeGrid
+          small
+          themes={prefs.follow ? THEMES.filter((t) => t.scheme === mode) : THEMES}
+          chosen={prefs.follow ? prefs[mode] : prefs.fixed}
+          label={prefs.follow ? `Theme in ${mode} mode` : "Theme"}
+        />
+      </div>
+    </>
+  );
+}
+
 function GoalsStep() {
   const settings = useStore((s) => s.settings);
   const { setDailyGoal, setRestDays, setActivitySetting } = useStore();
@@ -356,9 +386,10 @@ export function Onboarding() {
           {step === 1 ? <ProfilesStep picks={picks} setPicks={setPicks} /> : null}
           {step === 2 ? <DistractionsStep flags={flags} setFlags={setFlags} /> : null}
           {step === 3 ? <GoalsStep /> : null}
-          {step === 4 ? <CalendarStep /> : null}
-          {step === 5 ? <BrowserStep /> : null}
-          {step === 6 ? <ReadyStep picks={picks} flags={flags} /> : null}
+          {step === 4 ? <LookStep /> : null}
+          {step === 5 ? <CalendarStep /> : null}
+          {step === 6 ? <BrowserStep /> : null}
+          {step === 7 ? <ReadyStep picks={picks} flags={flags} /> : null}
         </div>
 
         <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
@@ -367,7 +398,7 @@ export function Onboarding() {
               Back
             </Button>
           ) : null}
-          {step === 4 || step === 5 ? (
+          {step === 5 || step === 6 ? (
             <Button variant="quiet" onClick={() => setStep(step + 1)}>
               Skip
             </Button>
