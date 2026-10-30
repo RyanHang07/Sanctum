@@ -19,10 +19,16 @@
       </div>
       <h1><span id="what">This site</span> stays <em>sealed.</em></h1>
       <p id="body">You're sealed in. Scrolling is how mid happens.</p>
+      <p class="plan" id="plan" hidden></p>
       <div class="actions">
         <button type="button" class="primary" id="back">Go back</button>
         <button type="button" class="ghost" id="open">Open Sanctum</button>
       </div>
+      <form class="park" id="park" hidden>
+        <input id="park-text" type="text" maxlength="200" autocomplete="off" placeholder="Park a thought for later" aria-label="Park a thought for later" />
+        <button type="submit" class="ghost">Park</button>
+      </form>
+      <p class="parked" id="parked" role="status" hidden></p>
       <p class="offline" id="offline" hidden>Sanctum isn't answering right now. The seal holds until the session's planned end.</p>
       <span class="foot">Blocked by the Sanctum extension. Only the site's name is logged, as an attempt.</span>
     </main>

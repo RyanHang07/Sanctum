@@ -208,7 +208,7 @@ describe("session lifecycle", () => {
     render(
       <HeldPage held={{ sessionId: 1, profileId: 1, profileName: "Study", plannedMinutes: 30, focusMinutes: 26, attempts: 0, broken: true }} />,
     );
-    expect(screen.getByTestId("held-page")).toHaveTextContent(/Held, but the downtime broke it\.|Holding onto distraction is letting go of what really matters\./);
+    expect(screen.getByTestId("held-page")).toHaveTextContent(/The seal broke, so today's streak resets\.|Held, but the downtime broke it\.|minutes in\./);
   });
 
   it("resumes a session reported by the backend on startup", async () => {

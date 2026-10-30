@@ -17,6 +17,7 @@ mod unlock;
 mod updates;
 mod launcher;
 mod notes;
+mod focus;
 mod insights;
 mod journal;
 mod note_images;
@@ -675,6 +676,7 @@ pub fn run() {
         // Images in notes, from the database (src/note_images.rs).
         .register_uri_scheme_protocol(note_images::SCHEME, |ctx, request| note_images::serve(ctx.app_handle(), &request))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -855,6 +857,9 @@ pub fn run() {
             insights::stats_reclassify,
             insights::stats_day,
             insights::stats_recap,
+            focus::focus_prepare,
+            focus::focus_park,
+            focus::focus_wrap,
             updates::app_version,
             updates::diagnostics,
             guard_install,

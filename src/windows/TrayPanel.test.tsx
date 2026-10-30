@@ -42,10 +42,13 @@ describe("Tray panel", () => {
     expect(panel.getByText("0/2")).toBeInTheDocument();
     await act(async () => fireEvent.click(panel.getByRole("checkbox", { name: "Send the invoice" })));
     expect(await panel.findByText("1/2")).toBeInTheDocument();
-    const add = panel.getByLabelText("Add a task for today");
+    // While sealed, the field parks the thought (v0.3.1): a task for today, tagged with the seal.
+    const add = panel.getByLabelText("Park a thought for later");
     fireEvent.change(add, { target: { value: "Water the plants" } });
     await act(async () => fireEvent.keyDown(add, { key: "Enter" }));
     expect(await panel.findByText("1/3")).toBeInTheDocument();
     expect(panel.getByRole("checkbox", { name: "Water the plants" })).toBeInTheDocument();
+    const todos = await native.listTodos("2000-01-01", "2100-01-01");
+    expect(todos.find((t) => t.title === "Water the plants")?.parkedFrom).toBeTruthy();
   });
 });

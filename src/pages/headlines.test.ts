@@ -30,7 +30,9 @@ describe("moment lines (v0.1)", () => {
     expect(heldLine({ ...base, todayMinutes: 150 })).toBe("3 days running.");
     expect(heldLine({ ...base, todayMinutes: 150, streak: 1 })).toBe("Goal met for today, but the best never stopped here.");
     expect(heldLine({ ...base, attempts: 4 })).toBe("Tempted 4 times. Held anyway.");
-    expect(heldLine({ ...base, broken: true, todayMinutes: 150 })).toMatch(/downtime|distraction/);
+    expect(heldLine({ ...base, broken: true, todayMinutes: 150 })).toMatch(/streak resets|downtime/);
+    // Never scolding (v0.3.1).
+    expect(heldLine({ ...base, broken: true, todayMinutes: 150 })).not.toMatch(/letting go|distraction/);
   });
 
   it("otherwise picks a general line, the same one for the same session", () => {

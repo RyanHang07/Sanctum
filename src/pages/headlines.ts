@@ -1,3 +1,4 @@
+import type { Broke } from "../lib/types";
 import type { AppState } from "../state/appState";
 
 // The words on the moments (SPEC 4.0, design/README.md headline rule): a bold statement and a
@@ -59,7 +60,14 @@ export const HELD: readonly string[] = [
 ];
 
 /** When downtime broke the session but it still landed on the held page. */
-export const HELD_BROKEN: readonly string[] = ["Held, but the downtime broke it.", "Holding onto distraction is letting go of what really matters."];
+/** A broken seal, when what broke it isn't known (v0.3.1: plain, never scolding). */
+export const HELD_BROKEN: readonly string[] = ["The seal broke, so today's streak resets. The work still counts.", "Held, but the downtime broke it. Next seal, fresh start."];
+
+/** The if-then plan as it's shown on a catch (v0.3.1): "If you're tempted, you said you'd stand up." */
+export function planLine(plan: string): string {
+  const action = plan.trim().replace(/^i(?:'|’)ll\s+/i, "").replace(/[.!]+$/, "");
+  return `If you're tempted, you said you'd ${action}.`;
+}
 
 /** After "18 minutes into Deep Work, 72:14 to go." on the blocked overlay. `{until}` is when the seal ends. */
 export const OVERLAY: readonly string[] = [
@@ -142,3 +150,36 @@ export function heldLine(c: HeldContext): string {
 export const overlayLine = (seed: string | number, until: string) => pick(OVERLAY, seed).replace("{until}", until);
 
 export const welcomeLine = (seed: string | number): [string, string] => [...pick(WELCOME, seed)];
+
+/** What broke a seal, said plainly, with the fix that would have stopped it (v0.3.1). Self-
+ *  compassion after a lapse raises the will to improve (Breines & Chen 2012): no scolding. */
+/** The fix for each kind of tamper; also offered on the "seal is broken" notice. */
+export function brokeFix(kind: string): { label: string; tab: "protection" | "browser" } | null {
+  switch (kind) {
+    case "guard":
+      return { label: "Check Protection", tab: "protection" };
+    case "extension":
+      return { label: "Check the extension", tab: "browser" };
+    case "shutdown":
+    case "clock":
+      return null;
+    default:
+      return { label: "Turn on Protection", tab: "protection" };
+  }
+}
+
+export function brokeLine(b: Broke): { line: string; fix: { label: string; tab: "protection" | "browser" } | null } {
+  const at = b.afterMin === 1 ? "1 minute in" : `${b.afterMin} minutes in`;
+  switch (b.kind) {
+    case "shutdown":
+      return { line: `The PC went off ${at}. Restarts fit best between seals.`, fix: null };
+    case "clock":
+      return { line: `The clock changed ${at}.`, fix: null };
+    case "guard":
+      return { line: `Protection stopped ${at}.`, fix: brokeFix(b.kind) };
+    case "extension":
+      return { line: `A browser ran without the extension ${at}.`, fix: brokeFix(b.kind) };
+    default:
+      return { line: `Sanctum was closed ${at}. Protection reopens it within seconds.`, fix: brokeFix(b.kind) };
+  }
+}

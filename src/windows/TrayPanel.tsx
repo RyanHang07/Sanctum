@@ -114,7 +114,9 @@ export function TrayPanel() {
     const title = draft.trim();
     if (!title) return;
     setDraft("");
-    await native.saveTodo({ title, dueDate: today, dueTime: null, durationMin: null, profileId: null });
+    // While sealed, the same field parks the thought (v0.3.1): a task for today, from this seal.
+    if (data.session) await native.focusPark(title).catch(() => undefined);
+    else await native.saveTodo({ title, dueDate: today, dueTime: null, durationMin: null, profileId: null });
     refresh();
     void broadcast(EVENTS.planner);
   };
@@ -233,8 +235,8 @@ export function TrayPanel() {
         <label className="mt-auto flex h-[34px] shrink-0 items-center gap-2 border-t border-line px-[14px] text-faint focus-within:text-text-2">
           <PlusIcon size={12} />
           <input
-            aria-label="Add a task for today"
-            placeholder="Add a task for today"
+            aria-label={data.session ? "Park a thought for later" : "Add a task for today"}
+            placeholder={data.session ? "Park a thought for later" : "Add a task for today"}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void add()}

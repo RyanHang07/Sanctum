@@ -23,6 +23,26 @@ let lastDomain = undefined;
 let connected = false;
 /** Tab id -> the last page in it that wasn't sealed, for the blocked page's "Back to …". */
 let back = {};
+/** A thought the sealed page parked, waiting for Sanctum's answer (v0.3.1). */
+let parking = null;
+const PARK_WAIT_MS = 5_000;
+
+/** Sends a parked thought to Sanctum; resolves with whether it became a task. */
+function park(text) {
+  const t = String(text ?? "").trim().slice(0, 200);
+  if (!connected || !rules.session || !t) return Promise.resolve(false);
+  parking?.(false);
+  return new Promise((resolve) => {
+    parking = resolve;
+    send({ type: "park", text: t });
+    setTimeout(() => {
+      if (parking === resolve) {
+        parking = null;
+        resolve(false);
+      }
+    }, PARK_WAIT_MS);
+  });
+}
 
 async function rememberBack(tab) {
   if (!tab.id || !tab.url || tab.url.startsWith(BLOCKED_PAGE) || !allowedPage(tab.url, rules)) return;
@@ -80,6 +100,9 @@ async function onMessage(msg) {
     // Sanctum updated and put a newer copy of this extension in its folder (v0.3): load it.
     // The seal's rules and the theme are in storage, so nothing is lost across the reload.
     chrome.runtime.reload();
+  } else if (msg.type === "parked") {
+    parking?.(msg.ok === true);
+    parking = null;
   } else if (msg.type === "theme") {
     // The app's theme (v0.3): theme.js paints the sealed page and popup with it.
     await chrome.storage.local.set({ theme: msg });
@@ -152,6 +175,7 @@ chrome.windows.onFocusChanged.addListener(() => void reportActive());
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "blocked") send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
+  if (msg?.type === "park") return park(msg.text);
   if (msg?.type === "rules?") return Promise.resolve(rules);
   // The blocked page's "Open youtube.com": make sure no stale rule redirects it straight back.
   if (msg?.type === "resync") return applyRules().then(() => rules);

@@ -145,7 +145,16 @@ fn send_line(stream: &mut TcpStream, msg: &Value) -> std::io::Result<()> {
 /// What the extension should enforce right now: the flagged sites and keywords while sealed.
 pub fn rules_message(active: Option<&session::SessionView>, flags: &[Distraction]) -> Value {
     match active {
-        Some(a) => sealed_message(&a.profile_name, a.ends_at, flags),
+        Some(a) => {
+            let mut msg = sealed_message(&a.profile_name, a.ends_at, flags);
+            // A seal, not quiet hours: the sealed page can park a thought.
+            msg["session"] = json!(true);
+            // The if-then plan (v0.3.1), shown on the sealed page.
+            if let Some(p) = &a.plan {
+                msg["plan"] = json!(p);
+            }
+            msg
+        }
         None => json!({ "type": "rules", "sealed": false, "sites": [], "keywords": [] }),
     }
 }
@@ -280,6 +289,13 @@ fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
             }
         }
         Some("open-sanctum") => crate::show_main_window(app),
+        // A thought parked from the sealed page (v0.3.1): a task for today. The page hears back.
+        Some("park") => {
+            let ok = msg["text"].as_str().is_some_and(|t| crate::focus::park_now(app, t).is_ok());
+            if let Some(c) = shared.browser.inner.lock().unwrap().conns.get_mut(&id) {
+                let _ = send_line(&mut c.stream, &json!({ "type": "parked", "ok": ok }));
+            }
+        }
         _ => {}
     }
 }
@@ -618,6 +634,8 @@ mod tests {
             broken: false,
             idle: false,
             task: None,
+            goal: None,
+            plan: None,
         }
     }
 
@@ -626,6 +644,10 @@ mod tests {
         let flags = vec![flag("site", "youtube.com", &["youtube.com/@mitocw"]), flag("app", "discord.exe", &[]), flag("keyword", "Shorts", &[])];
         let msg = rules_message(Some(&view()), &flags);
         assert_eq!(msg["sealed"], true);
+        assert_eq!(msg["session"], true, "a seal, so the page can park a thought");
+        assert!(msg.get("plan").is_none());
+        let planned = rules_message(Some(&session::SessionView { plan: Some("stand up".into()), ..view() }), &flags);
+        assert_eq!(planned["plan"], "stand up");
         assert_eq!(msg["profile"], "Deep Study");
         assert_eq!(msg["endsAt"], 3_600_000);
         assert_eq!(msg["sites"], json!([{ "domain": "youtube.com", "allow": ["youtube.com/@mitocw"] }]));

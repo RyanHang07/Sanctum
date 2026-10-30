@@ -35,11 +35,19 @@ pub struct SessionRow {
     pub outcome: String,
     pub attempts: i64,
     pub task: Option<String>,
+    /// The seal's intent and how it went (v0.3.1, focus.rs).
+    pub goal: Option<String>,
+    pub plan: Option<String>,
+    /// "done", "partly", or "no", from the held page.
+    pub result: Option<String>,
+    pub focus_rating: Option<i64>,
+    pub left_off: Option<String>,
 }
 
 const SESSION_COLS: &str = "s.id, s.profile_id, COALESCE(NULLIF(s.profile_name, ''), p.name, 'Focus'), s.started_at, s.ended_at, s.planned_minutes,
      MAX(0, MIN(s.planned_minutes * 60000, s.ended_at - s.started_at - s.idle_ms) - s.gap_ms), s.idle_ms, COALESCE(s.outcome, 'completed'),
-     (SELECT COUNT(*) FROM blocked_attempts b WHERE b.session_id = s.id), s.task_title";
+     (SELECT COUNT(*) FROM blocked_attempts b WHERE b.session_id = s.id), s.task_title,
+     s.goal, s.plan, s.result, s.focus_rating, s.left_off";
 
 fn session_row(r: &rusqlite::Row) -> rusqlite::Result<SessionRow> {
     Ok(SessionRow {
@@ -54,6 +62,11 @@ fn session_row(r: &rusqlite::Row) -> rusqlite::Result<SessionRow> {
         outcome: r.get(8)?,
         attempts: r.get(9)?,
         task: r.get(10)?,
+        goal: r.get(11)?,
+        plan: r.get(12)?,
+        result: r.get(13)?,
+        focus_rating: r.get(14)?,
+        left_off: r.get(15)?,
     })
 }
 
@@ -147,10 +160,10 @@ pub fn sessions_csv(rows: &[SessionRow]) -> String {
         "broken" => "broken",
         _ => "kept",
     };
-    let mut out = String::from("started,ended,profile,planned_min,focus_min,idle_min,outcome,attempts_blocked,task\n");
+    let mut out = String::from("started,ended,profile,planned_min,focus_min,idle_min,outcome,attempts_blocked,task,goal,got_done,focus_rating,left_off\n");
     for r in rows {
         out.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             time(r.started_at),
             time(r.ended_at),
             csv_field(&r.profile_name),
@@ -159,7 +172,11 @@ pub fn sessions_csv(rows: &[SessionRow]) -> String {
             r.idle_min,
             outcome(&r.outcome),
             r.attempts,
-            csv_field(r.task.as_deref().unwrap_or(""))
+            csv_field(r.task.as_deref().unwrap_or("")),
+            csv_field(r.goal.as_deref().unwrap_or("")),
+            r.result.as_deref().unwrap_or(""),
+            r.focus_rating.map(|n| n.to_string()).unwrap_or_default(),
+            csv_field(r.left_off.as_deref().unwrap_or(""))
         ));
     }
     out

@@ -127,6 +127,53 @@ button {
   color: var(--faint);
 }
 
+/* The seal's if-then plan, and a place to park a thought (v0.3.1). */
+.plan {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--sealed);
+  border-radius: 4px;
+  background: var(--panel);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.park {
+  display: flex;
+  gap: 8px;
+}
+
+.park input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-input);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.park input:focus {
+  outline: none;
+  border-color: var(--sealed);
+}
+
+.parked {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.plan[hidden],
+.park[hidden],
+.parked[hidden] {
+  display: none;
+}
+
 .offline {
   margin: 0;
   padding: 10px 12px;

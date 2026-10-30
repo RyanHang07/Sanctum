@@ -1,0 +1,133 @@
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { Home } from "./Home";
+import { HeldPage } from "./HeldPage";
+import { brokeLine, planLine } from "./headlines";
+import { ParkCard } from "../windows/Intercept";
+import { useStore } from "../state/store";
+import { usePlanner } from "../state/planner";
+import { connectNativeEvents } from "../state/events";
+import { mockControls, resetMockBackend } from "../lib/mockBackend";
+import { native } from "../lib/native";
+import { sampleProfiles } from "../lib/catalog";
+import { addDays, todayKey } from "../lib/planner";
+
+// The seal's science (v0.3.1): a goal and an if-then plan at the start, thoughts parked during,
+// and how it went (with where you left off) at the end.
+
+const initial = { store: useStore.getState(), planner: usePlanner.getState() };
+let disconnect = () => {};
+beforeEach(async () => {
+  resetMockBackend();
+  useStore.setState(initial.store, true);
+  usePlanner.setState(initial.planner, true);
+  disconnect = connectNativeEvents();
+  await native.createProfile(sampleProfiles()[0]!);
+  await act(() => useStore.getState().loadProfiles());
+});
+afterEach(() => disconnect());
+
+const todayItems = () => native.listTodos(addDays(todayKey(), -1), addDays(todayKey(), 1));
+
+describe("the seal's intent", () => {
+  it("starts with a goal and a plan; the profile remembers the plan, and the overlay shows it", async () => {
+    render(<Home />);
+    const intent = within(screen.getByTestId("focus-intent"));
+    fireEvent.change(intent.getByLabelText("Will be done"), { target: { value: "  Problem set 4  " } });
+    fireEvent.change(intent.getByLabelText("If I'm tempted, I'll"), { target: { value: "stand up and stretch" } });
+    await act(async () => fireEvent.keyDown(intent.getByLabelText("Will be done"), { key: "Enter" }));
+    const s = useStore.getState().session!;
+    expect(s.plan).toBe("stand up and stretch");
+    expect(s.goal).toBe("Problem set 4");
+    expect(screen.getByTestId("session-bar")).toHaveTextContent("Problem set 4");
+    // The goal is this seal's; the plan comes back for the profile next time.
+    expect(useStore.getState().focusGoal).toBe("");
+    await act(async () => mockControls.fastForward(60 * 60_000));
+    useStore.setState({ focusPlan: "", focusPlanFor: null });
+    await act(() => useStore.getState().prepareFocus());
+    expect(useStore.getState().focusPlan).toBe("stand up and stretch");
+  });
+
+  it("phrases the plan the same way whether or not you typed \"I'll\"", () => {
+    expect(planLine("stand up and stretch")).toBe("If you're tempted, you said you'd stand up and stretch.");
+    expect(planLine("I'll drink some water.")).toBe("If you're tempted, you said you'd drink some water.");
+  });
+});
+
+describe("parking a thought", () => {
+  it("from Home while sealed: a task for today, then kept, moved, or dropped on the held page", async () => {
+    render(<Home />);
+    await act(() => useStore.getState().enterFocus());
+    const park = within(screen.getByTestId("park"));
+    for (const t of ["Email Alex", "Look up the lab hours"]) {
+      fireEvent.change(park.getByLabelText("Park a thought for later"), { target: { value: t } });
+      await act(async () => fireEvent.submit(screen.getByTestId("park")));
+    }
+    expect(useStore.getState().notice?.lead).toBe("Parked.");
+    const sessionId = useStore.getState().session!.id;
+    const items = await todayItems();
+    expect(items.filter((t) => t.parkedFrom === sessionId).map((t) => t.title)).toEqual(["Email Alex", "Look up the lab hours"]);
+
+    await act(async () => mockControls.fastForward(60 * 60_000));
+    await act(() => usePlanner.getState().reload());
+    render(<HeldPage held={useStore.getState().held!} />);
+    const parked = within(screen.getByTestId("held-parked"));
+    await act(async () => fireEvent.click(parked.getAllByRole("button", { name: "Tomorrow" })[0]!));
+    await act(async () => fireEvent.click(parked.getByRole("button", { name: "Delete Look up the lab hours" })));
+    const after = await todayItems();
+    expect(after.find((t) => t.title === "Email Alex")?.dueDate).toBe(addDays(todayKey(), 1));
+    expect(after.some((t) => t.title === "Look up the lab hours")).toBe(false);
+  });
+
+  it("from the Ctrl Alt P card", async () => {
+    await act(() => useStore.getState().enterFocus());
+    const done = vi.fn();
+    render(<ParkCard onDone={done} />);
+    fireEvent.change(screen.getByLabelText("The thought"), { target: { value: "Buy printer ink" } });
+    await act(async () => fireEvent.submit(screen.getByRole("dialog", { name: "Park a thought" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Parked.");
+    expect((await todayItems()).find((t) => t.title === "Buy printer ink")?.parkedFrom).toBe(useStore.getState().session!.id);
+  });
+
+  it("needs a seal", async () => {
+    await expect(native.focusPark("Later")).rejects.toBe("Parking works while sealed.");
+  });
+});
+
+describe("how it went", () => {
+  it("saves Done / Partly / No, the rating, and where you left off, which the next seal shows", async () => {
+    await act(() => useStore.getState().enterFocus());
+    await act(async () => mockControls.fastForward(60 * 60_000));
+    const held = useStore.getState().held!;
+    render(<HeldPage held={held} />);
+    const wrap = within(screen.getByTestId("held-wrap"));
+    fireEvent.click(wrap.getByRole("radio", { name: "Partly" }));
+    fireEvent.click(wrap.getByRole("radio", { name: "4" }));
+    fireEvent.change(wrap.getByLabelText("Where I left off"), { target: { value: "Halfway through question 3" } });
+    expect(wrap.getByRole("radio", { name: "Partly" })).toBeChecked();
+    // Leaving the page saves it.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /^Done/ })));
+    render(<Home />);
+    await act(() => useStore.getState().prepareFocus());
+    expect(screen.getByTestId("left-off")).toHaveTextContent("Last time: Halfway through question 3");
+  });
+
+  it("asks about the goal by name", async () => {
+    useStore.setState({ focusGoal: "Chapter 7" });
+    await act(() => useStore.getState().enterFocus());
+    await act(async () => mockControls.fastForward(60 * 60_000));
+    render(<HeldPage held={useStore.getState().held!} />);
+    expect(screen.getByTestId("held-wrap")).toHaveTextContent("Did Chapter 7 get done?");
+  });
+});
+
+describe("after a break", () => {
+  it("says what broke it plainly, with the fix", () => {
+    expect(brokeLine({ kind: "extension", afterMin: 34 })).toEqual({ line: "A browser ran without the extension 34 minutes in.", fix: { label: "Check the extension", tab: "browser" } });
+    expect(brokeLine({ kind: "shutdown", afterMin: 1 }).line).toBe("The PC went off 1 minute in. Restarts fit best between seals.");
+    expect(brokeLine({ kind: "clock", afterMin: 5 }).fix).toBeNull();
+    render(<HeldPage held={{ sessionId: 9, profileId: 1, profileName: "Study", plannedMinutes: 60, focusMinutes: 30, attempts: 0, broken: true, broke: { kind: "killed", afterMin: 12 } }} />);
+    expect(screen.getByTestId("held-page")).toHaveTextContent("Sanctum was closed 12 minutes in.");
+    fireEvent.click(screen.getByRole("button", { name: "Turn on Protection" }));
+    expect(useStore.getState().activeTab).toBe("setup");
+  });
+});

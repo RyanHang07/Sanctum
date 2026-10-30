@@ -25,6 +25,8 @@ function OutcomeTag({ outcome }: { outcome: SessionOutcome }) {
   return <span className={`whitespace-nowrap rounded-full border px-2 py-[1px] text-[11px] ${tone}`}>{OUTCOME[outcome]}</span>;
 }
 
+const RESULT = { done: "Done", partly: "Partly", no: "No" } as const;
+
 function Details({ id, onClose, onOpenDay }: { id: number; onClose: () => void; onOpenDay: (key: string) => void }) {
   const [d, setD] = useState<SessionDetail | null | undefined>(undefined);
   useEffect(() => void native.statsSession(id).then(setD, () => setD(null)), [id]);
@@ -55,6 +57,33 @@ function Details({ id, onClose, onOpenDay }: { id: number; onClose: () => void; 
                 <>
                   <dt className="text-muted">Task</dt>
                   <dd className="m-0">{s.task}</dd>
+                </>
+              ) : null}
+              {s.goal ? (
+                <>
+                  <dt className="text-muted">For</dt>
+                  <dd className="m-0">{s.goal}</dd>
+                </>
+              ) : null}
+              {s.result ? (
+                <>
+                  <dt className="text-muted">Got done</dt>
+                  <dd className="m-0">
+                    {RESULT[s.result]}
+                    {s.focusRating ? <span className="text-muted"> · focus {s.focusRating} of 5</span> : null}
+                  </dd>
+                </>
+              ) : null}
+              {s.plan ? (
+                <>
+                  <dt className="text-muted">If tempted</dt>
+                  <dd className="m-0">{s.plan}</dd>
+                </>
+              ) : null}
+              {s.leftOff ? (
+                <>
+                  <dt className="text-muted">Left off</dt>
+                  <dd className="m-0">{s.leftOff}</dd>
                 </>
               ) : null}
             </dl>
@@ -136,6 +165,9 @@ export function SessionsTab({ onOpenDay }: { onOpenDay: (key: string) => void })
       focus: list.reduce((a, r) => a + r.focusMin, 0),
       kept: list.filter((r) => r.outcome === "completed").length,
       broken: list.filter((r) => r.outcome === "broken").length,
+      // Kept counts the time; got done counts the work (v0.3.1).
+      done: list.filter((r) => r.result === "done").length,
+      answered: list.filter((r) => r.result).length,
     };
   }, [rows]);
 
@@ -176,11 +208,12 @@ export function SessionsTab({ onOpenDay }: { onOpenDay: (key: string) => void })
         </Button>
       </div>
 
-      <div className="grid shrink-0 grid-cols-4 gap-3" role="list" aria-label="Totals">
+      <div className="grid shrink-0 grid-cols-5 gap-3" role="list" aria-label="Totals">
         {[
           ["Sessions", String(totals.count)],
           ["In focus", minutes(totals.focus)],
           ["Kept", String(totals.kept)],
+          ["Got done", totals.answered ? `${totals.done} of ${totals.answered}` : "–"],
           ["Broken", String(totals.broken)],
         ].map(([label, value]) => (
           <div key={label} role="listitem" className="flex flex-col gap-[2px] rounded-panel border border-line bg-panel px-[14px] py-[10px]">
