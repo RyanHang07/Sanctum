@@ -24,6 +24,13 @@
   :root {
     color-scheme: dark;
   }
+  /* The extra veil over the sealed and event mesh, on light themes only (components/Mesh.tsx). */
+  .mesh-light-veil {
+    display: none;
+  }
+  [data-scheme="light"] .mesh-light-veil {
+    display: block;
+  }
   /* The mark that fits the theme (components/Mark.tsx). */
   .mark-for-light,
   [data-scheme="light"] .mark-for-dark {

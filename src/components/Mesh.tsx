@@ -76,7 +76,11 @@ export function Mesh({ tone, paused = false, className = "" }: { tone: Tone; pau
         <div className="absolute inset-0 bg-app/[0.86]" />
       ) : ambient ? (
         // Dimmed toward the app background so text and panels stay in front.
-        <div className="absolute inset-0 bg-radial-[ellipse_80%_70%_at_50%_40%] from-app/70 from-0% to-app/45 to-100%" />
+        <>
+          <div className="absolute inset-0 bg-radial-[ellipse_80%_70%_at_50%_40%] from-app/70 from-0% to-app/45 to-100%" />
+          {/* Light themes: a little more veil, so a pale page doesn't turn loud (v0.3). */}
+          <div className="mesh-light-veil absolute inset-0 bg-app/[0.4]" />
+        </>
       ) : (
         <div className="absolute inset-0 bg-radial-[ellipse_70%_60%_at_50%_48%] from-app/10 from-0% to-app/55 to-100%" />
       )}
