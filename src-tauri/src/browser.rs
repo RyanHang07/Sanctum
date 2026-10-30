@@ -74,6 +74,9 @@ struct Inner {
     at_seal: Vec<String>,
     /// The app's theme (v0.3), for the sealed page and popup; Null until the window sends one.
     theme: Value,
+    /// "chrome.exe@0.2.2": asked to reload once already this run. An extension loaded from some
+    /// other folder comes back the same version, and asking again would reload it forever.
+    asked_reload: std::collections::HashSet<String>,
 }
 
 pub struct State {
@@ -124,8 +127,10 @@ fn reload_stale(inner: &mut Inner, sealed: bool) {
     }
     let bundled = bundled_version();
     let msg = json!({ "type": "reload", "version": bundled });
-    for c in inner.conns.values_mut() {
-        if c.version.as_deref().is_some_and(|v| is_older(v, &bundled)) {
+    let Inner { conns, asked_reload, .. } = inner;
+    for c in conns.values_mut() {
+        let Some(v) = c.version.as_deref().filter(|v| is_older(v, &bundled)) else { continue };
+        if asked_reload.insert(format!("{}@{v}", c.exe)) {
             let _ = send_line(&mut c.stream, &msg);
         }
     }
@@ -543,6 +548,21 @@ mod tests {
         assert!(is_older("0.3", "0.3.1"));
         assert!(!is_older("0.3.0", "0.3.0"));
         assert!(!is_older("0.10.0", "0.9.9"), "numbers, not text");
+        // Asked once per browser and version: one loaded from another folder can't loop.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        let mut inner = Inner::default();
+        inner.conns.insert(1, Conn { exe: "chrome.exe".into(), stream: server, version: Some("0.0.1".into()), incognito: None, domain: None });
+        reload_stale(&mut inner, true);
+        assert!(inner.asked_reload.is_empty(), "never mid-seal");
+        reload_stale(&mut inner, false);
+        reload_stale(&mut inner, false);
+        assert_eq!(inner.asked_reload.len(), 1);
+        drop(inner);
+        let mut got = String::new();
+        std::io::Read::read_to_string(&mut &client, &mut got).unwrap();
+        assert_eq!(got.matches("\"reload\"").count(), 1, "asked once: {got}");
         // The version this build ships is the manifest's.
         let manifest: Value = serde_json::from_str(include_str!("../../extension/manifest.json")).unwrap();
         assert_eq!(bundled_version(), manifest["version"].as_str().unwrap());

@@ -4,6 +4,7 @@ import { Row, Section } from "./parts";
 import { errorText, native } from "../../lib/native";
 import { useStore } from "../../state/store";
 import type { UpdateInfo } from "../../lib/types";
+import { saveEverything } from "../../state/quit";
 import { useUpdate } from "../../state/update";
 import { useTheme } from "../../state/theme";
 
@@ -41,6 +42,7 @@ export function AboutSection() {
   const install = async () => {
     setCheck({ state: "installing" });
     try {
+      await saveEverything();
       await native.updateApply();
     } catch (e) {
       setCheck({ state: "error", message: errorText(e) });

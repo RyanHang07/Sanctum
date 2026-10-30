@@ -10,12 +10,14 @@ These features have unit tests, but nobody has tried them yet in a real browser,
   - A little after Sanctum starts, the update downloads in the background and "Sanctum x is ready." appears, and **Restart to update** installs and restarts it.
   - While sealed, the button waits; it works once the seal ends.
   - "Later" hides the note until the next start.
+- [ ] **Restart to update saves first:** type in a note, then click Restart to update right away; the words are there after the restart.
 - [ ] **Recap and update stacked:** the weekly recap and the update note stack bottom right without overlapping.
 
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.
 - [ ] **Self-reload (0.3.0 → the next version):** after the next Sanctum update, the extension reloads itself with no click. Check the version on the extensions page.
+- [ ] **Loaded from another folder:** an extension loaded unpacked from a different folder (e.g. the repo) reloads once after an update, then stays on its version without looping.
 - [ ] **Self-reload waits for a seal:** during a seal it doesn't reload, and it does once the seal ends.
 - [ ] **Browser restart:** after a Sanctum update, does a plain browser restart load the new extension files too? (Expected, not yet confirmed.)
 - [ ] **Theme on the sealed page and popup:** both draw in the app's theme, and change live when the theme changes.

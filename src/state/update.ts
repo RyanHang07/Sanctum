@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { EVENTS, errorText, native, onNative } from "../lib/native";
 import type { UpdateInfo } from "../lib/types";
+import { saveEverything } from "./quit";
 import { useStore } from "./store";
 
 // One-click updates (v0.3, decided 2026-10-29). Sanctum downloads a new version in the
@@ -31,6 +32,8 @@ export const useUpdate = create<UpdateStore>()((set, get) => ({
   apply: async () => {
     set({ applying: true });
     try {
+      // The restart is a quit: typing and deletes still waiting are saved first.
+      await saveEverything();
       // Restarts on success, so nothing after this runs then.
       await native.updateApply();
     } catch (e) {
