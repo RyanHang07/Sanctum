@@ -70,6 +70,19 @@ describe("extension assets", () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.permissions).toContain("nativeMessaging");
   });
+
+  it("ships every file the extension loads in the installer (v0.3: theme.js was nearly left out)", () => {
+    const conf = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+    const shipped = Object.keys(conf.bundle.resources as Record<string, string>).map((p) => p.replace("../extension/", ""));
+    const pages = ["blocked.html", "popup.html"].map((f) => readFileSync(`extension/${f}`, "utf8")).join("\n");
+    const loaded = [...pages.matchAll(/(?:src|href)="([^"#:]+)"/g)].map((m) => m[1]!).filter((p) => !p.startsWith("http"));
+    for (const file of new Set(loaded)) {
+      const dir = file.includes("/") ? `${file.split("/")[0]}/` : null;
+      expect(shipped.includes(file) || (dir !== null && shipped.includes(dir)), `${file} isn't in tauri.conf.json bundle.resources`).toBe(true);
+    }
+    // Scripts the worker and pages import.
+    for (const f of ["background.js", "rules.js", "theme.js", "blocked.js", "popup.js"]) expect(shipped, f).toContain(f);
+  });
 });
 
 describe("extension pages", () => {
