@@ -99,6 +99,15 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect(fake.local.theme).toEqual(theme);
   });
 
+  it("reloads itself when Sanctum ships a newer copy (v0.3)", async () => {
+    const fake = fakeChrome({});
+    const reload = vi.fn();
+    (fake.chrome.runtime as unknown as { reload: () => void }).reload = reload;
+    await boot(fake);
+    await fake.listeners["port.message"]![0]!({ type: "reload", version: "0.3.0" });
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
   it("paints its pages in the theme, plain colours only, with the right mark (v0.3)", async () => {
     // @ts-expect-error: plain JS module
     const { applyTheme } = await import("../../extension/theme.js");

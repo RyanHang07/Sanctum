@@ -103,6 +103,34 @@ impl State {
     }
 }
 
+/// The extension this build of Sanctum ships (extension/manifest.json).
+pub fn bundled_version() -> String {
+    let manifest: Value = serde_json::from_str(include_str!("../../extension/manifest.json")).unwrap_or_default();
+    manifest["version"].as_str().unwrap_or("0").to_string()
+}
+
+/// "0.2.2" is older than "0.3.0": the browser runs an extension from before Sanctum's update.
+pub fn is_older(running: &str, bundled: &str) -> bool {
+    let parts = |v: &str| v.split('.').map(|n| n.parse::<u64>().unwrap_or(0)).collect::<Vec<_>>();
+    parts(running) < parts(bundled)
+}
+
+/// Asks extensions older than this Sanctum's to reload from disk (v0.3): it's loaded unpacked
+/// from Sanctum's folder, so an update has already put the new files there. Never mid-seal;
+/// the seal's end tries again.
+fn reload_stale(inner: &mut Inner, sealed: bool) {
+    if sealed {
+        return;
+    }
+    let bundled = bundled_version();
+    let msg = json!({ "type": "reload", "version": bundled });
+    for c in inner.conns.values_mut() {
+        if c.version.as_deref().is_some_and(|v| is_older(v, &bundled)) {
+            let _ = send_line(&mut c.stream, &msg);
+        }
+    }
+}
+
 fn send_line(stream: &mut TcpStream, msg: &Value) -> std::io::Result<()> {
     let mut line = msg.to_string();
     line.push('\n');
@@ -150,6 +178,8 @@ pub fn push_rules(app: &AppHandle) {
     inner.logged.clear();
     inner.conns.retain(|_, c| send_line(&mut c.stream, &msg).is_ok());
     inner.at_seal = if view.is_some() { inner.conns.values().map(|c| c.exe.clone()).collect() } else { Vec::new() };
+    // A seal just ended: an extension that waited for it can update now.
+    reload_stale(&mut inner, view.is_some());
 }
 
 fn emit_status(app: &AppHandle) {
@@ -223,10 +253,13 @@ fn serve(app: &AppHandle, stream: TcpStream) {
 fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
     match msg["type"].as_str() {
         Some("hello") => {
-            if let Some(c) = shared.browser.inner.lock().unwrap().conns.get_mut(&id) {
+            let mut inner = shared.browser.inner.lock().unwrap();
+            if let Some(c) = inner.conns.get_mut(&id) {
                 c.version = msg["version"].as_str().map(String::from);
                 c.incognito = msg["incognito"].as_bool();
             }
+            reload_stale(&mut inner, shared.sealed());
+            drop(inner);
             emit_status(app);
         }
         Some("active") => {
@@ -503,6 +536,17 @@ pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::distractions::Allow;
+
+    #[test]
+    fn an_older_extension_is_asked_to_reload_after_an_update() {
+        assert!(is_older("0.2.2", "0.3.0"));
+        assert!(is_older("0.3", "0.3.1"));
+        assert!(!is_older("0.3.0", "0.3.0"));
+        assert!(!is_older("0.10.0", "0.9.9"), "numbers, not text");
+        // The version this build ships is the manifest's.
+        let manifest: Value = serde_json::from_str(include_str!("../../extension/manifest.json")).unwrap();
+        assert_eq!(bundled_version(), manifest["version"].as_str().unwrap());
+    }
 
     #[test]
     fn theme_reaches_the_extension_as_plain_colours_only() {

@@ -76,6 +76,10 @@ async function onMessage(msg) {
     rules = msg;
     await chrome.storage.local.set({ rules });
     await applyRules();
+  } else if (msg.type === "reload") {
+    // Sanctum updated and put a newer copy of this extension in its folder (v0.3): load it.
+    // The seal's rules and the theme are in storage, so nothing is lost across the reload.
+    chrome.runtime.reload();
   } else if (msg.type === "theme") {
     // The app's theme (v0.3): theme.js paints the sealed page and popup with it.
     await chrome.storage.local.set({ theme: msg });
