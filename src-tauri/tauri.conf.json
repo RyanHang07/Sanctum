@@ -105,7 +105,8 @@
       "../extension/icons/": "extension/icons/",
       "../extension/popup.html": "extension/popup.html",
       "../extension/popup.js": "extension/popup.js",
-      "../extension/popup.css": "extension/popup.css"
+      "../extension/popup.css": "extension/popup.css",
+      "../extension/theme.js": "extension/theme.js"
     },
     "createUpdaterArtifacts": false,
     "publisher": "Sanctum contributors",
