@@ -11,7 +11,7 @@ Download the \`-setup.exe\` below and run it. It installs for your user only, no
 
 Sanctum isn't code-signed, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
 
-See the [docs](https://sanctum-partner.vercel.app/docs/install) for the browser extension and Protection.`;
+See the [docs](https://sanctum-app.vercel.app/docs/install) for the browser extension and Protection.`;
 
 /**
  * The section of `changelog` for `tag`: under "## v0.2.0" or "## v0.2" (a ".0" patch can be
