@@ -33,8 +33,15 @@ pub struct State {
     guard_down_since: Mutex<Option<Instant>>,
 }
 
+/// Milliseconds since the PC started, counting sleep (what tells a reboot from a crash).
+#[cfg(windows)]
 pub(crate) fn uptime_ms() -> u64 {
     unsafe { windows::Win32::System::SystemInformation::GetTickCount64() }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn uptime_ms() -> u64 {
+    sysinfo::System::uptime() * 1000
 }
 
 /// Called when a seal starts or resumes, and when it ends.

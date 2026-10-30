@@ -1,0 +1,51 @@
+name: macOS
+
+# macOS groundwork (v0.3, decided 2026-10-29): Sanctum builds and runs on a Mac, with the
+# Windows-only parts (Protection, Windows Hello, Do Not Disturb, the app picker's Windows
+# sources, the taskbar) stubbed to say they aren't there yet. No Mac to test on, so this is
+# the check: it compiles, the tests pass, and an unsigned Sanctum.app comes out.
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # Compiler errors become annotations, readable without signing in to GitHub.
+      - name: Check
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! cargo check --manifest-path src-tauri/Cargo.toml --all-targets --message-format short 2>&1 | tee check.log; then
+            grep -E ': error' check.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+      - name: Rust tests
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! cargo test --manifest-path src-tauri/Cargo.toml --lib 2>&1 | tee test.log; then
+            grep -E 'panicked at|^test .* FAILED' test.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+      - run: npm test
+      # Unsigned and not notarized: right-click › Open the first time.
+      - run: npx tauri build --bundles app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sanctum-macOS-unsigned
+          path: src-tauri/target/release/bundle/macos/*.app
+          if-no-files-found: error
