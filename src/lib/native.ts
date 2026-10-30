@@ -237,6 +237,8 @@ export const native = {
   cloudCancelInvite: () => call<PartnerStatus>("cloud_cancel_invite"),
   cloudRequestRemoval: (cancel: boolean) => call<PartnerStatus>("cloud_request_removal", { cancel }),
   browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
+  /** The kept theme, for the extension's sealed page and popup (v0.3). */
+  browserSetTheme: (id: string, scheme: string, palette: Record<string, string>) => call<void>("browser_set_theme", { id, scheme, palette }),
 };
 
 /** Sends an event to every Sanctum window (the tray panel tells the main window things). */

@@ -67,6 +67,12 @@ function chrome(p: ThemePrefs, t: Theme) {
   if (w.label === "main") void w.setBackgroundColor(t.palette.app!).catch(() => undefined);
 }
 
+/** The kept theme goes to the extension too; the main window speaks for every window. */
+function toExtension(t: Theme) {
+  if (inTauri() && getCurrentWindow().label !== "main") return;
+  void native.browserSetTheme(t.id, t.scheme, t.palette).catch(() => undefined);
+}
+
 export interface ThemeStore {
   prefs: ThemePrefs;
   /** The theme showing now. */
@@ -86,6 +92,7 @@ export const useTheme = create<ThemeStore>()((set, get) => {
     applyTheme(t);
     chrome(p, t);
     set({ prefs: p, theme: t });
+    toExtension(t);
   };
   return {
     prefs: DEFAULT_PREFS,
@@ -151,6 +158,7 @@ export function startTheme() {
       const t2 = resolve(prefs, systemDark());
       applyTheme(t2);
       useTheme.setState({ theme: t2 });
+      toExtension(t2);
     });
   }
   // Another window picked a theme: show it here too.

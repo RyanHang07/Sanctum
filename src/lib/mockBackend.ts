@@ -19,6 +19,8 @@ const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctu
 export const mockJournal = { days: new Map<string, { date: string; doc: string | null; body: string; updatedAt: number }>(), lock: "none" as "none" | "hello" | "pin", pin: null as string | null, unlocked: false };
 
 /** Shared notes in the preview: token -> the latest ciphertext and the image ids uploaded. */
+/** The theme last sent to the extension (v0.3). */
+export const mockExtension: { theme: { id: string; scheme: string } | null } = { theme: null };
 export const mockShares = new Map<string, { cipher: string; images: number[] }>();
 
 /** Images pasted into notes in the preview: id -> data URL (the app keeps them in SQLite). */
@@ -91,6 +93,7 @@ export function resetMockBackend() {
   mockLadder = null;
   resetMockTrackers();
   mockShares.clear();
+  mockExtension.theme = null;
   Object.assign(mockJournal, { days: new Map(), lock: "none", pin: null, unlocked: false });
   state = {
     settings: new Map([
@@ -376,6 +379,9 @@ const handlers: Record<string, (a: any) => unknown> = {
     for (const img of images) if (!s.images.includes(img.id)) s.images.push(img.id);
     n.share.imageIds = [...s.images];
     return [...s.images];
+  },
+  browser_set_theme: ({ id, scheme }: { id: string; scheme: string }) => {
+    mockExtension.theme = { id, scheme };
   },
   stop_note_share: ({ id }: { id: number }) => {
     const n = state.notes.find((x) => x.id === id);

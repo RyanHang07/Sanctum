@@ -76,6 +76,9 @@ async function onMessage(msg) {
     rules = msg;
     await chrome.storage.local.set({ rules });
     await applyRules();
+  } else if (msg.type === "theme") {
+    // The app's theme (v0.3): theme.js paints the sealed page and popup with it.
+    await chrome.storage.local.set({ theme: msg });
   } else if (msg.type === "online") {
     // The bridge reconnected to Sanctum.
     await hello();

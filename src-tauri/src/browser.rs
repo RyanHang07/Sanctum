@@ -72,6 +72,8 @@ struct Inner {
     logged: Vec<String>,
     /// Browsers whose extension was connected when the seal started (tamper if it goes quiet).
     at_seal: Vec<String>,
+    /// The app's theme (v0.3), for the sealed page and popup; Null until the window sends one.
+    theme: Value,
 }
 
 pub struct State {
@@ -196,6 +198,9 @@ fn serve(app: &AppHandle, stream: TcpStream) {
             Err(_) => return,
         };
         let _ = send_line(&mut w, &inner.rules);
+        if !inner.theme.is_null() {
+            let _ = send_line(&mut w, &inner.theme);
+        }
         inner.conns.insert(id, Conn { exe: exe.clone(), stream: w, version: None, incognito: None, domain: None });
         inner.missing.remove(&exe);
         inner.logged.retain(|e| *e != exe);
@@ -461,6 +466,33 @@ pub fn browser_status(app: AppHandle, shared: TauriState<Shared>) -> Result<Brow
     Ok(BrowserStatus { extension_dir: extension_dir(&app).display().to_string(), extension_id: EXTENSION_ID.into(), browsers })
 }
 
+/// The theme message for the extension (v0.3): only plain `#RRGGBB` colours under simple
+/// names reach its pages, whatever the window sends.
+pub fn theme_message(id: &str, scheme: &str, palette: &serde_json::Map<String, Value>) -> Value {
+    let name_ok = |k: &str| !k.is_empty() && k.len() <= 32 && k.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
+    let hex_ok = |v: &str| v.len() == 7 && v.starts_with('#') && v[1..].bytes().all(|b| b.is_ascii_hexdigit());
+    let colours: serde_json::Map<String, Value> = palette
+        .iter()
+        .filter(|(k, v)| name_ok(k) && v.as_str().is_some_and(hex_ok))
+        .take(80)
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let id: String = id.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(40).collect();
+    json!({ "type": "theme", "id": id, "scheme": if scheme == "light" { "light" } else { "dark" }, "palette": colours })
+}
+
+/// The window's theme changed: every browser's sealed page and popup follow.
+#[tauri::command]
+pub fn browser_set_theme(shared: TauriState<Shared>, id: String, scheme: String, palette: serde_json::Map<String, Value>) {
+    let msg = theme_message(&id, &scheme, &palette);
+    let mut inner = shared.browser.inner.lock().unwrap();
+    if inner.theme == msg {
+        return;
+    }
+    inner.theme = msg.clone();
+    inner.conns.retain(|_, c| send_line(&mut c.stream, &msg).is_ok());
+}
+
 #[tauri::command]
 pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
@@ -471,6 +503,30 @@ pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::distractions::Allow;
+
+    #[test]
+    fn theme_reaches_the_extension_as_plain_colours_only() {
+        let palette = json!({
+            "app": "#282A36",
+            "sealed-on": "#282a36",
+            "scrim": "rgba(5, 6, 10, 0.66)",
+            "shadow-dialog": "0 24px 64px rgba(0,0,0,.5)",
+            "text": "red; background:url(x)",
+            "Bad Name": "#FFFFFF",
+            "sealed": "#BD93F9"
+        });
+        let msg = theme_message("dracula", "dark", palette.as_object().unwrap());
+        assert_eq!(msg["type"], "theme");
+        assert_eq!(msg["id"], "dracula");
+        assert_eq!(msg["scheme"], "dark");
+        let p = msg["palette"].as_object().unwrap();
+        let mut keys: Vec<&str> = p.keys().map(String::as_str).collect();
+        keys.sort();
+        assert_eq!(keys, vec!["app", "sealed", "sealed-on"]);
+        // Anything but "light" is dark; ids keep only safe characters.
+        assert_eq!(theme_message("x\"<y>", "sepia", &Default::default())["scheme"], "dark");
+        assert_eq!(theme_message("x\"<y>", "light", &Default::default())["id"], "xy");
+    }
 
     fn flag(kind: &str, value: &str, allow: &[&str]) -> Distraction {
         Distraction {
