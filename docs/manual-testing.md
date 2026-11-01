@@ -6,7 +6,7 @@ These features have unit tests, but nobody has tried them yet in a real browser,
 
 - [ ] **0.1.2 → 0.2.0:** v0.2.0 is published (2026-10-29); Setup › General › About › Check for updates finds 0.2.0 and installs it.
 - [x] **Automatic publishing:** the next `v*` tag publishes the release by itself (not as a draft), and its notes are that version's CHANGELOG section.
-- [ ] **One-click updates (from 0.3.0):**
+- [x] **One-click updates (from 0.3.0):**
   - A little after Sanctum starts, the update downloads in the background and "Sanctum x is ready." appears, and **Restart to update** installs and restarts it.
   - While sealed, the button waits; it works once the seal ends.
   - "Later" hides the note until the next start.
@@ -36,13 +36,13 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.
-- [ ] **Self-reload (0.3.0 → the next version):** after the next Sanctum update, the extension reloads itself with no click. Check the version on the extensions page.
+- [x] **Self-reload (0.3.0 → the next version):** after the next Sanctum update, the extension reloads itself with no click. Check the version on the extensions page.
 - [ ] **Loaded from another folder:** an extension loaded unpacked from a different folder (e.g. the repo) reloads once after an update, then stays on its version without looping.
 - [ ] **Self-reload waits for a seal:** during a seal it doesn't reload, and it does once the seal ends.
 - [ ] **Browser restart:** after a Sanctum update, does a plain browser restart load the new extension files too? (Expected, not yet confirmed.)
 - [ ] **Theme on the sealed page and popup:** both draw in the app's theme, and change live when the theme changes.
 - [ ] **Theme with Sanctum closed:** they keep the last theme after a browser restart, even before Sanctum is running.
-- [ ] **Installer files:** the installed extension folder includes `theme.js` (it was nearly left out; a test now guards it).
+- [x] **Installer files:** the installed extension folder includes `theme.js` (it was nearly left out; a test now guards it).
 
 ## Themes (in the installed app)
 

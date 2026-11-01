@@ -314,7 +314,7 @@ export function JournalPage() {
         <>
           <DayStrip date={date} onPick={setDate} />
           <DayCard date={date} />
-          <section className="flex min-h-0 grow flex-col rounded-panel border border-line bg-panel py-5 pl-4 pr-8">
+          <section className="flex min-h-0 min-w-0 grow flex-col rounded-panel border border-line bg-panel py-5 pl-4 pr-8">
             <Page date={date} />
           </section>
         </>
