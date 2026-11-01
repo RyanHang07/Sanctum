@@ -169,7 +169,7 @@ export function NotesPage() {
               {!shown.length ? <p className="m-0 px-3 py-2 text-meta text-muted">No notes match.</p> : null}
             </nav>
           </aside>
-          <section className="flex min-h-0 grow flex-col rounded-panel border border-line bg-panel py-5 pl-4 pr-8">
+          <section className="flex min-h-0 min-w-0 grow flex-col rounded-panel border border-line bg-panel py-5 pl-4 pr-8">
             {current ? <Editor key={current.id} n={current} /> : <p className="m-auto text-body text-muted">Pick a note, or write a new one.</p>}
           </section>
         </div>
