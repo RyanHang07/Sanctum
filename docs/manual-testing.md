@@ -56,12 +56,12 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 
 ## Stats (on real data)
 
-- [ ] **Activity:** sites come out right from real browser titles (Chrome, Edge, Brave, Comet).
-- [ ] **Reclassify:**
+- [x] **Activity:** sites come out right from real browser titles (Chrome, Edge, Brave, Comet).
+- [x] **Reclassify:**
   - "everywhere" recounts past days.
   - "only in Study" changes only Study's sessions, and applies live during a Study seal.
-- [ ] **Day:** the timeline lines up with what you actually did, and broken sessions are outlined.
-- [ ] **CSV export:** Sessions › Export CSV saves a file that opens in Excel, and the Show button reveals it.
+- [x] **Day:** the timeline lines up with what you actually did, and broken sessions are outlined.
+- [x] **CSV export:** Sessions › Export CSV saves a file that opens in Excel, and the Show button reveals it.
 - [ ] **Recap:**
   - It appears once, the first time you open Sanctum in a new week.
   - It doesn't come back after Close.
@@ -70,11 +70,11 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 ## Earlier work, still unchecked
 
 - [ ] **Journal, Windows Hello lock:** unlocking with face, fingerprint or the Windows PIN (no Hello hardware to test on so far).
-- [ ] **Journal saves before it locks:** words typed just before hiding Sanctum (which locks it) are saved.
-- [ ] **Quitting saves:** quitting from the tray menu, the close button set to quit, or the tray panel saves unsaved note and journal typing, and pending deletes go through.
+- [x] **Journal saves before it locks:** words typed just before hiding Sanctum (which locks it) are saved.
+- [x] **Quitting saves:** quitting from the tray menu, the close button set to quit, or the tray panel saves unsaved note and journal typing, and pending deletes go through.
 - [ ] **Deleting a shared note:** its link stops working right away (live Supabase).
 - [ ] **Downtime counts as tamper:** a reboot mid-seal logs "The PC went off"; killing Sanctum without a reboot logs "Sanctum was closed".
-- [ ] **Partner past requests:** the partner page lists approved, denied and expired requests with real data.
+- [x] **Partner past requests:** the partner page lists approved, denied and expired requests with real data.
 
 ## Live services (your accounts)
 
