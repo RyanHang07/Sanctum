@@ -40,19 +40,19 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 - [ ] **Loaded from another folder:** an extension loaded unpacked from a different folder (e.g. the repo) reloads once after an update, then stays on its version without looping.
 - [ ] **Self-reload waits for a seal:** during a seal it doesn't reload, and it does once the seal ends.
 - [ ] **Browser restart:** after a Sanctum update, does a plain browser restart load the new extension files too? (Expected, not yet confirmed.)
-- [ ] **Theme on the sealed page and popup:** both draw in the app's theme, and change live when the theme changes.
-- [ ] **Theme with Sanctum closed:** they keep the last theme after a browser restart, even before Sanctum is running.
+- [x] **Theme on the sealed page and popup:** both draw in the app's theme, and change live when the theme changes.
+- [x] **Theme with Sanctum closed:** they keep the last theme after a browser restart, even before Sanctum is running.
 - [x] **Installer files:** the installed extension folder includes `theme.js` (it was nearly left out; a test now guards it).
 
 ## Themes (in the installed app)
 
-- [ ] **Every theme everywhere:** all 13 look right in every window: main, tray panel, compact timer, the blocked-app overlay, the held page, the boot splash, and dialogs.
-- [ ] **Follow Windows:** switching Windows between light and dark while Sanctum is open changes the theme live.
-- [ ] **Title bar:** it follows the theme's light or dark when Follow Windows is off.
-- [ ] **Tray icon:**
+- [x] **Every theme everywhere:** all 13 look right in every window: main, tray panel, compact timer, the blocked-app overlay, the held page, the boot splash, and dialogs.
+- [x] **Follow Windows:** switching Windows between light and dark while Sanctum is open changes the theme live.
+- [x] **Title bar:** it follows the theme's light or dark when Follow Windows is off.
+- [x] **Tray icon:**
   - On a light taskbar it's the dark mark, and it switches live when the taskbar setting changes.
   - The keyhole still pulses while sealed.
-- [ ] **Site in your theme:** Setup › About › Privacy, Terms and Legal open the site in your theme's light or dark.
+- [x] **Site in your theme:** Setup › About › Privacy, Terms and Legal open the site in your theme's light or dark.
 
 ## Stats (on real data)
 
