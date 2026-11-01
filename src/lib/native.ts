@@ -186,6 +186,8 @@ export const native = {
   breakEnd: () => call<void>("break_end"),
   breakStatus: () => call<BreakView | null>("break_status"),
   focusPark: (text: string) => call<Todo>("focus_park", { text }),
+  /** Null while Ctrl Alt P works during the seal; otherwise why it couldn't be registered. */
+  focusParkHotkey: () => call<string | null>("focus_park_hotkey"),
   focusWrap: (sessionId: number, result: SessionResult | null, rating: number | null, leftOff: string | null) =>
     call<void>("focus_wrap", { sessionId, result, rating, leftOff }),
   ladderOpen: () => call<LadderView>("ladder_open"),

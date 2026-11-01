@@ -598,6 +598,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       (task && ended.find((e) => e.task?.kind === task.kind && e.task.id === task.id)) || ended.find((e) => e.profileId === profileId && !e.task) || null;
     return { plan: state.focus.plans[profileId] ?? null, leftOff: hit ? { text: hit.leftOff!, at: hit.endedAt } : null };
   },
+  focus_park_hotkey: () => null,
   focus_park: ({ text }: { text: string }) => {
     const title = focusLine(text);
     if (!title) throw "Write the thought first.";

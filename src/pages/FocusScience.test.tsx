@@ -60,6 +60,14 @@ describe("the seal's intent", () => {
 });
 
 describe("parking a thought", () => {
+  it("says so on the sealed card when another app holds Ctrl Alt P", async () => {
+    const spy = vi.spyOn(native, "focusParkHotkey").mockResolvedValue("HotKey already registered");
+    render(<Home />);
+    await act(() => useStore.getState().enterFocus());
+    expect(await within(screen.getByTestId("park")).findByText("Ctrl Alt P is taken by another app")).toBeInTheDocument();
+    spy.mockRestore();
+  });
+
   it("from Home while sealed: a task for today, then kept, moved, or dropped on the held page", async () => {
     render(<Home />);
     await act(() => useStore.getState().enterFocus());
