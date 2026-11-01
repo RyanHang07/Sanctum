@@ -24,14 +24,14 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 - [ ] **After a break:** a real broken seal (close Sanctum mid-seal without Protection) shows "Sanctum was closed N minutes in." and Turn on Protection opens Setup › Protection.
 
 - [x] **Pause mode, apps:** (2026-10-31: Discord and Steam, including reopening from the tray; after Go on, the tray app opens freely for 15 minutes, as designed.) with Pause mode on, opening Discord (on the Distractions list) outside a seal minimizes it behind "Still want Discord?"; Go on is greyed for 5 seconds, then restores Discord and leaves it alone for 15 minutes; Not now closes it. Apps run as administrator may not minimize.
-- [ ] **Pause mode, sites:** (2026-10-31: first try was youtube.com, which isn't on the Distractions list; retest with a listed site.) a flagged site shows "Still want youtube.com?" before loading; Go on opens it for 15 minutes; with Sanctum closed, sites open normally. Stats › Overview shows "Pauses turned back".
+- [x] **Pause mode, sites:** (2026-10-31, with listed sites.) a flagged site shows "Still want youtube.com?" before loading; Go on opens it for 15 minutes; with Sanctum closed, sites open normally. Stats › Overview shows "Pauses turned back".
 - [ ] **Pause hours:** set hours that start in a minute; the browsers start asking when they begin and stop when they end. (2026-10-31: apps follow the hours; sites still to check.)
 - [ ] **Break:** from the held page, a 5-minute break keeps flagged apps and sites closed, Home counts down, and at the end "Break's over. Next block?" starts the same profile and length.
 
-- [ ] **Monday card:** the questions save (with the journal unlocked, they're on today's page; locked, the notice says they're kept with the week), and the target shows on Home's focus strip.
+- [ ] **Monday card:** (2026-10-31: the week's target in Setup and Home's strip checked; the questions wait for Monday's card.) the questions save (with the journal unlocked, they're on today's page; locked, the notice says they're kept with the week), and the target shows on Home's focus strip.
 - [ ] **Partner's weekly summary (live):** with the switch on and a partner linked, the Monday card's first showing sends one "{you}'s week in focus" email with totals only; the next start that week sends none. Needs `notify` deployed with `weekly_summary`.
 - [ ] **Suggestions on real data:** after a few weeks, Stats › Overview's "From your own history" says something true, and each "Use it" does what it says.
-- [ ] **Do not disturb in quiet hours:** with the switch on, Windows' Do not disturb turns on when quiet hours start and back off when they end (and stays right across a seal inside quiet hours).
+- [x] **Do not disturb in quiet hours:** with the switch on, Windows' Do not disturb turns on when quiet hours start and back off when they end (and stays right across a seal inside quiet hours).
 
 ## Browser extension
 
