@@ -3,6 +3,7 @@
 ## v0.3.2 (in progress)
 
 - **Notes and Journal keep their margins.** Between about 1,040 and 1,120 pixels wide, the editor panel ran past the window's right edge (its toolbar and close button cut off). It now shrinks with the window, keeping the same 28-pixel margin as the left, and the toolbar wraps when it has to.
+- **Ctrl Alt P says when it can't work.** The park hotkey is registered as a seal starts; if Windows refuses it (another app holds Ctrl Alt P), the sealed card on Today now says "Ctrl Alt P is taken by another app" in place of the key hint, instead of failing silently.
 - **Manual pass, step 1 (0.3.0 → 0.3.1 on real hardware):** the one-click update, the extension reloading itself to 0.3.1 in every browser, and the installed extension files all check out.
 
 ## v0.3.1 (2026-10-30)

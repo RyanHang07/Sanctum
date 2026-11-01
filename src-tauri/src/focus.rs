@@ -160,20 +160,30 @@ pub fn focus_wrap(shared: State<Shared>, session_id: i64, result: Option<String>
 
 // --- The park hotkey, registered only while sealed ---
 
+/// Why Ctrl Alt P couldn't be registered for this seal (another app holds it), for Home's hint.
+static PARK_FAILED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 /// Ctrl Alt P on while sealed, off after: it never takes the keys from other apps otherwise.
 pub fn on_seal(app: &AppHandle, sealed: bool) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let gs = app.global_shortcut();
     let registered = gs.is_registered(PARK_SHORTCUT);
     if sealed && !registered {
-        let _ = gs.on_shortcut(PARK_SHORTCUT, |app, _, event| {
+        let result = gs.on_shortcut(PARK_SHORTCUT, |app, _, event| {
             if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
                 crate::engine::show_park(app);
             }
         });
+        *PARK_FAILED.lock().unwrap() = result.err().map(|e| e.to_string());
     } else if !sealed && registered {
         let _ = gs.unregister(PARK_SHORTCUT);
     }
+}
+
+/// None while Ctrl Alt P works; otherwise why it doesn't.
+#[tauri::command]
+pub fn focus_park_hotkey() -> Option<String> {
+    PARK_FAILED.lock().unwrap().clone()
 }
 
 #[cfg(test)]

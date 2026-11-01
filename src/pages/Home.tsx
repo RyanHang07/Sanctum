@@ -350,6 +350,9 @@ function FocusPanel() {
 function ParkField() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  // Ctrl Alt P is registered as the seal starts; if another app holds it, say so here.
+  const [hotkeyFailed, setHotkeyFailed] = useState<string | null>(null);
+  useEffect(() => void native.focusParkHotkey().then(setHotkeyFailed, () => undefined), []);
   const park = async () => {
     const t = text.trim();
     if (!t || busy) return;
@@ -382,7 +385,13 @@ function ParkField() {
         aria-label="Park a thought for later"
         className="min-w-0 flex-1 bg-transparent text-body text-text outline-none placeholder:text-faint"
       />
-      <Kbd>Ctrl Alt P</Kbd>
+      {hotkeyFailed ? (
+        <span title={hotkeyFailed} className="shrink-0 whitespace-nowrap text-[11px] text-muted">
+          Ctrl Alt P is taken by another app
+        </span>
+      ) : (
+        <Kbd>Ctrl Alt P</Kbd>
+      )}
       <Button type="submit" variant="quiet" size="sm" disabled={!text.trim() || busy}>
         Park
       </Button>
