@@ -8,7 +8,7 @@ Today (Ctrl 1) is the focus row and the day's list together: routines, one-time 
 
 ## Week
 
-Week (Ctrl 2) shows seven days of tasks and events, with each day's routines folded under a **Routines** row at the top. It starts closed; one click opens every day, and it stays that way as you move around until Sanctum restarts. Drag items between days. Routines have their own view, and **Month** shows the whole month with each day's progress. Undone items from earlier days wait in **Pending**.
+Week (Ctrl 2) shows seven days of tasks and events, with each day's routines folded under a **Routines** row at the top. Click a day's row to open it. Open days stay open as you switch tabs, and going to a different week starts them all closed. Drag items between days. Routines have their own view, and **Month** shows the whole month with each day's progress. Undone items from earlier days wait in **Pending**.
 
 ## Google Calendar
 

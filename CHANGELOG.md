@@ -10,7 +10,7 @@
   - The bottom strip is just today's focus; the next check-in left it, and check-ins still arrive when they're due.
 - **Routines stay off your calendar unless you choose.** A routine is routine, so it no longer goes to Google by default. In a routine with a time, **Show on Google Calendar** puts it there as a repeating event, and turning it off takes it down (the switch shows when Google is connected). On updating, every routine starts off and the events already in Google are removed on the next sync; the routines stay in Sanctum, and timed tasks sync as before (migration 0028).
 - **Start over cleans up Google.** It now deletes the Sanctum calendar and everything on it, instead of leaving it behind in your account. Events you put on your own calendars stay. If Google can't be reached, nothing is erased: Sanctum offers **Try again** or **Erase anyway**, which leaves the calendar in Google for you to delete.
-- **The Week view folds routines away.** Each day's routines sit under one **Routines** row at the top with a count ("2/5"), so the week shows what's different about each day. It starts closed; one click opens every day together, and it stays that way across tabs until Sanctum restarts.
+- **The Week view folds routines away.** Each day's routines sit under one **Routines** row at the top with a count ("2/5"), so the week shows what's different about each day. Each day opens on its own and stays open across tabs; going to a different week starts them all closed.
 - **Manual pass, step 1 (0.3.0 → 0.3.1 on real hardware):** the one-click update, the extension reloading itself to 0.3.1 in every browser, and the installed extension files all check out.
 
 ## v0.3.1 (2026-10-30)
