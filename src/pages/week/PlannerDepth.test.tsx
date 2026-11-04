@@ -56,6 +56,7 @@ describe("Week: drag between days", () => {
     await drag(within(screen.getByRole("region", { name: "Thursday, October 1" })).getByRole("button", { name: /Dentist/ }), friday);
     expect((await native.gcalEvents("2026-09-28", "2026-10-04")).find((e) => e.eventId === "dentist")?.date).toBe("2026-10-02");
 
+    fireEvent.click(within(tuesday).getByRole("button", { name: /^Routines/ }));
     const gym = within(tuesday).getByRole("checkbox", { name: "Gym" }).closest("[data-kind]")!;
     expect(gym).not.toHaveAttribute("draggable");
   });
