@@ -57,6 +57,8 @@ describe("sharing a note (v0.2)", () => {
     expect(share.expiresAt - Date.now()).toBeGreaterThan(23 * 3_600_000);
     expect(screen.getByRole("textbox", { name: "Share link" })).toHaveValue(share.url);
     // What the server holds: ciphertext, readable only with the key from the link.
+    // Encryption is async: the first push lands just after the link shows.
+    await waitFor(() => expect([...mockShares.values()][0]!.cipher).not.toBe(""));
     const [stored] = [...mockShares.values()];
     expect(stored!.cipher).not.toContain("Launch plan");
     const opened = await decryptJson<{ title: string; doc: { content: { type: string }[] } }>(share.key, stored!.cipher);
