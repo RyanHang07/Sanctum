@@ -164,6 +164,9 @@ export interface Store {
   setRestDays: (mask: number) => void;
   toggleSidebar: () => void;
   setWeekView: (v: WeekView) => void;
+  /** Week's Routines folds, every day together: closed at each start, kept across tabs. */
+  weekRoutinesOpen: boolean;
+  toggleWeekRoutines: () => void;
   toggleHomeCollapsed: (panel: HomePanel) => void;
   setHomeHidden: (panel: HomePanel, hidden: boolean) => void;
   loadSettings: () => Promise<void>;
@@ -411,6 +414,8 @@ export const useStore = create<Store>()((set, get) => {
       set({ settings: { ...get().settings, homeLayout } });
       void native.setSetting("home_layout", JSON.stringify(homeLayout));
     },
+    weekRoutinesOpen: false,
+    toggleWeekRoutines: () => set({ weekRoutinesOpen: !get().weekRoutinesOpen }),
     setWeekView: (weekView) => {
       set({ settings: { ...get().settings, weekView } });
       void native.setSetting("week_view", weekView);

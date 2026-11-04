@@ -109,12 +109,38 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   );
 }
 
+/** A day's routines, folded under one row at the top so the week shows what's different. */
+function RoutineFold({ items, onOpen }: { items: AgendaItem[]; onOpen: (i: AgendaItem) => void }) {
+  const open = useStore((s) => s.weekRoutinesOpen);
+  const toggle = useStore((s) => s.toggleWeekRoutines);
+  const done = items.filter((i) => i.done).length;
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={`Routines, ${done} of ${items.length} done`}
+        onClick={toggle}
+        className="flex h-7 w-full shrink-0 items-center gap-1 rounded-control border border-line bg-panel px-1 text-left text-[11px] text-muted transition-colors duration-ui ease-ui hover:border-line-input hover:text-text-2"
+      >
+        <ChevronRightIcon size={8} className={`shrink-0 transition-transform duration-ui ease-ui ${open ? "rotate-90" : ""}`} />
+        <span className="min-w-0 truncate">Routines</span>
+        <span className="ml-auto shrink-0 font-mono text-[10px]">
+          {done}/{items.length}
+        </span>
+      </button>
+      {open ? items.map((i) => <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />) : null}
+    </>
+  );
+}
+
 /** One day. `fixed`: a cell in the two-row grid, which doesn't widen on hover. */
 function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void; fixed?: boolean }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
   const [over, setOver] = useState(false);
   const d = fromKey(date);
   const accepts = () => drag.item !== null && (drag.item.date !== date || !!drag.item.undated);
+  const routines = items.filter((i) => i.kind === "routine");
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
@@ -144,9 +170,12 @@ function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: 
         <span className={`font-mono text-[11px] ${today ? "text-sealed-text" : "text-muted"}`}>{d.getDate()}</span>
       </div>
       <StreakMark day={stat} />
-      {items.map((i) => (
-        <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />
-      ))}
+      {routines.length ? <RoutineFold items={routines} onOpen={onOpen} /> : null}
+      {items
+        .filter((i) => i.kind !== "routine")
+        .map((i) => (
+          <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />
+        ))}
       <button
         type="button"
         aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}

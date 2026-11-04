@@ -148,6 +148,15 @@ describe("Week: routines are separate", () => {
     expect(row).toHaveTextContent("7:00a");
 
     fireEvent.click(screen.getByRole("tab", { name: "Week" }));
+    // Folded to start: a count on the days it runs, and none of the routines themselves.
+    expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
+    const fold = within(screen.getByRole("region", { name: "Monday, September 28" })).getByRole("button", { name: "Routines, 0 of 1 done" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(within(screen.getByRole("region", { name: "Tuesday, September 29" })).queryByRole("button", { name: /^Routines/ })).toBeNull();
+    // One click opens every day, and it stays open across other tabs.
+    fireEvent.click(fold);
+    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Week" }));
     const onDays = ["Monday, September 28", "Tuesday, September 29", "Wednesday, September 30"].map(
       (d) => within(screen.getByRole("region", { name: d })).queryByRole("checkbox", { name: "Gym" }) !== null,
     );
