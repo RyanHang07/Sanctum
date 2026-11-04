@@ -108,6 +108,10 @@ describe("extension worker after a restart (v0.1.3)", () => {
     await fake.listeners["port.message"]![0]!({ type: "rules", ...SEALED(Date.now() + 60_000) });
     expect(await page({ type: "park", text: "Email Alex" })).toBe(false);
     await fake.listeners["port.message"]![0]!({ type: "rules", ...SEALED(Date.now() + 60_000), session: true, plan: "stand up" });
+    // A made-up site on the blocked page never counts as an attempt.
+    const sent = fake.posted.length;
+    page({ type: "blocked", site: "made-up.example", keyword: null });
+    expect(fake.posted.length).toBe(sent);
     const answer = page({ type: "park", text: "  Email Alex  " });
     expect(fake.posted.at(-1)).toEqual({ type: "park", text: "Email Alex" });
     await fake.listeners["port.message"]![0]!({ type: "parked", ok: true });

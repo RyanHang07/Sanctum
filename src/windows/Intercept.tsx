@@ -5,7 +5,7 @@ import { EVENTS, native, onNative } from "../lib/native";
 import { play, setSoundsEnabled } from "../lib/sound";
 import { clock, countdown, minutes, minutesIn } from "../lib/time";
 import type { Intercept as Payload } from "../lib/types";
-import { overlayLine, planLine, welcomeLine } from "../pages/headlines";
+import { PARK, PAUSE_PAYOFFS, QUIET_LINES, overlayLine, pick, planLine, welcomeLine } from "../pages/headlines";
 
 const RETURN_AFTER_S = 5;
 const NUDGE_MS = 3500;
@@ -58,7 +58,7 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
           </h1>
           <p className="m-0 text-body leading-normal text-text-2">
             {minutesIn(p.elapsedMs)} minutes into {p.profileName}, <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to
-            go. {overlayLine(`${p.label}:${p.attempts}`, clock(Date.now() + p.remainingMs))}
+            go. {overlayLine(`${p.label}:${p.attempts}`, clock(Date.now() + p.remainingMs), { attempts: p.attempts, remainingMs: p.remainingMs })}
           </p>
         </div>
         {p.plan ? (
@@ -107,7 +107,7 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
     <div role="alertdialog" aria-label={`Still want ${p.label}?`} className="flex w-[420px] animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog">
       <div className="flex flex-col gap-[6px] px-[22px] pb-[18px] pt-[22px]">
         <h1 className="headline m-0 text-[24px]">
-          Still want {p.label}? <em>Take a breath.</em>
+          Still want {p.label}? <em>{pick(PAUSE_PAYOFFS, p.endsAt ?? 0)}</em>
         </h1>
         <p className="m-0 text-body leading-normal text-text-2">
           {left ? (
@@ -153,7 +153,7 @@ export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => vo
             {p.label} waits <em>until {until}.</em>
           </h1>
           <p className="m-0 text-body leading-normal text-text-2">
-            {onBreak ? "A break is for your eyes and legs. Your Distractions list waits too. " : "Quiet hours keep your Distractions list closed. "}
+            {onBreak ? "A break is for your eyes and legs. Your Distractions list waits too. " : `${pick(QUIET_LINES, p.endsAt ?? 0)} `}
             <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
           </p>
         </div>
@@ -216,6 +216,7 @@ export function WelcomeCard({ p }: { p: Payload }) {
 export function ParkCard({ onDone }: { onDone: () => void }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<"typing" | "parked" | "failed">("typing");
+  const [line] = useState(() => pick(PARK, Date.now()));
   const park = async () => {
     const t = text.trim();
     if (!t) return onDone();
@@ -239,7 +240,7 @@ export function ParkCard({ onDone }: { onDone: () => void }) {
       className="flex w-[372px] animate-rise-in flex-col gap-2 rounded-panel border border-sealed-line bg-panel px-4 py-3 shadow-toast"
     >
       <span className="headline text-[16px]">
-        Park it. <em>Back to work.</em>
+        {line[0]} <em>{line[1]}</em>
       </span>
       <input
         autoFocus

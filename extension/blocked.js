@@ -3,8 +3,17 @@
 
 import { countdown, siteLabel } from "./rules.js";
 
+// This page is web-accessible so the browser can redirect to it, which also lets any site open
+// it. Real blocks are always a whole tab, so in a frame it does nothing (no clickjacking, no
+// made-up attempts), and a site that isn't a plain host never becomes a link.
+if (window.top !== window) {
+  document.documentElement.replaceChildren();
+  throw new Error("Sanctum's page doesn't run in a frame.");
+}
+
 const params = new URLSearchParams(location.search);
-const site = params.get("site") ?? "";
+const rawSite = params.get("site") ?? "";
+const site = /^[a-z0-9-]+(\.[a-z0-9-]+)*(:\d+)?(\/\S*)?$/i.test(rawSite) ? rawSite : "";
 const keyword = params.get("keyword");
 /** Pause mode (v0.3.1): not sealed, but asking first. */
 const pausing = params.get("pause") === "1";
@@ -12,6 +21,13 @@ const PAUSE_WAIT_S = 5;
 const shownAt = Date.now();
 
 const $ = (id) => document.getElementById(id);
+
+// A few lines each, so the page doesn't read the same every time. Held still for one visit.
+const SEALED_LINES = ["Scrolling is how mid happens.", "It’ll still be there when you’re done.", "Nothing in there is urgent.", "You came out of habit, not need.", "Close it. Go back."];
+const ENDING_LINES = ["Under ten minutes. Hold.", "Almost out. Don’t spend it here.", "You’re nearly done. Finish."];
+const PAUSE_LINES = ["Take a breath.", "Decide on purpose.", "It can wait five seconds.", "Your call. Make it a real one."];
+const seed = [...`${site}:${Math.floor(shownAt / 60_000)}`].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
+const line = (list) => list[seed % list.length];
 document.title = `${keyword ? `“${keyword}”` : site || "Sealed"} · Sanctum`;
 
 /** Counted once as an attempt, and only while a seal is on (not when the page is showing "open"). */
@@ -30,7 +46,7 @@ function headline(lead, payoff) {
 function renderPause() {
   const left = Math.max(0, PAUSE_WAIT_S - Math.floor((Date.now() - shownAt) / 1000));
   $("chip").hidden = true;
-  headline(`Still want ${site || "this site"}?`, "Take a breath.");
+  headline(`Still want ${site || "this site"}?`, line(PAUSE_LINES));
   $("body").textContent = left ? `Go on unlocks in ${left}s, for 15 minutes if you still want it.` : "It's yours for 15 minutes if you still want it.";
   $("back").textContent = "Not now";
   $("open").textContent = "Go on";
@@ -63,10 +79,10 @@ function render() {
     body.replaceChildren(
       `You're in ${rules.profile ?? "a focus session"} for `,
       Object.assign(document.createElement("span"), { className: "mono", textContent: countdown(rules.endsAt - Date.now()) }),
-      keyword ? " more. They open again when it ends." : " more. Scrolling is how mid happens.",
+      keyword ? " more. They open again when it ends." : ` more. ${line(rules.endsAt - Date.now() < 10 * 60_000 ? ENDING_LINES : SEALED_LINES)}`,
     );
   } else {
-    body.textContent = "You're sealed in. Scrolling is how mid happens.";
+    body.textContent = `You're sealed in. ${line(SEALED_LINES)}`;
   }
   // The seal's if-then plan (v0.3.1), and a place to park the thought that brought you here.
   $("plan").hidden = !rules.plan;

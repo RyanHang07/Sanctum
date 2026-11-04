@@ -15,7 +15,7 @@ import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
 import { CounterRow } from "./CounterRow";
 import { Glide, useRolling } from "../lib/motion";
-import { homeHeadline } from "./headlines";
+import { BREAK_TIPS, homeHeadline, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
 import { addDays, blockTimes, canReorder, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
@@ -413,7 +413,7 @@ function BreakBar() {
     <section data-testid="break-bar" aria-label="Break" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
       <div className="relative flex h-11 items-center gap-3 overflow-hidden rounded-control border border-line-input bg-raised px-3">
         <span className="truncate text-meta text-text-2">
-          <span className="font-medium text-text">Break</span> · stand up, look away from the screen · your Distractions list waits too
+          <span className="font-medium text-text">Break</span> · {pick(BREAK_TIPS, brk.until)} · your Distractions list waits too
         </span>
         <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
           <div className="h-full bg-open transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, progress * 100)}%` }} />
@@ -848,12 +848,36 @@ function CustomizeMenu() {
   );
 }
 
+/** Yesterday was missed and today isn't kept yet: the headline says so. */
+function useStreakAtRisk() {
+  const [atRisk, setAtRisk] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const today = todayKey();
+    const load = () =>
+      void native.statsOverview(addDays(today, -6), today).then(
+        (o) => live && setAtRisk(o.streakAtRisk && o.days.at(-1)?.status === "today"),
+        () => undefined,
+      );
+    load();
+    const off = onNative(EVENTS.held, load);
+    return () => {
+      live = false;
+      void off.then((f) => f());
+    };
+  }, []);
+  return atRisk;
+}
+
 export function Home() {
   const brk = useStore((s) => s.brk);
   const appState = useStore((s) => s.appState);
   const hidden = useStore((s) => s.settings.homeLayout.hidden);
   const meeting = useStore((s) => s.meeting);
-  const [a, b] = homeHeadline(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT);
+  const finishing = useStore((s) => s.session !== null && s.session.remainingMs < 5 * 60_000);
+  const goalMet = useStore((s) => s.focusTodayMin >= s.settings.dailyGoalMin);
+  const atRisk = useStreakAtRisk();
+  const [a, b] = homeHeadline(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT, new Date(), { finishing, goalMet, atRisk });
   const show = (p: HomePanel) => !hidden.includes(p);
   const open = appState === "open";
 

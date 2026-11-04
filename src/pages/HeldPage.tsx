@@ -246,7 +246,15 @@ export function HeldPage({ held }: { held: HeldStats }) {
             {held.profileName} · {held.plannedMinutes} min
           </span>
           <h1 className="headline m-0 text-[88px] leading-none tracking-[-0.04em] text-sealed-on">
-            Sanctum <em className="text-sealed-on/86">held.</em>
+            {held.broken ? (
+              <>
+                Seal <em className="text-sealed-on/86">broken.</em>
+              </>
+            ) : (
+              <>
+                Sanctum <em className="text-sealed-on/86">held.</em>
+              </>
+            )}
           </h1>
           <p className="m-0 text-[17px] text-sealed-on/90">
             {line}

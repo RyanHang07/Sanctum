@@ -183,7 +183,7 @@ describe("session lifecycle", () => {
       const page = screen.getByTestId("held-page");
       expect(page).toHaveTextContent("Interview Prep · 60 min");
       expect(page).toHaveTextContent("Sanctum held.");
-      expect(page).toHaveTextContent("First one down."); // the day's first session
+      expect(page).toHaveTextContent(/First one down|The day has started|One on the board/); // the day's first session
       expect(page).toHaveTextContent(/1\s*attempt blocked/);
       expect(page).toHaveTextContent(/1h\s*today of 2h/);
       fireEvent.keyDown(window, { key: "Escape" });
