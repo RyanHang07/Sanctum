@@ -1,6 +1,16 @@
 # Changelog
 
-## v0.3.2 (in progress)
+## v0.3.2 (2026-11-04)
+
+**Highlights**
+
+- **Today says less.** The if-then plan moved to each profile, and the week's progress and your best length moved to Stats.
+- **Routines stay off Google Calendar unless you choose,** and Start over now removes the Sanctum calendar.
+- **The Week view folds routines away,** one day at a time.
+- **The words fit the moment:** a streak at risk, a goal met, the last stretch, repeat tries.
+- **Security:** the extension's blocked page can't be framed or fed made-up sites.
+
+**Everything else**
 
 - **Notes and Journal keep their margins.** Between about 1,040 and 1,120 pixels wide, the editor panel ran past the window's right edge (its toolbar and close button cut off). It now shrinks with the window, keeping the same 28-pixel margin as the left, and the toolbar wraps when it has to.
 - **Ctrl Alt P says when it can't work.** The park hotkey is registered as a seal starts; if Windows refuses it (another app holds Ctrl Alt P), the sealed card on Today now says "Ctrl Alt P is taken by another app" in place of the key hint, instead of failing silently.
