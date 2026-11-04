@@ -143,14 +143,16 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 - Expanded view: week grid where you can create, edit, retag and delete events. Assigning a profile to an event adds the `#focus:<profile>` tag and saves back to Google Calendar
 - v2: write completed sessions back as events
 - **4c decisions (2026-09-29):**
-  - Sanctum writes routines and timed items to **its own "Sanctum" calendar**, which it creates; routines become one recurring series each
+  - Sanctum writes timed items and chosen routines to **its own "Sanctum" calendar**, which it creates; routines become one recurring series each
   - It **reads calendars you choose** in Setup (your main calendar and Sanctum's are on by default)
   - `#focus` events get the **same Enter / Skip prompt** as profile-linked routines, instead of auto-starting
   - Home's **In event** state triggers only for timed events **with at least one other attendee**
   - OAuth client credentials live in a gitignored `src-tauri/.env` and never in the repo or chat
   - Events on your other calendars are **fully editable** from Week (rename, move, retag, delete, create); this needs the full `calendar` scope
   - Checking off a synced item (or one day of a routine) **prefixes that event's title with ✓**
-  - First connect **pushes routines and timed items dated today onward**; past items stay local
+  - First connect **pushes timed items dated today onward, and the routines you've put on the calendar**; past items stay local
+  - **Routines are off Google Calendar by default** (decided 2026-11-04): each has a "Show on Google Calendar" switch, shown when connected and the routine has a time. Existing routines were turned off and their events removed on the next sync
+  - **Start over deletes the Sanctum calendar** from Google with its events (decided 2026-11-04). Events on your own calendars stay. If Google can't be reached, nothing is erased until you choose Try again or Erase anyway
   - Disconnect signs out and **keeps the Sanctum calendar**; a separate "Remove Sanctum calendar" button deletes it after confirming
 - **How 4c syncs (built 2026-09-29):**
   - Local edits go into an outbox (`gcal_outbox`) and are pushed on the next pass, so offline edits wait and go up on reconnect

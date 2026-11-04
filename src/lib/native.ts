@@ -172,7 +172,7 @@ export const native = {
   focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
   pauseStatus: () => call<PauseStatus>("pause_status"),
   reviewWeekTarget: () => call<WeekTarget>("review_week_target"),
-  /** Sets the week's target; Home's focus strip listens for WEEK_TARGET_EVENT to redraw. */
+  /** Sets the week's target; Stats listens for WEEK_TARGET_EVENT to redraw. */
   reviewSetWeekTarget: (minutes: number | null) =>
     call<void>("review_set_week_target", { minutes }).then(() => void window.dispatchEvent(new Event(WEEK_TARGET_EVENT))),
   reviewSave: (week: string, worked: string | null, change: string | null) => call<{ inJournal: boolean }>("review_save", { week, worked, change }),
@@ -263,7 +263,8 @@ export const native = {
   saveNote: (draft: NoteDraft) => call<Note>("save_note", { draft }),
   pinNote: (id: number, pinned: boolean) => call<Note>("pin_note", { id, pinned }),
   deleteNote: (id: number) => call<void>("delete_note", { id }),
-  resetAll: () => call<void>("reset_all"),
+  /** `force` erases even though Google can't be reached, leaving the Sanctum calendar there. */
+  resetAll: (force = false) => call<void>("reset_all", { force }),
   appVersion: () => call<string>("app_version"),
   updateCheck: () => call<UpdateInfo | null>("update_check"),
   startupStatus: () => call<StartupStatus>("startup_status"),

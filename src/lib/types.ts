@@ -316,6 +316,8 @@ export interface Routine {
   /** "HH:MM", or null for anytime. */
   time: string | null;
   durationMin: number | null;
+  /** On Google Calendar. Off until you turn it on (v0.3.2). */
+  onCalendar: boolean;
   /** A counter (v0.1.4): the number tracker its amounts go to. Null for a checkbox routine. */
   trackerId: number | null;
   /** A counter's daily goal, in the tracker's unit. */
@@ -327,8 +329,10 @@ export interface Routine {
 export type NoteMode = "required" | "optional" | "off";
 
 /** Counter fields left out make a plain checkbox routine. */
-export type RoutineDraft = Omit<Routine, "id" | "sort" | "trackerId" | "goalAmount" | "noteMode"> & {
+export type RoutineDraft = Omit<Routine, "id" | "sort" | "trackerId" | "goalAmount" | "noteMode" | "onCalendar"> & {
   id?: number;
+  /** Left out, an edit keeps what the routine had, and a new routine starts off. */
+  onCalendar?: boolean;
   trackerId?: number | null;
   goalAmount?: number | null;
   noteMode?: NoteMode;
@@ -378,7 +382,7 @@ export interface GcalCalendar {
   id: string;
   summary: string;
   primary: boolean;
-  /** Sanctum's own calendar, where routines and timed items go. */
+  /** Sanctum's own calendar, where timed items and chosen routines go. */
   sanctum: boolean;
   writable: boolean;
   /** Shown in Sanctum. */

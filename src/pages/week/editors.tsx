@@ -152,6 +152,9 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
   const [length, setLength] = useState(initial?.durationMin ?? null);
   const [profile, setProfile] = useState(initial?.profileId ?? null);
   const [active, setActive] = useState(initial?.active ?? true);
+  // Routines stay off Google Calendar unless you put one there (v0.3.2).
+  const connected = useCalendar((s) => !!s.status?.connected);
+  const [onCalendar, setOnCalendar] = useState(initial?.onCalendar ?? false);
   // A counter (v0.1.4): amounts toward a daily goal, kept in a number tracker of the same name.
   const linked = useTrackers((s) => s.trackers.find((t) => t.id === initial?.trackerId));
   const [counter, setCounter] = useState(initial?.trackerId != null);
@@ -165,7 +168,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
     if (!title.trim() || !mask || !goalOk) return;
     const base = { id: initial?.id, title, daysMask: mask, active };
     if (!counter) {
-      if (await saveRoutine({ ...base, time, durationMin: length, profileId: profile, trackerId: null, goalAmount: null, noteMode })) onClose();
+      if (await saveRoutine({ ...base, time, durationMin: length, profileId: profile, trackerId: null, goalAmount: null, noteMode, onCalendar })) onClose();
       return;
     }
     // Keep the linked tracker's name and unit in step; reuse a number tracker with this name.
@@ -174,7 +177,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
     const existing = linked ?? trackers.find((t) => t.kind === "number" && t.name.toLowerCase() === name.toLowerCase());
     const t = await useTrackers.getState().saveTracker({ id: existing?.id, name, unit: unit.trim(), kind: "number", display: existing?.display ?? "both", goal: existing?.goal ?? null });
     if (!t) return;
-    const ok = await saveRoutine({ ...base, time: null, durationMin: null, profileId: null, trackerId: t.id, goalAmount: goalValue, noteMode });
+    const ok = await saveRoutine({ ...base, time: null, durationMin: null, profileId: null, trackerId: t.id, goalAmount: goalValue, noteMode, onCalendar: false });
     if (ok) onClose();
   };
 
@@ -231,6 +234,15 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
         {counter ? <p className="m-0 text-meta text-muted">Each amount is logged to the {title.trim() || "counter"} tracker, so Trackers keeps the history.</p> : null}
         {!counter && profile !== null && time ? (
           <p className="m-0 text-meta text-muted">Home suggests this profile when it starts, and offers to enter focus.</p>
+        ) : null}
+        {connected && !counter && time ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex flex-col">
+              <span className="text-body text-text">Show on Google Calendar</span>
+              <span className="text-meta text-muted">A repeating event on your Sanctum calendar. Off, it stays in Sanctum.</span>
+            </span>
+            <Switch label="Show on Google Calendar" checked={onCalendar} onChange={setOnCalendar} />
+          </div>
         ) : null}
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">

@@ -6,7 +6,7 @@ import { minutes } from "../../lib/time";
 import { useStore } from "../../state/store";
 import type { WeekTarget } from "../../lib/types";
 
-// Setup › General › Goal and streak (v0.3.1): the week's focus target. Until you set one, it's
+// Setup › General › Goal and streak (v0.3.1): the week's focus target, shown on Stats. Until you set one, it's
 // your average over the last four weeks, rounded to the half hour.
 
 export function WeekTargetRow() {
@@ -36,7 +36,7 @@ export function WeekTargetRow() {
     if (min !== t.targetMin || t.isDefault) void save(min);
   };
   return (
-    <Row label="Week's focus target" hint={t.isDefault ? `Your recent average, ${minutes(t.targetMin)}. Home shows the week against it.` : "Home shows the week against it."}>
+    <Row label="Week's focus target" hint={t.isDefault ? `Your recent average, ${minutes(t.targetMin)}. Stats shows the week against it.` : "Stats shows the week against it."}>
       {!t.isDefault ? (
         <Button variant="quiet" size="sm" onClick={() => void save(null)}>
           Use my average

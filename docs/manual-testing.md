@@ -33,6 +33,9 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 - [ ] **Suggestions on real data:** after a few weeks, Stats › Overview's "From your own history" says something true, and each "Use it" does what it says.
 - [x] **Do not disturb in quiet hours:** with the switch on, Windows' Do not disturb turns on when quiet hours start and back off when they end (and stays right across a seal inside quiet hours).
 
+- [ ] **Routines come off Google (v0.3.2):** after updating, routines leave the Sanctum calendar on the next sync and every routine is still in Sanctum. "Show on Google Calendar" on one puts it back as a repeating event; turning it off removes it, and the routine stays.
+- [ ] **Start over and Google (v0.3.2):** with Google connected, Start over removes the Sanctum calendar from your account. Offline, it stops with Try again and Erase anyway, and nothing is erased until you pick.
+
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.

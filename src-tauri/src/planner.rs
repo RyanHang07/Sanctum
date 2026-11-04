@@ -19,6 +19,8 @@ pub struct Routine {
     /// 'HH:MM', or None for anytime.
     pub time: Option<String>,
     pub duration_min: Option<i64>,
+    /// On Google Calendar. Off until you turn it on: routines are routine (v0.3.2).
+    pub on_calendar: bool,
     /// A counter: the number tracker its amounts go to. None for a plain checkbox routine.
     pub tracker_id: Option<i64>,
     /// A counter's daily goal, in the tracker's unit.
@@ -48,6 +50,9 @@ pub struct RoutineDraft {
     pub goal_amount: Option<f64>,
     #[serde(default)]
     pub note_mode: Option<String>,
+    /// Left out, an edit keeps what the routine had, and a new routine starts off.
+    #[serde(default)]
+    pub on_calendar: Option<bool>,
 }
 
 fn yes() -> bool {
@@ -148,13 +153,14 @@ fn routine_row(r: &rusqlite::Row) -> rusqlite::Result<Routine> {
         days_mask: r.get(5)?,
         time: r.get(6)?,
         duration_min: r.get(7)?,
+        on_calendar: r.get::<_, i64>(11)? != 0,
         tracker_id: r.get(8)?,
         goal_amount: r.get(9)?,
         note_mode: r.get(10)?,
     })
 }
 
-const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min, tracker_id, goal_amount, note_mode";
+const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min, tracker_id, goal_amount, note_mode, on_calendar";
 const NOTE_MODES: &[&str] = &["required", "optional", "off"];
 
 /// A counter needs a number tracker and a goal above zero.
@@ -204,8 +210,8 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
             get_routine(conn, id)?;
             conn.execute(
                 "UPDATE daily_goals SET name = ?1, profile_id = ?2, active = ?3, days_mask = ?4, time = ?5, duration_min = ?6,
-                 tracker_id = ?7, goal_amount = ?8, note_mode = ?9 WHERE id = ?10",
-                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, d.tracker_id, goal, note_mode, id],
+                 tracker_id = ?7, goal_amount = ?8, note_mode = ?9, on_calendar = COALESCE(?10, on_calendar) WHERE id = ?11",
+                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, d.tracker_id, goal, note_mode, d.on_calendar.map(i64::from), id],
             )
             .map_err(|e| e.to_string())?;
             id
@@ -215,9 +221,9 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
                 .query_row("SELECT COALESCE(MAX(sort), -1) + 1 FROM daily_goals", [], |r| r.get(0))
                 .map_err(|e| e.to_string())?;
             conn.execute(
-                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at, tracker_id, goal_amount, note_mode)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms(), d.tracker_id, goal, note_mode],
+                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at, tracker_id, goal_amount, note_mode, on_calendar)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms(), d.tracker_id, goal, note_mode, d.on_calendar.unwrap_or(false) as i64],
             )
             .map_err(|e| e.to_string())?;
             conn.last_insert_rowid()
@@ -398,7 +404,11 @@ mod tests {
         assert_eq!((gym.title.as_str(), gym.days_mask, gym.time.as_deref(), gym.sort), ("Gym", 42, Some("07:00"), 0));
         let neet = save_routine(&conn, routine("NeetCode daily", 127, None)).unwrap();
         assert_eq!(neet.sort, 1);
+        assert!(!gym.on_calendar, "routines start off Google Calendar");
+        let shown = save_routine(&conn, RoutineDraft { id: Some(gym.id), on_calendar: Some(true), ..routine("Gym", 0b0101010, Some("07:00")) }).unwrap();
+        assert!(shown.on_calendar);
         let edited = save_routine(&conn, RoutineDraft { id: Some(gym.id), ..routine("Gym", 0b0010100, Some("06:30")) }).unwrap();
+        assert!(edited.on_calendar, "an edit that leaves it out keeps it");
         assert_eq!((edited.days_mask, edited.time.as_deref(), edited.profile_id), (20, Some("06:30"), None));
         assert_eq!(list_routines(&conn).unwrap().iter().map(|r| r.title.as_str()).collect::<Vec<_>>(), vec!["Gym", "NeetCode daily"]);
 

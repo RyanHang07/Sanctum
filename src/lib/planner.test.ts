@@ -28,6 +28,7 @@ const routine = (id: number, title: string, daysMask: number, time: string | nul
   daysMask,
   time,
   durationMin: null,
+  onCalendar: false,
   trackerId: null,
   goalAmount: null,
   noteMode: "optional",

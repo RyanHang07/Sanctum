@@ -78,7 +78,7 @@ interface MockState {
   statsDays: Record<string, MockDay>;
   distractions: Distraction[];
   tempted: { what: string; kind: string; count: number }[];
-  gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[] };
+  gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[]; unreachable?: boolean };
   browsers: BrowserStatus;
   guard: { installed: boolean; decline: boolean; restarts: number[] };
   notes: Note[];
@@ -327,8 +327,9 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (n?.share) mockShares.delete(/\/n\/([0-9a-f]+)#/.exec(n.share.url)![1]!);
     state.notes = state.notes.filter((n) => n.id !== id);
   },
-  reset_all: () => {
+  reset_all: ({ force }: { force?: boolean }) => {
     if (state.session) throw "Starting over waits until the seal ends.";
+    if (state.gcal.email && state.gcal.unreachable && !force) throw "calendar-stuck: Google can't be reached.";
     resetMockBackend();
     // A clean slate: no sample profiles, so first-run setup shows.
     state.settings.set("dev_seeded", "1");
@@ -786,6 +787,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       daysMask: draft.daysMask,
       time: draft.time,
       durationMin: draft.durationMin,
+      onCalendar: draft.onCalendar ?? existing?.onCalendar ?? false,
       trackerId,
       goalAmount: trackerId !== null ? (draft.goalAmount ?? null) : null,
       noteMode: draft.noteMode ?? "optional",
@@ -1172,6 +1174,11 @@ export const mockControls = {
   statsDays(days: Record<string, MockDay>, tempted: MockState["tempted"] = []) {
     Object.assign(state.statsDays, days);
     state.tempted = tempted;
+  },
+  /** Google Calendar, connected as `email`, can or can't be reached (Start over stops if not). */
+  gcalAccount(email: string | null, unreachable = false) {
+    state.gcal.email = email;
+    state.gcal.unreachable = unreachable;
   },
   /** Tampering breaks the running seal (clock, guard, extension). */
   tamper(kind: "clock" | "guard" | "extension", detail: string) {

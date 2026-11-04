@@ -3,7 +3,7 @@ import { AboutSection, StartOverSection } from "./About";
 import { native } from "../../lib/native";
 import { Toast } from "../../components/Toast";
 import { useStore } from "../../state/store";
-import { resetMockBackend } from "../../lib/mockBackend";
+import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 
 const initial = useStore.getState();
 
@@ -33,6 +33,25 @@ describe("About", () => {
 });
 
 describe("Start over", () => {
+  it("stops before erasing if Google can't be reached, and can erase anyway", async () => {
+    await native.saveNote({ title: "Keep?", body: "no" });
+    mockControls.gcalAccount("you@example.com", true);
+    const reload = vi.fn();
+    render(<StartOverSection reload={reload} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    fireEvent.change(screen.getByLabelText("Type start over to confirm"), { target: { value: "start over" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Erase and start over" })));
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.getByText(/nothing is erased yet/)).toBeInTheDocument();
+    expect(await native.listNotes()).toHaveLength(1);
+    // Still out of reach: Try again comes back to the same place.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Try again" })));
+    expect(reload).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Erase anyway" })));
+    expect(reload).toHaveBeenCalledOnce();
+    expect(await native.listNotes()).toHaveLength(0);
+  });
+
   it("erases everything after a typed confirmation, then reloads into setup", async () => {
     await native.createProfile({ name: "Deep Work" });
     await native.saveNote({ title: "Keep?", body: "no" });
