@@ -199,7 +199,9 @@ fn has_pending(conn: &Connection, kind: &str, ref_id: i64) -> rusqlite::Result<b
     conn.query_row("SELECT EXISTS(SELECT 1 FROM gcal_outbox WHERE kind = ?1 AND ref_id = ?2)", params![kind, ref_id], |r| r.get(0))
 }
 
-/// First connect: routines and timed items from today on go up (decided 2026-09-29).
+/// First connect: chosen routines and timed items from today on go up (decided 2026-09-29;
+/// routines opt in since 2026-11-04). A routine still linked from an earlier connection but
+/// turned off is queued too, so its event comes down.
 pub fn backfill(conn: &Connection) -> rusqlite::Result<()> {
     let today = today(conn);
     let ids = |sql: &str, arg: Option<&str>| -> rusqlite::Result<Vec<i64>> {
@@ -210,7 +212,7 @@ pub fn backfill(conn: &Connection) -> rusqlite::Result<()> {
         };
         rows
     };
-    for id in ids("SELECT id FROM daily_goals WHERE active = 1 AND time IS NOT NULL ORDER BY id", None)? {
+    for id in ids("SELECT id FROM daily_goals WHERE (active = 1 AND time IS NOT NULL AND on_calendar = 1) OR gcal_event_id IS NOT NULL ORDER BY id", None)? {
         enqueue(conn, Job::Routine(id))?;
     }
     for id in ids("SELECT id FROM todos WHERE due_time IS NOT NULL AND due_date >= ?1 ORDER BY id", Some(&today))? {
@@ -235,11 +237,12 @@ pub struct PushRoutine {
     pub duration_min: Option<i64>,
     pub event_id: Option<String>,
     pub start_date: Option<String>,
+    pub on_calendar: bool,
 }
 
 pub fn push_routine(conn: &Connection, id: i64) -> rusqlite::Result<Option<PushRoutine>> {
     conn.query_row(
-        "SELECT id, name, active, days_mask, time, duration_min, gcal_event_id, gcal_start_date FROM daily_goals WHERE id = ?1",
+        "SELECT id, name, active, days_mask, time, duration_min, gcal_event_id, gcal_start_date, on_calendar FROM daily_goals WHERE id = ?1",
         [id],
         |r| {
             Ok(PushRoutine {
@@ -251,6 +254,7 @@ pub fn push_routine(conn: &Connection, id: i64) -> rusqlite::Result<Option<PushR
                 duration_min: r.get(5)?,
                 event_id: r.get(6)?,
                 start_date: r.get(7)?,
+                on_calendar: r.get::<_, i64>(8)? != 0,
             })
         },
     )
@@ -811,7 +815,11 @@ mod tests {
         let conn = fresh();
         let today = today(&conn);
         let gym = routine(&conn, "Gym", 127, Some("07:00"));
+        conn.execute("UPDATE daily_goals SET on_calendar = 1 WHERE id = ?1", [gym]).unwrap();
         routine(&conn, "Stretch", 127, None); // anytime: stays local
+        routine(&conn, "Read", 127, Some("21:00")); // off, the default: stays local
+        let linked = routine(&conn, "Old", 127, Some("06:00")); // off but still on Google: comes down
+        set_routine_link(&conn, linked, Some(("ev-old", "e1")), Some(&today)).unwrap();
         let soon = todo(&conn, "Mock interview", &add_days(&today, 1), Some("14:00"));
         todo(&conn, "Past", &add_days(&today, -3), Some("09:00"));
         todo(&conn, "Untimed", &today, None);
@@ -819,12 +827,24 @@ mod tests {
         connect(&conn);
         backfill(&conn).unwrap();
         let jobs: Vec<Job> = pending(&conn).unwrap().into_iter().map(|(_, j)| j).collect();
-        assert_eq!(jobs, vec![Job::Routine(gym), Job::Todo(soon), Job::Check(gym, today)]);
+        assert_eq!(jobs, vec![Job::Routine(gym), Job::Routine(linked), Job::Todo(soon), Job::Check(gym, today)]);
+    }
+
+    #[test]
+    fn a_routine_taken_off_the_calendar_survives_its_event_being_cancelled() {
+        let conn = fresh();
+        let today = today(&conn);
+        let gym = routine(&conn, "Gym", 127, Some("07:00"));
+        set_routine_link(&conn, gym, Some(("ev-gym", "e1")), Some(&today)).unwrap();
+        // The push deletes the event and unlinks; the pull then hears it was cancelled.
+        set_routine_link(&conn, gym, None, None).unwrap();
+        assert!(!apply_remote(&conn, &json!({ "id": "ev-gym", "status": "cancelled" })).unwrap());
+        assert!(push_routine(&conn, gym).unwrap().is_some());
     }
 
     #[test]
     fn builds_event_bodies() {
-        let r = PushRoutine { id: 3, title: "Gym".into(), active: true, days_mask: 42, time: Some("07:00".into()), duration_min: Some(90), event_id: None, start_date: None };
+        let r = PushRoutine { id: 3, title: "Gym".into(), active: true, days_mask: 42, time: Some("07:00".into()), duration_min: Some(90), event_id: None, start_date: None, on_calendar: true };
         let b = routine_body(&r, "2026-09-30", "America/New_York").unwrap();
         assert_eq!(b["start"], json!({ "dateTime": "2026-09-30T07:00:00", "timeZone": "America/New_York" }));
         assert_eq!(b["end"]["dateTime"], "2026-09-30T08:30:00");

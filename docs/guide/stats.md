@@ -25,7 +25,7 @@ Fixed rhythms like 25 or 90 minutes don't suit everyone; your own data does bett
 
 The first time you open Sanctum each week, a card says last week in a few lines: time in focus and the change from the week before, days kept, the best day, and what tempted you most.
 
-Under it, two optional questions, **What worked?** and **What will you change?**, and **this week's target** in hours. The answers are kept with the week and added to today's journal page when the journal is open. The target starts at your average over the last four weeks; Today's focus strip shows the week against it, and Setup › General changes it. **See the week** opens Stats.
+Under it, two optional questions, **What worked?** and **What will you change?**, and **this week's target** in hours. The answers are kept with the week and added to today's journal page when the journal is open. The target starts at your average over the last four weeks; Stats › Overview shows the week against it, and Setup › General changes it. **See the week** opens Stats.
 
 ## Trackers
 

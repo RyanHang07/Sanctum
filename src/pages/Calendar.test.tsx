@@ -52,7 +52,7 @@ describe("Setup: Connections", () => {
   it("connects, picks calendars, and disconnects", async () => {
     await setup({ connect: false });
     render(<ConnectionsSection />);
-    await screen.findByText("Routines and timed items sync to a Sanctum calendar.");
+    await screen.findByText("Timed items and the routines you choose sync to a Sanctum calendar.");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Connect" })));
     expect(await screen.findByText(/you@example.com · Synced just now/)).toBeInTheDocument();
     expect(screen.getByText("Two-way sync")).toBeInTheDocument();

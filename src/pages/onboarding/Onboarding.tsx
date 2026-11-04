@@ -242,7 +242,7 @@ function CalendarStep() {
   useEffect(() => void load(), [load]);
   let body: ReactNode;
   if (!status?.configured) body = <p className="m-0 text-body text-muted">This build has no Google sign-in. Connect later in Setup.</p>;
-  else if (status.connected) body = <p className="m-0 text-body text-text">Connected as {status.email ?? "your account"}. Routines and timed items sync to a Sanctum calendar.</p>;
+  else if (status.connected) body = <p className="m-0 text-body text-text">Connected as {status.email ?? "your account"}. Timed items and the routines you choose sync to a Sanctum calendar.</p>;
   else if (status.connecting)
     body = (
       <div className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import { PauseModeSection } from "./setup/PauseMode";
 import { WeekTargetRow } from "./setup/WeekTarget";
 import { DndQuietRow } from "./setup/Dnd";
 import { Suggestions } from "./stats/Suggestions";
+import { StatsPage } from "./stats/StatsPage";
 import { RecapNotice } from "../components/RecapNotice";
 import { useRecap } from "../state/recap";
 import { useStore } from "../state/store";
@@ -56,6 +57,17 @@ describe("the seal's intent", () => {
   it("phrases the plan the same way whether or not you typed \"I'll\"", () => {
     expect(planLine("stand up and stretch")).toBe("If you're tempted, you said you'd stand up and stretch.");
     expect(planLine("I'll drink some water.")).toBe("If you're tempted, you said you'd drink some water.");
+  });
+});
+
+describe("routines on Google Calendar", () => {
+  it("start off, and keep their choice when an edit leaves it out", async () => {
+    const r = await native.saveRoutine({ title: "Gym", daysMask: 127, time: "07:00", durationMin: 60, profileId: null, active: true });
+    expect(r.onCalendar).toBe(false);
+    const on = await native.saveRoutine({ ...r, onCalendar: true });
+    expect(on.onCalendar).toBe(true);
+    const { onCalendar: _left, ...edit } = on;
+    expect((await native.saveRoutine({ ...edit, title: "Gym at six" })).onCalendar).toBe(true);
   });
 });
 
@@ -231,9 +243,11 @@ describe("the week, reviewed", () => {
     expect(useRecap.getState().recap).toBeNull();
   });
 
-  it("Home shows the week against its target; Setup changes it or goes back to the average", async () => {
+  it("Stats shows the week against its target, Home doesn't; Setup changes it or goes back to the average", async () => {
     render(<Home />);
-    expect(await screen.findByTestId("week-progress")).toHaveTextContent("This week0m / 10h");
+    expect(screen.getByTestId("focus-strip")).not.toHaveTextContent("week");
+    render(<StatsPage />);
+    expect(await within(await screen.findByTestId("stats-summary")).findByText("Focused of 10h")).toBeInTheDocument();
     render(<WeekTargetRow />);
     const input = await screen.findByLabelText("Week's focus target, in hours");
     fireEvent.change(input, { target: { value: "8" } });

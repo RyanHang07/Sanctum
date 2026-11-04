@@ -19,7 +19,7 @@ function hintFor(s: GcalStatus, now: number): string {
   if (!s.configured) return "Google Calendar isn't set up in this build. Add a Google OAuth client to src-tauri/.env (docs/self-hosting.md).";
   if (s.connecting) return "Finish signing in in your browser.";
   if (s.needsReconnect) return "Sign-in expired. Google asks again every 7 days while the app is in testing.";
-  if (!s.connected) return "Routines and timed items sync to a Sanctum calendar.";
+  if (!s.connected) return "Timed items and the routines you choose sync to a Sanctum calendar.";
   if (s.error) return s.error;
   return `${s.email ?? "Connected"} · ${s.syncing ? "Syncing" : syncedAgo(s.lastSyncAt, now)}`;
 }
@@ -76,7 +76,7 @@ function CalendarList() {
           <span className="min-w-0 grow truncate text-body text-text">
             {c.summary}
             {c.primary ? <span className="text-muted"> · main</span> : null}
-            {c.sanctum ? <span className="text-muted"> · routines and timed items</span> : null}
+            {c.sanctum ? <span className="text-muted"> · timed items and chosen routines</span> : null}
             {!c.writable ? <span className="text-muted"> · read-only</span> : null}
           </span>
           <Switch label={`Show ${c.summary}`} checked={c.selected} onChange={(v) => void setSelected(c.id, v)} />

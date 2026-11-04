@@ -4,7 +4,9 @@
 
 - **Notes and Journal keep their margins.** Between about 1,040 and 1,120 pixels wide, the editor panel ran past the window's right edge (its toolbar and close button cut off). It now shrinks with the window, keeping the same 28-pixel margin as the left, and the toolbar wraps when it has to.
 - **Ctrl Alt P says when it can't work.** The park hotkey is registered as a seal starts; if Windows refuses it (another app holds Ctrl Alt P), the sealed card on Today now says "Ctrl Alt P is taken by another app" in place of the key hint, instead of failing silently.
-- **The focus strip reads plainly.** Home's bottom strip says "This week 2h 12m / 10h" in the same form as today's "0m / 2h", instead of "· Week 2h 12m of 10h", and the wide gaps inside both figures are gone.
+- **Today says less.** The week's progress moved from Home's bottom strip to Stats › Overview ("Focused of 10h"), so the strip is just today's focus and the next check-in, with the wide gaps in its figure gone.
+- **Routines stay off your calendar unless you choose.** A routine is routine, so it no longer goes to Google by default. In a routine with a time, **Show on Google Calendar** puts it there as a repeating event, and turning it off takes it down (the switch shows when Google is connected). On updating, every routine starts off and the events already in Google are removed on the next sync; the routines stay in Sanctum, and timed tasks sync as before (migration 0028).
+- **Start over cleans up Google.** It now deletes the Sanctum calendar and everything on it, instead of leaving it behind in your account. Events you put on your own calendars stay. If Google can't be reached, nothing is erased: Sanctum offers **Try again** or **Erase anyway**, which leaves the calendar in Google for you to delete.
 - **Manual pass, step 1 (0.3.0 → 0.3.1 on real hardware):** the one-click update, the extension reloading itself to 0.3.1 in every browser, and the installed extension files all check out.
 
 ## v0.3.1 (2026-10-30)

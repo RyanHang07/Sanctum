@@ -7,7 +7,7 @@ import { useTrackers } from "../state/trackers";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { EVENTS, errorText, native, onNative, WEEK_TARGET_EVENT } from "../lib/native";
+import { EVENTS, errorText, native, onNative } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
@@ -20,7 +20,7 @@ import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
 import { addDays, blockTimes, canReorder, longTime, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
-import type { DayStatus, StatsOverview, Suggestion as Insight, TaskLink, WeekTarget } from "../lib/types";
+import type { DayStatus, StatsOverview, Suggestion as Insight, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -835,36 +835,8 @@ function TodayPanel({ strip }: { strip: boolean }) {
   );
 }
 
-/** This week against its target (v0.3.1): "Week 6h 20m of 10h". */
-/** The focus strip's figures. A mono space is a full character wide, so it's pulled in. */
+/** The strip's figure. A mono space is a full character wide, so it's pulled in. */
 const FIGURE = "shrink-0 font-mono text-text [word-spacing:-0.3em]";
-
-function WeekProgress() {
-  const [t, setT] = useState<WeekTarget | null>(null);
-  const session = useStore((s) => s.session);
-  const done = useStore((s) => s.focusTodayMin);
-  useEffect(() => {
-    let live = true;
-    const load = () => void native.reviewWeekTarget().then((v) => live && setT(v), () => undefined);
-    load();
-    const timer = setInterval(load, 60_000);
-    window.addEventListener(WEEK_TARGET_EVENT, load);
-    return () => {
-      live = false;
-      clearInterval(timer);
-      window.removeEventListener(WEEK_TARGET_EVENT, load);
-    };
-  }, [session?.id, done]);
-  if (!t) return null;
-  return (
-    <span data-testid="week-progress" title={t.isDefault ? "The target is your recent weekly average. Change it in Setup or on Monday's card." : undefined} className="ml-3 flex shrink-0 items-center gap-3 whitespace-nowrap">
-      <span className="text-muted">This week</span>
-      <span className={FIGURE}>
-        {minutes(t.focusMin)} / {minutes(t.targetMin)}
-      </span>
-    </span>
-  );
-}
 
 /** Focus today against the goal, and the next check-in: one line under the list. */
 function FocusStrip() {
@@ -888,7 +860,6 @@ function FocusStrip() {
       <span className={FIGURE}>
         {minutes(Math.round(rolledTotal))} / {minutes(goal)}
       </span>
-      <WeekProgress />
       <span className="ml-auto flex min-w-0 items-center gap-[6px]">
         <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
         <span className="truncate text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>

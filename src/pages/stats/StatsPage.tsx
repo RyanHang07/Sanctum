@@ -3,12 +3,12 @@ import { Suggestions } from "./Suggestions";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon } from "../../components/icons";
 import { Section } from "../setup/parts";
-import { EVENTS, native, onNative } from "../../lib/native";
+import { EVENTS, native, onNative, WEEK_TARGET_EVENT } from "../../lib/native";
 import { useInstalledApps } from "../../lib/installedApps";
 import { addMonths, fromKey, todayKey, WEEKDAYS } from "../../lib/planner";
 import { dayDetail, rangeOf, rangeTitle, shade, shiftRange, TEMPTED_KIND, temptedLabel, type StatsRange } from "../../lib/stats";
 import { minutes } from "../../lib/time";
-import type { DayStat, StatsOverview, PauseSummary } from "../../lib/types";
+import type { DayStat, StatsOverview, PauseSummary, WeekTarget } from "../../lib/types";
 import { SessionsTab } from "./SessionsTab";
 import { ActivityTab } from "./ActivityTab";
 import { DayTab } from "./DayTab";
@@ -39,13 +39,14 @@ function RangeSwitch({ range, onChange }: { range: StatsRange; onChange: (r: Sta
   );
 }
 
-function Summary({ o, paused }: { o: StatsOverview; paused: PauseSummary | null }) {
+function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSummary | null; targetMin: number | null }) {
   const cells: [string, string][] = [
     [String(o.currentStreak), "Current streak"],
     [String(o.longestStreak), "Longest streak"],
     [String(o.kept), "Days kept"],
     [String(o.broken), o.broken === 1 ? "Seal broken" : "Seals broken"],
-    [minutes(o.focusMin), "Focused"],
+    // This week's target (v0.3.1) lives here, not on Home: the main screens stay quiet.
+    [minutes(o.focusMin), targetMin === null ? "Focused" : `Focused of ${minutes(targetMin)}`],
   ];
   // Pause mode (v0.3.1): how often "Still want it?" turned you back.
   if (paused?.paused) cells.push([`${paused.turnedBack} of ${paused.paused}`, "Pauses turned back"]);
@@ -330,6 +331,13 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const [paused, setPaused] = useState<PauseSummary | null>(null);
   const [hover, setHover] = useState<DayStat | null>(null);
   const { from, to } = rangeOf(range, anchor);
+  const [target, setTarget] = useState<WeekTarget | null>(null);
+  useEffect(() => {
+    const load = () => void native.reviewWeekTarget().then(setTarget, () => undefined);
+    load();
+    window.addEventListener(WEEK_TARGET_EVENT, load);
+    return () => window.removeEventListener(WEEK_TARGET_EVENT, load);
+  }, []);
   const current = range === "week" ? from <= today && today <= to : addMonths(anchor, 0) === addMonths(today, 0);
 
   const load = useCallback(() => {
@@ -384,7 +392,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
 
       {o ? (
         <>
-          <Summary o={o} paused={paused} />
+          <Summary o={o} paused={paused} targetMin={range === "week" && target?.week === from ? target.targetMin : null} />
           <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_280px] gap-4">
             <section aria-label={range === "week" ? "Focus by day" : "Focus heatmap"} className="flex min-h-0 flex-col gap-3 rounded-panel border border-line bg-panel p-[14px]">
               {range === "week" ? <WeekBars o={o} onHover={setHover} /> : <Heatmap o={o} month={anchor} onHover={setHover} />}

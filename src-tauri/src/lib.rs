@@ -495,11 +495,16 @@ async fn guard_uninstall(app: AppHandle) -> Result<guard::GuardStatus, String> {
     }
 }
 
-/// Start over (Setup › General): a fresh database with the defaults, and this PC signed out of
-/// Google Calendar and the account, so first-run setup opens again. The account, the partner,
+/// Start over's answer when Google can't be reached: nothing is erased yet, and the page offers
+/// Try again or Erase anyway (`force`), which leaves the Sanctum calendar in Google.
+const CALENDAR_STUCK: &str = "calendar-stuck:";
+
+/// Start over (Setup › General): the Sanctum calendar deleted from Google with its events, a
+/// fresh database with the defaults, and this PC signed out of Google Calendar and the account,
+/// so first-run setup opens again. Events on your own calendars stay. The account, the partner,
 /// and Protection are left as they are. Never while sealed.
 #[tauri::command]
-async fn reset_all(app: AppHandle) -> Result<(), String> {
+async fn reset_all(app: AppHandle, force: bool) -> Result<(), String> {
     {
         let shared = app.state::<Shared>();
         if shared.sealed() || shared.engine.is_active() {
@@ -507,7 +512,12 @@ async fn reset_all(app: AppHandle) -> Result<(), String> {
         }
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let _ = gcal::sign_out(&app);
+        let connected = gcal::sync::connected(&*app.state::<Shared>().db.lock().map_err(|e| e.to_string())?);
+        if connected && !force {
+            gcal::remove_calendar(&app).map_err(|e| format!("{CALENDAR_STUCK} {e}"))?;
+        } else {
+            let _ = gcal::sign_out(&app);
+        }
         cloud::sign_out(&app);
         let shared = app.state::<Shared>();
         let mut conn = shared.db.lock().map_err(|e| e.to_string())?;

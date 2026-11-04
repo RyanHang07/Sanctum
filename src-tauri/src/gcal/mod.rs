@@ -325,10 +325,12 @@ fn push_job(app: &AppHandle, api: &Api, sanctum: &str, tz: &str, job: &Job) -> R
     match job {
         Job::Routine(id) => {
             let Some(r) = with_conn(app, |c| sync::push_routine(c, *id))? else { return Ok(()) };
-            // Paused and anytime routines stay local.
-            if !r.active || r.time.is_none() {
+            // Paused, anytime, and routines you haven't put on the calendar stay local. Unlinking
+            // comes with the delete: a linked routine whose event is cancelled gets deleted here.
+            if !r.on_calendar || !r.active || r.time.is_none() {
                 if let Some(ev) = &r.event_id {
                     api.delete_event(sanctum, ev)?;
+                    with_conn(app, |c| sync::forget_series(c, sanctum, ev))?;
                 }
                 return with_conn(app, |c| sync::set_routine_link(c, r.id, None, None));
             }
@@ -500,19 +502,20 @@ pub async fn gcal_disconnect(app: AppHandle) -> Result<Status, String> {
 /// Deletes the Sanctum calendar from Google, then signs out.
 #[tauri::command]
 pub async fn gcal_remove_calendar(app: AppHandle) -> Result<Status, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let id = with_conn(&app, |c| db::get_setting(c, sync::K_SANCTUM)).map_err(err)?;
-        if let Some(id) = id {
-            match with_api(&app, |api| Ok(api.delete_calendar(&id)?)) {
-                Ok(()) | Err(Fail::Api(ApiError::NotFound | ApiError::Gone)) => {}
-                Err(e) => return Err(e.to_string()),
-            }
+    tauri::async_runtime::spawn_blocking(move || remove_calendar(&app)).await.map_err(err)?
+}
+
+/// Blocking: also Start over's first step, which stops if Google can't be reached.
+pub fn remove_calendar(app: &AppHandle) -> Result<Status, String> {
+    let id = with_conn(app, |c| db::get_setting(c, sync::K_SANCTUM)).map_err(err)?;
+    if let Some(id) = id {
+        match with_api(app, |api| Ok(api.delete_calendar(&id)?)) {
+            Ok(()) | Err(Fail::Api(ApiError::NotFound | ApiError::Gone)) => {}
+            Err(e) => return Err(e.to_string()),
         }
-        with_conn(&app, sync::unlink_all).map_err(err)?;
-        sign_out(&app)
-    })
-    .await
-    .map_err(err)?
+    }
+    with_conn(app, sync::unlink_all).map_err(err)?;
+    sign_out(app)
 }
 
 #[tauri::command]
