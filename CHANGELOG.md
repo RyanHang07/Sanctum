@@ -4,7 +4,10 @@
 
 - **Notes and Journal keep their margins.** Between about 1,040 and 1,120 pixels wide, the editor panel ran past the window's right edge (its toolbar and close button cut off). It now shrinks with the window, keeping the same 28-pixel margin as the left, and the toolbar wraps when it has to.
 - **Ctrl Alt P says when it can't work.** The park hotkey is registered as a seal starts; if Windows refuses it (another app holds Ctrl Alt P), the sealed card on Today now says "Ctrl Alt P is taken by another app" in place of the key hint, instead of failing silently.
-- **Today says less.** The week's progress moved from Home's bottom strip to Stats › Overview ("Focused of 10h"), so the strip is just today's focus and the next check-in, with the wide gaps in its figure gone.
+- **Today says less.** Less to read, more reason to start:
+  - The if-then plan moved to each profile in Setup › Profiles: set it once, and blocked screens still say it back. "Will be done" is gone; a linked task still names the seal.
+  - The week's progress moved to Stats › Overview ("Focused of 10h"), and your best length stays on Stats' suggestions card.
+  - The bottom strip is just today's focus; the next check-in left it, and check-ins still arrive when they're due.
 - **Routines stay off your calendar unless you choose.** A routine is routine, so it no longer goes to Google by default. In a routine with a time, **Show on Google Calendar** puts it there as a repeating event, and turning it off takes it down (the switch shows when Google is connected). On updating, every routine starts off and the events already in Google are removed on the next sync; the routines stay in Sanctum, and timed tasks sync as before (migration 0028).
 - **Start over cleans up Google.** It now deletes the Sanctum calendar and everything on it, instead of leaving it behind in your account. Events you put on your own calendars stay. If Google can't be reached, nothing is erased: Sanctum offers **Try again** or **Erase anyway**, which leaves the calendar in Google for you to delete.
 - **Manual pass, step 1 (0.3.0 → 0.3.1 on real hardware):** the one-click update, the extension reloading itself to 0.3.1 in every browser, and the installed extension files all check out.

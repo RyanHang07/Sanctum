@@ -166,10 +166,10 @@ export const native = {
   quietPause: (reason: string) => call<QuietStatus>("quiet_pause", { reason }),
   quietResume: () => call<QuietStatus>("quiet_resume"),
   interceptQuietPause: () => call<void>("intercept_quiet_pause"),
-  startSession: (profileId: number, minutes: number, task: TaskLink | null = null, goal: string | null = null, plan: string | null = null) =>
-    call<SessionView>("start_session", { profileId, minutes, task, goal, plan }),
+  startSession: (profileId: number, minutes: number, task: TaskLink | null = null) => call<SessionView>("start_session", { profileId, minutes, task }),
   // The seal's science (v0.3.1, src-tauri/src/focus.rs).
   focusPrepare: (profileId: number, task: TaskLink | null) => call<FocusPrep>("focus_prepare", { profileId, task }),
+  focusSetPlan: (profileId: number, plan: string | null) => call<string | null>("focus_set_plan", { profileId, plan }),
   pauseStatus: () => call<PauseStatus>("pause_status"),
   reviewWeekTarget: () => call<WeekTarget>("review_week_target"),
   /** Sets the week's target; Stats listens for WEEK_TARGET_EVENT to redraw. */

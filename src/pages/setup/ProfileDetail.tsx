@@ -4,6 +4,7 @@ import { AppIcon, Dialog } from "../../components/controls";
 import { ChevronIcon, GlobeIcon, PlusIcon, XIcon } from "../../components/icons";
 import { AppPicker } from "./AppPicker";
 import { useStore } from "../../state/store";
+import { errorText, native } from "../../lib/native";
 import { durationsMin } from "../../theme/tokens";
 import { useInstalledApps } from "../../lib/installedApps";
 import { distractionLabel, normalizeUrl, opensOf, ruleLabel, ruleMeta } from "../../lib/rules";
@@ -119,6 +120,41 @@ function NameField({ profile }: { profile: Profile }) {
   );
 }
 
+/** The profile's if-then plan (v0.3.2): set once here, and every catch in its seals says it back. */
+function PlanField({ profile }: { profile: Profile }) {
+  const showNotice = useStore((s) => s.showNotice);
+  const [plan, setPlan] = useState("");
+  useEffect(() => {
+    let live = true;
+    void native.focusPrepare(profile.id, null).then((p) => live && setPlan(p.plan ?? ""), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [profile.id]);
+  const commit = async () => {
+    try {
+      setPlan((await native.focusSetPlan(profile.id, plan)) ?? "");
+    } catch (e) {
+      showNotice({ lead: errorText(e) });
+    }
+  };
+  return (
+    <label className="relative flex basis-full items-center">
+      <span className="pointer-events-none absolute left-[10px] text-meta text-muted">If I’m tempted, I’ll</span>
+      <input
+        aria-label="If I'm tempted, I'll"
+        value={plan}
+        maxLength={200}
+        placeholder="stand up and stretch"
+        onChange={(e) => setPlan(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        className="h-9 w-full rounded-control border border-line-input bg-raised pl-[132px] pr-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+      />
+    </label>
+  );
+}
+
 export function ProfileDetail({ profile }: { profile: Profile }) {
   const { editProfile, updateProfile, deleteProfile, addRule, removeRule, launchProfile, showNotice, openSetup } = useStore();
   const distractions = useStore((s) => s.distractions);
@@ -168,7 +204,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 rounded-panel border border-line bg-panel p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-panel border border-line bg-panel p-2">
         <NameField profile={profile} />
         <label className="relative flex items-center">
           <span className="pointer-events-none absolute left-[10px] text-meta text-muted">For</span>
@@ -186,6 +222,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
           </select>
           <ChevronIcon className="pointer-events-none absolute right-[10px] text-muted" />
         </label>
+        <PlanField key={profile.id} profile={profile} />
       </div>
 
       <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_280px] gap-4">

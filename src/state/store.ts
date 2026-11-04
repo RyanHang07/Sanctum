@@ -116,13 +116,8 @@ export interface Store {
   focusQueued: boolean;
   /** The Today task the next session is for, picked from the list (v0.1). */
   focusTask: TaskLink | null;
-  /** The next seal's intent (v0.3.1): what will be done, and the if-then blank. */
-  focusGoal: string;
-  focusPlan: string;
   /** Where you left off last time on this task or profile, shown above Enter focus. */
   focusLeftOff: FocusPrep["leftOff"];
-  /** The profile the plan was filled for: switching profiles brings its own plan. */
-  focusPlanFor: number | null;
   /** Quiet hours (v0.1): the schedule and whether it's blocking now. */
   quiet: QuietStatus | null;
   /** A break after a seal, while it runs (v0.3.1). */
@@ -206,8 +201,6 @@ export interface Store {
   closeQuietPause: () => void;
   /** Links the next session to a task and picks its profile, if it has one. */
   setFocusTask: (t: (TaskLink & { profileId?: number | null }) | null) => void;
-  setFocusGoal: (goal: string) => void;
-  setFocusPlan: (plan: string) => void;
   /** Prefills the plan and "where I left off" for the picked profile and task. */
   prepareFocus: () => Promise<void>;
 
@@ -286,10 +279,7 @@ export const useStore = create<Store>()((set, get) => {
     meeting: null,
     focusQueued: false,
     focusTask: null,
-    focusGoal: "",
-    focusPlan: "",
     focusLeftOff: null,
-    focusPlanFor: null,
     quiet: null,
     brk: null,
     quietPauseOpen: false,
@@ -486,9 +476,9 @@ export const useStore = create<Store>()((set, get) => {
       const profile = selectedProfile(s);
       if (!profile || s.appState !== "open" || s.session) return false;
       try {
-        const session = await native.startSession(profile.id, s.durationMin, s.focusTask, s.focusGoal.trim() || null, s.focusPlan.trim() || null);
+        const session = await native.startSession(profile.id, s.durationMin, s.focusTask);
         // The plan stays (the profile remembers it); the goal is this seal's alone.
-        set({ focusTask: null, focusGoal: "", focusLeftOff: null });
+        set({ focusTask: null, focusLeftOff: null });
         get().applySession(session);
       } catch (e) {
         get().showNotice({ lead: errorText(e) });
@@ -601,8 +591,6 @@ export const useStore = create<Store>()((set, get) => {
       if (get().quiet?.on) set({ quietPauseOpen: true });
     },
     closeQuietPause: () => set({ quietPauseOpen: false }),
-    setFocusGoal: (focusGoal) => set({ focusGoal }),
-    setFocusPlan: (focusPlan) => set({ focusPlan }),
     prepareFocus: async () => {
       const s = get();
       const profile = selectedProfile(s);
@@ -611,8 +599,7 @@ export const useStore = create<Store>()((set, get) => {
       // Answers for a profile or task that's no longer picked are dropped.
       const now = get();
       if (!prep || selectedProfile(now)?.id !== profile.id || now.focusTask !== s.focusTask) return;
-      // A plan you typed for this profile stays; a new profile brings the one it remembers.
-      set(now.focusPlanFor === profile.id ? { focusLeftOff: prep.leftOff } : { focusPlan: prep.plan ?? "", focusPlanFor: profile.id, focusLeftOff: prep.leftOff });
+      set({ focusLeftOff: prep.leftOff });
     },
     setFocusTask: (t) => {
       if (!t) return set({ focusTask: null });

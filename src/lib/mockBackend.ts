@@ -599,6 +599,12 @@ const handlers: Record<string, (a: any) => unknown> = {
       (task && ended.find((e) => e.task?.kind === task.kind && e.task.id === task.id)) || ended.find((e) => e.profileId === profileId && !e.task) || null;
     return { plan: state.focus.plans[profileId] ?? null, leftOff: hit ? { text: hit.leftOff!, at: hit.endedAt } : null };
   },
+  focus_set_plan: ({ profileId, plan }: { profileId: number; plan: string | null }) => {
+    const line = focusLine(plan);
+    if (line) state.focus.plans[profileId] = line;
+    else delete state.focus.plans[profileId];
+    return line;
+  },
   focus_park_hotkey: () => null,
   focus_park: ({ text }: { text: string }) => {
     const title = focusLine(text);
@@ -616,7 +622,7 @@ const handlers: Record<string, (a: any) => unknown> = {
     if (rating !== null && (rating < 1 || rating > 5)) throw "Rate focus from 1 to 5.";
     Object.assign(e, { result, rating, leftOff: focusLine(leftOff) });
   },
-  start_session: ({ profileId, minutes, task, goal, plan }) => {
+  start_session: ({ profileId, minutes, task }) => {
     if (state.session) throw "A session is already running.";
     if (!DURATIONS.includes(minutes)) throw "Focus length must be 15 minutes to 2 hours, in 15-minute steps.";
     const p = find(profileId);
@@ -635,11 +641,9 @@ const handlers: Record<string, (a: any) => unknown> = {
       broken: false,
       idle: false,
       task: task ? { ...task, title: task.title.trim() } : null,
-      goal: focusLine(goal),
-      plan: focusLine(plan),
+      goal: null,
+      plan: state.focus.plans[p.id] ?? null,
     };
-    state.focus.plans[p.id] = state.session.plan ?? "";
-    if (!state.session.plan) delete state.focus.plans[p.id];
     state.idleSince = null;
     state.idleTotal = 0;
     // Sealed apps close at the start.

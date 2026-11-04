@@ -3,7 +3,6 @@ import { CheckIcon, ChevronIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from ".
 import { durationsMin } from "../theme/tokens";
 import { selectedProfile, useStore, type HomePanel } from "../state/store";
 import { usePlanner } from "../state/planner";
-import { useTrackers } from "../state/trackers";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
@@ -19,8 +18,8 @@ import { Glide, useRolling } from "../lib/motion";
 import { homeHeadline } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { addDays, blockTimes, canReorder, longTime, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
-import type { DayStatus, StatsOverview, Suggestion as Insight, TaskLink } from "../lib/types";
+import { addDays, blockTimes, canReorder, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -209,74 +208,20 @@ function Strip({ tone, children, progress }: { tone: "sealed" | "event"; childre
 }
 
 /** One labeled line of the next seal's intent (v0.3.1): the label reads into what you type. */
-function IntentField({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (v: string) => void }) {
-  return (
-    <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-control border border-line-input bg-raised px-3 transition-colors duration-ui ease-ui focus-within:border-sealed-line">
-      <span className="shrink-0 text-meta text-faint">{label}</span>
-      <input
-        value={value}
-        maxLength={200}
-        placeholder={placeholder}
-        aria-label={label}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter starts the seal from here too.
-          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            void enterFocus();
-          }
-        }}
-        className="min-w-0 flex-1 bg-transparent text-body text-text outline-none placeholder:text-faint"
-      />
-    </label>
-  );
-}
-
-/** The next seal's intent (v0.3.1): a specific goal, the if-then plan, and where you left off.
- *  Both are optional; the plan is remembered per profile. */
-function IntentRow() {
+/** Where you left off last time on this task or profile, when you wrote it down (v0.3.1). */
+function LeftOffLine() {
   const profileId = useStore(selectedProfile)?.id;
   const task = useStore((s) => s.focusTask);
-  const goal = useStore((s) => s.focusGoal);
-  const plan = useStore((s) => s.focusPlan);
   const leftOff = useStore((s) => s.focusLeftOff);
-  const duration = useStore((s) => s.durationMin);
   useEffect(() => {
     void useStore.getState().prepareFocus();
   }, [profileId, task]);
-  // Your own best length, when your history says so and you've picked another (v0.3.1).
-  const [lengthTip, setLengthTip] = useState<Extract<Insight, { kind: "length" }> | null>(null);
-  useEffect(() => {
-    let live = true;
-    void native.reviewSuggestions().then(
-      (list) => live && setLengthTip((list.find((s) => s.kind === "length" && (s.profileId === null || s.profileId === profileId)) as Extract<Insight, { kind: "length" }>) ?? null),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [profileId]);
+  if (!leftOff) return null;
   return (
-    <div data-testid="focus-intent" className="flex flex-col gap-2 border-t border-line-soft pt-3">
-      {lengthTip && lengthTip.minutes !== duration ? (
-        <p data-testid="length-tip" className="m-0 flex items-center gap-2 text-meta text-text-2">
-          <span className="truncate">{lengthTip.line}</span>
-          <button type="button" onClick={() => useStore.getState().setDuration(lengthTip.minutes)} className="shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
-            Use {lengthTip.minutes} min
-          </button>
-        </p>
-      ) : null}
-      {leftOff ? (
-        <p data-testid="left-off" className="m-0 truncate text-meta text-text-2" title={leftOff.text}>
-          <span className="text-faint">Last time: </span>
-          {leftOff.text}
-        </p>
-      ) : null}
-      <div className="flex gap-3">
-        <IntentField label="Will be done" value={goal} placeholder={task ? task.title : "What this seal is for"} onChange={useStore.getState().setFocusGoal} />
-        <IntentField label="If I'm tempted, I'll" value={plan} placeholder="stand up and stretch" onChange={useStore.getState().setFocusPlan} />
-      </div>
-    </div>
+    <p data-testid="left-off" className="m-0 truncate border-t border-line-soft pt-3 text-meta text-text-2" title={leftOff.text}>
+      <span className="text-faint">Last time: </span>
+      {leftOff.text}
+    </p>
   );
 }
 
@@ -340,7 +285,7 @@ function FocusPanel() {
           </div>
         </div>
       )}
-      {profiles.length ? <IntentRow /> : null}
+      {profiles.length ? <LeftOffLine /> : null}
     </section>
   );
 }
@@ -838,16 +783,11 @@ function TodayPanel({ strip }: { strip: boolean }) {
 /** The strip's figure. A mono space is a full character wide, so it's pulled in. */
 const FIGURE = "shrink-0 font-mono text-text [word-spacing:-0.3em]";
 
-/** Focus today against the goal, and the next check-in: one line under the list. */
+/** Focus today against the goal: one line under the list. */
 function FocusStrip() {
   const done = useStore((s) => s.focusTodayMin);
   const live = useStore((s) => s.session);
   const goal = useStore((s) => s.settings.dailyGoalMin);
-  const next = useTrackers((s) => s.next);
-  useEffect(() => {
-    const t = setInterval(() => void useTrackers.getState().refreshNext(), 60_000);
-    return () => clearInterval(t);
-  }, []);
   // Finished sessions from the backend, plus the running one as it ticks.
   const total = done + (live ? Math.floor(live.elapsedMs / 60_000) : 0);
   const rolledTotal = useRolling(total);
@@ -859,10 +799,6 @@ function FocusStrip() {
       </div>
       <span className={FIGURE}>
         {minutes(Math.round(rolledTotal))} / {minutes(goal)}
-      </span>
-      <span className="ml-auto flex min-w-0 items-center gap-[6px]">
-        <span className="shrink-0 whitespace-nowrap text-muted">Next check-in</span>
-        <span className="truncate text-text">{next ? `${next.name} · ${longTime(next.time)}` : "None today"}</span>
       </span>
     </div>
   );

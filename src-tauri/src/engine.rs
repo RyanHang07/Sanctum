@@ -223,13 +223,11 @@ pub async fn start_session(
     profile_id: i64,
     minutes: i64,
     task: Option<session::TaskLink>,
-    goal: Option<String>,
-    plan: Option<String>,
 ) -> Result<SessionView, String> {
-    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes, task, goal, plan)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || start(&app, profile_id, minutes, task)).await.map_err(|e| e.to_string())?
 }
 
-fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>, goal: Option<String>, plan: Option<String>) -> Result<SessionView, String> {
+fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::TaskLink>) -> Result<SessionView, String> {
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
     if engine.is_active() {
@@ -248,7 +246,7 @@ fn start(app: &AppHandle, profile_id: i64, minutes: i64, task: Option<session::T
             session::set_task(&conn, a.id, &t).map_err(|e| e.to_string())?;
             a.task = Some(session::TaskLink { title: t.title.trim().to_string(), ..t });
         }
-        (a.goal, a.plan) = crate::focus::set_intent(&conn, a.id, a.profile_id, goal.as_deref(), plan.as_deref()).map_err(|e| e.to_string())?;
+        a.plan = crate::focus::seal_plan(&conn, a.id, a.profile_id).map_err(|e| e.to_string())?;
         a
     };
     active.sealed_count = seal.enforced_count() as i64;

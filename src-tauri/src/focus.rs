@@ -27,14 +27,22 @@ pub fn line(s: Option<&str>) -> Option<String> {
     (!s.is_empty()).then_some(s)
 }
 
-/// The seal's goal and plan; the plan is also kept on the profile for next time.
-pub fn set_intent(conn: &Connection, session_id: i64, profile_id: Option<i64>, goal: Option<&str>, plan: Option<&str>) -> rusqlite::Result<(Option<String>, Option<String>)> {
-    let (goal, plan) = (line(goal), line(plan));
-    conn.execute("UPDATE sessions SET goal = ?1, plan = ?2 WHERE id = ?3", params![goal, plan, session_id])?;
-    if let Some(p) = profile_id {
-        conn.execute("UPDATE profiles SET plan = ?1 WHERE id = ?2", params![plan, p])?;
-    }
-    Ok((goal, plan))
+/// The seal takes its if-then plan from its profile (Setup › Profiles, since v0.3.2). Read here
+/// rather than sent by the window, so a quick Enter focus can't start without it.
+pub fn seal_plan(conn: &Connection, session_id: i64, profile_id: Option<i64>) -> rusqlite::Result<Option<String>> {
+    let plan = match profile_id {
+        Some(p) => profile_plan(conn, p)?,
+        None => None,
+    };
+    conn.execute("UPDATE sessions SET plan = ?1 WHERE id = ?2", params![plan, session_id])?;
+    Ok(plan)
+}
+
+/// A profile's if-then plan, as saved in Setup. Blank clears it.
+pub fn set_profile_plan(conn: &Connection, profile_id: i64, plan: Option<&str>) -> rusqlite::Result<Option<String>> {
+    let plan = line(plan);
+    conn.execute("UPDATE profiles SET plan = ?1 WHERE id = ?2", params![plan, profile_id])?;
+    Ok(plan)
 }
 
 pub fn load_intent(conn: &Connection, session_id: i64) -> rusqlite::Result<(Option<String>, Option<String>)> {
@@ -76,7 +84,7 @@ pub fn left_off(conn: &Connection, task: Option<&TaskLink>, profile_id: Option<i
     .optional()
 }
 
-/// The profile's last if-then plan.
+/// The profile's if-then plan.
 pub fn profile_plan(conn: &Connection, profile_id: i64) -> rusqlite::Result<Option<String>> {
     conn.query_row("SELECT plan FROM profiles WHERE id = ?1", [profile_id], |r| r.get(0)).optional().map(Option::flatten)
 }
@@ -118,12 +126,12 @@ pub fn wrap(conn: &Connection, session_id: i64, result: Option<&str>, rating: Op
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Prep {
-    /// The profile's last if-then plan, to prefill.
+    /// The profile's if-then plan, for Setup.
     pub plan: Option<String>,
     pub left_off: Option<LeftOff>,
 }
 
-/// What the focus row prefills for this profile and task.
+/// The profile's plan, and where you left off on this profile and task.
 #[tauri::command]
 pub fn focus_prepare(shared: State<Shared>, profile_id: i64, task: Option<TaskLink>) -> Result<Prep, String> {
     let conn = shared.db.lock().map_err(|e| e.to_string())?;
@@ -133,6 +141,12 @@ pub fn focus_prepare(shared: State<Shared>, profile_id: i64, task: Option<TaskLi
 }
 
 /// Parks a thought during the seal (the hotkey card, Home, the tray panel, the extension).
+#[tauri::command]
+pub fn focus_set_plan(shared: State<Shared>, profile_id: i64, plan: Option<String>) -> Result<Option<String>, String> {
+    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    set_profile_plan(&conn, profile_id, plan.as_deref()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn focus_park(app: AppHandle, text: String) -> Result<planner::Todo, String> {
     park_now(&app, &text)
@@ -217,14 +231,18 @@ mod tests {
     }
 
     #[test]
-    fn the_plan_is_kept_on_the_seal_and_remembered_by_the_profile() {
+    fn the_seal_takes_its_plan_from_the_profile() {
         let conn = fresh();
+        assert_eq!(set_profile_plan(&conn, 1, Some("  I'll stand  up ")).unwrap().as_deref(), Some("I'll stand up"));
         let s = seal(&conn, 1, None, None);
-        let (goal, plan) = set_intent(&conn, s, Some(1), Some(" Finish problem set 4 "), Some("I'll stand up")).unwrap();
-        assert_eq!((goal.as_deref(), plan.as_deref()), (Some("Finish problem set 4"), Some("I'll stand up")));
-        assert_eq!(load_intent(&conn, s).unwrap(), (goal, plan));
-        assert_eq!(profile_plan(&conn, 1).unwrap().as_deref(), Some("I'll stand up"));
-        assert_eq!(profile_plan(&conn, 2).unwrap(), None);
+        assert_eq!(seal_plan(&conn, s, Some(1)).unwrap().as_deref(), Some("I'll stand up"));
+        assert_eq!(load_intent(&conn, s).unwrap(), (None, Some("I'll stand up".to_string())));
+        let other = seal(&conn, 2, None, None);
+        assert_eq!(seal_plan(&conn, other, Some(2)).unwrap(), None);
+        // Blank clears it; the finished seal keeps what it had.
+        assert_eq!(set_profile_plan(&conn, 1, Some("   ")).unwrap(), None);
+        assert_eq!(profile_plan(&conn, 1).unwrap(), None);
+        assert_eq!(load_intent(&conn, s).unwrap().1.as_deref(), Some("I'll stand up"));
     }
 
     #[test]
