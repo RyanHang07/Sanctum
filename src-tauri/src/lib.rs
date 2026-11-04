@@ -872,6 +872,7 @@ pub fn run() {
             insights::stats_day,
             insights::stats_recap,
             focus::focus_prepare,
+            focus::focus_set_plan,
             focus::focus_park,
             focus::focus_park_hotkey,
             focus::focus_wrap,

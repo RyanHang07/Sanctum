@@ -2,14 +2,11 @@
 
 On **Today** (Ctrl 1), pick a profile and a length on the wheels, then press **Enter focus** (Ctrl Enter).
 
-## Two optional lines
+## A plan for temptation
 
-Under the wheels:
+In **Setup › Profiles**, each profile has **If I'm tempted, I'll ___**: what you'll do instead ("stand up and stretch"). Set it once, and whenever something is caught, Sanctum says it back: "If you're tempted, you said you'd stand up and stretch." Plans in this if-then shape make the plan run when the moment comes.
 
-- **Will be done**: what this seal is for, in a few words ("Problem set 4"). A specific goal with feedback beats "do your best".
-- **If I'm tempted, I'll ___**: what you'll do instead ("stand up and stretch"). Each profile remembers it, and whenever something is caught, Sanctum says it back: "If you're tempted, you said you'd stand up and stretch." Plans in this if-then shape make the plan run when the moment comes.
-
-If you left a note last time on the same task (or in the same profile), it shows above them: "Last time: …".
+If you left a note last time on the same task (or in the same profile), it shows above Enter focus: "Last time: …".
 
 ## What happens
 

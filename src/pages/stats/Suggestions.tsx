@@ -33,8 +33,8 @@ export function Suggestions() {
         void usePlanner.getState().reload();
         notice({ lead: "Added.", rest: `A weekday focus block at ${s.start}. Home suggests it when it starts.` });
       } else {
-        // An if-then plan is yours to write: the field waits on Home.
-        useStore.getState().navigate("today");
+        // An if-then plan is yours to write: the field waits on the profile.
+        useStore.getState().openSetup("profiles");
         setTimeout(() => document.querySelector<HTMLInputElement>(`[aria-label="If I'm tempted, I'll"]`)?.focus(), 50);
       }
       setUsed((u) => [...u, s.line]);

@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { HeldPage } from "./HeldPage";
 import { brokeLine, planLine } from "./headlines";
 import { ParkCard, PauseCard } from "../windows/Intercept";
 import { PauseModeSection } from "./setup/PauseMode";
+import { ProfileDetail } from "./setup/ProfileDetail";
 import { WeekTargetRow } from "./setup/WeekTarget";
 import { DndQuietRow } from "./setup/Dnd";
 import { Suggestions } from "./stats/Suggestions";
@@ -36,22 +37,20 @@ afterEach(() => disconnect());
 const todayItems = () => native.listTodos(addDays(todayKey(), -1), addDays(todayKey(), 1));
 
 describe("the seal's intent", () => {
-  it("starts with a goal and a plan; the profile remembers the plan, and the overlay shows it", async () => {
+  it("takes its plan from the profile, set in Setup; Today has no fields for it", async () => {
+    const [p] = await native.listProfiles();
+    render(<ProfileDetail profile={p!} />);
+    const field = await screen.findByLabelText("If I'm tempted, I'll");
+    fireEvent.change(field, { target: { value: "  stand up and stretch  " } });
+    await act(async () => fireEvent.blur(field));
+    expect((await native.focusPrepare(p!.id, null)).plan).toBe("stand up and stretch");
+    cleanup();
     render(<Home />);
-    const intent = within(screen.getByTestId("focus-intent"));
-    fireEvent.change(intent.getByLabelText("Will be done"), { target: { value: "  Problem set 4  " } });
-    fireEvent.change(intent.getByLabelText("If I'm tempted, I'll"), { target: { value: "stand up and stretch" } });
-    await act(async () => fireEvent.keyDown(intent.getByLabelText("Will be done"), { key: "Enter" }));
-    const s = useStore.getState().session!;
-    expect(s.plan).toBe("stand up and stretch");
-    expect(s.goal).toBe("Problem set 4");
-    expect(screen.getByTestId("session-bar")).toHaveTextContent("Problem set 4");
-    // The goal is this seal's; the plan comes back for the profile next time.
-    expect(useStore.getState().focusGoal).toBe("");
-    await act(async () => mockControls.fastForward(60 * 60_000));
-    useStore.setState({ focusPlan: "", focusPlanFor: null });
-    await act(() => useStore.getState().prepareFocus());
-    expect(useStore.getState().focusPlan).toBe("stand up and stretch");
+    expect(screen.queryByLabelText("If I'm tempted, I'll")).toBeNull();
+    expect(screen.queryByLabelText("Will be done")).toBeNull();
+    useStore.setState({ selectedProfileId: p!.id });
+    await act(() => useStore.getState().enterFocus());
+    expect(useStore.getState().session!.plan).toBe("stand up and stretch");
   });
 
   it("phrases the plan the same way whether or not you typed \"I'll\"", () => {
@@ -140,10 +139,9 @@ describe("how it went", () => {
   });
 
   it("asks about the goal by name", async () => {
-    useStore.setState({ focusGoal: "Chapter 7" });
     await act(() => useStore.getState().enterFocus());
     await act(async () => mockControls.fastForward(60 * 60_000));
-    render(<HeldPage held={useStore.getState().held!} />);
+    render(<HeldPage held={{ ...useStore.getState().held!, goal: "Chapter 7" }} />);
     expect(screen.getByTestId("held-wrap")).toHaveTextContent("Did Chapter 7 get done?");
   });
 });
@@ -272,18 +270,7 @@ describe("the week, reviewed", () => {
     await act(async () => fireEvent.click(card.getByRole("button", { name: "Add a focus block" })));
     expect((await native.listRoutines()).find((r) => r.title === "Focus block")).toMatchObject({ time: "09:00", durationMin: 120, profileId: p!.id });
     await act(async () => fireEvent.click(card.getByRole("button", { name: "Write an if-then" })));
-    expect(useStore.getState().activeTab).toBe("today");
-  });
-
-  it("the focus row says your best length when you've picked another", async () => {
-    const [p] = await native.listProfiles();
-    mockControls.suggestions([{ kind: "length", line: "Your 45-minute seals finish 90% of the time; 90-minute ones 55%.", profileId: p!.id, minutes: 45 }]);
-    useStore.getState().setDuration(90);
-    render(<Home />);
-    const tip = await screen.findByTestId("length-tip");
-    await act(async () => fireEvent.click(within(tip).getByRole("button", { name: "Use 45 min" })));
-    expect(useStore.getState().durationMin).toBe(45);
-    expect(screen.queryByTestId("length-tip")).toBeNull();
+    expect(useStore.getState().activeTab).toBe("setup");
   });
 
   it("Do not disturb can follow quiet hours too", async () => {

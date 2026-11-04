@@ -238,7 +238,7 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 
 ### 4.10b Focus science (**Decided** 2026-10-30, v0.3.1)
 Research-backed additions, each opt-in or optional, with the reasoning kept in the code:
-- **Intent:** at Enter focus, optional "Will be done" (a specific goal; Locke & Latham) and "If I'm tempted, I'll ___" (an if-then plan; Gollwitzer & Sheeran 2006), remembered per profile and echoed on every catch.
+- **Intent:** "If I'm tempted, I'll ___" (an if-then plan; Gollwitzer & Sheeran 2006), set per profile in Setup and echoed on every catch. Moved off Today on 2026-11-04, when the optional "Will be done" line was dropped: main screens stay quiet, with less to read and more urgency.
 - **Park it:** Ctrl Alt P while sealed (global, only while sealed) parks a stray thought as a task for today (Masicampo & Baumeister 2011); also from Home, the tray panel, and the extension's sealed page.
 - **How it went:** the held page asks Done / Partly / No, a 1-5 focus rating, and "where I left off", shown at the next seal of that task or profile (attention residue; Leroy 2009). Stats counts "got done" next to "kept".
 - **Never miss twice:** one missed day holds the streak; two in a row reset it; a broken seal still resets (Lally et al. 2010). After a break, plain words and the fix, never scolding (Breines & Chen 2012).
@@ -246,7 +246,7 @@ Research-backed additions, each opt-in or optional, with the reasoning kept in t
 - **Break after a seal:** 5/10/15 minutes with the Distractions list still blocked, then "Next block?" (Albulescu et al. 2022; Biwer et al. 2023).
 - **Weekly review:** two optional questions on the Monday card, saved per week and to the journal, and a weekly focus target defaulting to the 4-week average (Di Stefano et al. 2014; Dai, Milkman & Riis 2014).
 - **Partner weekly summary:** opt-in Monday email of totals only (Harkin et al. 2016).
-- **Suggestions from your own history:** best length, best hours, when temptation comes; shown only when the data clearly says so.
+- **Suggestions from your own history:** best length, best hours, when temptation comes; shown on Stats only when the data clearly says so.
 - **Do not disturb in quiet hours:** opt-in (Fitz et al. 2019).
 - Not built on: ego depletion, phone-presence effects, fixed Pomodoro or 90-minute rhythms.
 

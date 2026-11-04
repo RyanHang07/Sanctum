@@ -15,9 +15,9 @@ Activity comes from the window in front: the app and its title, every 2 seconds,
 
 Once there's enough of it, Overview suggests what your sessions show, and only when they clearly show it:
 
-- **The length you finish** ("Your 45-minute seals finish 85% of the time; 90-minute ones 60%."). **Use 45 min** makes it the profile's length. Today shows it by the wheels too when you've picked another.
+- **The length you finish** ("Your 45-minute seals finish 85% of the time; 90-minute ones 60%."). **Use 45 min** makes it the profile's length.
 - **The hours you keep** ("Your kept seals cluster 9 AM to 11 AM."). **Add a focus block** adds a weekday routine there, which Today suggests when it starts.
-- **When temptation comes** ("Discord gets in most after 40 minutes."). **Write an if-then** takes you to the plan line.
+- **When temptation comes** ("Discord gets in most after 40 minutes."). **Write an if-then** takes you to the profile's plan in Setup.
 
 Fixed rhythms like 25 or 90 minutes don't suit everyone; your own data does better.
 
