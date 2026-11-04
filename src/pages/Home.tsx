@@ -836,6 +836,9 @@ function TodayPanel({ strip }: { strip: boolean }) {
 }
 
 /** This week against its target (v0.3.1): "Week 6h 20m of 10h". */
+/** The focus strip's figures. A mono space is a full character wide, so it's pulled in. */
+const FIGURE = "shrink-0 font-mono text-text [word-spacing:-0.3em]";
+
 function WeekProgress() {
   const [t, setT] = useState<WeekTarget | null>(null);
   const session = useStore((s) => s.session);
@@ -854,8 +857,11 @@ function WeekProgress() {
   }, [session?.id, done]);
   if (!t) return null;
   return (
-    <span data-testid="week-progress" title={t.isDefault ? "Your recent weekly average. Change it in Setup or on Monday's card." : undefined} className="shrink-0 whitespace-nowrap text-muted">
-      · Week <span className="font-mono text-text">{minutes(t.focusMin)}</span> of <span className="font-mono">{minutes(t.targetMin)}</span>
+    <span data-testid="week-progress" title={t.isDefault ? "The target is your recent weekly average. Change it in Setup or on Monday's card." : undefined} className="ml-3 flex shrink-0 items-center gap-3 whitespace-nowrap">
+      <span className="text-muted">This week</span>
+      <span className={FIGURE}>
+        {minutes(t.focusMin)} / {minutes(t.targetMin)}
+      </span>
     </span>
   );
 }
@@ -879,7 +885,7 @@ function FocusStrip() {
       <div className="h-1 w-[120px] shrink-0 overflow-hidden rounded-full bg-line">
         <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
       </div>
-      <span className="shrink-0 font-mono text-text">
+      <span className={FIGURE}>
         {minutes(Math.round(rolledTotal))} / {minutes(goal)}
       </span>
       <WeekProgress />

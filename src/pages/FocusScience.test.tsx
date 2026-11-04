@@ -233,7 +233,7 @@ describe("the week, reviewed", () => {
 
   it("Home shows the week against its target; Setup changes it or goes back to the average", async () => {
     render(<Home />);
-    expect(await screen.findByTestId("week-progress")).toHaveTextContent("Week 0m of 10h");
+    expect(await screen.findByTestId("week-progress")).toHaveTextContent("This week0m / 10h");
     render(<WeekTargetRow />);
     const input = await screen.findByLabelText("Week's focus target, in hours");
     fireEvent.change(input, { target: { value: "8" } });
