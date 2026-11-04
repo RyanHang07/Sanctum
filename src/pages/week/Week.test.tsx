@@ -153,8 +153,10 @@ describe("Week: routines are separate", () => {
     const fold = within(screen.getByRole("region", { name: "Monday, September 28" })).getByRole("button", { name: "Routines, 0 of 1 done" });
     expect(fold).toHaveAttribute("aria-expanded", "false");
     expect(within(screen.getByRole("region", { name: "Tuesday, September 29" })).queryByRole("button", { name: /^Routines/ })).toBeNull();
-    // One click opens every day, and it stays open across other tabs.
+    // Each day opens on its own, and stays open across other tabs.
     fireEvent.click(fold);
+    expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).queryByRole("checkbox", { name: "Gym" })).toBeNull();
+    fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: /^Routines/ }));
     fireEvent.click(screen.getByRole("tab", { name: "List" }));
     fireEvent.click(screen.getByRole("tab", { name: "Week" }));
     const onDays = ["Monday, September 28", "Tuesday, September 29", "Wednesday, September 30"].map(
@@ -167,6 +169,11 @@ describe("Week: routines are separate", () => {
     expect(monday).toHaveAttribute("aria-checked", "true");
     expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("checkbox", { name: "Gym" })).toHaveAttribute("aria-checked", "false");
     expect(monday.closest("[data-kind]")).toHaveAttribute("data-kind", "routine");
+    // A different week starts folded, and coming back does too.
+    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+    expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
   });
 
   it("pauses a routine from its row", async () => {
