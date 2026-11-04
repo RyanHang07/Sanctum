@@ -302,6 +302,7 @@ fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
             // Only the site (or the keyword) is kept, never the page.
             let what = msg["keyword"].as_str().map(|k| format!("“{k}”")).or_else(|| msg["site"].as_str().map(String::from));
             if let Some(what) = what.filter(|w| !w.is_empty()) {
+                let what: String = what.chars().take(120).collect();
                 engine::record_external_attempt(app, &what, "site");
             }
         }

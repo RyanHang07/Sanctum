@@ -189,7 +189,10 @@ chrome.windows.onFocusChanged.addListener(() => void reportActive());
 
 // The blocked page reports each block, so Sanctum can count it as an attempt.
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.type === "blocked") send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
+  // Only what's really sealed counts: any page can open blocked.html with a made-up site.
+  if (msg?.type === "blocked" && rules.sealed && (msg.keyword ? rules.keywords?.includes(msg.keyword) : rules.sites?.some((s) => s.domain === msg.site))) {
+    send({ type: "blocked", site: msg.site, keyword: msg.keyword ?? null });
+  }
   if (msg?.type === "open-sanctum") send({ type: "open-sanctum" });
   if (msg?.type === "park") return park(msg.text);
   if (msg?.type === "pause-go") return pauseGo(String(msg.site ?? ""));

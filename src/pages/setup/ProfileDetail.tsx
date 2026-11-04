@@ -124,16 +124,28 @@ function NameField({ profile }: { profile: Profile }) {
 function PlanField({ profile }: { profile: Profile }) {
   const showNotice = useStore((s) => s.showNotice);
   const [plan, setPlan] = useState("");
+  // What's saved, once it's known: a failed read must never save a blank over the real plan.
+  const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    void native.focusPrepare(profile.id, null).then((p) => live && setPlan(p.plan ?? ""), () => undefined);
+    void native.focusPrepare(profile.id, null).then(
+      (p) => {
+        if (!live) return;
+        setPlan(p.plan ?? "");
+        setSaved(p.plan ?? "");
+      },
+      () => undefined,
+    );
     return () => {
       live = false;
     };
   }, [profile.id]);
   const commit = async () => {
+    if (saved === null || plan.trim() === saved) return;
     try {
-      setPlan((await native.focusSetPlan(profile.id, plan)) ?? "");
+      const now = (await native.focusSetPlan(profile.id, plan)) ?? "";
+      setPlan(now);
+      setSaved(now);
     } catch (e) {
       showNotice({ lead: errorText(e) });
     }

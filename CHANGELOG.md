@@ -11,6 +11,15 @@
 - **Routines stay off your calendar unless you choose.** A routine is routine, so it no longer goes to Google by default. In a routine with a time, **Show on Google Calendar** puts it there as a repeating event, and turning it off takes it down (the switch shows when Google is connected). On updating, every routine starts off and the events already in Google are removed on the next sync; the routines stay in Sanctum, and timed tasks sync as before (migration 0028).
 - **Start over cleans up Google.** It now deletes the Sanctum calendar and everything on it, instead of leaving it behind in your account. Events you put on your own calendars stay. If Google can't be reached, nothing is erased: Sanctum offers **Try again** or **Erase anyway**, which leaves the calendar in Google for you to delete.
 - **The Week view folds routines away.** Each day's routines sit under one **Routines** row at the top with a count ("2/5"), so the week shows what's different about each day. Each day opens on its own and stays open across tabs; going to a different week starts them all closed.
+- **The words fit the moment.** Sanctum says what's true right now before a general line:
+  - Today: "You missed yesterday. *Not twice.*" when the streak is at risk, "Goal met. *Go again, or go rest.*" when the day is kept, and "Last stretch. *Finish clean.*" in a seal's last five minutes.
+  - The blocked screen: "That's 4 tries. It hasn't gotten more urgent." from the third attempt, and "Under ten minutes. Hold." near the end. The extension's sealed page has the same closing lines.
+  - More variety where one line repeated: the pause card, the park card, break suggestions, quiet hours, and the held page's first seal of the day. Confirmations and errors stay plain on purpose.
+  - A broken seal's page now says "Seal broken." instead of "Sanctum held."
+- **Security and bug pass:**
+  - The extension's blocked page does nothing inside a frame, and a made-up site never becomes a link. Any website can open that page, so it could have been used to trick a click or add false attempts.
+  - Only sites and keywords that are really sealed count as attempts, and what's logged is capped in length.
+  - A failed read in Setup › Profiles can't save a blank over a profile's plan.
 - **Manual pass, step 1 (0.3.0 → 0.3.1 on real hardware):** the one-click update, the extension reloading itself to 0.3.1 in every browser, and the installed extension files all check out.
 
 ## v0.3.1 (2026-10-30)

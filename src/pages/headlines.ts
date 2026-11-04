@@ -27,12 +27,33 @@ export const OPEN_BY_HOUR: readonly { from: number; to: number; line: Line }[] =
   { from: 22, to: 29, line: ["It’s late.", "Close the gaps, or sleep."] },
 ];
 
+/** Open, when today's goal is already met. */
+export const GOAL_MET_TODAY: readonly Line[] = [
+  ["Goal met.", "Go again, or go rest."],
+  ["The day is kept.", "Anything more is extra."],
+  ["Today’s promise is paid.", "Spend the rest well."],
+];
+
+/** Open, the day after a miss: one more and the streak resets. */
+export const AT_RISK: readonly Line[] = [
+  ["You missed yesterday.", "Not twice."],
+  ["One miss is a slip.", "Two is a pattern."],
+  ["The streak is on the line.", "Keep it today."],
+];
+
 export const SEALED: readonly Line[] = [
   ["Nothing else right now.", "Just this."],
   ["Head down.", "The noise can wait."],
   ["This is the rep.", "Don’t skip it."],
   ["No one’s watching.", "Show who you are."],
   ["You’re locked in.", "Finish what you started."],
+];
+
+/** Sealed, the last few minutes. */
+export const FINISHING: readonly Line[] = [
+  ["Last stretch.", "Finish clean."],
+  ["Almost there.", "Don’t drift now."],
+  ["Minutes left.", "Make them count."],
 ];
 
 /** In event: the statement is the event ("Design review until 10:39 AM."), the payoff one of these. */
@@ -59,6 +80,12 @@ export const HELD: readonly string[] = [
   "Actions, not words.",
 ];
 
+/** The day's first seal. */
+export const FIRST: readonly string[] = ["First one down.", "The day has started.", "One on the board."];
+
+/** The seal that reached today's goal, on the first day of a streak. */
+export const GOAL_CROSSED: readonly string[] = ["Goal met for today, but the best never stopped here.", "Goal met. The rest is extra.", "That’s today’s promise kept."];
+
 /** When downtime broke the session but it still landed on the held page. */
 /** A broken seal, when what broke it isn't known (v0.3.1: plain, never scolding). */
 export const HELD_BROKEN: readonly string[] = ["The seal broke, so today's streak resets. The work still counts.", "Held, but the downtime broke it. Next seal, fresh start."];
@@ -78,6 +105,28 @@ export const OVERLAY: readonly string[] = [
   "Not now. Later, if it matters.",
   "Close it. Go back.",
 ];
+
+/** The overlay in the last ten minutes: the end is the reason. */
+export const OVERLAY_ENDING: readonly string[] = ["Under ten minutes. Hold.", "Almost out. Don’t spend it here.", "You’re nearly done. Finish."];
+
+/** The overlay from the third attempt on. `{n}` is the count. */
+export const OVERLAY_REPEAT: readonly string[] = ["That’s {n} tries. It hasn’t gotten more urgent.", "{n} attempts. The answer hasn’t changed.", "Try {n}. Still sealed."];
+
+/** "Still want Discord?" and its payoff, on a pause. */
+export const PAUSE_PAYOFFS: readonly string[] = ["Take a breath.", "Decide on purpose.", "It can wait five seconds.", "Your call. Make it a real one."];
+
+/** The park card. */
+export const PARK: readonly Line[] = [
+  ["Park it.", "Back to work."],
+  ["Out of your head.", "Back to it."],
+  ["Write it down.", "Let it go."],
+];
+
+/** What a break is for. */
+export const BREAK_TIPS: readonly string[] = ["stand up, look away from the screen", "get some water, rest your eyes", "walk to another room and back", "stretch, then look out a window"];
+
+/** Why a flagged app is closed in quiet hours. */
+export const QUIET_LINES: readonly string[] = ["Quiet hours keep your Distractions list closed.", "You closed this hour on purpose.", "This is the time you protected."];
 
 export const WELCOME: readonly Line[] = [
   ["Welcome back.", "Pick it up."],
@@ -102,18 +151,31 @@ function partOfDay(now: Date) {
   return OPEN_BY_HOUR.find((p) => h >= p.from && h < p.to) ?? OPEN_BY_HOUR[0]!;
 }
 
+/** What's true right now that a headline should say instead of a general line. */
+export interface HomeMoment {
+  /** A seal's last five minutes. */
+  finishing?: boolean;
+  /** Today's goal is met. */
+  goalMet?: boolean;
+  /** Yesterday was missed and today isn't kept yet. */
+  atRisk?: boolean;
+}
+
 /**
  * Home headline per state. One pick a day for each state; Open also mixes in a line for the
  * part of the day, so it can change when morning turns to afternoon.
  */
-export function homeHeadline(state: AppState, event?: { title: string; until: string }, now = new Date()): [string, string] {
+export function homeHeadline(state: AppState, event?: { title: string; until: string }, now = new Date(), moment: HomeMoment = {}): [string, string] {
   const day = dayOf(now);
   switch (state) {
     case "sealed":
-      return [...pick(SEALED, `sealed:${day}`)];
+      return [...pick(moment.finishing ? FINISHING : SEALED, `sealed:${day}`)];
     case "event":
       return [`${event?.title ?? "Event"} until ${event?.until ?? "it ends"}.`, pick(EVENT_PAYOFFS, `event:${day}:${event?.title ?? ""}`)];
     default: {
+      // What's true today beats a line for the hour.
+      if (moment.goalMet) return [...pick(GOAL_MET_TODAY, `met:${day}`)];
+      if (moment.atRisk) return [...pick(AT_RISK, `risk:${day}`)];
       const part = partOfDay(now);
       return [...pick([...OPEN, part.line], `open:${day}:${part.from}`)];
     }
@@ -139,15 +201,20 @@ export interface HeldContext {
 export function heldLine(c: HeldContext): string {
   if (c.broken) return pick(HELD_BROKEN, c.sessionId);
   const crossed = c.todayMinutes >= c.goalMinutes && c.todayMinutes - c.focusMinutes < c.goalMinutes;
-  if (crossed) return c.streak !== null && c.streak >= 2 ? `${c.streak} days running.` : "Goal met for today, but the best never stopped here.";
-  if (c.todayMinutes <= c.focusMinutes) return "First one down.";
+  if (crossed) return c.streak !== null && c.streak >= 2 ? `${c.streak} days running.` : pick(GOAL_CROSSED, c.sessionId);
+  if (c.todayMinutes <= c.focusMinutes) return pick(FIRST, c.sessionId);
   if (c.attempts >= 3) return `Tempted ${c.attempts} times. Held anyway.`;
   if (c.attempts === 0) return pick([...HELD, "Not one slip."], c.sessionId);
   return pick(HELD, c.sessionId);
 }
 
-/** The overlay's closing line, steady for one attempt. */
-export const overlayLine = (seed: string | number, until: string) => pick(OVERLAY, seed).replace("{until}", until);
+/** The overlay's closing line, steady for one attempt. The end in sight, then repeat tries, say
+ *  more than a general line does. */
+export function overlayLine(seed: string | number, until: string, moment: { attempts?: number; remainingMs?: number } = {}): string {
+  if (moment.remainingMs !== undefined && moment.remainingMs < 10 * 60_000) return pick(OVERLAY_ENDING, seed);
+  if ((moment.attempts ?? 0) >= 3) return pick(OVERLAY_REPEAT, seed).replace("{n}", String(moment.attempts));
+  return pick(OVERLAY, seed).replace("{until}", until);
+}
 
 export const welcomeLine = (seed: string | number): [string, string] => [...pick(WELCOME, seed)];
 
