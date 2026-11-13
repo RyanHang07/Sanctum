@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon } from "../../components/icons";
 import { native } from "../../lib/native";
+import { useStore } from "../../state/store";
 import { addDays, fromKey, todayKey } from "../../lib/planner";
 import { clock } from "../../lib/time";
 import type { DayView } from "../../lib/types";
@@ -21,7 +22,8 @@ interface Hovered {
 }
 
 export function DayTab({ date, onDate }: { date: string; onDate: (key: string) => void }) {
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const [v, setV] = useState<DayView | null>(null);
   const [hover, setHover] = useState<Hovered | null>(null);
   useEffect(() => {

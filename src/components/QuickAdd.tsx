@@ -60,11 +60,12 @@ function place(anchor: HTMLElement) {
 export function QuickAddPanel({ anchor, date, initial = "", onClose }: { anchor: HTMLElement; date: string; initial?: string; onClose: () => void }) {
   const profiles = useStore((s) => s.profiles);
   const { saveTodo, saveRoutine } = usePlanner();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [text, setText] = useState(initial);
   const [picks, setPicks] = useState<Picks>({});
   const [pos, setPos] = useState(() => place(anchor));
   const ref = useRef<HTMLDivElement>(null);
-  const today = todayKey();
+  const today = todayKey(new Date(), dailyResetTime);
 
   useLayoutEffect(() => setPos(place(anchor)), [anchor]);
   useEffect(() => {

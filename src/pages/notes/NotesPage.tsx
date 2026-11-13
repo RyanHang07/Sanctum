@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
+import { Dialog } from "../../components/controls";
 import { PlusIcon, SearchIcon, XIcon } from "../../components/icons";
 import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { GUTTER, NoteEditor } from "../../components/editor/NoteEditor";
@@ -59,8 +60,8 @@ function NoteRow({ n, active, onOpen }: { n: Note; active: boolean; onOpen: () =
 
 const PLACEHOLDER = "Write, or type “/” for blocks and “@” to link to Sanctum";
 
-function Editor({ n }: { n: Note }) {
-  const { edit, pin, remove, fontSize, setFontSize } = useNotes();
+function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }) {
+  const { edit, pin, fontSize, setFontSize } = useNotes();
   // The document as it was when the note opened; the editor owns it from there.
   const doc = useMemo(() => docOf(n), [n.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const focusBody = () => document.querySelector<HTMLElement>(".note-doc")?.focus();
@@ -98,7 +99,7 @@ function Editor({ n }: { n: Note }) {
           type="button"
           aria-label="Delete note"
           title="Delete note"
-          onClick={() => void remove(n.id)}
+          onClick={onRequestDelete}
           className="flex h-7 w-7 items-center justify-center rounded-control text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text"
         >
           <XIcon size={12} />
@@ -119,8 +120,10 @@ function Editor({ n }: { n: Note }) {
 }
 
 export function NotesPage() {
-  const { notes, loaded, openId, load, open, create, flush } = useNotes();
+  const { notes, loaded, openId, load, open, create, flush, remove } = useNotes();
   const [query, setQuery] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<Note | null>(null);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     void load();
     return () => void flush();
@@ -129,6 +132,18 @@ export function NotesPage() {
   const q = query.trim().toLowerCase();
   const shown = useMemo(() => (q ? notes.filter((n) => `${n.title}\n${n.body}`.toLowerCase().includes(q)) : notes), [notes, q]);
   const current = notes.find((n) => n.id === openId) ?? null;
+
+  const confirmDeleteNote = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await flush();
+      await remove(confirmDelete.id);
+      setConfirmDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
@@ -170,10 +185,35 @@ export function NotesPage() {
             </nav>
           </aside>
           <section className="flex min-h-0 min-w-0 grow flex-col rounded-panel border border-line bg-panel py-5 pl-4 pr-8">
-            {current ? <Editor key={current.id} n={current} /> : <p className="m-auto text-body text-muted">Pick a note, or write a new one.</p>}
+            {current ? <Editor key={current.id} n={current} onRequestDelete={() => setConfirmDelete(current)} /> : <p className="m-auto text-body text-muted">Pick a note, or write a new one.</p>}
           </section>
         </div>
       )}
+      {confirmDelete ? (
+        <Dialog label="Delete note" onClose={() => (deleting ? null : setConfirmDelete(null))} width={420} top={170}>
+          <div className="flex flex-col gap-4 p-5">
+            <div className="flex flex-col gap-1">
+              <h2 className="m-0 text-[16px] font-semibold text-text">Delete note?</h2>
+              <p className="m-0 text-body text-muted">
+                This deletes <span className="text-text">“{noteTitle(confirmDelete)}”</span>. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="quiet" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                variant="raised"
+                onClick={() => void confirmDeleteNote()}
+                disabled={deleting}
+                className="border-broken-line bg-broken-tint text-broken-text enabled:hover:bg-broken/20"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

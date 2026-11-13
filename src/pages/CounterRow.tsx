@@ -3,6 +3,7 @@ import { useRolling } from "../lib/motion";
 import { CheckIcon, ChevronIcon, XIcon } from "../components/icons";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
+import { useStore } from "../state/store";
 import { dayBounds, todayKey, type AgendaItem } from "../lib/planner";
 import { clock } from "../lib/time";
 import type { Routine } from "../lib/types";
@@ -19,7 +20,8 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
   const loaded = useTrackers((s) => s.loaded);
   const tracker = useTrackers((s) => s.trackers.find((t) => t.id === routine.trackerId));
   const all = useTrackers((s) => s.entries);
-  const [from, to] = dayBounds(item.date);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const [from, to] = useMemo(() => dayBounds(item.date, dailyResetTime), [item.date, dailyResetTime]);
   const entries = useMemo(() => all.filter((e) => e.trackerId === routine.trackerId && e.loggedAt >= from && e.loggedAt < to), [all, routine.trackerId, from, to]);
   const total = entries.reduce((sum, e) => sum + (e.value ?? 0), 0);
   const goal = routine.goalAmount ?? 0;
@@ -45,8 +47,8 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
 
   // The routine's check follows the total (only today's, once entries have loaded).
   useEffect(() => {
-    if (loaded && item.date === todayKey() && met !== item.done) void usePlanner.getState().toggle(item);
-  }, [loaded, met, item]);
+    if (loaded && item.date === todayKey(new Date(), dailyResetTime) && met !== item.done) void usePlanner.getState().toggle(item);
+  }, [loaded, met, item, dailyResetTime]);
 
   const needsNote = routine.noteMode === "required";
   const add = async () => {

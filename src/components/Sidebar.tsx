@@ -38,32 +38,34 @@ export function StatePill({ state, meta, compact = false }: { state: AppState; m
   const label = meta ? `${p.label} · ${meta}` : p.label;
   if (compact) {
     return (
-      <div data-testid="state-pill" role="status" aria-label={label} title={label} className={`flex h-control items-center justify-center rounded-control border transition-colors duration-700 ${p.box}`}>
+      <div data-testid="state-pill" role="status" aria-label={label} title={label} className={`flex h-control w-full items-center justify-center rounded-control border transition-colors duration-700 ${p.box}`}>
         <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
       </div>
     );
   }
   return (
-    <div data-testid="state-pill" className={`flex h-control items-center gap-2 rounded-control border px-[10px] transition-colors duration-700 ${p.box}`}>
-      <span className={`h-[7px] w-[7px] shrink-0 rounded-full transition-colors duration-700 ${p.dot}`} />
-      <span className="text-meta font-medium">{p.label}</span>
-      {meta ? <span className="ml-auto font-mono text-meta text-muted">{meta}</span> : null}
+    <div data-testid="state-pill" className={`flex h-control w-full items-center gap-[10px] rounded-control border px-[10px] transition-colors duration-700 ${p.box}`}>
+      <span className="flex w-4 shrink-0 justify-center">
+        <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
+      </span>
+      <span className="whitespace-nowrap text-meta font-medium">{p.label}</span>
+      {meta ? <span className="ml-auto whitespace-nowrap font-mono text-meta text-muted">{meta}</span> : null}
     </div>
   );
 }
 
-function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
+function CollapseButton({ collapsed, onClick, className = "" }: { collapsed: boolean; onClick: () => void; className?: string }) {
   const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
     <button
       type="button"
       aria-label={label}
       aria-expanded={!collapsed}
-      title={`${label} (Ctrl B)`}
+      title={`${label} (Ctrl+B)`}
       onClick={onClick}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:text-text-2 ${className}`}
     >
-      <PanelIcon />
+      <PanelIcon className={collapsed ? "" : "rotate-180"} />
     </button>
   );
 }
@@ -77,7 +79,6 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
   const sealed = appState === "sealed";
   const activeTab = useStore((s) => s.activeTab);
   const navigate = useStore((s) => s.navigate);
-  const displayName = useStore((s) => s.settings.displayName);
   // A narrow window (a vertical monitor) folds it to the rail whatever the setting says.
   const narrow = useMedia(NARROW);
   const collapsed = useStore((s) => s.settings.sidebarCollapsed) || narrow;
@@ -91,20 +92,17 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
         collapsed ? "w-sidebar-rail px-[10px]" : "w-sidebar px-3"
       }`}
     >
-      <div className={`flex h-7 items-center gap-[10px] ${collapsed ? "justify-center" : "pl-2"}`}>
-        {sealed ? (
-          <span className="flex text-text">
-            <AnimatedMark size={18} mode="breathe" label="Sanctum, sealed" keyClass="text-sealed" />
-          </span>
-        ) : (
-          <Mark size={18} />
-        )}
-        {collapsed ? null : (
-          <>
-            <span className="grow whitespace-nowrap text-[14px] font-semibold tracking-[-0.01em]">Sanctum</span>
-            <CollapseButton collapsed={false} onClick={toggle} />
-          </>
-        )}
+      <div className={`flex h-7 items-center ${collapsed ? "justify-center" : "gap-[10px] pl-2"}`}>
+        <div className={`flex min-w-0 items-center ${collapsed ? "" : "grow gap-[10px] text-text"}`}>
+          {sealed ? (
+            <span className="flex text-text">
+              <AnimatedMark size={18} mode="breathe" label="Sanctum, sealed" keyClass="text-sealed" />
+            </span>
+          ) : (
+            <Mark size={18} />
+          )}
+          {collapsed ? null : <span className="grow whitespace-nowrap text-[14px] font-semibold tracking-[-0.01em]">Sanctum</span>}
+        </div>
       </div>
 
       <StatePill state={appState} meta={pillMeta} compact={collapsed} />
@@ -150,25 +148,23 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
 
       <div className="grow" />
 
-      {collapsed ? (
-        narrow ? null : (
-          <div className="flex justify-center">
-            <CollapseButton collapsed onClick={toggle} />
-          </div>
-        )
-      ) : (
-        <div className="flex items-center gap-2 px-2 text-meta text-faint">
-          {displayName ? (
-            <>
-              <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-raised text-[11px] font-semibold text-text-2">
-                {displayName[0]!.toUpperCase()}
-              </span>
-              <span className="whitespace-nowrap">{displayName}</span>
-            </>
-          ) : null}
-          <span className="ml-auto font-mono text-[11px]">{version}</span>
-        </div>
-      )}
+      <div
+        className={`group/sidebar-bottom mt-auto flex min-h-7 items-center text-faint ${
+          collapsed ? "justify-center" : "justify-between gap-2 px-2"
+        }`}
+      >
+        <CollapseButton collapsed={collapsed} onClick={toggle} />
+        <span
+          aria-hidden={collapsed ? undefined : undefined}
+          className={`overflow-hidden whitespace-nowrap font-mono text-[11px] text-faint transition-all duration-ui ease-ui ${
+            collapsed
+              ? "max-w-0 opacity-0 group-hover/sidebar-bottom:max-w-[48px] group-hover/sidebar-bottom:opacity-100 group-focus-within/sidebar-bottom:max-w-[48px] group-focus-within/sidebar-bottom:opacity-100"
+              : "max-w-[64px] opacity-100"
+          }`}
+        >
+          {version}
+        </span>
+      </div>
     </nav>
   );
 }

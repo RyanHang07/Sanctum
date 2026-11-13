@@ -32,6 +32,7 @@ const routine = (id: number, title: string, daysMask: number, time: string | nul
   trackerId: null,
   goalAmount: null,
   noteMode: "optional",
+  sessionsPerDay: 1,
   ...extra,
 });
 
@@ -82,7 +83,7 @@ describe("agenda", () => {
       routine(4, "Paused", EVERY_DAY, null, { active: false }),
     ];
     const todos = [todo(10, "Mock interview", "2026-09-28", "14:00"), todo(11, "Pay rent", "2026-09-28", null)];
-    const a = agendaFor(["2026-09-28", "2026-09-29"], routines, todos, [{ routineId: 3, date: "2026-09-28" }]);
+    const a = agendaFor(["2026-09-28", "2026-09-29"], routines, todos, [{ routineId: 3, date: "2026-09-28", completed: 1 }]);
     expect(a["2026-09-28"]!.map((i) => [i.title, i.done])).toEqual([
       ["Gym", false],
       ["Weigh-in", true],

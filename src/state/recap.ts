@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { native } from "../lib/native";
 import { weekStart, todayKey } from "../lib/planner";
 import type { Recap } from "../lib/types";
+import { useStore } from "./store";
 
 // The weekly recap (v0.3, decided 2026-10-29): once a week, the first time you open Sanctum
 // (Monday or later), last week in a few lines. Never a system notification; closing it (or
@@ -20,7 +21,7 @@ export const useRecap = create<RecapStore>()((set) => ({
   recap: null,
 
   check: async () => {
-    const week = weekStart(todayKey());
+    const week = weekStart(todayKey(new Date(), useStore.getState().settings.dailyResetTime));
     if ((await native.getSetting(SEEN).catch(() => null)) === week) return;
     const recap = await native.statsRecap().catch(() => null);
     // Nothing happened last week: nothing to say, and no reason to ask again this week.
@@ -32,7 +33,7 @@ export const useRecap = create<RecapStore>()((set) => ({
 
   close: () => {
     set({ recap: null });
-    void native.setSetting(SEEN, weekStart(todayKey())).catch(() => undefined);
+    void native.setSetting(SEEN, weekStart(todayKey(new Date(), useStore.getState().settings.dailyResetTime))).catch(() => undefined);
   },
 }));
 

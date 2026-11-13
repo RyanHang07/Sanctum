@@ -4,7 +4,7 @@
 //! v0.3: on a light taskbar the mark is drawn in the dark ink of design/logo's light-background
 //! mark (sanctum-mark-light.svg), following Windows' setting as it changes.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{
     image::Image,
@@ -48,20 +48,50 @@ const ICON: &[u8] = include_bytes!("../icons/tray/32x32.png");
 const PULSE_FRAMES: usize = 16;
 const PULSE_MS: u64 = 3200;
 
-/// The cobalt keyhole, as opposed to the torii's ink.
+/// Selected theme accent for the tray keyhole (RGB). None = original cobalt.
+static ACCENT: Mutex<Option<[u8; 3]>> = Mutex::new(None);
+
+/// The cobalt keyhole, as opposed to the torii's ink (detected from the original asset).
 fn is_keyhole(r: i32, g: i32, b: i32) -> bool {
     b - r > 80 && b - g > 60
+}
+
+fn keyhole_mask() -> &'static Vec<bool> {
+    static MASK: OnceLock<Vec<bool>> = OnceLock::new();
+    MASK.get_or_init(|| {
+        let Ok(decoded) = image::load_from_memory(ICON) else { return Vec::new() };
+        decoded
+            .to_rgba8()
+            .chunks_exact(4)
+            .map(|p| p[3] > 0 && is_keyhole(p[0] as i32, p[1] as i32, p[2] as i32))
+            .collect()
+    })
 }
 
 /// The dark ink of design/logo/sanctum-mark-light.svg.
 const LIGHT_INK: [u8; 3] = [0x12, 0x15, 0x1C];
 
+fn recolor_keyhole(rgba: &[u8], accent: Option<[u8; 3]>) -> Vec<u8> {
+    let Some(rgb) = accent else { return rgba.to_vec() };
+    let mask = keyhole_mask();
+    let mut out = rgba.to_vec();
+    for (i, px) in out.chunks_exact_mut(4).enumerate() {
+        if mask.get(i).copied().unwrap_or(false) {
+            px[0] = rgb[0];
+            px[1] = rgb[1];
+            px[2] = rgb[2];
+        }
+    }
+    out
+}
+
 /// The mark for a light taskbar: the torii in dark ink, the keyhole and every edge's
 /// smoothing (alpha) untouched.
 pub fn for_light_taskbar(rgba: &[u8]) -> Vec<u8> {
+    let mask = keyhole_mask();
     let mut out = rgba.to_vec();
-    for px in out.chunks_exact_mut(4) {
-        if px[3] > 0 && !is_keyhole(px[0] as i32, px[1] as i32, px[2] as i32) {
+    for (i, px) in out.chunks_exact_mut(4).enumerate() {
+        if px[3] > 0 && !mask.get(i).copied().unwrap_or(false) {
             px[..3].copy_from_slice(&LIGHT_INK);
         }
     }
@@ -83,16 +113,44 @@ pub fn taskbar_light() -> bool {
     false
 }
 
-/// Fades only the cobalt keyhole pixels, so the torii stays solid. `opacity` in 0..=1.
+/// Fades only the keyhole pixels, so the torii stays solid. `opacity` in 0..=1.
 pub fn fade_keyhole(rgba: &[u8], opacity: f32) -> Vec<u8> {
+    let mask = keyhole_mask();
     let mut out = rgba.to_vec();
-    for px in out.chunks_exact_mut(4) {
-        let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
-        if is_keyhole(r, g, b) {
+    for (i, px) in out.chunks_exact_mut(4).enumerate() {
+        if mask.get(i).copied().unwrap_or(false) {
             px[3] = (px[3] as f32 * opacity).round() as u8;
         }
     }
     out
+}
+
+fn parse_hex(hex: &str) -> Option<[u8; 3]> {
+    let h = hex.trim();
+    if h.len() != 7 || !h.starts_with('#') { return None; }
+    let r = u8::from_str_radix(&h[1..3], 16).ok()?;
+    let g = u8::from_str_radix(&h[3..5], 16).ok()?;
+    let b = u8::from_str_radix(&h[5..7], 16).ok()?;
+    Some([r, g, b])
+}
+
+/// Sets the tray keyhole accent color (hex). Call when the app theme changes.
+pub fn set_theme(app: &AppHandle, accent: Option<String>) {
+    let next = accent.as_deref().and_then(parse_hex);
+    {
+        let mut cur = ACCENT.lock().unwrap();
+        if *cur == next { return; }
+        *cur = next;
+    }
+    // Rebuild immediately for non-sealed state; the pulse thread also picks it up.
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        if let Ok(decoded) = image::load_from_memory(ICON) {
+            let themed = recolor_keyhole(decoded.to_rgba8().as_raw(), next);
+            let base = if taskbar_light() { for_light_taskbar(&themed) } else { themed };
+            let (w, h) = decoded.to_rgba8().dimensions();
+            let _ = tray.set_icon(Some(Image::new_owned(base, w, h)));
+        }
+    }
 }
 
 /// Opacity through one breath: 1, down to 0.45 halfway, back to 1.
@@ -105,7 +163,7 @@ pub fn breath(frame: usize, frames: usize) -> f32 {
 const TASKBAR_EVERY: usize = 25;
 
 /// Animates the tray icon while sealed and restores it when the seal ends; follows the
-/// taskbar's light or dark (v0.3).
+/// taskbar's light or dark (v0.3) and the selected theme accent.
 pub fn spawn_pulse(app: AppHandle) {
     std::thread::Builder::new()
         .name("sanctum-tray-pulse".into())
@@ -114,6 +172,7 @@ pub fn spawn_pulse(app: AppHandle) {
             let dark_base = decoded.to_rgba8();
             let (w, h) = dark_base.dimensions();
             let mut light: Option<bool> = None;
+            let mut accent: Option<[u8; 3]> = None;
             let mut base: Vec<u8> = Vec::new();
             let mut frames: Vec<Vec<u8>> = Vec::new();
             let mut i = 0;
@@ -124,15 +183,17 @@ pub fn spawn_pulse(app: AppHandle) {
                 let Some(shared) = app.try_state::<Shared>() else { continue };
                 let sealed = shared.sealed();
                 let Some(tray) = app.tray_by_id(TRAY_ID) else { continue };
-                if tick % TASKBAR_EVERY == 0 {
-                    let now = taskbar_light();
-                    if light != Some(now) {
-                        light = Some(now);
-                        base = if now { for_light_taskbar(dark_base.as_raw()) } else { dark_base.as_raw().clone() };
-                        frames = (0..PULSE_FRAMES).map(|f| fade_keyhole(&base, breath(f, PULSE_FRAMES))).collect();
-                        if !sealed {
-                            let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
-                        }
+                let cur_accent = *ACCENT.lock().unwrap();
+                let check = tick % TASKBAR_EVERY == 0;
+                let now_light = if check { taskbar_light() } else { light.unwrap_or(false) };
+                if light != Some(now_light) || accent != cur_accent || base.is_empty() {
+                    light = Some(now_light);
+                    accent = cur_accent;
+                    let themed = recolor_keyhole(dark_base.as_raw(), accent);
+                    base = if now_light { for_light_taskbar(&themed) } else { themed };
+                    frames = (0..PULSE_FRAMES).map(|f| fade_keyhole(&base, breath(f, PULSE_FRAMES))).collect();
+                    if !sealed {
+                        let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
                     }
                 }
                 tick += 1;
@@ -266,20 +327,27 @@ mod tests {
 
     #[test]
     fn a_light_taskbar_gets_the_dark_ink_mark_with_the_keyhole_kept() {
-        // A torii pixel (light ink), a keyhole pixel (cobalt), a half-transparent edge, empty.
-        let rgba = [230, 233, 239, 255, 47, 91, 255, 255, 230, 233, 239, 128, 0, 0, 0, 0];
-        let out = for_light_taskbar(&rgba);
-        assert_eq!(&out[0..4], &[0x12, 0x15, 0x1C, 255]);
-        assert_eq!(&out[4..8], &[47, 91, 255, 255]);
-        assert_eq!(&out[8..12], &[0x12, 0x15, 0x1C, 128]);
-        assert_eq!(&out[12..16], &[0, 0, 0, 0]);
-        // The real icon: every opaque torii pixel turns dark, the keyhole stays cobalt.
+        // The real icon: every opaque torii pixel turns dark, the keyhole stays.
         let icon = image::load_from_memory(ICON).unwrap().to_rgba8();
+        let mask = keyhole_mask();
         let light = for_light_taskbar(icon.as_raw());
-        let keyhole = icon.as_raw().chunks_exact(4).filter(|p| p[3] > 0 && is_keyhole(p[0] as i32, p[1] as i32, p[2] as i32)).count();
-        let kept = light.chunks_exact(4).filter(|p| p[3] > 0 && is_keyhole(p[0] as i32, p[1] as i32, p[2] as i32)).count();
+        let keyhole = mask.iter().filter(|&&m| m).count();
+        let kept = light.chunks_exact(4).zip(mask.iter()).filter(|(p, &m)| p[3] > 0 && m).count();
         assert!(keyhole > 0);
         assert_eq!(keyhole, kept);
+        let torii_dark = light.chunks_exact(4).zip(mask.iter()).any(|(p, &m)| p[3] > 0 && !m && p[0] == 0x12 && p[1] == 0x15 && p[2] == 0x1C);
+        assert!(torii_dark);
+    }
+
+    #[test]
+    fn theme_accent_recolors_only_keyhole() {
+        let icon = image::load_from_memory(ICON).unwrap().to_rgba8();
+        let themed = recolor_keyhole(icon.as_raw(), Some([0xAA, 0xBB, 0xCC]));
+        let mask = keyhole_mask();
+        for (i, px) in themed.chunks_exact(4).enumerate() {
+            if mask[i] { assert_eq!(&px[0..3], &[0xAA, 0xBB, 0xCC]); }
+            else { assert_eq!(px, icon.as_raw().chunks_exact(4).nth(i).unwrap()); }
+        }
     }
 
     #[test]
@@ -308,12 +376,13 @@ mod tests {
 
     #[test]
     fn only_the_keyhole_breathes() {
-        // white torii pixel, cobalt keyhole pixel, transparent
-        let px = [255, 255, 255, 255, 47, 91, 255, 255, 0, 0, 0, 0];
-        let out = fade_keyhole(&px, 0.45);
-        assert_eq!(&out[0..4], &[255, 255, 255, 255]);
-        assert_eq!(&out[4..8], &[47, 91, 255, 115]);
-        assert_eq!(&out[8..12], &[0, 0, 0, 0]);
+        let icon = image::load_from_memory(ICON).unwrap().to_rgba8();
+        let out = fade_keyhole(icon.as_raw(), 0.45);
+        let mask = keyhole_mask();
+        for (i, px) in out.chunks_exact(4).enumerate() {
+            if mask[i] { assert_eq!(px[3], (icon.as_raw()[i * 4 + 3] as f32 * 0.45).round() as u8); }
+            else { assert_eq!(px[3], icon.as_raw()[i * 4 + 3]); }
+        }
         assert!((breath(0, 16) - 1.0).abs() < 1e-6);
         assert!((breath(8, 16) - 0.45).abs() < 1e-6);
     }

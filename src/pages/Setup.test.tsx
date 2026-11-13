@@ -82,6 +82,15 @@ describe("Setup overview", () => {
     expect(await native.getSetting("close_action")).toBe("tray");
     expect(await native.getSetting("compact_on_focus")).toBe("1");
   });
+
+  it("updates the day reset time from General preferences", async () => {
+    await renderSetup(false);
+    await openTab("General");
+    const field = screen.getByLabelText("Day resets at");
+    fireEvent.change(field, { target: { value: "05:30" } });
+    await act(async () => fireEvent.blur(field));
+    await waitFor(async () => expect(await native.getSetting("daily_reset_time")).toBe("05:30"));
+  });
 });
 
 describe("Profile detail", () => {

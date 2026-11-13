@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+﻿import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Switch } from "../../components/controls";
 import { CheckIcon } from "../../components/icons";
 import { Row, Section } from "./parts";
@@ -6,14 +7,12 @@ import { useTheme } from "../../state/theme";
 import { cssVar, KEYS, type Theme } from "../../theme/palette";
 import { THEMES } from "../../theme/themes";
 
-// Setup › Appearance (v0.3): the themes as small windows drawn in their own colours. Hovering
-// one shows it across the whole app until the pointer leaves; clicking keeps it. Following
-// Windows, there's a pick for dark mode and one for light mode.
+// Setup › Appearance (v0.3, reworked): themes as a list of titles. Hover/focus shows an
+// animated floating preview near the cursor (top-right, clamped) without live-applying the
+// theme; clicking selects it.
 
-/** A theme's colours as variables on one element: everything inside draws in that theme. */
 export const themeVars = (t: Theme) => Object.fromEntries(KEYS.map((k) => [cssVar(k), t.palette[k]])) as CSSProperties;
 
-/** A small window in the theme's colours: sidebar, a headline, a list, and Enter focus. */
 function Miniature({ small = false }: { small?: boolean }) {
   return (
     <div aria-hidden="true" className={`flex ${small ? "h-[60px]" : "h-[84px]"} overflow-hidden rounded-[6px] border border-line bg-app`}>
@@ -42,51 +41,182 @@ function Miniature({ small = false }: { small?: boolean }) {
   );
 }
 
-function ThemeCard({ theme, chosen, tag, small }: { theme: Theme; chosen: boolean; tag?: string; small?: boolean }) {
-  const { pick, preview } = useTheme();
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={chosen}
-      aria-label={theme.name}
-      onClick={() => void pick(theme.id)}
-      onPointerEnter={() => preview(theme.id)}
-      onPointerLeave={() => preview(null)}
-      onFocus={() => preview(theme.id)}
-      onBlur={() => preview(null)}
-      className={`flex flex-col gap-2 rounded-panel border p-2 text-left transition-colors duration-ui ease-ui ${
-        chosen ? "border-sealed bg-sealed-tint" : "border-line bg-panel hover:border-line-input"
-      }`}
+type Hover = { id: string; x: number; y: number };
+
+function clampPreview(x: number, y: number) {
+  const w = 220;
+  const h = 140;
+  const margin = 12;
+  const left = Math.min(window.innerWidth - w - margin, Math.max(margin, x + 18));
+  const top = Math.min(window.innerHeight - h - margin, Math.max(margin, y - h - 8));
+  return { left, top };
+}
+
+function FloatingPreview({ hover }: { hover: Hover | null }) {
+  const theme = hover ? THEMES.find((t) => t.id === hover.id) : null;
+  const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!hover || !theme) return null;
+  const pos = clampPreview(hover.x, hover.y);
+  return createPortal(
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed z-50 w-[220px]"
+      style={{ left: pos.left, top: pos.top }}
     >
-      <div style={themeVars(theme)}>
-        <Miniature small={small} />
+      <div
+        style={themeVars(theme)}
+        className={`rounded-panel border border-line-input bg-panel p-2 shadow-dialog ${reduce ? "" : "animate-rise-in"}`}
+      >
+        <Miniature />
+        <div className="mt-2 px-[2px] text-meta font-medium text-text">{theme.name}</div>
       </div>
-      <span className="flex items-center gap-[6px] px-[2px] text-meta">
-        <span className={chosen ? "font-medium text-text" : "text-text-2"}>{theme.name}</span>
-        <span className="grow" />
-        {tag ? <span className="text-[11px] text-muted">{tag}</span> : null}
-        {chosen ? <CheckIcon size={12} /> : null}
-      </span>
-    </button>
+    </div>,
+    document.body,
   );
 }
 
-/** The cards for some themes, one of them chosen. */
-export function ThemeGrid({ themes, chosen, label, tag, small = false }: { themes: Theme[]; chosen: string; label: string; tag?: string; small?: boolean }) {
+function ThemeTitleList({
+  themes,
+  chosen,
+  label,
+  setHover,
+}: {
+  themes: Theme[];
+  chosen: string;
+  label: string;
+  setHover: (h: Hover | null) => void;
+}) {
+  const { pick, preview } = useTheme();
   return (
-    <div role="radiogroup" aria-label={label} className={`grid gap-3 ${small ? "grid-cols-[repeat(auto-fill,minmax(122px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(168px,1fr))]"}`}>
-      {themes.map((t) => (
-        <ThemeCard key={t.id} theme={t} chosen={t.id === chosen} tag={t.id === chosen ? tag : undefined} small={small} />
-      ))}
+    <div role="radiogroup" aria-label={label} className="flex flex-col overflow-hidden rounded-panel border border-line bg-panel">
+      {themes.map((theme) => {
+        const on = theme.id === chosen;
+        return (
+          <button
+            key={theme.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            aria-label={theme.name}
+            onClick={() => void pick(theme.id)}
+            onPointerEnter={(e) => {
+              setHover({ id: theme.id, x: e.clientX, y: e.clientY });
+              preview(theme.id);
+            }}
+            onPointerMove={(e) => setHover({ id: theme.id, x: e.clientX, y: e.clientY })}
+            onPointerLeave={() => {
+              setHover(null);
+              preview(null);
+            }}
+            onFocus={(e) => {
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setHover({ id: theme.id, x: r.right, y: r.top + r.height / 2 });
+              preview(theme.id);
+            }}
+            onBlur={() => {
+              setHover(null);
+              preview(null);
+            }}
+            className={`flex items-center justify-between gap-3 border-b border-line-soft px-[14px] py-[10px] text-left transition-colors duration-ui ease-ui last:border-b-0 ${
+              on ? "bg-sealed-tint text-text" : "text-text-2 hover:bg-line-soft hover:text-text"
+            }`}
+          >
+            <span className={`text-body ${on ? "font-medium text-text" : ""}`}>{theme.name}</span>
+            <span className="flex items-center gap-2 text-meta text-muted">
+              {on ? <span className="text-sealed-text">Selected</span> : null}
+              {on ? <CheckIcon size={12} /> : null}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+export function ThemeGrid({
+  themes,
+  chosen,
+  label,
+}: {
+  themes: Theme[];
+  chosen: string;
+  label: string;
+  tag?: string;
+  small?: boolean;
+}) {
+  // Back-compat export (used by onboarding): grid of title cards with floating preview, no live app preview.
+  const { pick, preview } = useTheme();
+  const [hover, setHover] = useState<Hover | null>(null);
+  useEffect(() => () => preview(null), [preview]);
+  return (
+    <>
+      <div role="radiogroup" aria-label={label} className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
+        {themes.map((theme) => {
+          const on = theme.id === chosen;
+          return (
+            <button
+              key={theme.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={theme.name}
+              onClick={() => void pick(theme.id)}
+              onPointerEnter={(e) => {
+                setHover({ id: theme.id, x: e.clientX, y: e.clientY });
+                preview(theme.id);
+              }}
+              onPointerMove={(e) => setHover({ id: theme.id, x: e.clientX, y: e.clientY })}
+              onPointerLeave={() => {
+                setHover(null);
+                preview(null);
+              }}
+              onFocus={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setHover({ id: theme.id, x: r.right, y: r.top + r.height / 2 });
+                preview(theme.id);
+              }}
+              onBlur={() => {
+                setHover(null);
+                preview(null);
+              }}
+              className={`flex flex-col gap-2 rounded-panel border p-2 text-left transition-colors duration-ui ease-ui ${
+                on ? "border-sealed bg-sealed-tint" : "border-line bg-panel hover:border-line-input"
+              }`}
+            >
+              <div style={themeVars(theme)}>
+                <Miniature small />
+              </div>
+              <span className="flex items-center gap-[6px] px-[2px] text-meta">
+                <span className={on ? "font-medium text-text" : "text-text-2"}>{theme.name}</span>
+                <span className="grow" />
+                {on ? <CheckIcon size={12} /> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <FloatingPreview hover={hover} />
+    </>
+  );
+}
+
 export function AppearanceSection() {
-  const { prefs, setFollow } = useTheme();
-  const dark = THEMES.filter((t) => t.scheme === "dark");
-  const light = THEMES.filter((t) => t.scheme === "light");
+  const { prefs, setFollow, preview } = useTheme();
+  const [hover, setHover] = useState<Hover | null>(null);
+  const dark = useMemo(() => THEMES.filter((t) => t.scheme === "dark"), []);
+  const light = useMemo(() => THEMES.filter((t) => t.scheme === "light"), []);
+  useEffect(() => () => preview(null), [preview]);
+
+  const groups: { id: string; title: string; label: string; themes: Theme[]; chosen: string }[] = prefs.follow
+    ? [
+        { id: "dark", title: "In dark mode", label: "Theme in dark mode", themes: dark, chosen: prefs.dark },
+        { id: "light", title: "In light mode", label: "Theme in light mode", themes: light, chosen: prefs.light },
+      ]
+    : [
+        { id: "dark", title: "Dark themes", label: "Dark themes", themes: dark, chosen: prefs.fixed },
+        { id: "light", title: "Light themes", label: "Light themes", themes: light, chosen: prefs.fixed },
+      ];
+
   return (
     <div className="flex flex-col gap-5">
       <Section title="Theme">
@@ -94,21 +224,14 @@ export function AppearanceSection() {
           <Switch checked={prefs.follow} onChange={(v) => void setFollow(v)} label="Follow Windows" />
         </Row>
       </Section>
-      {prefs.follow ? (
-        <>
-          <div className="flex flex-col gap-2">
-            <h3 className="m-0 text-body font-semibold">In dark mode</h3>
-            <ThemeGrid themes={dark} chosen={prefs.dark} label="Theme in dark mode" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="m-0 text-body font-semibold">In light mode</h3>
-            <ThemeGrid themes={light} chosen={prefs.light} label="Theme in light mode" />
-          </div>
-        </>
-      ) : (
-        <ThemeGrid themes={THEMES} chosen={prefs.fixed} label="Theme" />
-      )}
-      <p className="m-0 text-meta text-muted">Hover a theme to see it everywhere; click to keep it.</p>
+      {groups.map((g) => (
+        <div key={g.id} className="flex flex-col gap-2">
+          <h3 className="m-0 text-body font-semibold">{g.title}</h3>
+          <ThemeTitleList themes={g.themes} chosen={g.chosen} label={g.label} setHover={setHover} />
+        </div>
+      ))}
+      <p className="m-0 text-meta text-muted">Hover a theme title to preview it; click to select it.</p>
+      <FloatingPreview hover={hover} />
     </div>
   );
 }

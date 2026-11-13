@@ -140,7 +140,7 @@ function Parked({ sessionId }: { sessionId: number }) {
   const parked = all.filter((t) => t.parkedFrom === sessionId && !t.done);
   if (!parked.length) return null;
   const tomorrow = async (id: number, title: string) => {
-    await native.saveTodo({ id, title, dueDate: addDays(todayKey(), 1), dueTime: null, durationMin: null, profileId: null }).catch(() => undefined);
+    await native.saveTodo({ id, title, dueDate: addDays(todayKey(new Date(), useStore.getState().settings.dailyResetTime), 1), dueTime: null, durationMin: null, profileId: null }).catch(() => undefined);
     void usePlanner.getState().reload();
   };
   const drop = async (id: number) => {

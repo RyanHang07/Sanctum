@@ -57,6 +57,19 @@ function Page({ tab }: { tab: TabId }) {
   }
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target instanceof HTMLElement ? target : document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag === "INPUT") {
+    const type = (el as HTMLInputElement).type?.toLowerCase();
+    return !["button", "submit", "reset", "checkbox", "radio", "range", "color", "file"].includes(type ?? "");
+  }
+  return Boolean(el.closest('[contenteditable="true"], [contenteditable="plaintext-only"], .ProseMirror, .note-doc'));
+}
+
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,6 +89,7 @@ function useShortcuts() {
         e.preventDefault();
         void enterFocus();
       } else if (e.key.toLowerCase() === "b") {
+        if (isEditableTarget(e.target)) return;
         e.preventDefault();
         s.toggleSidebar();
       } else if (e.key.toLowerCase() === "m" && s.appState === "sealed") {

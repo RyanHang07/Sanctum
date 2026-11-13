@@ -57,11 +57,12 @@ function List({ title, items, scope, onSet, empty }: { title: string; items: Usa
 export function ActivityTab() {
   const profiles = useStore((s) => s.profiles);
   const showNotice = useStore((s) => s.showNotice);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [span, setSpan] = useState<Span>("week");
   // 0: everywhere; otherwise a profile, for "only in <profile>".
   const [scope, setScope] = useState(0);
   const [v, setV] = useState<ActivityView | null>(null);
-  const today = todayKey();
+  const today = todayKey(new Date(), dailyResetTime);
   const from = span === "today" ? today : addDays(today, span === "week" ? -6 : -29);
 
   const load = useCallback(() => {

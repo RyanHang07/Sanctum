@@ -4,6 +4,7 @@ import { XIcon } from "./icons";
 import { play } from "../lib/sound";
 import { useTrackers } from "../state/trackers";
 import { usePlanner } from "../state/planner";
+import { useStore } from "../state/store";
 import { addDays, agendaFor, longTime, todayKey, type AgendaItem } from "../lib/planner";
 import { entriesOf, formatChange, formatValue, num, shortDate, sparkline, stepFor } from "../lib/trackers";
 import type { NewEntry, Tracker, TrackerEntry } from "../lib/types";
@@ -140,11 +141,12 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
               type="button"
               role="checkbox"
               aria-checked={false}
-              aria-label={`Done: ${i.title}`}
+              aria-label={`Done: ${i.title}${i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? ` (${(i.sessionsDone ?? 0) + 1} of ${i.sessionsTarget})` : ""}`}
               onClick={() => void toggle(i)}
               className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-check-line hover:border-sealed"
             />
             <span className="min-w-0 grow truncate text-body">{i.title}</span>
+            {i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? <span className="shrink-0 font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
             {i.kind === "todo" ? (
               <Button variant="quiet" size="sm" onClick={() => void move(i)}>
                 Tomorrow
@@ -217,7 +219,7 @@ export function CheckinDialog() {
     try {
       if (items.length && !(await log(items, scheduled?.checkin.id ?? null))) return;
       if (review) {
-        const tomorrow = addDays(todayKey(), 1);
+        const tomorrow = addDays(todayKey(new Date(), useStore.getState().settings.dailyResetTime), 1);
         for (const title of tops) await usePlanner.getState().saveTodo({ title, dueDate: tomorrow, dueTime: null, durationMin: null, profileId: null });
       }
       await answer("logged");

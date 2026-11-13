@@ -41,7 +41,7 @@ export function seedDevPlanner(): Promise<void> {
     if ((await native.getSetting("dev_seeded_planner")) === "1") return;
     const profiles = await native.listProfiles();
     const id = (name: string) => profiles.find((p) => p.name === name)?.id ?? null;
-    const base = { active: true, durationMin: null, profileId: null, time: null };
+    const base = { active: true, durationMin: null, profileId: null, time: null, sessionsPerDay: 1 };
     const routines = [
       { ...base, title: "Morning run", daysMask: 0b0101010, time: "07:00", durationMin: 30 },
       { ...base, title: "Plan the day", daysMask: WEEKDAYS_MASK, time: "09:00", durationMin: 15 },

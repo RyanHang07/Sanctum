@@ -149,9 +149,10 @@ const COMMANDS: Command[] = [
       const title = blockText(e, r);
       e.chain().focus().deleteRange(r).run();
       if (!title) return;
+      const reset = useStore.getState().settings.dailyResetTime;
       void usePlanner
         .getState()
-        .saveTodo({ title, dueDate: todayKey(), dueTime: null, durationMin: null, profileId: null })
+        .saveTodo({ title, dueDate: todayKey(new Date(), reset), dueTime: null, durationMin: null, profileId: null })
         .then((t) => {
           if (!t) return;
           // The line becomes a link to the task.
@@ -188,7 +189,7 @@ const dayLabel = (key: string) => fromKey(key).toLocaleDateString("en-US", { wee
 /** Tasks, routines, trackers, and days that match, nearest first. */
 export function sanctumLinks(query: string): MenuItem[] {
   const q = query.trim().toLowerCase();
-  const today = todayKey();
+  const today = todayKey(new Date(), useStore.getState().settings.dailyResetTime);
   const { todos, routines } = usePlanner.getState();
   const trackers = useTrackers.getState().trackers;
   const days: MenuItem[] = [

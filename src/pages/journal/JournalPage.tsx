@@ -99,7 +99,8 @@ function Locked() {
 }
 
 function DayStrip({ date, onPick }: { date: string; onPick: (d: string) => void }) {
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   // Two weeks ending on the later of today and the picked day.
   const end = date > today ? date : today;
   const days = useMemo(() => Array.from({ length: STRIP }, (_, i) => addDays(end, i - STRIP + 1)), [end]);
@@ -149,7 +150,8 @@ function DayCard({ date }: { date: string }) {
   const items = useAgenda(days)[date] ?? [];
   const routines = usePlanner((s) => s.routines);
   const { trackers, entries, log, saveTracker } = useTrackers();
-  const [from, to] = dayBounds(date);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const [from, to] = useMemo(() => dayBounds(date, dailyResetTime), [date, dailyResetTime]);
   useEffect(() => {
     void usePlanner.getState().ensure(date, date);
     void native
@@ -163,7 +165,7 @@ function DayCard({ date }: { date: string }) {
   const sumFor = (trackerId: number) => entries.filter((e) => e.trackerId === trackerId && e.loggedAt >= from && e.loggedAt < to).reduce((s, e) => s + (e.value ?? 0), 0);
   const mood = trackers.find((t) => t.name.toLowerCase() === "mood" && t.kind === "scale");
   const moodToday = mood ? [...entries].reverse().find((e) => e.trackerId === mood.id && e.loggedAt >= from && e.loggedAt < to)?.value ?? null : null;
-  const isToday = date === todayKey();
+  const isToday = date === todayKey(new Date(), dailyResetTime);
 
   const setMood = async (value: number) => {
     const t = mood ?? (await saveTracker({ name: "Mood", kind: "scale" }));
@@ -277,7 +279,8 @@ function Page({ date }: { date: string }) {
 
 export function JournalPage() {
   const { loaded, setup, lock, load } = useJournal();
-  const [date, setDate] = useState(todayKey());
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const [date, setDate] = useState(() => todayKey(new Date(), dailyResetTime));
   const [setupOpen, setSetupOpen] = useState(false);
   useRelock();
   useEffect(() => {
@@ -286,7 +289,7 @@ export function JournalPage() {
   }, [load]);
 
   const locked = !!lock && !lock.unlocked;
-  const today = todayKey();
+  const today = todayKey(new Date(), dailyResetTime);
 
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">

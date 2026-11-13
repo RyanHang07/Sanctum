@@ -31,14 +31,6 @@
   [data-scheme="light"] .mesh-light-veil {
     display: block;
   }
-  /* The mark that fits the theme (components/Mark.tsx). */
-  .mark-for-light,
-  [data-scheme="light"] .mark-for-dark {
-    display: none;
-  }
-  [data-scheme="light"] .mark-for-light {
-    display: inline;
-  }
   /* Switching themes swaps every colour at once, not through each control's colour fade. */
   .theme-switching,
   .theme-switching *,
@@ -197,6 +189,7 @@
   .note-doc ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 10px; }
   .note-doc ul[data-type="taskList"] > li > label { flex: none; margin-top: 4px; user-select: none; }
   .note-doc ul[data-type="taskList"] > li > div { flex: 1; min-width: 0; }
+  .note-doc ul[data-type="taskList"] > li > div > * + * { margin-top: 0.35em; }
   .note-doc ul[data-type="taskList"] > li input[type="checkbox"] {
     appearance: none; margin: 0; display: grid; place-content: center; width: 15px; height: 15px; cursor: pointer;
     border: 1.5px solid theme(colors.check-line); border-radius: 4px; background: transparent;
@@ -227,8 +220,9 @@
   .note-doc th, .note-doc td { position: relative; min-width: 60px; padding: 6px 10px; border: 1px solid theme(colors.line-input); vertical-align: top; }
   .note-doc th { background: theme(colors.raised); font-weight: 600; text-align: left; }
   .note-doc .selectedCell::after { content: ""; position: absolute; inset: 0; background: theme(colors.sealed.DEFAULT / 15%); pointer-events: none; }
-  .note-doc .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 3px; background: theme(colors.sealed.DEFAULT); pointer-events: none; }
-  .note-doc.resize-cursor { cursor: col-resize; }
+  .note-doc .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px; background: theme(colors.sealed.DEFAULT / 70%); cursor: col-resize; z-index: 20; }
+  .note-doc.resize-cursor, .note-doc .resize-cursor { cursor: col-resize; }
+  .note-doc table .selectedCell { position: relative; }
   /* Toggles (details). */
   .note-doc div[data-type="details"] { display: flex; gap: 6px; }
   .note-doc div[data-type="details"] > button { flex: none; width: 18px; height: 22px; display: grid; place-content: center; color: theme(colors.muted); background: none; border: 0; cursor: pointer; }

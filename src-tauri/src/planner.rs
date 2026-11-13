@@ -27,6 +27,8 @@ pub struct Routine {
     pub goal_amount: Option<f64>,
     /// Whether each counter entry asks for a note: "required", "optional", or "off".
     pub note_mode: String,
+    /// Daily sessions required for non-counter checkbox routines (default 1). Done only at full completion.
+    pub sessions_per_day: i64,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -53,6 +55,9 @@ pub struct RoutineDraft {
     /// Left out, an edit keeps what the routine had, and a new routine starts off.
     #[serde(default)]
     pub on_calendar: Option<bool>,
+    /// Daily sessions for non-counter checkbox routines. None keeps existing/defaults to 1.
+    #[serde(default)]
+    pub sessions_per_day: Option<i64>,
 }
 
 fn yes() -> bool {
@@ -101,6 +106,8 @@ pub struct TodoDraft {
 pub struct RoutineCheck {
     pub routine_id: i64,
     pub date: String,
+    /// Completed sessions for the day (0..routine.sessions_per_day). Legacy rows migrate as 1.
+    pub completed: i64,
 }
 
 pub fn valid_time(t: &str) -> bool {
@@ -157,10 +164,11 @@ fn routine_row(r: &rusqlite::Row) -> rusqlite::Result<Routine> {
         tracker_id: r.get(8)?,
         goal_amount: r.get(9)?,
         note_mode: r.get(10)?,
+        sessions_per_day: r.get::<_, i64>(12).unwrap_or(1),
     })
 }
 
-const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min, tracker_id, goal_amount, note_mode, on_calendar";
+const ROUTINE_COLS: &str = "id, name, sort, profile_id, active, days_mask, time, duration_min, tracker_id, goal_amount, note_mode, on_calendar, sessions_per_day";
 const NOTE_MODES: &[&str] = &["required", "optional", "off"];
 
 /// A counter needs a number tracker and a goal above zero.
@@ -204,14 +212,24 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
     if !NOTE_MODES.contains(&note_mode.as_str()) {
         return Err(format!("{note_mode} is not a note setting."));
     }
+    let sessions = match d.sessions_per_day {
+        Some(s) if s >= 1 => s,
+        Some(_) => return Err("Sessions per day must be at least 1.".into()),
+        None => match d.id {
+            Some(id) => get_routine(conn, id).map(|r| r.sessions_per_day).unwrap_or(1),
+            None => 1,
+        },
+    };
+    // ponytail: sessions/day applies to non-counter checkbox routines only; counters stay 1.
+    let sessions_per_day = if d.tracker_id.is_some() { 1 } else { sessions };
     let goal = d.tracker_id.and(d.goal_amount);
     let id = match d.id {
         Some(id) => {
             get_routine(conn, id)?;
             conn.execute(
                 "UPDATE daily_goals SET name = ?1, profile_id = ?2, active = ?3, days_mask = ?4, time = ?5, duration_min = ?6,
-                 tracker_id = ?7, goal_amount = ?8, note_mode = ?9, on_calendar = COALESCE(?10, on_calendar) WHERE id = ?11",
-                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, d.tracker_id, goal, note_mode, d.on_calendar.map(i64::from), id],
+                 tracker_id = ?7, goal_amount = ?8, note_mode = ?9, on_calendar = COALESCE(?10, on_calendar), sessions_per_day = ?11 WHERE id = ?12",
+                params![title, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, d.tracker_id, goal, note_mode, d.on_calendar.map(i64::from), sessions_per_day, id],
             )
             .map_err(|e| e.to_string())?;
             id
@@ -221,9 +239,9 @@ pub fn save_routine(conn: &Connection, d: RoutineDraft) -> Result<Routine, Strin
                 .query_row("SELECT COALESCE(MAX(sort), -1) + 1 FROM daily_goals", [], |r| r.get(0))
                 .map_err(|e| e.to_string())?;
             conn.execute(
-                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at, tracker_id, goal_amount, note_mode, on_calendar)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms(), d.tracker_id, goal, note_mode, d.on_calendar.unwrap_or(false) as i64],
+                "INSERT INTO daily_goals (name, sort, profile_id, active, days_mask, time, duration_min, created_at, tracker_id, goal_amount, note_mode, on_calendar, sessions_per_day)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![title, sort, d.profile_id, d.active as i64, d.days_mask, d.time, d.duration_min, now_ms(), d.tracker_id, goal, note_mode, d.on_calendar.unwrap_or(false) as i64, sessions_per_day],
             )
             .map_err(|e| e.to_string())?;
             conn.last_insert_rowid()
@@ -238,26 +256,35 @@ pub fn delete_routine(conn: &Connection, id: i64) -> rusqlite::Result<()> {
 }
 
 pub fn list_checks(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<Vec<RoutineCheck>> {
-    let mut stmt = conn.prepare("SELECT goal_id, date FROM daily_goal_checks WHERE date BETWEEN ?1 AND ?2")?;
-    let rows = stmt.query_map([from, to], |r| Ok(RoutineCheck { routine_id: r.get(0)?, date: r.get(1)? }))?;
+    let mut stmt = conn.prepare("SELECT goal_id, date, COALESCE(completed, 1) FROM daily_goal_checks WHERE date BETWEEN ?1 AND ?2")?;
+    let rows = stmt.query_map([from, to], |r| Ok(RoutineCheck { routine_id: r.get(0)?, date: r.get(1)?, completed: r.get(2)? }))?;
     rows.collect()
 }
 
-/// Checks a routine off for one day only (the series keeps going).
-pub fn set_routine_done(conn: &Connection, id: i64, date: &str, done: bool) -> Result<(), String> {
+/// Sets routine progress for one day (0..sessions_per_day). 0 clears the check row.
+pub fn set_routine_progress(conn: &Connection, id: i64, date: &str, completed: i64) -> Result<(), String> {
     if !valid_date(date) {
         return Err(format!("{date} is not a date."));
     }
-    get_routine(conn, id)?;
-    let r = if done {
-        conn.execute(
-            "INSERT OR IGNORE INTO daily_goal_checks (goal_id, date, done_at) VALUES (?1, ?2, ?3)",
-            params![id, date, now_ms()],
-        )
-    } else {
+    let routine = get_routine(conn, id)?;
+    let target = routine.sessions_per_day.max(1);
+    let completed = completed.clamp(0, target);
+    let r = if completed <= 0 {
         conn.execute("DELETE FROM daily_goal_checks WHERE goal_id = ?1 AND date = ?2", params![id, date])
+    } else {
+        conn.execute(
+            "INSERT INTO daily_goal_checks (goal_id, date, done_at, completed) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(goal_id, date) DO UPDATE SET done_at = CASE WHEN excluded.completed >= ?5 THEN COALESCE(daily_goal_checks.done_at, excluded.done_at) ELSE daily_goal_checks.done_at END, completed = excluded.completed",
+            params![id, date, now_ms(), completed, target],
+        )
     };
     r.map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Compatibility wrapper: bool done maps to 0 or full target.
+pub fn set_routine_done(conn: &Connection, id: i64, date: &str, done: bool) -> Result<(), String> {
+    let routine = get_routine(conn, id)?;
+    set_routine_progress(conn, id, date, if done { routine.sessions_per_day.max(1) } else { 0 })
 }
 
 // --- one-time items ---
@@ -422,15 +449,29 @@ mod tests {
     fn checks_off_one_day_of_a_routine() {
         let conn = fresh();
         let r = save_routine(&conn, routine("Weigh-in", 0b0010010, Some("08:00"))).unwrap();
+        assert_eq!(r.sessions_per_day, 1);
         set_routine_done(&conn, r.id, "2026-09-28", true).unwrap();
         set_routine_done(&conn, r.id, "2026-09-28", true).unwrap(); // idempotent
         set_routine_done(&conn, r.id, "2026-10-01", true).unwrap();
-        assert_eq!(list_checks(&conn, "2026-09-28", "2026-09-30").unwrap(), vec![RoutineCheck { routine_id: r.id, date: "2026-09-28".into() }]);
+        assert_eq!(list_checks(&conn, "2026-09-28", "2026-09-30").unwrap(), vec![RoutineCheck { routine_id: r.id, date: "2026-09-28".into(), completed: 1 }]);
         set_routine_done(&conn, r.id, "2026-09-28", false).unwrap();
         assert!(list_checks(&conn, "2026-09-28", "2026-09-30").unwrap().is_empty());
         assert!(set_routine_done(&conn, r.id, "not-a-date", true).is_err());
         delete_routine(&conn, r.id).unwrap();
         assert!(list_checks(&conn, "2026-01-01", "2026-12-31").unwrap().is_empty(), "checks cascade with the routine");
+    }
+
+    #[test]
+    fn tracks_daily_sessions_progress() {
+        let conn = fresh();
+        let r = save_routine(&conn, RoutineDraft { sessions_per_day: Some(2), ..routine("Apply", 127, None) }).unwrap();
+        assert_eq!(r.sessions_per_day, 2);
+        set_routine_progress(&conn, r.id, "2026-09-28", 1).unwrap();
+        assert_eq!(list_checks(&conn, "2026-09-28", "2026-09-28").unwrap(), vec![RoutineCheck { routine_id: r.id, date: "2026-09-28".into(), completed: 1 }]);
+        set_routine_progress(&conn, r.id, "2026-09-28", 5).unwrap(); // clamps to target
+        assert_eq!(list_checks(&conn, "2026-09-28", "2026-09-28").unwrap()[0].completed, 2);
+        set_routine_progress(&conn, r.id, "2026-09-28", 0).unwrap();
+        assert!(list_checks(&conn, "2026-09-28", "2026-09-28").unwrap().is_empty());
     }
 
     #[test]
