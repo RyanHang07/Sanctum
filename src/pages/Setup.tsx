@@ -122,12 +122,28 @@ export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: nu
 
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, setDailyGoal, setRestDays, openOnboarding } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setDailyGoal, setDailyResetTime, setRestDays, openOnboarding } = useStore();
+  const [resetDraft, setResetDraft] = useState(settings.dailyResetTime);
+  useEffect(() => setResetDraft(settings.dailyResetTime), [settings.dailyResetTime]);
+  const commitReset = () => {
+    if (resetDraft !== settings.dailyResetTime) void setDailyResetTime(resetDraft);
+  };
   return (
     <>
     <Section title="Goal and streak">
       <Row label="Daily focus goal" hint="A day keeps the streak when you reach it and no seal breaks">
         <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
+      </Row>
+      <Row label="Day resets at" hint="Routines and your day roll over at this time. Late nights count as the day you started.">
+        <input
+          type="time"
+          aria-label="Day resets at"
+          value={resetDraft}
+          onChange={(e) => setResetDraft(e.target.value)}
+          onBlur={commitReset}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          className="h-[26px] shrink-0 cursor-pointer rounded-control border border-line-input bg-panel px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line hover:bg-raised focus:border-sealed focus:bg-panel [color-scheme:inherit] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+        />
       </Row>
       <Row label="Rest days" hint="Planned days off never break the streak">
         <RestDays mask={settings.restDaysMask} onChange={setRestDays} />

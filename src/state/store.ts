@@ -44,6 +44,8 @@ export interface Settings {
   dailyGoalMin: number;
   /** Planned rest days, a weekday mask (bit 0 = Sunday). Never break the streak. */
   restDaysMask: number;
+  /** When the planner day and routines roll over (HH:mm, local). */
+  dailyResetTime: string;
   /** Minutes without input before you count as idle (SPEC 4.8). */
   idleThresholdMin: number;
   /** Days of raw activity kept (SPEC 4.7). */
@@ -156,6 +158,7 @@ export interface Store {
   /** Saves one of the activity settings in SETTING_KEYS. */
   setActivitySetting: <K extends TextSetting>(key: K, value: Settings[K]) => void;
   setDailyGoal: (min: number) => void;
+  setDailyResetTime: (time: string) => Promise<void>;
   openOnboarding: () => void;
   /** Reloads what setup changed and returns to Home. */
   closeOnboarding: () => Promise<void>;
@@ -306,6 +309,7 @@ export const useStore = create<Store>()((set, get) => {
       soundStyles: { ...DEFAULT_STYLES },
       dailyGoalMin: 120,
       restDaysMask: 0,
+      dailyResetTime: "04:00",
       idleThresholdMin: 3,
       retentionDays: 30,
       passiveApps: "",
@@ -401,6 +405,19 @@ export const useStore = create<Store>()((set, get) => {
       set({ settings: { ...get().settings, restDaysMask } });
       void native.setSetting("rest_days_mask", String(restDaysMask));
     },
+    setDailyResetTime: async (time) => {
+      const t = (time || "").trim();
+      const m = /^(\d{2}):(\d{2})$/.exec(t);
+      if (!m) return;
+      const h = Number(m[1]);
+      const min = Number(m[2]);
+      if (h < 0 || h > 23 || min < 0 || min > 59) return;
+      const value = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      set({ settings: { ...get().settings, dailyResetTime: value } });
+      await native.setSetting("daily_reset_time", value);
+      const { usePlanner } = await import("./planner");
+      await Promise.all([usePlanner.getState().reload(), usePlanner.getState().loadPending()]);
+    },
     toggleHomeCollapsed: (panel) => {
       const l = get().settings.homeLayout;
       const collapsed = l.collapsed.includes(panel) ? l.collapsed.filter((p) => p !== panel) : [...l.collapsed, panel];
@@ -436,7 +453,7 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     loadSettings: async () => {
-      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw] = await Promise.all([
+      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw, resetTime] = await Promise.all([
         native.getSetting("close_action"),
         native.getSetting("on_login"),
         native.getSetting("display_name"),
@@ -453,6 +470,7 @@ export const useStore = create<Store>()((set, get) => {
         native.getSetting("rest_days_mask"),
         native.getSetting("sound_volume"),
         native.getSetting("sound_styles"),
+        native.getSetting("daily_reset_time"),
       ]);
       setSoundsEnabled(sounds !== "0");
       const soundVolume = volume === null || volume === undefined || Number.isNaN(Number(volume)) ? 70 : Math.min(100, Math.max(0, Number(volume)));
@@ -468,6 +486,7 @@ export const useStore = create<Store>()((set, get) => {
           sounds: sounds !== "0",
           dailyGoalMin: Number(goal) || 120,
           restDaysMask: Number(rest) || 0,
+          dailyResetTime: /^([01]\d|2[0-3]):([0-5]\d)$/.test(resetTime ?? "") ? resetTime! : "04:00",
           soundVolume,
           soundStyles,
           idleThresholdMin: Number(idle) || 3,

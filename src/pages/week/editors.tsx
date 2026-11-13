@@ -40,7 +40,7 @@ const fieldClass = "h-control rounded-control border border-line-input bg-raised
  * parked on, or null when it has a day.
  */
 function DateField({ value, onChange, week, onWeek }: { value: string; onChange: (v: string) => void; week?: string | null; onWeek?: (w: string | null) => void }) {
-  const thisWeek = weekStart(todayKey());
+  const thisWeek = weekStart(todayKey(new Date(), useStore.getState().settings.dailyResetTime));
   const nextWeek = addDays(thisWeek, 7);
   return (
     <div className="flex flex-col gap-1">
@@ -161,14 +161,16 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
   const [goal, setGoal] = useState(initial?.goalAmount != null ? String(initial.goalAmount) : "");
   const [unit, setUnit] = useState(linked?.unit ?? "");
   const [noteMode, setNoteMode] = useState<NoteMode>(initial?.noteMode ?? "optional");
+  const [sessionsPerDay, setSessionsPerDay] = useState(String(initial?.sessionsPerDay ?? 1));
   const goalValue = Number(goal);
   const goalOk = !counter || (goal.trim() !== "" && Number.isFinite(goalValue) && goalValue > 0);
+  const sessionsValue = Math.max(1, Math.floor(Number(sessionsPerDay) || 1));
 
   const save = async () => {
     if (!title.trim() || !mask || !goalOk) return;
     const base = { id: initial?.id, title, daysMask: mask, active };
     if (!counter) {
-      if (await saveRoutine({ ...base, time, durationMin: length, profileId: profile, trackerId: null, goalAmount: null, noteMode, onCalendar })) onClose();
+      if (await saveRoutine({ ...base, time, durationMin: length, profileId: profile, trackerId: null, goalAmount: null, noteMode, onCalendar, sessionsPerDay: sessionsValue })) onClose();
       return;
     }
     // Keep the linked tracker's name and unit in step; reuse a number tracker with this name.
@@ -177,7 +179,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
     const existing = linked ?? trackers.find((t) => t.kind === "number" && t.name.toLowerCase() === name.toLowerCase());
     const t = await useTrackers.getState().saveTracker({ id: existing?.id, name, unit: unit.trim(), kind: "number", display: existing?.display ?? "both", goal: existing?.goal ?? null });
     if (!t) return;
-    const ok = await saveRoutine({ ...base, time: null, durationMin: null, profileId: null, trackerId: t.id, goalAmount: goalValue, noteMode, onCalendar: false });
+    const ok = await saveRoutine({ ...base, time: null, durationMin: null, profileId: null, trackerId: t.id, goalAmount: goalValue, noteMode, onCalendar: false, sessionsPerDay: 1 });
     if (ok) onClose();
   };
 
@@ -231,6 +233,21 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
             <ProfileField value={profile} onChange={setProfile} />
           </div>
         )}
+        {!counter ? (
+          <label className="flex max-w-[180px] min-w-0 flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Sessions per day</span>
+            <input
+              aria-label="Sessions per day"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={sessionsPerDay}
+              onChange={(e) => setSessionsPerDay(e.target.value)}
+              className={`${fieldClass} font-mono`}
+            />
+          </label>
+        ) : null}
         {counter ? <p className="m-0 text-meta text-muted">Each amount is logged to the {title.trim() || "counter"} tracker, so Trackers keeps the history.</p> : null}
         {!counter && profile !== null && time ? (
           <p className="m-0 text-meta text-muted">Home suggests this profile when it starts, and offers to enter focus.</p>

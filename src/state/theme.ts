@@ -67,24 +67,28 @@ function chrome(p: ThemePrefs, t: Theme) {
   if (w.label === "main") void w.setBackgroundColor(t.palette.app!).catch(() => undefined);
 }
 
-/** The kept theme goes to the extension too; the main window speaks for every window. */
+/** The kept theme goes to the extension and native surfaces; the main window speaks for every window. */
 function toExtension(t: Theme) {
   if (inTauri() && getCurrentWindow().label !== "main") return;
   void native.browserSetTheme(t.id, t.scheme, t.palette).catch(() => undefined);
+  void native.setTrayTheme(t.palette.sealed ?? null).catch(() => undefined);
 }
 
 export interface ThemeStore {
   prefs: ThemePrefs;
   /** The theme showing now. */
   theme: Theme;
-  /** Hovering a theme card shows it live until the pointer leaves. */
+  /** Hovered/focused theme for floating preview. */
   previewing: string | null;
   load: () => Promise<void>;
   setPrefs: (p: ThemePrefs) => Promise<void>;
   /** Picks a theme: following, it becomes the dark or the light pick; otherwise the one theme. */
   pick: (id: string) => Promise<void>;
   setFollow: (follow: boolean) => Promise<void>;
+  /** Shows a floating preview (no live app theme change). */
   preview: (id: string | null) => void;
+  /** Live-previews the theme across the app until cleared (legacy). */
+  previewLive: (id: string | null) => void;
 }
 
 export const useTheme = create<ThemeStore>()((set, get) => {
@@ -131,6 +135,9 @@ export const useTheme = create<ThemeStore>()((set, get) => {
     },
 
     preview: (id) => {
+      set({ previewing: id });
+    },
+    previewLive: (id) => {
       const t = id ? themeById(id) : null;
       set({ previewing: id });
       applyTheme(t ?? get().theme);

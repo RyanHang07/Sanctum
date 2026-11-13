@@ -170,7 +170,9 @@ describe("Notes page", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pin to top" })));
     expect(list.getAllByRole("button")[0]).toHaveTextContent("Old idea");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Delete note" })));
-    expect(list.queryByRole("button", { name: /Old idea/ })).toBeNull();
+    const dialog = await screen.findByRole("dialog", { name: "Delete note" });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/ })));
+    await waitFor(() => expect(list.queryByRole("button", { name: /Old idea/ })).toBeNull());
     await waitFor(async () => expect((await native.listNotes()).map((n) => n.id)).not.toContain(a.id));
   });
 });

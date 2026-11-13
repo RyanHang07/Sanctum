@@ -78,6 +78,8 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
   if (item.kind === "event") return <EventCard item={item} onOpen={onOpen} />;
   const routine = item.kind === "routine";
   const focus = item.profileId !== null;
+  const multi = routine && (item.sessionsTarget ?? 1) > 1;
+  const partial = multi && (item.sessionsDone ?? 0) > 0 && !item.done;
   // Routines carry a tinted edge; focus-linked items (which seal their profile) a cobalt one.
   const edge = focus ? "border-l-sealed" : routine ? "border-l-check-line" : "border-l-transparent";
   return (
@@ -89,20 +91,20 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
       <button
         type="button"
         role="checkbox"
-        aria-checked={item.done}
-        aria-label={item.title}
+        aria-checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
+        aria-label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
         onClick={() => void toggle(item)}
         className={`check-pop mt-px box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-          item.done ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line hover:border-muted"
+          item.done ? "border border-sealed bg-sealed" : partial ? "border border-sealed bg-sealed/25" : "border-[1.5px] border-check-line hover:border-muted"
         }`}
       >
-        {item.done ? <CheckIcon size={8} /> : null}
+        {item.done ? <CheckIcon size={8} /> : partial ? <span className="h-[5px] w-[5px] rounded-[1px] bg-sealed" /> : null}
       </button>
       <button type="button" onClick={onOpen} className="flex min-w-0 grow flex-col gap-[2px] whitespace-normal text-left">
         <span className={`line-clamp-3 hyphens-auto break-words text-meta leading-snug ${item.done ? "text-faint line-through" : "text-text"}`}>{item.title}</span>
         <span className="flex items-center gap-1 font-mono text-[10px] text-muted">
           {routine ? <RepeatGlyph className="h-[10px] w-[10px]" /> : null}
-          {item.time ? shortTime(item.time) : routine ? "anytime" : ""}
+          {multi ? `${item.sessionsDone ?? 0}/${item.sessionsTarget}` : item.time ? shortTime(item.time) : routine ? "anytime" : ""}
         </span>
       </button>
     </div>
@@ -251,7 +253,8 @@ function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
   const stats = useDayStats(days[0]!, days[6]!);
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const narrow = useMedia(NARROW);
   return (
     <>
@@ -355,6 +358,7 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
                 <span className="w-[120px] shrink-0 text-meta text-text-2">{daysLabel(r.daysMask)}</span>
                 <span className="w-[56px] shrink-0 font-mono text-meta text-muted">{r.time ? shortTime(r.time) : "anytime"}</span>
                 <span className="w-[52px] shrink-0 font-mono text-meta text-muted">{r.durationMin ? `${r.durationMin}m` : ""}</span>
+                <span className="w-[72px] shrink-0 font-mono text-meta text-muted">{!r.trackerId && r.sessionsPerDay > 1 ? `${r.sessionsPerDay}/day` : ""}</span>
                 <span className="w-[120px] shrink-0 truncate text-meta text-muted">{profile?.name ?? ""}</span>
                 <ChevronRightIcon size={10} className="shrink-0 text-faint opacity-0 transition-opacity duration-ui ease-ui group-hover:opacity-100" />
               </button>
@@ -373,6 +377,8 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
 function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOpen: () => void }) {
   const toggle = usePlanner((s) => s.toggle);
   const tag = useStore((s) => s.profiles.find((p) => p.id === item.profileId)?.name);
+  const multi = item.kind === "routine" && (item.sessionsTarget ?? 1) > 1;
+  const partial = multi && (item.sessionsDone ?? 0) > 0 && !item.done;
   return (
     <div data-kind={item.kind} className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-line-soft">
       {item.kind === "event" ? (
@@ -380,22 +386,23 @@ function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOp
           <span className={`w-[3px] rounded-[2px] ${item.profileId !== null ? "bg-sealed" : "bg-event"}`} />
         </span>
       ) : (
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={item.done}
-        aria-label={item.title}
-        onClick={() => void toggle(item)}
-        className={`box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-          item.done ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line hover:border-muted"
-        }`}
-      >
-        {item.done ? <CheckIcon size={9} /> : null}
-      </button>
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
+          aria-label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
+          onClick={() => void toggle(item)}
+          className={`box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
+            item.done ? "border border-sealed bg-sealed" : partial ? "border border-sealed bg-sealed/25" : "border-[1.5px] border-check-line hover:border-muted"
+          }`}
+        >
+          {item.done ? <CheckIcon size={9} /> : partial ? <span className="h-[5px] w-[5px] rounded-[1px] bg-sealed" /> : null}
+        </button>
       )}
       <button type="button" onClick={onOpen} className={`min-w-0 grow truncate text-left text-body ${item.done ? "text-faint line-through" : "text-text"}`}>
         {item.title}
       </button>
+      {multi ? <span className="shrink-0 font-mono text-[11px] text-muted">{item.sessionsDone ?? 0}/{item.sessionsTarget}</span> : null}
       {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
       <span className="shrink-0 font-mono text-[11px] text-muted">{meta ?? (item.time ? shortTime(item.time) : item.kind === "event" ? "all day" : "")}</span>
     </div>
@@ -447,7 +454,8 @@ function DayList({ date, items, today, onOpen }: { date: string; items: AgendaIt
 function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) => void }) {
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   return (
     <div className="min-h-0 grow overflow-y-auto pr-1">
       {/* Two flowing columns: Monday to Thursday, then Friday to Sunday and Pending. */}
@@ -517,7 +525,8 @@ function MonthView({ month, onPick }: { month: string; onPick: (date: string) =>
   const days = useMemo(() => monthGrid(month), [month]);
   const agenda = useAgenda(days);
   const stats = useDayStats(days[0]!, days[days.length - 1]!);
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const m = fromKey(month).getMonth();
   return (
     <section aria-label="Month" className="flex min-h-0 grow flex-col gap-[6px]">
@@ -542,8 +551,9 @@ const monthTitle = (key: string) => fromKey(key).toLocaleDateString("en-US", { m
 export function WeekPage() {
   const view = useStore((s) => s.settings.weekView);
   const setView = useStore((s) => s.setWeekView);
-  const [start, setStart] = useState(() => weekStart(todayKey()));
-  const [month, setMonth] = useState(() => addMonths(todayKey(), 0));
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const [start, setStart] = useState(() => weekStart(todayKey(new Date(), dailyResetTime)));
+  const [month, setMonth] = useState(() => addMonths(todayKey(new Date(), dailyResetTime), 0));
   const [editing, setEditing] = useState<
     { kind: "todo"; todo?: Todo; date: string } | { kind: "routine"; routine?: Routine } | { kind: "event"; event: CalEvent; date: string } | null
   >(null);
@@ -572,13 +582,14 @@ export function WeekPage() {
     else if (i.kind === "routine") setEditing({ kind: "routine", routine: routines.find((r) => r.id === i.id) });
     else setEditing({ kind: "todo", todo: todos.find((t) => t.id === i.id) ?? pending.find((t) => t.id === i.id), date: i.date });
   };
-  const thisWeek = weekStart(todayKey());
-  const thisMonth = addMonths(todayKey(), 0);
+  const today = todayKey(new Date(), dailyResetTime);
+  const thisWeek = weekStart(today);
+  const thisMonth = addMonths(today, 0);
   const dated = view === "week" || view === "list";
   const newItem = () => {
     if (view === "routines") return setEditing({ kind: "routine" });
-    if (view === "month") return setEditing({ kind: "todo", date: month === thisMonth ? todayKey() : month });
-    setEditing({ kind: "todo", date: start <= todayKey() && todayKey() <= addDays(start, 6) ? todayKey() : start });
+    if (view === "month") return setEditing({ kind: "todo", date: month === thisMonth ? today : month });
+    setEditing({ kind: "todo", date: start <= today && today <= addDays(start, 6) ? today : start });
   };
   const openWeek = (date: string) => {
     setStart(weekStart(date));

@@ -62,6 +62,15 @@ export function dayBounds(key: string, resetTime = "04:00"): [number, number] {
   return [start, d.getTime() + minutesOf(resetTime) * 60_000];
 }
 
+/** Milliseconds until the next planner-day reset at `resetTime` (local). */
+export function msUntilReset(now: Date = new Date(), resetTime = "04:00"): number {
+  const next = new Date(now);
+  const [h, m] = resetTime.split(":").map(Number);
+  next.setHours(h ?? 4, m ?? 0, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
 /** "8:00a", "4:30p" (Home.dc.html). */
 export function shortTime(hhmm: string): string {
   const total = minutesOf(hhmm);
@@ -116,6 +125,9 @@ export interface AgendaItem {
   done: boolean;
   /** Drag order among untimed items of its kind (routine or item sort; 0 for events). */
   order: number;
+  /** Routine sessions progress (non-counter checkbox routines). */
+  sessionsTarget?: number;
+  sessionsDone?: number;
   /** A one-time item with no day yet (Pending); `date` is its week's Monday. */
   undated?: boolean;
   /** Calendar events only. */
@@ -162,25 +174,31 @@ export function agendaFor(
   checks: readonly RoutineCheck[],
   extra: Record<string, AgendaItem[]> = {},
 ) {
-  const done = new Set(checks.map((c) => `${c.routineId}:${c.date}`));
+  const progress = new Map(checks.map((c) => [`${c.routineId}:${c.date}`, c.completed]));
   const out: Record<string, AgendaItem[]> = {};
   const byOrder = [...routines].sort((a, b) => a.sort - b.sort || a.id - b.id);
   for (const date of dates) {
     const day = dayOf(date);
     const items: AgendaItem[] = byOrder
       .filter((r) => r.active && hasDay(r.daysMask, day))
-      .map((r) => ({
-        key: `routine:${r.id}:${date}`,
-        kind: "routine",
-        id: r.id,
-        title: r.title,
-        date,
-        time: r.time,
-        durationMin: r.durationMin,
-        profileId: r.profileId,
-        done: done.has(`${r.id}:${date}`),
-        order: r.sort,
-      }));
+      .map((r) => {
+        const target = r.trackerId ? 1 : Math.max(1, r.sessionsPerDay ?? 1);
+        const completed = Math.min(target, Math.max(0, progress.get(`${r.id}:${date}`) ?? 0));
+        return {
+          key: `routine:${r.id}:${date}`,
+          kind: "routine" as const,
+          id: r.id,
+          title: r.title,
+          date,
+          time: r.time,
+          durationMin: r.durationMin,
+          profileId: r.profileId,
+          done: completed >= target,
+          order: r.sort,
+          sessionsTarget: target,
+          sessionsDone: completed,
+        };
+      });
     // Pending items have no day yet; they show in Pending, not on their week's Monday.
     for (const t of todos.filter((t) => t.dueDate === date && !t.undated)) {
       items.push({

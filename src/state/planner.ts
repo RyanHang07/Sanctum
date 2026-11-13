@@ -74,7 +74,8 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   reload: async () => {
-    const today = todayKey();
+    const reset = useStore.getState().settings.dailyResetTime;
+    const today = todayKey(new Date(), reset);
     const range = get().range ?? [today, addDays(today, 1)];
     const [routines, todos, checks] = await Promise.all([
       native.listRoutines(),
@@ -91,7 +92,8 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   loadPending: async () => {
-    const today = todayKey();
+    const reset = useStore.getState().settings.dailyResetTime;
+    const today = todayKey(new Date(), reset);
     const past = await native.listTodos(addDays(today, -PENDING_DAYS), addDays(today, -1)).catch(() => [] as Todo[]);
     set({ pending: past.filter((t) => !t.done && !deleting.todos.has(t.id)) });
   },
@@ -135,9 +137,11 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   saveTodo: async (d) => {
     const t = await attempt(() => native.saveTodo(d));
     if (t) {
+      const reset = useStore.getState().settings.dailyResetTime;
+      const today = todayKey(new Date(), reset);
       set({ todos: [...get().todos.filter((x) => x.id !== t.id), t], pending: get().pending.filter((x) => x.id !== t.id) });
       // Moving a pending item to an earlier undone date keeps it pending.
-      if (!t.done && t.dueDate < todayKey()) set({ pending: [...get().pending, t] });
+      if (!t.done && t.dueDate < today) set({ pending: [...get().pending, t] });
     }
     return t;
   },
@@ -189,13 +193,18 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   toggle: async (item) => {
-    const done = !item.done;
     if (item.kind === "routine") {
-      // Optimistic: flip it now, undo if the backend refuses.
+      const target = Math.max(1, item.sessionsTarget ?? 1);
+      const current = Math.min(target, Math.max(0, item.sessionsDone ?? (item.done ? target : 0)));
+      // Step up until complete; if already complete, step down by one (undo one session).
+      const completed = current < target ? current + 1 : Math.max(0, current - 1);
       const before = get().checks;
-      set({ checks: done ? [...before, { routineId: item.id, date: item.date }] : before.filter((c) => !(c.routineId === item.id && c.date === item.date)) });
-      if ((await attempt(() => native.setRoutineDone(item.id, item.date, done).then(() => true))) === null) set({ checks: before });
+      const next = before.filter((c) => !(c.routineId === item.id && c.date === item.date));
+      if (completed > 0) next.push({ routineId: item.id, date: item.date, completed });
+      set({ checks: next });
+      if ((await attempt(() => native.setRoutineProgress(item.id, item.date, completed).then(() => true))) === null) set({ checks: before });
     } else {
+      const done = !item.done;
       // Checking off a pending item clears it from Pending.
       set({ todos: get().todos.map((t) => (t.id === item.id ? { ...t, done } : t)), pending: get().pending.filter((t) => !(t.id === item.id && done)) });
       const t = await attempt(() => native.setTodoDone(item.id, done));

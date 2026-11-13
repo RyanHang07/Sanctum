@@ -307,6 +307,15 @@ fn set_routine_done(shared: State<Shared>, id: i64, date: String, done: bool) ->
 }
 
 #[tauri::command]
+fn set_routine_progress(shared: State<Shared>, id: i64, date: String, completed: i64) -> Result<(), String> {
+    db_call(&shared, |c| {
+        planner::set_routine_progress(c, id, &date, completed)?;
+        gcal::queue(&shared, c, gcal::sync::Job::Check(id, date));
+        Ok(())
+    })
+}
+
+#[tauri::command]
 fn list_todos(shared: State<Shared>, from: String, to: String) -> Result<Vec<planner::Todo>, String> {
     db_call(&shared, |c| planner::list_todos(c, &from, &to).map_err(|e| e.to_string()))
 }
@@ -680,6 +689,11 @@ fn show_main(app: AppHandle) {
     show_main_window(&app);
 }
 
+#[tauri::command]
+fn set_tray_theme(app: AppHandle, accent: Option<String>) {
+    tray::set_theme(&app, accent);
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -892,6 +906,7 @@ pub fn run() {
             cloud::cloud_request_removal,
             browser::browser_open_extension_dir,
             browser::browser_set_theme,
+            set_tray_theme,
             list_installed_apps,
             app_icon,
             launch_profile,
@@ -961,6 +976,7 @@ pub fn run() {
             delete_routine,
             list_routine_checks,
             set_routine_done,
+            set_routine_progress,
             list_todos,
             save_todo,
             set_todo_done,

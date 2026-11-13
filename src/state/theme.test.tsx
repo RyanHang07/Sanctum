@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+﻿import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { DEFAULT_PREFS, resolve, useTheme } from "./theme";
 import { AppearanceSection } from "../pages/setup/Appearance";
 import { native } from "../lib/native";
@@ -53,9 +53,9 @@ describe("themes (v0.3)", () => {
     const now = useTheme.getState().theme.id;
     await act(() => useTheme.getState().setFollow(false));
     expect(useTheme.getState().prefs).toMatchObject({ follow: false, fixed: now });
-    await act(() => useTheme.getState().pick("gruvbox-dark"));
-    expect(useTheme.getState().prefs.fixed).toBe("gruvbox-dark");
-    expect(shown()).toBe("gruvbox-dark");
+    await act(() => useTheme.getState().pick("gruvbox"));
+    expect(useTheme.getState().prefs.fixed).toBe("gruvbox");
+    expect(shown()).toBe("gruvbox");
   });
 
   it("Ctrl K switches light and dark, and finds a theme by name", async () => {
@@ -77,6 +77,7 @@ describe("themes (v0.3)", () => {
     expect(useTheme.getState().prefs.dark).toBe("dracula");
   });
 
+
   it("Setup › Appearance previews on hover and keeps a theme on click", async () => {
     await act(() => useTheme.getState().load());
     render(<AppearanceSection />);
@@ -84,17 +85,23 @@ describe("themes (v0.3)", () => {
     expect(darkGroup.getByRole("radio", { name: "Sanctum Dark" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("radiogroup", { name: "Theme in light mode" })).toBeInTheDocument();
 
+    const before = shown();
     fireEvent.pointerEnter(darkGroup.getByRole("radio", { name: "Nord" }));
-    expect(shown()).toBe("nord");
+    expect(useTheme.getState().previewing).toBe("nord");
+    expect(shown()).toBe(before);
     fireEvent.pointerLeave(darkGroup.getByRole("radio", { name: "Nord" }));
-    expect(shown()).not.toBe("nord");
+    expect(useTheme.getState().previewing).toBeNull();
+    expect(shown()).toBe(before);
 
-    await act(async () => fireEvent.click(darkGroup.getByRole("radio", { name: "Tokyo Night" })));
-    expect(useTheme.getState().prefs.dark).toBe("tokyo-night");
-    expect(darkGroup.getByRole("radio", { name: "Tokyo Night" })).toHaveAttribute("aria-checked", "true");
+    await act(async () => fireEvent.click(darkGroup.getByRole("radio", { name: "Tokyonight" })));
+    expect(useTheme.getState().prefs.dark).toBe("tokyonight");
+    expect(darkGroup.getByRole("radio", { name: "Tokyonight" })).toHaveAttribute("aria-checked", "true");
 
-    // Not following: one list of every theme.
+    // Not following: grouped lists of every theme.
     await act(async () => fireEvent.click(screen.getByRole("switch", { name: "Follow Windows" })));
-    expect(within(screen.getByRole("radiogroup", { name: "Theme" })).getAllByRole("radio")).toHaveLength(13);
+    expect(screen.getByRole("radiogroup", { name: "Dark themes" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Light themes" })).toBeInTheDocument();
+    const all = [...within(screen.getByRole("radiogroup", { name: "Dark themes" })).getAllByRole("radio"), ...within(screen.getByRole("radiogroup", { name: "Light themes" })).getAllByRole("radio")];
+    expect(all.length).toBeGreaterThan(13);
   });
 });

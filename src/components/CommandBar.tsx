@@ -131,7 +131,7 @@ ${n.body}`.toLowerCase().includes(q)).slice(0, 5)) {
       id: "add-task",
       group: "Act on it",
       label: `Add “${text}” for today`,
-      run: () => usePlanner.getState().saveTodo({ title: text, dueDate: todayKey(), dueTime: null, durationMin: null, profileId: null }),
+      run: () => usePlanner.getState().saveTodo({ title: text, dueDate: todayKey(new Date(), useStore.getState().settings.dailyResetTime), dueTime: null, durationMin: null, profileId: null }),
     });
     matched.push({
       id: "save-note",

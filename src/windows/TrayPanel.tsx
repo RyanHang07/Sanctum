@@ -5,6 +5,7 @@ import { CheckIcon, ChevronIcon, PlusIcon } from "../components/icons";
 import { Kbd } from "../components/Button";
 import { broadcast, EVENTS, native, onNative } from "../lib/native";
 import { agendaFor, longTime, shortTime, todayKey, type AgendaItem } from "../lib/planner";
+import { useStore } from "../state/store";
 import { clock, countdown } from "../lib/time";
 import { durationsMin } from "../theme/tokens";
 import type { NextCheckin, Profile, Routine, RoutineCheck, SessionView, Todo } from "../lib/types";
@@ -26,8 +27,8 @@ interface TrayData {
 
 const EMPTY: TrayData = { session: null, profiles: [], routines: [], todos: [], checks: [], next: null };
 
-async function load(): Promise<TrayData> {
-  const today = todayKey();
+async function load(resetTime?: string): Promise<TrayData> {
+  const today = todayKey(new Date(), resetTime ?? useStore.getState().settings.dailyResetTime);
   const [session, profiles, routines, todos, checks, next] = await Promise.all([
     native.getSession(),
     native.listProfiles(),
@@ -66,12 +67,13 @@ function Select<T extends string | number>({ label, value, options, onChange, cl
 }
 
 export function TrayPanel() {
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [data, setData] = useState<TrayData>(EMPTY);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [minutes, setMinutes] = useState(60);
   const [draft, setDraft] = useState("");
 
-  const refresh = () => void load().then(setData).catch(() => undefined);
+  const refresh = () => void load(dailyResetTime).then(setData).catch(() => undefined);
   useEffect(() => {
     refresh();
     const offs = [
@@ -85,7 +87,7 @@ export function TrayPanel() {
       window.removeEventListener("focus", refresh);
       offs.forEach((p) => void p.then((off) => off()));
     };
-  }, []);
+  }, [dailyResetTime]);
 
   // Default to the first profile and its length until you pick.
   const profile = data.profiles.find((p) => p.id === profileId) ?? data.profiles[0] ?? null;
@@ -96,7 +98,7 @@ export function TrayPanel() {
     }
   }, [data.profiles, profileId]);
 
-  const today = todayKey();
+  const today = todayKey(new Date(), dailyResetTime);
   const items = useMemo(
     () => (agendaFor([today], data.routines, data.todos, data.checks)[today] ?? []).filter((i) => i.kind !== "event"),
     [data.routines, data.todos, data.checks, today],
@@ -105,8 +107,14 @@ export function TrayPanel() {
   const shown = [...items.filter((i) => !i.done), ...items.filter((i) => i.done)].slice(0, 3);
 
   const toggle = async (i: AgendaItem) => {
-    if (i.kind === "routine") await native.setRoutineDone(i.id, i.date, !i.done);
-    else await native.setTodoDone(i.id, !i.done);
+    if (i.kind === "routine") {
+      const target = Math.max(1, i.sessionsTarget ?? 1);
+      const current = Math.min(target, Math.max(0, i.sessionsDone ?? (i.done ? target : 0)));
+      const completed = current < target ? current + 1 : Math.max(0, current - 1);
+      await native.setRoutineProgress(i.id, i.date, completed);
+    } else {
+      await native.setTodoDone(i.id, !i.done);
+    }
     refresh();
     void broadcast(EVENTS.planner);
   };
@@ -213,24 +221,29 @@ export function TrayPanel() {
             {done}/{items.length}
           </span>
         </div>
-        {shown.map((i) => (
-          <div key={i.key} className="flex h-8 shrink-0 items-center gap-[10px] px-[14px]">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={i.done}
-              aria-label={i.title}
-              onClick={() => void toggle(i)}
-              className={`check-pop box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] ${
-                i.done ? "border border-sealed bg-sealed text-sealed-on" : "border-[1.5px] border-check-line hover:border-sealed"
-              }`}
-            >
-              {i.done ? <CheckIcon size={9} /> : null}
-            </button>
-            <span className={`min-w-0 grow truncate text-meta ${i.done ? "text-faint line-through" : "text-text"}`}>{i.title}</span>
-            <span className="font-mono text-[11px] text-muted">{i.time ? shortTime(i.time) : ""}</span>
-          </div>
-        ))}
+        {shown.map((i) => {
+          const multi = i.kind === "routine" && (i.sessionsTarget ?? 1) > 1;
+          const label = multi ? `${i.title} ${i.sessionsDone ?? 0}/${i.sessionsTarget}` : i.title;
+          return (
+            <div key={i.key} className="flex h-8 shrink-0 items-center gap-[10px] px-[14px]">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={multi ? "mixed" : i.done}
+                aria-label={label}
+                onClick={() => void toggle(i)}
+                className={`check-pop box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] ${
+                  i.done ? "border border-sealed bg-sealed text-sealed-on" : multi && (i.sessionsDone ?? 0) > 0 ? "border border-sealed bg-sealed/30 text-sealed-text" : "border-[1.5px] border-check-line hover:border-sealed"
+                }`}
+              >
+                {i.done ? <CheckIcon size={9} /> : multi && (i.sessionsDone ?? 0) > 0 ? <span className="h-[6px] w-[6px] rounded-[2px] bg-sealed" /> : null}
+              </button>
+              <span className={`min-w-0 grow truncate text-meta ${i.done ? "text-faint line-through" : "text-text"}`}>{i.title}</span>
+              {multi ? <span className="font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
+              <span className="font-mono text-[11px] text-muted">{i.time ? shortTime(i.time) : ""}</span>
+            </div>
+          );
+        })}
         {!items.length ? <p className="m-0 px-[14px] py-2 text-meta text-faint">Nothing planned for today.</p> : null}
         <label className="mt-auto flex h-[34px] shrink-0 items-center gap-2 border-t border-line px-[14px] text-faint focus-within:text-text-2">
           <PlusIcon size={12} />

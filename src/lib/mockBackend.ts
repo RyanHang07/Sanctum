@@ -782,6 +782,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       if (k !== "number") throw "A counter needs a number tracker.";
       if (!(draft.goalAmount && draft.goalAmount > 0)) throw "Set a daily goal above zero.";
     }
+    const sessionsPerDay = trackerId !== null ? 1 : Math.max(1, draft.sessionsPerDay ?? existing?.sessionsPerDay ?? 1);
     const r: Routine = {
       id: existing?.id ?? state.nextId++,
       sort: existing?.sort ?? state.routines.length,
@@ -795,6 +796,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       trackerId,
       goalAmount: trackerId !== null ? (draft.goalAmount ?? null) : null,
       noteMode: draft.noteMode ?? "optional",
+      sessionsPerDay,
     };
     state.routines = [...state.routines.filter((x) => x.id !== r.id), r];
     return clone(r);
@@ -805,8 +807,15 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   list_routine_checks: ({ from, to }) => clone(state.checks.filter((c) => c.date >= from && c.date <= to)),
   set_routine_done: ({ id, date, done }) => {
+    const target = (state.routines.find((r) => r.id === id)?.sessionsPerDay ?? 1);
     state.checks = state.checks.filter((c) => !(c.routineId === id && c.date === date));
-    if (done) state.checks.push({ routineId: id, date });
+    if (done) state.checks.push({ routineId: id, date, completed: target });
+  },
+  set_routine_progress: ({ id, date, completed }) => {
+    const target = Math.max(1, state.routines.find((r) => r.id === id)?.sessionsPerDay ?? 1);
+    const v = Math.max(0, Math.min(completed, target));
+    state.checks = state.checks.filter((c) => !(c.routineId === id && c.date === date));
+    if (v > 0) state.checks.push({ routineId: id, date, completed: v });
   },
   list_todos: ({ from, to }) => clone(state.todos.filter((t) => t.dueDate >= from && t.dueDate <= to).sort((a, b) => a.sort - b.sort || a.id - b.id)),
   save_todo: ({ draft }: { draft: TodoDraft }) => {

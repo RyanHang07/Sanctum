@@ -5,6 +5,7 @@ import { ChevronRightIcon } from "../../components/icons";
 import { Section } from "../setup/parts";
 import { EVENTS, native, onNative, WEEK_TARGET_EVENT } from "../../lib/native";
 import { useInstalledApps } from "../../lib/installedApps";
+import { useStore } from "../../state/store";
 import { addMonths, fromKey, todayKey, WEEKDAYS } from "../../lib/planner";
 import { dayDetail, rangeOf, rangeTitle, shade, shiftRange, TEMPTED_KIND, temptedLabel, type StatsRange } from "../../lib/stats";
 import { minutes } from "../../lib/time";
@@ -289,9 +290,10 @@ const TABS: { id: StatsTab; label: string }[] = [
 ];
 
 export function StatsPage() {
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [tab, setTab] = useState<StatsTab>("overview");
   // The Day tab opens on a date picked elsewhere (a day in Overview, a session's day).
-  const [dayKey, setDayKey] = useState(todayKey());
+  const [dayKey, setDayKey] = useState(() => todayKey(new Date(), dailyResetTime));
   const openDay = (key: string) => (setDayKey(key), setTab("day"));
   return (
     <div className="flex h-full flex-col gap-[14px] px-7 pb-6 pt-5">
@@ -324,9 +326,10 @@ export function StatsPage() {
 }
 
 function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const [range, setRange] = useState<StatsRange>("week");
-  const [anchor, setAnchor] = useState(today);
+  const [anchor, setAnchor] = useState(() => todayKey(new Date(), dailyResetTime));
   const [o, setO] = useState<StatsOverview | null>(null);
   const [paused, setPaused] = useState<PauseSummary | null>(null);
   const [hover, setHover] = useState<DayStat | null>(null);

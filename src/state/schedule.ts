@@ -11,7 +11,7 @@ const PROMPT_WINDOW_MS = 2 * 60_000;
 
 /** Today's and tomorrow's items (tomorrow so "next up" works late in the evening). */
 export function upcomingItems(now = new Date()): AgendaItem[] {
-  const today = todayKey(now);
+  const today = todayKey(now, useStore.getState().settings.dailyResetTime);
   const days = [today, addDays(today, 1)];
   const agenda = agendaNow(days);
   return days.flatMap((d) => agenda[d] ?? []);
@@ -37,8 +37,9 @@ export const resetPrompted = () => prompted.clear();
 
 /** Keeps the focus row following the schedule while Sanctum runs (SPEC 4.12, focus row). */
 export function useScheduleFocus() {
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   useEffect(() => {
-    const today = todayKey();
+    const today = todayKey(new Date(), dailyResetTime);
     void usePlanner.getState().ensure(today, addDays(today, 1)).then(() => checkSchedule());
     void useCalendar.getState().ensure(today, addDays(today, 1)).then(() => checkSchedule());
     const t = setInterval(() => checkSchedule(), CHECK_MS);
@@ -54,5 +55,5 @@ export function useScheduleFocus() {
       off();
       offEvents();
     };
-  }, []);
+  }, [dailyResetTime]);
 }

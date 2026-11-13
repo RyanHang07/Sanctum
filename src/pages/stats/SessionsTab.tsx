@@ -114,7 +114,7 @@ function Details({ id, onClose, onOpenDay }: { id: number; onClose: () => void; 
               </div>
             ) : null}
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => onOpenDay(todayKey(new Date(s.startedAt)))}>
+              <Button variant="ghost" size="sm" onClick={() => onOpenDay(todayKey(new Date(s.startedAt), useStore.getState().settings.dailyResetTime))}>
                 See that day
               </Button>
               <Button variant="primary" size="sm" onClick={onClose}>
@@ -131,13 +131,14 @@ function Details({ id, onClose, onOpenDay }: { id: number; onClose: () => void; 
 export function SessionsTab({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const profiles = useStore((s) => s.profiles);
   const showNotice = useStore((s) => s.showNotice);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [span, setSpan] = useState<Span>("week");
   const [outcome, setOutcome] = useState<SessionOutcome | "">("");
   const [profile, setProfile] = useState<number>(0);
   const [rows, setRows] = useState<SessionRow[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
 
-  const today = todayKey();
+  const today = todayKey(new Date(), dailyResetTime);
   const query: SessionQuery = useMemo(
     () => ({
       ...(span === "all" ? {} : { from: span === "week" ? addDays(today, -6) : addMonths(today, -1), to: today }),

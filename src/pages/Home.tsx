@@ -18,7 +18,7 @@ import { Glide, useRolling } from "../lib/motion";
 import { BREAK_TIPS, homeHeadline, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { addDays, blockTimes, canReorder, moveId, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { addDays, blockTimes, canReorder, moveId, msUntilReset, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
@@ -64,10 +64,11 @@ const MARK: Record<DayStatus, string> = {
 function StreakChip() {
   const navigate = useStore((s) => s.navigate);
   const session = useStore((s) => s.session);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [o, setO] = useState<StatsOverview | null>(null);
   useEffect(() => {
     let live = true;
-    const today = todayKey();
+    const today = todayKey(new Date(), dailyResetTime);
     const load = () =>
       void native
         .statsOverview(addDays(today, -6), today)
@@ -82,7 +83,7 @@ function StreakChip() {
       void off.then((f) => f());
     };
     // A session starting or ending changes today.
-  }, [session?.id]);
+  }, [session?.id, dailyResetTime]);
   const n = o?.currentStreak ?? 0;
   return (
     <button
@@ -495,7 +496,8 @@ function EventBar() {
 
 /** Today's routines, items, and calendar events. */
 function useTodayAgenda(): AgendaItem[] {
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const days = useMemo(() => [today], [today]);
   return useAgenda(days)[today] ?? [];
 }
@@ -541,19 +543,29 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
       } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
     >
       {over !== null ? <span aria-hidden="true" className={`pointer-events-none absolute inset-x-[14px] h-[2px] rounded-full bg-sealed ${over ? "bottom-0" : "top-0"}`} /> : null}
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={t.done}
-        aria-label={t.title}
-        onClick={() => void toggle(t)}
-        className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-          t.done ? "border border-sealed bg-sealed hover:brightness-110" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
-        }`}
-      >
-        {t.done ? <CheckIcon /> : null}
-      </button>
-      <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
+      {(() => {
+        const multi = t.kind === "routine" && (t.sessionsTarget ?? 1) > 1;
+        const partial = multi && (t.sessionsDone ?? 0) > 0 && !t.done;
+        const label = multi ? `${t.title} (${t.sessionsDone ?? 0} of ${t.sessionsTarget} sessions)` : t.title;
+        return (
+          <>
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={multi ? (t.done ? true : partial ? "mixed" : false) : t.done}
+              aria-label={label}
+              onClick={() => void toggle(t)}
+              className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
+                t.done ? "border border-sealed bg-sealed hover:brightness-110" : partial ? "border border-sealed bg-sealed/25 hover:bg-sealed/35" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
+              }`}
+            >
+              {t.done ? <CheckIcon /> : partial ? <span className="h-[6px] w-[6px] rounded-[2px] bg-sealed" /> : null}
+            </button>
+            <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
+            {multi ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] font-mono text-[11px] text-muted">{t.sessionsDone ?? 0}/{t.sessionsTarget}</span> : null}
+          </>
+        );
+      })()}
       {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
       {canLink && !t.done ? (
         // Links the next session to this task (and its profile). Shown on hover, kept while linked.
@@ -693,7 +705,10 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const canLink = useStore((s) => s.appState === "open" && !s.session);
   const collapsed = useStore((s) => s.settings.homeLayout.collapsed.includes("today"));
   const toggleCollapsed = useStore((s) => s.toggleHomeCollapsed);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const now = useNow();
+  const resetMs = msUntilReset(new Date(now), dailyResetTime);
+  const routinesTitle = resetMs <= 60 * 60_000 ? `Routines reset in ${Math.max(1, Math.ceil(resetMs / 60_000))}m` : "Routines";
 
   const routineDrag = useReorder(listed, (moved, target, after) => {
     const ids = [...usePlanner.getState().routines].sort((a, b) => a.sort - b.sort || a.id - b.id).map((r) => r.id);
@@ -730,7 +745,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
     <section aria-label="Today" className={`flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel ${collapsed ? "" : "h-full"}`}>
       <div className={`grid shrink-0 grid-cols-2 ${collapsed ? "" : "border-b border-line"}`}>
         <ColumnHead
-          title="Routines"
+          title={routinesTitle}
           items={routines}
           first={
             <button
@@ -761,7 +776,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
           </div>
           <div data-testid="day-column" className="flex min-h-0 flex-col border-l border-line">
             <QuickAddField
-              date={todayKey()}
+              date={todayKey(new Date(), dailyResetTime)}
               label="Add a task for today"
               placeholder="Add a task for today"
               prefix={<PlusIcon className="shrink-0 text-faint" />}
@@ -850,10 +865,11 @@ function CustomizeMenu() {
 
 /** Yesterday was missed and today isn't kept yet: the headline says so. */
 function useStreakAtRisk() {
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const [atRisk, setAtRisk] = useState(false);
   useEffect(() => {
     let live = true;
-    const today = todayKey();
+    const today = todayKey(new Date(), dailyResetTime);
     const load = () =>
       void native.statsOverview(addDays(today, -6), today).then(
         (o) => live && setAtRisk(o.streakAtRisk && o.days.at(-1)?.status === "today"),
@@ -865,7 +881,7 @@ function useStreakAtRisk() {
       live = false;
       void off.then((f) => f());
     };
-  }, []);
+  }, [dailyResetTime]);
   return atRisk;
 }
 

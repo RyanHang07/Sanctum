@@ -22,12 +22,16 @@ const pairs: [fg: string, bg: string, min: number][] = [
 ];
 
 describe("themes (v0.3)", () => {
-  it("are thirteen, Sanctum Dark first, with unique ids", () => {
-    expect(THEMES).toHaveLength(13);
+  it("includes Sanctum themes first and all OpenCode themes with unique ids", () => {
     expect(THEMES[0]!.id).toBe("sanctum-dark");
-    expect(new Set(THEMES.map((t) => t.id)).size).toBe(13);
-    expect(THEMES.filter((t) => t.scheme === "light").map((t) => t.name)).toEqual(["Sanctum Light", "GitHub Light", "Catppuccin Latte", "Solarized Light"]);
+    expect(THEMES[1]!.id).toBe("sanctum-light");
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length);
+    expect(THEMES.length).toBeGreaterThan(13);
+    expect(THEMES.some((t) => t.scheme === "light")).toBe(true);
+    expect(THEMES.some((t) => t.scheme === "dark")).toBe(true);
+    expect(themeById("opencode")?.name).toBe("OpenCode");
     expect(themeById("nord")?.name).toBe("Nord");
+    expect(themeById("tokyonight")?.name).toBe("Tokyonight");
     expect(themeById("nope")).toBeUndefined();
   });
 

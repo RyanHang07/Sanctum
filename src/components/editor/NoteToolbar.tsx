@@ -43,6 +43,7 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
       numbers: e.isActive("orderedList"),
       tasks: e.isActive("taskList"),
       callout: e.isActive("callout"),
+      table: e.isActive("table"),
     }),
   });
   const at = NOTE_SIZES.indexOf(size as (typeof NOTE_SIZES)[number]);
@@ -103,6 +104,18 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
       <Tool label="Callout" active={on.callout} onRun={() => run((c) => (on.callout ? c.lift("callout") : c.wrapIn("callout")))}>
         !
       </Tool>
+      {on.table ? (
+        <>
+          <Divider />
+          <Tool wide label="Add row above" onRun={() => run((c) => c.addRowBefore())}>R↑</Tool>
+          <Tool wide label="Add row below" onRun={() => run((c) => c.addRowAfter())}>R↓</Tool>
+          <Tool wide label="Delete row" onRun={() => run((c) => c.deleteRow())}>R×</Tool>
+          <Tool wide label="Add column before" onRun={() => run((c) => c.addColumnBefore())}>C←</Tool>
+          <Tool wide label="Add column after" onRun={() => run((c) => c.addColumnAfter())}>C→</Tool>
+          <Tool wide label="Delete column" onRun={() => run((c) => c.deleteColumn())}>C×</Tool>
+          <Tool wide label="Delete table" onRun={() => run((c) => c.deleteTable())}>T×</Tool>
+        </>
+      ) : null}
     </div>
   );
 }

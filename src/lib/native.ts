@@ -226,6 +226,7 @@ export const native = {
   deleteRoutine: (id: number) => call<void>("delete_routine", { id }),
   listRoutineChecks: (from: string, to: string) => call<RoutineCheck[]>("list_routine_checks", { from, to }),
   setRoutineDone: (id: number, date: string, done: boolean) => call<void>("set_routine_done", { id, date, done }),
+  setRoutineProgress: (id: number, date: string, completed: number) => call<void>("set_routine_progress", { id, date, completed }),
   listTodos: (from: string, to: string) => call<Todo[]>("list_todos", { from, to }),
   saveTodo: (draft: TodoDraft) => call<Todo>("save_todo", { draft }),
   setTodoDone: (id: number, done: boolean) => call<Todo>("set_todo_done", { id, done }),
@@ -309,6 +310,7 @@ export const native = {
   browserOpenExtensionDir: () => call<void>("browser_open_extension_dir"),
   /** The kept theme, for the extension's sealed page and popup (v0.3). */
   browserSetTheme: (id: string, scheme: string, palette: Record<string, string>) => call<void>("browser_set_theme", { id, scheme, palette }),
+  setTrayTheme: (accent: string | null) => call<void>("set_tray_theme", { accent }),
 };
 
 /** Sends an event to every Sanctum window (the tray panel tells the main window things). */

@@ -122,7 +122,7 @@ describe("Home counters (v0.1.4)", () => {
     await act(async () => fireEvent.submit(amount.closest("form")!));
     expect(counter).toHaveTextContent("155 / 150 g");
     expect(counter).toHaveAttribute("data-done", "true");
-    expect(usePlanner.getState().checks).toContainEqual({ routineId: routine!.id, date: day });
+    expect(usePlanner.getState().checks).toContainEqual(expect.objectContaining({ routineId: routine!.id, date: day }));
     // The entries, with notes, are in the tracker.
     const logged = (await native.trackerEntries(0, Date.now() + 1)).filter((e) => e.trackerId === tracker.id);
     expect(logged.map((e) => [e.value, e.text])).toEqual([[60, "eggs"], [95, "chicken"]]);
@@ -130,7 +130,7 @@ describe("Home counters (v0.1.4)", () => {
     fireEvent.click(within(counter).getByRole("button", { name: /Show today's entries/ }));
     await act(async () => fireEvent.click(within(counter).getByRole("button", { name: "Remove 95 g" })));
     expect(counter).toHaveTextContent("60 / 150 g");
-    expect(usePlanner.getState().checks).not.toContainEqual({ routineId: routine!.id, date: day });
+    expect(usePlanner.getState().checks).not.toContainEqual(expect.objectContaining({ routineId: routine!.id, date: day }));
   });
 });
 

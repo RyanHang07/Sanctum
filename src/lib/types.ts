@@ -324,18 +324,22 @@ export interface Routine {
   goalAmount: number | null;
   /** Whether each counter entry asks for a note. */
   noteMode: NoteMode;
+  /** Daily sessions required for non-counter checkbox routines (default 1). */
+  sessionsPerDay: number;
 }
 
 export type NoteMode = "required" | "optional" | "off";
 
 /** Counter fields left out make a plain checkbox routine. */
-export type RoutineDraft = Omit<Routine, "id" | "sort" | "trackerId" | "goalAmount" | "noteMode" | "onCalendar"> & {
+export type RoutineDraft = Omit<Routine, "id" | "sort" | "trackerId" | "goalAmount" | "noteMode" | "onCalendar" | "sessionsPerDay"> & {
   id?: number;
   /** Left out, an edit keeps what the routine had, and a new routine starts off. */
   onCalendar?: boolean;
   trackerId?: number | null;
   goalAmount?: number | null;
   noteMode?: NoteMode;
+  /** Non-counter checkbox routines only (default 1). */
+  sessionsPerDay?: number;
 };
 
 /** A one-time item on a date. */
@@ -362,6 +366,8 @@ export type TodoDraft = Omit<Todo, "id" | "done" | "sort" | "undated"> & { id?: 
 export interface RoutineCheck {
   routineId: number;
   date: string;
+  /** Completed sessions for the day (0..routine.sessionsPerDay). */
+  completed: number;
 }
 
 /** Google Calendar connection (src-tauri/src/gcal/mod.rs). */

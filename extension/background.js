@@ -7,6 +7,7 @@ import { allowedPage, blockedSite, hostOf, keywordHit, netRules } from "./rules.
 const HOST = "app.sanctum.bridge";
 const RETRY_MS = 5_000;
 const BLOCKED_PAGE = chrome.runtime.getURL("blocked.html");
+const ICON_SIZES = [16, 32, 48, 128];
 
 let port = null;
 /**
@@ -120,8 +121,9 @@ async function onMessage(msg) {
     parking?.(msg.ok === true);
     parking = null;
   } else if (msg.type === "theme") {
-    // The app's theme (v0.3): theme.js paints the sealed page and popup with it.
+    // The app's theme (v0.3): theme.js paints pages/popup; the toolbar icon follows too.
     await chrome.storage.local.set({ theme: msg });
+    await applyActionIcon(msg);
   } else if (msg.type === "online") {
     // The bridge reconnected to Sanctum.
     await hello();
@@ -240,12 +242,48 @@ async function heal() {
   if (left.length) await applyRules();
 }
 
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+function iconColor(theme) {
+  const p = theme?.palette || {};
+  return [p.sealed, p["sealed-on"], p.accent, p.text, "#2F5BFF"].find((c) => typeof c === "string" && HEX.test(c)) || "#2F5BFF";
+}
+function hexRgb(hex) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+async function applyActionIcon(theme) {
+  if (typeof OffscreenCanvas === "undefined" || !chrome.action?.setIcon) return;
+  try {
+    const [r, g, b] = hexRgb(iconColor(theme));
+    const imageData = {};
+    for (const size of ICON_SIZES) {
+      const res = await fetch(chrome.runtime.getURL(`icons/${size}.png`));
+      const bmp = await createImageBitmap(await res.blob());
+      const canvas = new OffscreenCanvas(size, size);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      ctx.drawImage(bmp, 0, 0, size, size);
+      const img = ctx.getImageData(0, 0, size, size);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] === 0) continue;
+        d[i] = r; d[i + 1] = g; d[i + 2] = b;
+      }
+      ctx.putImageData(img, 0, 0);
+      imageData[size] = ctx.getImageData(0, 0, size, size);
+    }
+    if (Object.keys(imageData).length) await chrome.action.setIcon({ imageData });
+  } catch {
+    // best effort: keep default icons
+  }
+}
+
 // Start-up: restore the last rules and make the browser's blocking match them before anything
 // else, so a restart never leaves a site blocked that this worker thinks is open.
-Promise.all([chrome.storage.local.get("rules"), chrome.storage.session.get(["back", "allowed"])]).then(async ([local, session]) => {
+Promise.all([chrome.storage.local.get(["rules", "theme"]), chrome.storage.session.get(["back", "allowed"])]).then(async ([local, session]) => {
   if (local.rules) rules = local.rules;
   if (session.back) back = session.back;
   if (session.allowed) allowed = session.allowed;
+  if (local.theme) await applyActionIcon(local.theme);
   await liftIfExpired();
   await applyRules();
   connect();

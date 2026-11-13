@@ -16,9 +16,10 @@ export function usePending(week: string): Todo[] {
   const todos = usePlanner((s) => s.todos);
   const pending = usePlanner((s) => s.pending);
   const loadPending = usePlanner((s) => s.loadPending);
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   useEffect(() => void loadPending(), [loadPending]);
   // Loaded items win over the Pending snapshot (they're the fresher copy).
-  return useMemo(() => pendingFor(week, todayKey(), pending, todos), [week, todos, pending]);
+  return useMemo(() => pendingFor(week, todayKey(new Date(), dailyResetTime), pending, todos), [week, todos, pending, dailyResetTime]);
 }
 
 const short = (key: string) => fromKey(key).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -102,7 +103,7 @@ function AddPending({ week, className = "" }: { week: string; className?: string
       on = addDays(week, 7);
       text = text.replace(/\s*\bnext week\b\s*/i, " ").trim();
     }
-    const p = parseQuickAdd(text, todayKey(), profiles);
+    const p = parseQuickAdd(text, todayKey(new Date(), useStore.getState().settings.dailyResetTime), profiles);
     const name = p.title || text;
     const ok = await usePlanner
       .getState()
@@ -150,7 +151,8 @@ function Toggle({ open, count, onClick, label }: { open: boolean; count: number;
 
 /** Home: a tab at the foot of the Today column. Opens over the list's free space. */
 export function PendingTab() {
-  const week = weekStart(todayKey());
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const week = weekStart(todayKey(new Date(), dailyResetTime));
   const items = usePending(week);
   const [open, setOpen] = useState(false);
   const park = useParkTarget(week);

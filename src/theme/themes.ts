@@ -350,7 +350,14 @@ const BASES: Base[] = [
   },
 ];
 
+import { OPENCODE_THEMES } from "./opencodeThemes";
+
+// Keep Sanctum's own themes; add all OpenCode themes (de-duped by id, Sanctum themes win).
+const sanctumThemes = [SANCTUM_DARK, ...BASES.map(derive)].filter((t) => t.id === "sanctum-dark" || t.id === "sanctum-light");
+const seen = new Set(sanctumThemes.map((t) => t.id));
+const opencode = OPENCODE_THEMES.filter((t) => !seen.has(t.id) && (seen.add(t.id), true));
+
 /** Every theme, Sanctum's own first. */
-export const THEMES: Theme[] = [SANCTUM_DARK, ...BASES.map(derive)];
+export const THEMES: Theme[] = [...sanctumThemes, ...opencode];
 
 export const themeById = (id: string | null | undefined): Theme | undefined => THEMES.find((t) => t.id === id);

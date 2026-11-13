@@ -25,7 +25,7 @@ export function editorExtensions(placeholder: string) {
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true } }),
     TaskList,
-    TaskItem.configure({ nested: true }),
+    TaskItem.extend({ content: "paragraph block*" }).configure({ nested: true }),
     TableKit.configure({ table: { resizable: true } }),
     Details.configure({ persist: true }),
     DetailsSummary,
