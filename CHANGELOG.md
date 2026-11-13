@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.3 (2026-11-13)
+
+**Highlights**
+
+- **Routines fit the day better.** Set when your day resets, see when routines reset as it gets close, and track routines that happen more than once a day.
+- **Notes are safer and easier to shape.** Deleting a note now asks first, and tables can be edited, resized, and filled with richer checklist content.
+- **Themes go further.** Pick from Sanctum and OpenCode themes with a live hover preview, and see your chosen theme carry through the app, tray, compact timer, held screen, and browser extension icon.
+- **Small fixes that remove friction.** `Ctrl+B` now bolds text where you type, the compact timer stays readable, and the sidebar/time controls are cleaner and more aligned.
+
+**Everything else**
+
+- **Daily reset:** Setup › General › Goal and streak now includes **Day resets at** (default 04:00). Planner, routines, streak, and day boundaries follow the configured reset time, and the Home routines header shows a countdown when reset is close.
+- **Multi-session routines:** Non-counter checkbox routines can repeat multiple times per day (`sessions per day`), with per-day progress (`1/2`), step/undo behavior, and completion only when the day's target is reached. Migration 0029.
+- **Notes and editor:** Note deletion requires confirmation. Table editing adds row/column insert/remove and delete-table actions, improves column resizing, and supports notes/paragraphs and nested bulleted/numbered content under checklist items.
+- **Themes:** Added OpenCode theme variants alongside Sanctum themes with a title-list picker and animated cursor-following preview (hover/focus, viewport-clamped, selection only on pick). Theme changes propagate to extension theming, tray icon accent, tray/compact/regular/held surfaces, and the sidebar mark now follows the active theme accent.
+- **Shortcuts and UI polish:** `Ctrl+B` toggles bold in editable contexts without collapsing the sidebar there. Sidebar controls were consolidated with a shortcut hint, cleaner bottom/version reveal, and aligned status pill contents; the Day resets-at control was restyled to match app controls.
+
 ## v0.3.2 (2026-11-04)
 
 **Highlights**
