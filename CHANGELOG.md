@@ -15,6 +15,7 @@
 - **Multi-session routines:** Non-counter checkbox routines can repeat multiple times per day (`sessions per day`), with per-day progress (`1/2`), step/undo behavior, and completion only when the day's target is reached. Migration 0029.
 - **Notes and editor:** Note deletion requires confirmation. Table editing adds row/column insert/remove and delete-table actions, improves column resizing, and supports notes/paragraphs and nested bulleted/numbered content under checklist items.
 - **Themes:** Added OpenCode theme variants alongside Sanctum themes with a title-list picker and animated cursor-following preview (hover/focus, viewport-clamped, selection only on pick). Theme changes propagate to extension theming, tray icon accent, tray/compact/regular/held surfaces, and the sidebar mark now follows the active theme accent.
+- **Routines done more than once a day, finished properly:** Google Calendar shows a routine's ✓ only once the day's full count is done, ticking ✓ in Google completes the day, and partial progress no longer gets wiped when Google echoes the event back. The held page also no longer treats a partly done routine as checked off.
 - **Shortcuts and UI polish:** `Ctrl+B` toggles bold in editable contexts without collapsing the sidebar there. Sidebar controls were consolidated with a shortcut hint, cleaner bottom/version reveal, and aligned status pill contents; the Day resets-at control was restyled to match app controls.
 
 ## v0.3.2 (2026-11-04)

@@ -334,7 +334,13 @@ pub fn set_todo_link(conn: &Connection, id: i64, event: Option<(&str, &str)>) ->
 }
 
 pub fn routine_done(conn: &Connection, id: i64, d: &str) -> rusqlite::Result<bool> {
-    conn.query_row("SELECT EXISTS(SELECT 1 FROM daily_goal_checks WHERE goal_id = ?1 AND date = ?2)", params![id, d], |r| r.get(0))
+    // Done only at the day's full count: 1 of 2 sessions isn't a ✓ in Google (v0.3.3).
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM daily_goal_checks c JOIN daily_goals g ON g.id = c.goal_id
+         WHERE c.goal_id = ?1 AND c.date = ?2 AND c.completed >= g.sessions_per_day)",
+        params![id, d],
+        |r| r.get(0),
+    )
 }
 
 /// Forgets every link to Google (after the Sanctum calendar is removed).
@@ -384,10 +390,20 @@ pub fn apply_remote(conn: &Connection, item: &Value) -> rusqlite::Result<bool> {
         if cancelled || has_pending(conn, "check", rid)? {
             return Ok(false);
         }
+        // A ✓ means the whole day's count. No ✓ only clears a day that was complete: a partly
+        // done day has no ✓ in Google either, and its progress stays.
         let n = if is_done_title(summary) {
-            conn.execute("INSERT OR IGNORE INTO daily_goal_checks (goal_id, date, done_at) VALUES (?1, ?2, ?3)", params![rid, d, now_ms()])?
+            conn.execute(
+                "INSERT INTO daily_goal_checks (goal_id, date, done_at, completed)
+                 SELECT ?1, ?2, ?3, sessions_per_day FROM daily_goals WHERE id = ?1
+                 ON CONFLICT(goal_id, date) DO UPDATE SET completed = excluded.completed WHERE daily_goal_checks.completed < excluded.completed",
+                params![rid, d, now_ms()],
+            )?
         } else {
-            conn.execute("DELETE FROM daily_goal_checks WHERE goal_id = ?1 AND date = ?2", params![rid, d])?
+            conn.execute(
+                "DELETE FROM daily_goal_checks WHERE goal_id = ?1 AND date = ?2 AND completed >= (SELECT sessions_per_day FROM daily_goals WHERE id = ?1)",
+                params![rid, d],
+            )?
         };
         return Ok(n > 0);
     }
@@ -828,6 +844,31 @@ mod tests {
         backfill(&conn).unwrap();
         let jobs: Vec<Job> = pending(&conn).unwrap().into_iter().map(|(_, j)| j).collect();
         assert_eq!(jobs, vec![Job::Routine(gym), Job::Routine(linked), Job::Todo(soon), Job::Check(gym, today)]);
+    }
+
+    #[test]
+    fn a_routine_done_twice_a_day_is_a_check_in_google_only_when_complete() {
+        let conn = fresh();
+        let today = today(&conn);
+        let r = planner::save_routine(
+            &conn,
+            planner::RoutineDraft { title: "Stretch".into(), days_mask: 127, time: Some("07:00".into()), active: true, sessions_per_day: Some(2), ..Default::default() },
+        )
+        .unwrap()
+        .id;
+        set_routine_link(&conn, r, Some(("ev-s", "e1")), Some(&today)).unwrap();
+        planner::set_routine_progress(&conn, r, &today, 1).unwrap();
+        assert!(!routine_done(&conn, r, &today).unwrap(), "1 of 2 is not done");
+        // Google echoes the day back without a ✓: the session done stays.
+        let day = |summary: &str| json!({ "id": "ev-s_1", "recurringEventId": "ev-s", "summary": summary, "originalStartTime": { "dateTime": at(&today, "07:00") } });
+        apply_remote(&conn, &day("Stretch")).unwrap();
+        assert_eq!(planner::list_checks(&conn, &today, &today).unwrap()[0].completed, 1);
+        // A ✓ in Google is the whole day; taking it off clears it.
+        apply_remote(&conn, &day("✓ Stretch")).unwrap();
+        assert_eq!(planner::list_checks(&conn, &today, &today).unwrap()[0].completed, 2);
+        assert!(routine_done(&conn, r, &today).unwrap());
+        apply_remote(&conn, &day("Stretch")).unwrap();
+        assert!(planner::list_checks(&conn, &today, &today).unwrap().is_empty());
     }
 
     #[test]
