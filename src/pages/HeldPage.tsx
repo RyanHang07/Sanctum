@@ -9,7 +9,7 @@ import { usePlanner } from "../state/planner";
 import { native } from "../lib/native";
 import { CheckIcon } from "../components/icons";
 import { brokeLine, heldLine } from "./headlines";
-import { addDays, todayKey } from "../lib/planner";
+import { addDays, routineDoneOn, todayKey } from "../lib/planner";
 
 // Full-page takeover when a session completes (SPEC 4.0.2, design/screens/HeldPage.dc.html).
 // Stays until dismissed. Colors are the held mesh tokens; white is `sealed-on`.
@@ -26,7 +26,7 @@ function Stat({ value, label, last = false }: { value: string; label: string; la
 /** The session's task, checked off from here (v0.1). Already done shows as done. */
 function TaskDone({ task }: { task: TaskLink }) {
   const alreadyDone = usePlanner((p) =>
-    task.kind === "todo" ? p.todos.some((t) => t.id === task.id && t.done) : p.checks.some((c) => c.routineId === task.id && c.date === task.date),
+    task.kind === "todo" ? p.todos.some((t) => t.id === task.id && t.done) : routineDoneOn(p.routines, p.checks, task.id, task.date),
   );
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -215,7 +215,8 @@ export function HeldPage({ held }: { held: HeldStats }) {
     s.setDuration(held.plannedMinutes);
     // Another round on the same task, unless it was just checked off.
     const t = held.task;
-    const done = t && (t.kind === "todo" ? usePlanner.getState().todos.some((x) => x.id === t.id && x.done) : usePlanner.getState().checks.some((c) => c.routineId === t.id && c.date === t.date));
+    const p = usePlanner.getState();
+    const done = t && (t.kind === "todo" ? p.todos.some((x) => x.id === t.id && x.done) : routineDoneOn(p.routines, p.checks, t.id, t.date));
     s.setFocusTask(t && !done ? t : null);
     dismiss();
     await s.enterFocus();

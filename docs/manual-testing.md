@@ -38,6 +38,14 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 
 - [ ] **Blocked page after hardening (v0.3.2):** in a real browser, a sealed site still lands on the blocked page, counts one attempt, and Back and Park work; a flagged path like reddit.com/r/x works too.
 
+## v0.3.3 (in the installed app)
+
+- [ ] **Day resets at:** change it in Setup › General; Today, routines, and the streak roll over at that time, and Home's routines header counts down as it gets close.
+- [ ] **Routines more than once a day:** a 2-a-day routine shows 1/2 after one tick and done at 2/2, and undo steps back. With it on Google Calendar, the ✓ appears only at 2/2, and the 1/2 survives the next sync.
+- [ ] **Ctrl B:** bolds in notes and the journal, and collapses the sidebar everywhere else.
+- [ ] **Notes:** deleting asks first; tables add and remove rows and columns, resize, and hold nested lists under checklist items.
+- [ ] **Themes everywhere:** an OpenCode theme reaches the tray icon, compact timer, held page, sidebar mark, and the extension's toolbar icon; the hover preview stays on screen.
+
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.

@@ -167,6 +167,13 @@ export function moveId(ids: readonly number[], moved: number, target: number, af
  * Each date's items: active routines that fall on it, that date's one-time items, and any
  * extra items per date (calendar events, from lib/calendar.ts).
  */
+/** A routine's day is done only at its full count of sessions (v0.3.3). */
+export function routineDoneOn(routines: readonly Routine[], checks: readonly RoutineCheck[], id: number, date: string): boolean {
+  const r = routines.find((x) => x.id === id);
+  const target = r?.trackerId ? 1 : Math.max(1, r?.sessionsPerDay ?? 1);
+  return checks.some((c) => c.routineId === id && c.date === date && c.completed >= target);
+}
+
 export function agendaFor(
   dates: readonly string[],
   routines: readonly Routine[],
