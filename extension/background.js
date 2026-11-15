@@ -245,15 +245,33 @@ async function heal() {
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 function iconColor(theme) {
   const p = theme?.palette || {};
-  return [p.sealed, p["sealed-on"], p.accent, p.text, "#2F5BFF"].find((c) => typeof c === "string" && HEX.test(c)) || "#2F5BFF";
+  return [p.sealed, p.accent, "#2F5BFF"].find((c) => typeof c === "string" && HEX.test(c)) || "#2F5BFF";
 }
+/** The packaged icons' tile colour (design/logo cobalt). */
+const TILE = [0x2f, 0x5b, 0xff];
 function hexRgb(hex) {
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
 }
+/**
+ * The tile takes the accent and the torii the text on it. Painting every pixel one colour left a
+ * blank square (v0.3.3), so each pixel is placed between the tile's cobalt and white.
+ */
+export function tintIcon(d, [r, g, b], [fr, fg, fb]) {
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const t = Math.min(1, Math.max(0, (d[i] - TILE[0]) / (255 - TILE[0])));
+    d[i] = Math.round(r + (fr - r) * t);
+    d[i + 1] = Math.round(g + (fg - g) * t);
+    d[i + 2] = Math.round(b + (fb - b) * t);
+  }
+}
+
 async function applyActionIcon(theme) {
   if (typeof OffscreenCanvas === "undefined" || !chrome.action?.setIcon) return;
   try {
     const [r, g, b] = hexRgb(iconColor(theme));
+    const on = theme?.palette?.["sealed-on"];
+    const [fr, fg, fb] = hexRgb(typeof on === "string" && HEX.test(on) ? on : "#FFFFFF");
     const imageData = {};
     for (const size of ICON_SIZES) {
       const res = await fetch(chrome.runtime.getURL(`icons/${size}.png`));
@@ -264,10 +282,7 @@ async function applyActionIcon(theme) {
       ctx.drawImage(bmp, 0, 0, size, size);
       const img = ctx.getImageData(0, 0, size, size);
       const d = img.data;
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i + 3] === 0) continue;
-        d[i] = r; d[i + 1] = g; d[i + 2] = b;
-      }
+      tintIcon(d, [r, g, b], [fr, fg, fb]);
       ctx.putImageData(img, 0, 0);
       imageData[size] = ctx.getImageData(0, 0, size, size);
     }

@@ -206,3 +206,8 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .card { animation: none; }
 }
+
+/* The mark, inline: torii in the text colour, keyhole in the theme accent. */
+.mark { flex-shrink: 0; display: block; }
+.mark .torii { fill: var(--text); }
+.mark .key { fill: var(--sealed); }

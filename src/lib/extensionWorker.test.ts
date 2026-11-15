@@ -155,7 +155,6 @@ describe("extension worker after a restart (v0.1.3)", () => {
   it("paints its pages in the theme, plain colours only, with the right mark (v0.3)", async () => {
     // @ts-expect-error: plain JS module
     const { applyTheme } = await import("../../extension/theme.js");
-    document.body.innerHTML = '<img data-mark src="icons/mark.svg" />';
     const root = document.documentElement;
     applyTheme({ id: "sanctum-light", scheme: "light", palette: { app: "#F7F8FA", "sealed-on": "#FFFFFF", text: "red;x:y", scrim: "rgba(0,0,0,.3)", "Bad Name": "#000000" } });
     expect(root.style.getPropertyValue("--app")).toBe("#F7F8FA");
@@ -164,9 +163,29 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect(root.style.getPropertyValue("--text")).toBe("");
     expect(root.style.getPropertyValue("--scrim")).toBe("");
     expect(root.style.colorScheme).toBe("light");
-    expect(document.querySelector("img")!.getAttribute("src")).toBe("icons/mark-light.svg");
     applyTheme(null);
     expect(root.style.getPropertyValue("--app")).toBe("#F7F8FA");
+  });
+
+  it("draws the mark inline, so its keyhole takes the theme's accent (v0.3.3)", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const page of ["popup.html", "blocked.html"]) {
+      const html = readFileSync(`extension/${page}`, "utf8");
+      expect(html).not.toContain("data-mark");
+      expect(html).toMatch(/<svg class="mark"[^>]*>.*class="key"/);
+      expect(readFileSync(`extension/${page.replace(".html", ".css")}`, "utf8")).toMatch(/\.mark \.key \{ fill: var\(--sealed\); \}/);
+    }
+  });
+
+  it("tints the toolbar icon's tile, keeping the torii readable on it (v0.3.3)", async () => {
+    const fake = fakeChrome({ connectFails: true });
+    await boot(fake);
+    // @ts-expect-error: plain JS module
+    const { tintIcon } = await import("../../extension/background.js");
+    // A cobalt tile pixel, a white torii pixel, a transparent keyhole pixel.
+    const d = new Uint8ClampedArray([0x2f, 0x5b, 0xff, 255, 255, 255, 255, 255, 0, 0, 0, 0]);
+    tintIcon(d, [0xff, 0x67, 0x67], [0x15, 0x14, 0x1b]);
+    expect([...d]).toEqual([0xff, 0x67, 0x67, 255, 0x15, 0x14, 0x1b, 255, 0, 0, 0, 0]);
   });
 
   it("the blocked page's Open re-syncs before navigating", async () => {
