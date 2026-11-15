@@ -114,3 +114,8 @@ button:hover {
   border-color: var(--muted);
   background: var(--line);
 }
+
+/* The mark, inline: torii in the text colour, keyhole in the theme accent. */
+.mark { flex-shrink: 0; display: block; }
+.mark .torii { fill: var(--text); }
+.mark .key { fill: var(--sealed); }

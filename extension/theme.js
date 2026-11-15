@@ -17,8 +17,8 @@ export function applyTheme(theme, doc = document) {
   const scheme = theme.scheme === "light" ? "light" : "dark";
   root.style.colorScheme = scheme;
   root.dataset.scheme = scheme;
-  // The mark's dark-ink version on light themes (design/logo, never redrawn).
-  for (const img of doc.querySelectorAll("img[data-mark]")) img.src = scheme === "light" ? "icons/mark-light.svg" : "icons/mark.svg";
+  // The mark is inline (the design/logo geometry): torii in the text colour, keyhole in the
+  // theme's accent, through the .mark rules in tokens.css.
 }
 
 if (typeof chrome !== "undefined" && chrome.storage) {

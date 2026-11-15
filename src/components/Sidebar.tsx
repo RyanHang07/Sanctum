@@ -155,11 +155,10 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
       >
         <CollapseButton collapsed={collapsed} onClick={toggle} />
         <span
-          aria-hidden={collapsed ? undefined : undefined}
+          // The rail keeps only its button: the version slides in with the expanded sidebar, not on hover.
+          aria-hidden={collapsed || undefined}
           className={`overflow-hidden whitespace-nowrap font-mono text-[11px] text-faint transition-all duration-ui ease-ui ${
-            collapsed
-              ? "max-w-0 opacity-0 group-hover/sidebar-bottom:max-w-[48px] group-hover/sidebar-bottom:opacity-100 group-focus-within/sidebar-bottom:max-w-[48px] group-focus-within/sidebar-bottom:opacity-100"
-              : "max-w-[64px] opacity-100"
+            collapsed ? "max-w-0 opacity-0" : "max-w-[64px] opacity-100"
           }`}
         >
           {version}

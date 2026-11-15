@@ -28,12 +28,12 @@ describe("Sidebar", () => {
     expect(screen.getByText(/^v\d+\.\d+$/)).toBeInTheDocument();
   });
 
-  it("keeps version in the rail and reveals it on hover/focus when collapsed", () => {
+  it("hides the version in the rail, even on hover, so the button stays put (v0.3.3)", () => {
     renderSidebar({ settings: { ...initial.settings, sidebarCollapsed: true } });
     const version = screen.getByText(/^v\d+\.\d+$/);
     expect(version.className).toContain("max-w-0");
-    expect(version.className).toContain("group-hover/sidebar-bottom:max-w-[48px]");
-    expect(version.className).toContain("group-focus-within/sidebar-bottom:max-w-[48px]");
+    expect(version.className).not.toContain("group-hover");
+    expect(version).toHaveAttribute("aria-hidden", "true");
   });
 
   it("aligns the expanded status pill contents with nav rows", () => {

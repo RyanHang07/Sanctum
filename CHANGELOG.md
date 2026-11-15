@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.4 (in progress)
+
+- **The extension's toolbar icon shows the mark again.** Theming it painted every pixel one colour, which left a blank square in your accent (seen in Comet). Now the tile takes the accent and the torii stays readable on it.
+- **The extension's mark follows your theme.** The popup and the blocked page draw the mark inline, so the keyhole takes your theme's accent (Aura's coral, not always cobalt).
+- **The collapsed sidebar stays still.** The version number no longer slides out on hover and pushes the expand button aside. It shows only when the sidebar is expanded.
+
 ## v0.3.3 (2026-11-13)
 
 **Highlights**
