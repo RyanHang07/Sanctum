@@ -46,6 +46,12 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 - [ ] **Notes:** deleting asks first; tables add and remove rows and columns, resize, and hold nested lists under checklist items.
 - [ ] **Themes everywhere:** an OpenCode theme reaches the tray icon, compact timer, held page, sidebar mark, and the extension's toolbar icon; the hover preview stays on screen.
 
+## v0.3.4 (extension, after reloading it)
+
+- [ ] With Aura on, the toolbar icon in Comet and Chrome shows the torii on a coral tile, not a blank square.
+- [ ] The popup and the blocked page show the keyhole in coral; switching themes recolours it live.
+- [ ] On a light theme, the popup mark's torii is dark and readable.
+
 ## Browser extension
 
 - [ ] **0.2.2 → 0.3.0:** after Sanctum updates to 0.3.0, a manual reload on the extensions page brings in 0.3.0. Check the version shown there.
