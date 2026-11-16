@@ -98,8 +98,9 @@
 .grow {
   flex: 1;
 }
+/* Footer and fine-print text that's read: muted, never faint (redesign v0.4). */
 .faint {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* Top bar */

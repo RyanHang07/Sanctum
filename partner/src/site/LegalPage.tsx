@@ -50,9 +50,7 @@ export function LegalPage() {
 
   return (
     <article className="legal-page">
-      <h1 className="headline">
-        Legal. <em>In plain view.</em>
-      </h1>
+      <h1 className="headline">Sanctum's legal notes, in plain view.</h1>
       <p className="lede">
         Sanctum is free and open source. This page has its license, the libraries it's built on, and a note on other products' names. How your data is
         handled is in the <A href="/privacy">privacy policy</A>; the rules of use are in the <A href="/terms">terms</A>.
@@ -79,7 +77,7 @@ export function LegalPage() {
         <h2 id="notices">Open-source notices</h2>
         <p className="muted">
           Sanctum is built on {ALL.length} open-source packages, each under its own license, listed from the dependencies of the build. Each name links to
-          its page, where its full license and copyright notice are. The fonts (Geist, Geist Mono, Instrument Serif) are under the SIL Open Font License.
+          its page, where its full license and copyright notice are. The fonts (Geist, Geist Mono, Schibsted Grotesk) are under the SIL Open Font License.
         </p>
         <input className="notice-search" type="search" placeholder="Find a package or license" aria-label="Find a package or license" value={q} onChange={(e) => setQ(e.target.value)} />
         {groups.map((g) => {

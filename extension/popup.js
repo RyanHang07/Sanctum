@@ -18,6 +18,7 @@ function render() {
   if (sealed) {
     $("timer").textContent = rules.endsAt ? countdown(rules.endsAt - Date.now()) : "—";
     $("until").textContent = rules.endsAt ? `until ${clock(rules.endsAt)}` : "";
+    $("until").parentElement.hidden = !rules.endsAt;
     $("profile").textContent = rules.profile ?? "Focus session";
     $("summary").textContent = sealedSummary(rules);
   }
