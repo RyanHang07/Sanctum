@@ -12,7 +12,7 @@
   --raised: #171B24;
   --line: #1F2430;
   --line-soft: #181C26;
-  --line-input: #2A3040;
+  --line-input: #666A75;   /* input edges: 3:1 on app and panel */
   --text: #E6E9EF;
   --text-2: #B8BFCC;
   --muted: #8A93A6;
@@ -29,6 +29,11 @@
   --event: #FF8A6B;
   --event-tint: #2A1712;
   --event-line: #5A2E24;
+  /* the second colour: decoration only (kept marks, the goal tick, the aurora's tips) */
+  --second: #FF8A6B;
+  --second-text: #FF8A6B;
+  --second-tint: #2B1D1E;
+  --second-line: #79453A;
   --open: #E6E9EF;
 
   /* Mesh gradients: held (cobalt) is the sealed theme and the held page; ember (coral) is In event */

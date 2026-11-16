@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildColors, durationsMin, theme, tokens, windowSize } from "./tokens";
 import { KEYS, SANCTUM_DARK, applyTheme } from "./palette";
+import { themeById } from "./themes";
 import tailwindConfig from "../../tailwind.config";
 
 const root = resolve(__dirname, "../..");
@@ -22,6 +23,10 @@ describe("design tokens", () => {
     expect(cssVar("event")).toBe(tokens.color.event.DEFAULT);
     expect(cssVar("event-tint")).toBe(tokens.color.event.tint);
     expect(cssVar("event-line")).toBe(tokens.color.event.line);
+    expect(cssVar("second")).toBe(tokens.color.second.DEFAULT);
+    expect(cssVar("second-text")).toBe(tokens.color.second.text);
+    expect(cssVar("second-tint")).toBe(tokens.color.second.tint);
+    expect(cssVar("second-line")).toBe(tokens.color.second.line);
     tokens.color.held.forEach((v, i) => expect(cssVar(`held-${i + 1}`)).toBe(v));
     tokens.color.ember.forEach((v, i) => expect(cssVar(`ember-${i + 1}`)).toBe(v));
   });
@@ -44,6 +49,10 @@ describe("design tokens", () => {
     // Every variable a class can point at is one a palette defines.
     const refs = JSON.stringify(colors).match(/--s-[a-z0-9-]+/g)!;
     for (const r of refs) expect(KEYS, r).toContain(r.slice(4));
+  });
+
+  it("Sanctum Dark comes through the theme pass unchanged (v0.4)", () => {
+    expect(themeById("sanctum-dark")!.palette).toEqual(SANCTUM_DARK.palette);
   });
 
   it("Sanctum Dark is the design tokens, value for value", () => {

@@ -43,5 +43,12 @@ export function reach(c: string, bg: string, ratio: number, toward: string): str
   return out;
 }
 
+/** `c`, nudged toward `toward` until it reaches `ratio` on every background. */
+export function readable(c: string, bgs: string[], ratio: number, toward: string): string {
+  let out = c;
+  for (let t = 0.04; bgs.some((bg) => contrast(out, bg) < ratio) && t <= 1; t += 0.04) out = mix(c, toward, t);
+  return out;
+}
+
 /** Whichever of `light` and `dark` reads better on `bg`. */
 export const onColor = (bg: string, light: string, dark: string) => (contrast(light, bg) >= contrast(dark, bg) ? light : dark);
