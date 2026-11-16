@@ -19,7 +19,6 @@ import { JournalPage } from "../pages/journal/JournalPage";
 import { useNotes } from "../state/notes";
 import { CheckinDialog } from "./CheckinDialog";
 import { BootSplash } from "./BootSplash";
-import { StateBackdrop } from "./Aurora";
 import { QuietPauseDialog } from "./QuietPauseDialog";
 import { CommandBar } from "./CommandBar";
 import { useTrackers } from "../state/trackers";
@@ -106,7 +105,7 @@ function useShortcuts() {
 /**
  * Moving between screens (motion spec §8): the content swaps almost at once, opacity 0.6 to 1
  * over `ui`, with no transform and no page-wide fade-and-rise. The sidebar indicator carries the
- * movement. A state change (open, sealed, event) does not touch the page: the backdrop says it.
+ * movement. A state change (open, sealed, event) does not touch the page.
  * Under reduced motion the swap is instant (useMotion jumps the timeline to its end).
  */
 function usePageSwap(tab: TabId) {
@@ -195,8 +194,6 @@ export function AppShell() {
     <div data-state={appState} className="relative box-border flex h-full w-full overflow-hidden bg-app">
       <Sidebar pillMeta={pillMeta} />
       <main className="relative min-w-0 grow">
-        {/* The page background says the state (decided 2026-09-30): the aurora, stronger while sealed. */}
-        <StateBackdrop state={appState} />
         <div ref={contentRef} data-page={activeTab} className="relative h-full">
           <div key={activeTab} className="h-full">
             <Page tab={activeTab} />

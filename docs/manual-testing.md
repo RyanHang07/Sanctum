@@ -103,16 +103,6 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
   - Sign-in redirects back there. Supabase Auth's URL settings need the new address.
 - [ ] **Updated settings:** the GitHub variable `SANCTUM_PARTNER_URL`, the Supabase secret `PARTNER_APP_URL`, Google's OAuth consent screen links, and the Search Console property all use the new address.
 
-## Aurora (redesign F4, on real hardware)
-
-- [ ] **WebGL in WebView2 (Windows):** the backdrop is the moving northern lights, not the still CSS gradient (inspect: the `aurora` element says `data-render="webgl"`). Check on an integrated GPU too.
-- [ ] **WebGL in WKWebView (macOS):** the same on a Mac. WKWebView has no Battery API, so the battery saver never applies there.
-- [ ] **Frame time:** with the app sealed and shown, Task Manager's GPU and CPU for Sanctum stay low (the light runs at 30 fps sealed, 20 open, at half resolution). Minimized or in the tray, both fall to idle.
-- [ ] **On battery:** unplug a laptop; while open the light holds still, and while sealed it still moves, at a lower frame rate. Plug in, and it moves again.
-- [ ] **Look:** open is barely there, sealed is brighter and moves a little, the held page is fullest, a broken seal drains to grey. Text over it stays readable in a light theme and in Aura, Night Owl and Cobalt2 Light.
-- [ ] **Theme switch:** changing the theme recolours the light at once, band in the accent, tips in the second colour.
-- [ ] **GPU reset:** after a driver reset or sleep, the backdrop falls back to the gradient rather than going blank.
-
 ## macOS (no Mac on hand)
 
 - [x] **CI:** the macOS workflow passes (compiles, Rust tests pass, unsigned `Sanctum.app` built).

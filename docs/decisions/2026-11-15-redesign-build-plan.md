@@ -104,12 +104,14 @@ About 16 agent runs. Wave 1 is the biggest and runs eight at once, so usage limi
 
 ## Progress
 
+### 2026-11-16: the aurora is removed
+You asked for a clean look: the WebGL aurora (F4) added friction. `Aurora.tsx`, `lib/aurora.ts`, their tests and the aurora CSS are deleted. Every screen sits on the flat `bg-app`. No screen agent should add a gradient, glow or moving backdrop. Wave 1 runs **two agents at a time** instead of eight.
+
 ### Wave 0: done 2026-11-15
 F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass and `tsc -b` is clean. CHANGELOG.md has the v0.4.0 (in progress) entry. Lead clean-ups done: SPEC.md headline rule, `@fontsource/instrument-serif` removed, ResizeObserver test stub, open-source notices regenerated (gsap and Schibsted Grotesk in, motion and Instrument Serif out).
 
 **Not done yet**
 - **Checkpoint A screenshots** in Aura, Night Owl, Cobalt2 Light and Sanctum Dark. Blocked on Node not being on PATH for the app's preview after the machine's home folder was partly wiped.
-- **Hardware checks** for the aurora (WebView2, WKWebView, frame time, battery): see docs/manual-testing.md.
 
 **Hand-off to Wave 1** (requests from the Wave 0 agents, by owner)
 - **All screen agents:**
@@ -126,10 +128,9 @@ F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass
 - **S6 Onboarding:** `<Headline title={ONBOARDING.…}>` at each step. Two titles still read as two sentences until this lands.
 - **S7 Moments:**
   - HeldPage uses `HEADLINE.held` and `HEADLINE.broken`, and drops the `<em>` and the uppercase eyebrow.
-  - HeldPage text and buttons move from `sealed-on` to `text`/`muted`, because the aurora sits over `bg-app` (contrast in light themes and in Aura).
+  - The held page is a solid `bg-sealed` field for now, so its `sealed-on` text stays readable. Rework it as a clean page: either keep the accent field or move to `bg-app` with `text`/`muted`, and check contrast in all four themes.
   - Intercept uses `HEADLINE.stays`, `pauseHeadline` (which replaces "Still want…?"), `HEADLINE.waits`, `welcome()` and `PARK_LINES`.
   - BreakSealDialog uses `HEADLINE.partnerDenied` and `partnerExpired`. QuietPauseDialog uses `HEADLINE.quietPause`.
-  - Whatever covers the app can pass `paused` to `StateBackdrop`.
 - **S8 Small surfaces:**
   - The partner site's notices and LegalPage credit Schibsted Grotesk (SIL OFL), not Instrument Serif.
 - **Lead:**

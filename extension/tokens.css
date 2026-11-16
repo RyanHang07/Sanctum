@@ -29,7 +29,7 @@
   --event: #FF8A6B;
   --event-tint: #2A1712;
   --event-line: #5A2E24;
-  /* the second colour: decoration only (kept marks, the goal tick, the aurora's tips) */
+  /* the second colour: decoration only (kept marks, the goal tick, the active sidebar icon) */
   --second: #FF8A6B;
   --second-text: #FF8A6B;
   --second-tint: #2B1D1E;
