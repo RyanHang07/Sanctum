@@ -11,11 +11,21 @@ describe("<Headline> (2026-11-15 headline rule)", () => {
     expect(h.querySelector("em")).toBeNull();
   });
 
-  it("still takes the old lead and payoff, joined into plain text", () => {
-    render(<Headline lead="Set the" payoff="bar." sub="A day keeps your streak when you reach the goal." />);
-    const h = screen.getByRole("heading", { level: 1 });
-    expect(h.textContent).toBe("Set the bar.");
-    expect(h.querySelector("em")).toBeNull();
+  it("only takes a title, so every step's headline comes from ONBOARDING", () => {
+    const source = readFileSync("src/pages/onboarding/Onboarding.tsx", "utf8");
+    expect(source).not.toMatch(/<Headline[^>]*\b(lead|payoff)=/);
+    const titles = [...source.matchAll(/<Headline title=\{([^}]+)\}/g)].map((m) => m[1]);
+    expect(titles).toHaveLength(8);
+    for (const t of titles) expect(t).toMatch(/^ONBOARDING\./);
+  });
+
+  it("reads every step title as one plain sentence, with no question", () => {
+    const all: string[] = [...Object.values(ONBOARDING).flatMap((v) => (typeof v === "string" ? [v] : [])), ONBOARDING.profile("Deep Work")];
+    for (const t of all) {
+      expect(t).not.toContain("?");
+      expect(t.match(/[.!]/g)).toHaveLength(1);
+      expect(t.endsWith(".")).toBe(true);
+    }
   });
 });
 

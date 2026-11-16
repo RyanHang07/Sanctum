@@ -24,10 +24,10 @@ describe("sound styles", () => {
   it("picks a style per cue in Setup and saves it, with the volume", async () => {
     render(<SoundsSection />);
     const section = within(screen.getByRole("region", { name: "Sounds" }));
-    const enter = within(section.getByRole("radiogroup", { name: "Enter focus sound" }));
-    expect(enter.getByRole("radio", { name: "Deep" })).toHaveAttribute("aria-checked", "true");
-    await act(async () => fireEvent.click(enter.getByRole("radio", { name: "Latch" })));
-    expect(enter.getByRole("radio", { name: "Latch" })).toHaveAttribute("aria-checked", "true");
+    const enter = within(section.getByRole("group", { name: "Enter focus sound" }));
+    expect(enter.getByRole("button", { name: "Deep" })).toHaveAttribute("aria-pressed", "true");
+    await act(async () => fireEvent.click(enter.getByRole("button", { name: "Latch" })));
+    expect(enter.getByRole("button", { name: "Latch" })).toHaveAttribute("aria-pressed", "true");
     expect(JSON.parse((await native.getSetting("sound_styles"))!).enter).toBe("latch");
     fireEvent.change(section.getByRole("slider", { name: "Volume" }), { target: { value: "40" } });
     expect(await native.getSetting("sound_volume")).toBe("40");

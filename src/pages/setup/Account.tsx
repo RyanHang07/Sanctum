@@ -41,7 +41,7 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
         <Button variant="ghost" size="sm" onClick={() => void native.cloudSignInGoogle().catch((e) => onError(errorText(e)))}>
           Continue with Google
         </Button>
-        <span className="text-meta text-faint">or</span>
+        <span className="text-meta text-muted">or</span>
         <input
           aria-label="Email for a sign-in link"
           type="email"
@@ -49,7 +49,7 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
           placeholder="you@example.com"
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void sendLink()}
-          className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+          className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
         />
         <Button variant="ghost" size="sm" disabled={!email.trim()} onClick={() => void sendLink()}>
           Email me a link
@@ -148,7 +148,7 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
             value={to}
             onChange={(e) => setTo(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && emailInvite()}
-            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
           />
           <Button variant="ghost" size="sm" disabled={!to.trim()} onClick={emailInvite}>
             Email it
@@ -221,7 +221,7 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="h-[30px] min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text outline-none transition-colors duration-ui ease-ui focus:border-broken"
+              className="h-[30px] min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
             />
             <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
               Cancel

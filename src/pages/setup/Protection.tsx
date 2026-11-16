@@ -130,7 +130,7 @@ export function ProtectionSection() {
               {busy ? "Waiting for Windows…" : "Turn on protection"}
             </Button>
           )}
-          <span className="ml-auto text-[11px] text-faint">Asks Windows for admin approval once</span>
+          <span className="ml-auto text-[11px] text-muted">Asks Windows for admin approval once</span>
         </div>
         <CloseElevated installed={on} sealed={sealed} />
       </div>

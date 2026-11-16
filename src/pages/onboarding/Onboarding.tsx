@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Kbd } from "../../components/Button";
 import { Mark } from "../../components/Mark";
 import { CheckIcon } from "../../components/icons";
@@ -14,9 +14,12 @@ import { RestDays } from "../Setup";
 import { BrowsersSection } from "../setup/Browsers";
 import { ProtectionSection } from "../setup/Protection";
 import { ThemeGrid } from "../setup/Appearance";
-import { Switch } from "../../components/controls";
+import { Segmented, Switch, TabPanel } from "../../components/controls";
 import { useTheme } from "../../state/theme";
 import { THEMES } from "../../theme/themes";
+import { ONBOARDING } from "../headlines";
+import { DUR, EASE, gsap, useGSAP } from "../../lib/gsap";
+import { useMotion } from "../../lib/useMotion";
 
 // First run (SPEC 4.11, design/screens/Onboarding.dc.html): welcome, profiles, distractions,
 // goals, calendar, browser, done. The partner (M6) and the watchdog (M8) join later.
@@ -29,14 +32,12 @@ const IDLE = [1, 3, 5, 10];
 
 type Picks = Record<string, string[]>;
 
-/** A step title: one plain sentence (`title`, from ONBOARDING in ../headlines). `lead` and
- *  `payoff` are the old two-part form, kept until each step passes `title`; they're joined into
- *  one run of text with no italic. */
-export function Headline({ title, lead, payoff, sub }: { title?: string; lead?: string; payoff?: string; sub: string }) {
-  const text = title ?? [lead, payoff].filter(Boolean).join(" ");
+/** A step title: one plain sentence from ONBOARDING in ../headlines (the 2026-11-15 headline
+ *  rule: one weight, one colour, no italic payoff), with a muted line under it. */
+export function Headline({ title, sub }: { title: string; sub: string }) {
   return (
     <div className="flex flex-col gap-[6px]">
-      <h1 className="headline m-0 text-[26px]">{text}</h1>
+      <h1 className="headline m-0 text-[26px]">{title}</h1>
       <p className="m-0 text-body text-muted">{sub}</p>
     </div>
   );
@@ -78,21 +79,16 @@ function ProfilesStep({ picks, setPicks }: { picks: Picks; setPicks: (p: Picks) 
   const opens = opensOf(picked);
   return (
     <>
-      <Headline lead="Define" payoff={`${current}.`} sub="Pick the work it's for. Sanctum decides what opens and what gets sealed." />
-      <div role="tablist" aria-label="Profiles" className="flex self-start rounded-control border border-line-input p-[2px]">
-        {names.map((n) => (
-          <button
-            key={n}
-            role="tab"
-            aria-selected={n === current}
-            onClick={() => setCurrent(n)}
-            className={`h-7 rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${n === current ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"}`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-[6px]">
+      <Headline title={ONBOARDING.profile(current)} sub="Pick the work it's for. Sanctum decides what opens and what gets sealed." />
+      <Segmented
+        label="Profiles"
+        panels="ob-profile"
+        className="self-start"
+        options={names.map((n, i) => ({ value: String(i), label: n }))}
+        value={String(Math.max(0, names.indexOf(current)))}
+        onChange={(i) => setCurrent(names[Number(i)]!)}
+      />
+      <TabPanel base="ob-profile" value={String(Math.max(0, names.indexOf(current)))} className="grid grid-cols-3 gap-[6px]">
         {WORK_TYPES.map((w) => {
           const on = picked.includes(w);
           return (
@@ -106,19 +102,19 @@ function ProfilesStep({ picks, setPicks }: { picks: Picks; setPicks: (p: Picks) 
                 on ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
               }`}
             >
-              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-check-line"}`}>
-                {on ? <CheckIcon size={9} className="text-on-sealed" /> : null}
+              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-line-input"}`}>
+                {on ? <CheckIcon size={9} className="text-sealed-on" /> : null}
               </span>
               {w}
             </button>
           );
         })}
-      </div>
+      </TabPanel>
       <div className="flex flex-col gap-2 rounded-panel border border-line bg-panel-footer p-3">
         <span className="text-meta text-muted">Opens when you enter</span>
         <span className="text-body leading-normal text-text">{opens.length ? opens.join(", ") : "Nothing yet"}</span>
       </div>
-      <p className="m-0 text-meta text-faint">A profile with no work picked is skipped. Rename and edit them any time in Setup.</p>
+      <p className="m-0 text-meta text-muted">A profile with no work picked is skipped. Rename and edit them any time in Setup.</p>
     </>
   );
 }
@@ -144,7 +140,7 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
   };
   return (
     <>
-      <Headline lead="Name your" payoff="distractions." sub="One list for every profile: sealed in every session, and counted as distracting time." />
+      <Headline title={ONBOARDING.distractions} sub="One list for every profile: sealed in every session, and counted as distracting time." />
       <div className="flex flex-wrap gap-[6px]">
         {groups.map((g) => {
           const on = flags.common.includes(g.label);
@@ -159,8 +155,8 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
                 on ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
               }`}
             >
-              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-check-line"}`}>
-                {on ? <CheckIcon size={9} className="text-on-sealed" /> : null}
+              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-line-input"}`}>
+                {on ? <CheckIcon size={9} className="text-sealed-on" /> : null}
               </span>
               {g.label}
             </button>
@@ -174,7 +170,7 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          className="h-9 min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+          className="h-9 min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
         />
         <Button variant="ghost" onClick={() => setPicking(true)}>
           Add an app
@@ -183,7 +179,7 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
       {flags.extra.length ? (
         <span className="text-meta text-text-2">Also: {flags.extra.map((e) => distractionLabel({ kind: e.kind === "auto" ? "keyword" : e.kind, value: e.value, label: e.label ?? null })).join(", ")}</span>
       ) : null}
-      <p className="m-0 text-meta text-faint">Setup › Distractions suggests more once Sanctum has seen a few days of your work.</p>
+      <p className="m-0 text-meta text-muted">Setup › Distractions suggests more once Sanctum has seen a few days of your work.</p>
       {picking ? (
         <AppPicker
           title="Flag an app"
@@ -202,7 +198,7 @@ function LookStep() {
   const mode = theme.scheme;
   return (
     <>
-      <Headline lead="Pick a look." payoff="Change it any time." sub="Colours only: Sanctum stays Sanctum. Hover a theme to see it." />
+      <Headline title={ONBOARDING.look} sub="Colours only: Sanctum stays Sanctum. Hover a theme to see it." />
       <label className="flex items-center gap-3 text-body">
         <Switch checked={prefs.follow} onChange={(v) => void setFollow(v)} label="Follow Windows" />
         <span>
@@ -227,7 +223,7 @@ function GoalsStep() {
   const { setDailyGoal, setRestDays, setActivitySetting } = useStore();
   return (
     <>
-      <Headline lead="Set the" payoff="bar." sub="A day keeps your streak when you reach the goal and no seal breaks." />
+      <Headline title={ONBOARDING.goal} sub="A day keeps your streak when you reach the goal and no seal breaks." />
       <Chips label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} format={minutes} onChange={setDailyGoal} />
       <Chips label="Idle after" value={settings.idleThresholdMin} options={IDLE} format={(m) => `${m} min`} onChange={(m) => setActivitySetting("idleThresholdMin", m)} />
       <div className="flex flex-col gap-2">
@@ -262,7 +258,7 @@ function CalendarStep() {
     );
   return (
     <>
-      <Headline lead="Bring your" payoff="calendar." sub="Events tagged #focus start their profile on time, and meetings pause the seal. Optional." />
+      <Headline title={ONBOARDING.calendar} sub="Events tagged #focus start their profile on time, and meetings pause the seal. Optional." />
       {body}
     </>
   );
@@ -271,7 +267,7 @@ function CalendarStep() {
 function BrowserStep() {
   return (
     <>
-      <Headline lead="Seal the" payoff="browser too." sub="The extension blocks your distracting sites, links, and keyword tabs. Protection blocks sites in every browser and keeps Sanctum open while you're sealed." />
+      <Headline title={ONBOARDING.browser} sub="The extension blocks your distracting sites, links, and keyword tabs. Protection blocks sites in every browser and keeps Sanctum open while you're sealed." />
       <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
         <BrowsersSection />
         <ProtectionSection />
@@ -286,7 +282,7 @@ function ReadyStep({ picks, flags }: { picks: Picks; flags: Flags }) {
   const sealed = [...flags.common, ...flags.extra.map((e) => e.label ?? e.value)];
   return (
     <>
-      <Headline lead="You're set." payoff="Stay in it." sub="Sanctum starts with Windows and opens Home. Change anything in Setup." />
+      <Headline title={ONBOARDING.done} sub="Sanctum starts with Windows and opens Home. Change anything in Setup." />
       <ul className="m-0 flex list-none flex-col gap-2 p-0 text-body">
         <li className="flex justify-between border-b border-line-soft pb-2">
           <span className="text-muted">Profiles</span>
@@ -303,6 +299,33 @@ function ReadyStep({ picks, flags }: { picks: Picks; flags: Flags }) {
       </ul>
     </>
   );
+}
+
+/**
+ * A new step settles in (Onboarding.dc's obIn): the body rises 6 px and fades in, so Continue and
+ * Back read as a move without a slide. The first step shows at once. Under reduced motion or a
+ * hidden window the timeline jumps to its end, so the step simply appears.
+ */
+function useStepIn(step: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  const { run } = useMotion(ref);
+  useGSAP(
+    () => {
+      if (first.current) {
+        first.current = false;
+        return;
+      }
+      if (!ref.current) return;
+      run(() =>
+        gsap
+          .timeline({ id: "onboarding-step" })
+          .fromTo(ref.current, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: DUR.state, ease: EASE.glide, clearProps: "transform" }),
+      );
+    },
+    { scope: ref, dependencies: [step] },
+  );
+  return ref;
 }
 
 /** Creates the picked profiles (skipping names that exist), flags the distractions, and marks setup done. */
@@ -329,6 +352,7 @@ export function Onboarding() {
   const [flags, setFlags] = useState<Flags>({ common: STARTER, extra: [] });
   const [busy, setBusy] = useState(false);
   const last = step === STEPS.length - 1;
+  const body = useStepIn(step);
 
   const next = async () => {
     if (!last) return setStep(step + 1);
@@ -369,10 +393,10 @@ export function Onboarding() {
           </div>
         </div>
 
-        <div className="flex min-h-[380px] flex-col gap-[18px] px-6 py-[22px]">
+        <div ref={body} data-step-body className="flex min-h-[380px] flex-col gap-[18px] px-6 py-[22px]">
           {step === 0 ? (
             <>
-              <Headline lead="Distractions get sealed." payoff="You do the work." sub="Two minutes: pick your profiles, name your distractions, set a goal, and connect what you use." />
+              <Headline title={ONBOARDING.welcome} sub="Two minutes: pick your profiles, name your distractions, set a goal, and connect what you use." />
               <label className="flex flex-col gap-2">
                 <span className="text-meta text-muted">Your name, for Home</span>
                 <input
@@ -380,7 +404,7 @@ export function Onboarding() {
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void next()}
                   placeholder="Optional"
-                  className="h-9 w-[260px] rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+                  className="h-9 w-[260px] rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
                 />
               </label>
             </>

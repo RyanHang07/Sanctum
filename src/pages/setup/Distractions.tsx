@@ -56,7 +56,7 @@ function Row({ d, sealed, apps }: { d: Distraction; sealed: boolean; apps: Retur
       <div className="group flex h-row items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
         <Icon d={d} apps={apps} />
         <span className="min-w-0 truncate text-body text-text">{label}</span>
-        <span className="min-w-0 grow truncate font-mono text-[11px] text-faint">{label === d.value ? "" : d.value}</span>
+        <span className="min-w-0 grow truncate font-mono text-[11px] text-muted">{label === d.value ? "" : d.value}</span>
         {d.kind === "site" && !sealed ? (
           <button
             type="button"
@@ -73,7 +73,7 @@ function Row({ d, sealed, apps }: { d: Distraction; sealed: boolean; apps: Retur
       </div>
       {d.allow.map((a) => (
         <div key={a.id} className="group flex h-7 items-center gap-2 pl-[40px] pr-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
-          <span className="text-meta text-faint">allows</span>
+          <span className="text-meta text-muted">allows</span>
           <span className="min-w-0 grow truncate font-mono text-[11px] text-text-2">{a.prefix}</span>
           <button type="button" aria-label={`Stop allowing ${a.prefix}`} onClick={() => void unallowPage(a.id)} className={iconButton}>
             <XIcon />
@@ -92,9 +92,9 @@ function Row({ d, sealed, apps }: { d: Distraction; sealed: boolean; apps: Retur
               if (e.key === "Enter") void submit();
               if (e.key === "Escape") setAllowing(false);
             }}
-            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
           />
-          <span className="font-mono text-[11px] text-faint">↵</span>
+          <span className="font-mono text-[11px] text-muted">↵</span>
         </div>
       ) : null}
     </div>
@@ -141,7 +141,7 @@ function Suggestions({ refreshKey }: { refreshKey: number }) {
               <div key={`${s.kind}:${s.value}`} className="flex h-row items-center gap-[10px] px-[14px]">
                 <Icon d={{ ...s, path: null }} apps={null} />
                 <span className="min-w-0 grow truncate text-body text-text">{s.label}</span>
-                <span className="font-mono text-[11px] text-faint">{minutes(s.minutes ?? 0)}</span>
+                <span className="font-mono text-[11px] text-muted">{minutes(s.minutes ?? 0)}</span>
                 <Button variant="ghost" size="sm" aria-label={`Flag ${s.label}`} onClick={() => void flag({ kind: s.kind, value: s.value, label: s.label })}>
                   Flag
                 </Button>
@@ -194,15 +194,15 @@ export function DistractionsTab() {
           </p>
         ) : null}
         <div className="flex items-center gap-2">
-          <label className="flex h-9 min-w-0 grow items-center gap-[10px] rounded-control border border-line-input bg-raised px-3 transition-colors duration-ui ease-ui focus-within:border-sealed hover:border-check-line">
-            <PlusIcon className="shrink-0 text-faint" />
+          <label className="flex h-9 min-w-0 grow items-center gap-[10px] focus-ring-within rounded-control border border-line-input bg-raised px-3 transition-colors duration-ui ease-ui focus-within:border-sealed hover:border-check-line">
+            <PlusIcon className="shrink-0 text-muted" />
             <input
               aria-label="Flag a site, link, or keyword"
               placeholder="Paste a site or link, or type a keyword"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void submit()}
-              className="h-full min-w-0 grow border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
+              className="focus-ring-off h-full min-w-0 grow border-none bg-transparent text-body text-text placeholder:text-muted"
             />
             {kind ? <span className="shrink-0 text-meta text-muted">{KIND_HINT[kind]} ↵</span> : null}
           </label>
@@ -215,7 +215,7 @@ export function DistractionsTab() {
           return (
             <Panel key={g.kind} title={g.title} meta={<span className="font-mono text-meta text-muted">{items.length}</span>}>
               {items.length === 0 ? (
-                <p className="m-0 px-[14px] py-3 text-meta text-faint">{g.empty}</p>
+                <p className="m-0 px-[14px] py-3 text-meta text-muted">{g.empty}</p>
               ) : (
                 <div className="flex flex-col py-1">
                   {items.map((d) => (
