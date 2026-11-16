@@ -1,0 +1,2 @@
+- **The weekly recap is off by default.** Turn it on in Setup › General › Weekly recap. With it off, the partner's weekly summary still goes out as before.
+- **Today's ruler drops the "time left" figure.** The gap between the needle and the goal tick already shows it; screen readers still hear it.

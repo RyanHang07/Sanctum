@@ -15,7 +15,7 @@ import { TrackersTab } from "./setup/Trackers";
 import { AboutSection, StartOverSection } from "./setup/About";
 import { SoundsSection } from "./setup/Sounds";
 import { DndQuietRow, DndRow } from "./setup/Dnd";
-import { WeekTargetRow } from "./setup/WeekTarget";
+import { WeekTargetRow, WeeklyRecapRow } from "./setup/WeekTarget";
 import { DataSection } from "./setup/Data";
 import { ProtectionSection } from "./setup/Protection";
 import { useStore, type SetupTab } from "../state/store";
@@ -160,6 +160,7 @@ function PreferencesSection() {
         <RestDays mask={settings.restDaysMask} onChange={setRestDays} />
       </Row>
       <WeekTargetRow />
+      <WeeklyRecapRow />
     </Section>
     <Section
       title="App"

@@ -93,6 +93,7 @@ describe("Stats in depth (v0.3)", () => {
       "Most tempting: discord.",
     ]);
     mockControls.insightRecap(recap);
+    await native.setSetting("weekly_recap", "1");
     await act(() => useRecap.getState().check());
     render(<RecapNotice />);
     expect(screen.getByRole("region", { name: "Last week" })).toBeInTheDocument();
@@ -102,5 +103,16 @@ describe("Stats in depth (v0.3)", () => {
     await act(() => useRecap.getState().check());
     expect(useRecap.getState().recap).toBeNull();
     expect(await native.getSetting("recap_seen_week")).toBeTruthy();
+  });
+
+  it("the weekly recap is off by default: no card, but the week is still marked seen", async () => {
+    mockControls.insightRecap({ week: "2026-10-19", focusMin: 680, previousFocusMin: 560, kept: 5, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: null, sessions: 12 });
+    const shown = vi.spyOn(native, "reviewRecapShown");
+    await act(() => useRecap.getState().check());
+    expect(useRecap.getState().recap).toBeNull();
+    expect(await native.getSetting("recap_seen_week")).toBeTruthy();
+    // The partner's weekly summary doesn't depend on the card.
+    expect(shown).toHaveBeenCalled();
+    shown.mockRestore();
   });
 });

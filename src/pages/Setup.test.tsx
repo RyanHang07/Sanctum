@@ -325,6 +325,16 @@ describe("Streak settings", () => {
     await waitFor(async () => expect(await native.getSetting("rest_days_mask")).toBe(String((1 << 6) | 1)));
     expect(await native.getSetting("daily_goal_min")).toBe("90");
   });
+
+  it("the weekly recap switch starts off and turns the card on", async () => {
+    await renderSetup(false);
+    await openTab("General");
+    const sw = await screen.findByRole("switch", { name: "Weekly recap" });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(sw);
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    await waitFor(async () => expect(await native.getSetting("weekly_recap")).toBe("1"));
+  });
 });
 
 describe("Start with Windows (v0.1.4)", () => {
