@@ -5,20 +5,30 @@ import { canQuit } from "../state/appState";
 import { useStore } from "../state/store";
 import { native } from "../lib/native";
 import { quitSaved } from "../state/quit";
+import { clock, countdown } from "../lib/time";
 
 type Choice = "tray" | "quit";
 
-/** Close dialog from design/screens/CloseDialog.dc.html (SPEC 4.0.1). */
+/** While sealed, what the dialog says about quitting: when it opens, if a session knows its end. */
+export function quitOpens(endsAt: number | null | undefined): { subtitle: string; quit: string } {
+  if (!endsAt) return { subtitle: "You’re sealed. Sanctum will keep running in the tray.", quit: "Not while sealed. Quitting now counts as breaking the seal." };
+  const at = clock(endsAt);
+  return { subtitle: `Quit opens at ${at}. Until then, Sanctum keeps running in the tray.`, quit: `Opens at ${at}. Quitting before then breaks the seal.` };
+}
+
+/** Close dialog (design/gate-canvas/project/CloseDialog.dc.html, SPEC 4.0.1). */
 export function CloseDialog() {
   const open = useStore((s) => s.closeDialogOpen);
   const appState = useStore((s) => s.appState);
   const dismiss = useStore((s) => s.closeCloseDialog);
   const setCloseAction = useStore((s) => s.setCloseAction);
+  const session = useStore((s) => s.session);
   const [picked, setPicked] = useState<Choice>("tray");
   const [remember, setRemember] = useState(true);
 
   const sealed = !canQuit(appState);
   const choice: Choice = sealed ? "tray" : picked;
+  const opens = quitOpens(session?.endsAt);
 
   const confirm = () => {
     if (remember) setCloseAction(choice);
@@ -48,9 +58,7 @@ export function CloseDialog() {
     {
       id: "quit" as const,
       title: "Quit Sanctum",
-      desc: sealed
-        ? "Not while sealed. Quitting now counts as breaking the seal."
-        : "Stops everything until you open it again or restart.",
+      desc: sealed ? opens.quit : "Stops everything until you open it again or restart.",
     },
   ];
 
@@ -64,8 +72,8 @@ export function CloseDialog() {
       >
         <div className="flex flex-col gap-1 px-[18px] pb-3 pt-[18px]">
           <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">Close Sanctum</h1>
-          <p className="m-0 text-body text-muted">
-            {sealed ? "You’re sealed. Sanctum will keep running in the tray." : "What should the close button do?"}
+          <p data-testid="close-subtitle" className="m-0 text-body text-muted">
+            {sealed ? opens.subtitle : "Choose what the close button does."}
           </p>
         </div>
         <div role="radiogroup" aria-label="On close" className="flex flex-col gap-[6px] px-[18px] pb-[14px]">
@@ -81,9 +89,9 @@ export function CloseDialog() {
                 aria-disabled={disabled || undefined}
                 disabled={disabled}
                 onClick={() => setPicked(o.id)}
-                className={`flex items-start gap-3 whitespace-normal rounded-panel border p-3 text-text transition-colors duration-ui ease-ui ${
+                className={`flex items-start gap-3 whitespace-normal rounded-panel border p-3 transition-colors duration-ui ease-ui ${
                   on ? "border-sealed-line bg-sealed-tint" : "border-line bg-transparent enabled:hover:border-line-input enabled:hover:bg-line-soft"
-                } ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
+                } ${disabled ? "cursor-not-allowed text-muted" : "cursor-pointer text-text"}`}
               >
                 <span
                   className={`mt-px box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
@@ -92,8 +100,16 @@ export function CloseDialog() {
                 >
                   {on ? <span className="h-[6px] w-[6px] rounded-full bg-sealed-on" /> : null}
                 </span>
-                <span className="flex flex-col gap-[2px] text-left">
-                  <span className="text-body font-medium">{o.title}</span>
+                <span className="flex min-w-0 grow flex-col gap-[2px] text-left">
+                  <span className="flex items-center gap-2 text-body font-medium">
+                    {o.title}
+                    {/* While sealed, the tray choice carries the seal's time left: seal timing is the accent. */}
+                    {sealed && o.id === "tray" && session ? (
+                      <span data-testid="close-left" className="ml-auto font-mono text-[11px] font-normal text-sealed-text">
+                        {countdown(session.remainingMs)} left
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="text-meta text-muted">{o.desc}</span>
                 </span>
               </button>

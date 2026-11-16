@@ -181,11 +181,9 @@ describe("session lifecycle", () => {
       act(() => mockControls.block());
       await act(async () => mockControls.fastForward(60 * 60_000));
       const page = screen.getByTestId("held-page");
-      expect(page).toHaveTextContent("Interview Prep · 60 min");
       expect(page).toHaveTextContent("Sanctum held.");
-      expect(page).toHaveTextContent(/First one down|The day has started|One on the board/); // the day's first session
-      expect(page).toHaveTextContent(/1\s*attempt blocked/);
-      expect(page).toHaveTextContent(/1h\s*today of 2h/);
+      // One fact line: what the seal did, then the day's first session.
+      expect(screen.getByTestId("held-fact")).toHaveTextContent(/^1h of Interview Prep, 1 attempt blocked\. (First one down|The day has started|One on the board)\.$/);
       fireEvent.keyDown(window, { key: "Escape" });
       expect(screen.queryByTestId("held-page")).toBeNull();
       expect(useStore.getState().appState).toBe("open");
@@ -245,8 +243,10 @@ describe("intercept overlay", () => {
     const card = screen.getByRole("alertdialog", { name: "Discord is sealed" });
     expect(card).toHaveTextContent("Discord stays sealed.");
     expect(card).toHaveTextContent("18 minutes into Interview Prep, 32:14 to go.");
-    expect(card).toHaveTextContent("3rd attempt this session");
-    expect(card).toHaveTextContent("Returning in 5s");
+    // From the third try the closing line counts them, so the meta line doesn't repeat it.
+    expect(card).toHaveTextContent(/That’s 3 tries|3 attempts\.|Try 3\./);
+    expect(card).not.toHaveTextContent("3rd attempt this session");
+    expect(screen.getByTestId("returning").querySelector(".sr-only")).toHaveTextContent("5s");
     expect(screen.getByRole("button", { name: /Back to VS Code/ })).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(5000));
     expect(onBack).toHaveBeenCalled();
