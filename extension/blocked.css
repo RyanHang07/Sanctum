@@ -1,4 +1,7 @@
-/* The sealed-site page (design/screens/SiteBlocked.dc.html). Colors come from tokens.css. */
+/* The sealed-site page (ExtBlocked.dc.html, redesign v0.4). Colours come from tokens.css, which
+   theme.js repaints in the app's theme. The headline is Schibsted Grotesk (bundled, Latin only).
+   Roles: accent for actions and seal timing, `sealed-text` for accent text on the page, `text-2`
+   and `muted` for anything read (never `faint`). No glow, no gradient, no left-border cards. */
 
 body {
   margin: 0;
@@ -70,20 +73,22 @@ p {
   color: var(--text-2);
 }
 
+/* The time left on the seal: accent text on the page. */
 .mono {
   font-family: var(--font-mono);
-  color: var(--text);
+  color: var(--sealed-text);
 }
 
 .actions {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
 button {
   height: 32px;
   padding: 0 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -117,20 +122,27 @@ button:disabled {
   color: var(--text);
 }
 
+/* Keyboard focus: the app's one ring, in the accent. Fields get an accent edge as well. */
+button:focus-visible {
+  outline: 2px solid var(--sealed);
+  outline-offset: 2px;
+}
+
 .foot {
   padding-top: 14px;
   border-top: 1px solid var(--line);
   font-size: 12px;
-  color: var(--faint);
+  color: var(--muted);
 }
 
-/* The seal's if-then plan, and a place to park a thought (v0.3.1). */
+/* The seal's if-then plan, and a place to park a thought (v0.3.1). The plan is a neutral raised
+   panel, as on Intercept: no left border and no mark. */
 .plan {
   margin: 0;
   padding: 10px 12px;
-  border-left: 2px solid var(--sealed);
-  border-radius: 4px;
-  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--raised);
   font-size: 13px;
   line-height: 1.5;
   color: var(--text);
@@ -147,16 +159,46 @@ button:disabled {
   height: 32px;
   padding: 0 10px;
   border: 1px solid var(--line-input);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--panel);
   color: var(--text);
   font: inherit;
   font-size: 13px;
 }
 
-.park input:focus {
-  outline: none;
+.park input::placeholder {
+  color: var(--muted);
+}
+
+.park input:focus-visible {
   border-color: var(--sealed);
+  outline: 2px solid color-mix(in srgb, var(--sealed) 40%, transparent);
+  outline-offset: 0;
+}
+
+/* Pause mode's wait: five neutral ticks, one going out each second; the next to go is the accent. */
+.wait {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+}
+.wait[hidden] {
+  display: none;
+}
+.wait span {
+  display: block;
+  width: 2px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--muted);
+  transition: background-color 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+.wait span.next {
+  background: var(--sealed);
+}
+.wait span.out {
+  background: var(--line);
 }
 
 .parked {
@@ -195,8 +237,20 @@ button:disabled {
   animation: rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
+/* While sealed the keyhole breathes, as on the tray. */
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+body[data-state="sealed"] .mark .keyhole {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card { animation: none; }
+  .card,
+  body[data-state="sealed"] .mark .keyhole { animation: none; }
+  button,
+  .wait span { transition: none; }
 }
 
 /* The mark, inline: torii in the text colour, keyhole in the theme accent. */

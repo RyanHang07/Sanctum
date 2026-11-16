@@ -46,7 +46,13 @@ function headline(text) {
 /** "youtube.com can wait five seconds.": Not now goes back; Go on opens it after five seconds, for 15 minutes. */
 function renderPause() {
   const left = Math.max(0, PAUSE_WAIT_S - Math.floor((Date.now() - shownAt) / 1000));
+  document.body.dataset.state = "pause";
   $("chip").hidden = true;
+  // The wait as five ticks: `left` still lit, the last of them (the next to go out) in the accent.
+  $("wait").hidden = left === 0;
+  [...$("wait").children].forEach((tick, i) => {
+    tick.className = i >= left ? "out" : i === left - 1 ? "next" : "";
+  });
   headline(line(PAUSE_LINES).replaceAll("{site}", site || "This site"));
   $("body").textContent = left ? `Go on unlocks in ${left}s, for 15 minutes if you still want it.` : "It's yours for 15 minutes if you still want it.";
   $("back").textContent = "Not now";
@@ -63,6 +69,7 @@ function render() {
   if (!state) return;
   const { rules, connected, back } = state;
   const backLabel = back ? siteLabel(back) : null;
+  document.body.dataset.state = rules?.sealed ? "sealed" : "open";
   if (!rules?.sealed) {
     // The seal is over: offer the site back.
     $("chip").hidden = true;

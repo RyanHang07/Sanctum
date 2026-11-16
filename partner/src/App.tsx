@@ -80,12 +80,9 @@ function Card({ context, children }: { context?: ReactNode; children: ReactNode 
   );
 }
 
-function Headline({ lead, payoff }: { lead: string; payoff: string }) {
-  return (
-    <h1 className="headline">
-      {lead} <em>{payoff}</em>
-    </h1>
-  );
+/** One plain sentence (design/README.md headline rule): one weight, one colour, no payoff. */
+function Headline({ children }: { children: string }) {
+  return <h1 className="headline">{children}</h1>;
 }
 
 function SignIn({ intro }: { intro: string }) {
@@ -192,7 +189,7 @@ function Invite({ token }: { token: string }) {
   if (!info) return <p className={error ? "error" : "muted"}>{error ?? "Opening the invite…"}</p>;
   return (
     <>
-      <Headline lead={`${info.from} asked you`} payoff="to hold the key." />
+      <Headline>{`${info.from} asked you to hold the key.`}</Headline>
       <p className="muted">
         When {info.from} wants out of a focus session early, you get an email and decide here with a PIN only you know. They can't remove you without your say.
       </p>
@@ -322,15 +319,15 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
   };
 
   if (status !== "pending") {
-    const [lead, payoff, line] =
+    const [title, line] =
       status === "approved"
-        ? [`You let ${who}`, "out.", `The session ended early. It doesn't count as a broken seal.`]
+        ? [`You let ${who} out.`, `The session ended early. It doesn't count as a broken seal.`]
         : status === "denied"
-          ? ["You kept", "the seal.", `${who} stays in. They can ask again in 15 minutes.`]
-          : ["This request", "expired.", `Nobody answered in 30 minutes, so ${who} stays sealed.`];
+          ? ["You kept the seal.", `${who} stays in. They can ask again in 15 minutes.`]
+          : ["This request expired.", `Nobody answered in 30 minutes, so ${who} stays sealed.`];
     return (
       <>
-        <Headline lead={lead} payoff={payoff} />
+        <Headline>{title}</Headline>
         <p className="muted">{line}</p>
         <button className="ghost" onClick={() => go("/partner")}>
           Back to your partners
@@ -341,7 +338,7 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
 
   return (
     <>
-      <Headline lead={`${who} wants out`} payoff="early." />
+      <Headline>{`${who} wants out early.`}</Headline>
       <section className="panel flush" aria-label="Request">
         <p className="reason">“{r.reason}”</p>
         <dl className="facts">
@@ -351,11 +348,22 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
           </div>
           <div>
             <dt>Time left</dt>
-            <dd className="mono">{left !== null ? countdown(left) : "—"}</dd>
+            {/* The seal's time: accent text. */}
+            <dd className="mono seal-time">{left !== null ? countdown(left) : "—"}</dd>
           </div>
           <div>
             <dt>Asks this week</dt>
-            <dd className="mono">{asks ?? "—"}</dd>
+            <dd className="mono asks">
+              <span>{asks ?? "—"}</span>
+              {/* One neutral tally tick per ask (up to 7). */}
+              {asks ? (
+                <span className="tally" aria-hidden="true">
+                  {Array.from({ length: Math.min(asks, 7) }, (_, i) => (
+                    <span key={i} />
+                  ))}
+                </span>
+              ) : null}
+            </dd>
           </div>
         </dl>
       </section>
@@ -364,11 +372,12 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
         <span className="label">Note back (optional)</span>
         <input placeholder="Use your phone for the link. Finish the set." value={note} maxLength={280} onChange={(e) => setNote(e.target.value)} />
       </label>
+      {/* Deny is the primary: a partner's job is to protect the seal. Visual order and tab order match. */}
       <div className="choices">
-        <button className="ghost" disabled={busy} onClick={() => void answer(false)}>
+        <button className="primary" disabled={busy} onClick={() => void answer(false)}>
           Deny, keep the seal
         </button>
-        <button className="light" disabled={busy} onClick={() => void answer(true)}>
+        <button className="ghost" disabled={busy} onClick={() => void answer(true)}>
           Approve, end it
         </button>
       </div>
@@ -475,7 +484,7 @@ function Dashboard({ session }: { session: Session }) {
 
   return (
     <>
-      <Headline lead="You hold" payoff={links.length === 1 ? "one key." : `${links.length || "no"} keys.`} />
+      <Headline>{links.length === 1 ? "You hold one key." : `You hold ${links.length || "no"} keys.`}</Headline>
       {!loaded ? <p className="muted">Loading…</p> : null}
       {requests.map((r) => {
         const who = names[r.user_id] ?? "Someone";
@@ -694,23 +703,23 @@ export function App() {
     return (
       <Card>
         <Title status="Not set up" />
-        <Headline lead="Not set up yet." payoff="Almost there." />
+        <Headline>Not set up yet.</Headline>
         <p className="muted">Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for this page. See docs/self-hosting.md in the Sanctum repo.</p>
       </Card>
     );
   }
   if (session === undefined) return <Card>{<Title status={null} />}</Card>;
   if (!session) {
-    const [lead, payoff, intro] =
+    const [title, intro] =
       route.page === "invite"
-        ? ["Someone wants you", "in their corner.", "Sign in to see the invite. Google or an email link, no password."]
+        ? ["Someone wants you in their corner.", "Sign in to see the invite. Google or an email link, no password."]
         : route.page === "approve"
-          ? ["A request", "is waiting.", "Sign in to answer it. Google or an email link, no password."]
-          : ["Hold the key.", "Keep them honest.", "Sign in to see who you're a partner for."];
+          ? ["A request is waiting.", "Sign in to answer it. Google or an email link, no password."]
+          : ["Hold the key and keep them honest.", "Sign in to see who you're a partner for."];
     return (
       <Card>
         <Title status={route.page === "invite" ? "You're invited" : route.page === "approve" ? "Request waiting" : "Sign in"} />
-        <Headline lead={lead} payoff={payoff} />
+        <Headline>{title}</Headline>
         <SignIn intro={intro} />
       </Card>
     );

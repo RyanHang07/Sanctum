@@ -15,6 +15,19 @@ import type { NextCheckin, Profile, Routine, RoutineCheck, SessionView, Todo } f
 // today's next items (checkable), an add row, and the next check-in. Hides on blur (Rust).
 // It's its own window with its own state, so it only listens; Enter focus and Break the seal
 // are sent to the main window, which owns the session.
+// Redesign (v0.4, S8): the sealed timer is accent text on the panel (`sealed-text`, never
+// `sealed-on`, which is for text on the accent fill). The seal reads as a ruler: the accent fill
+// is progress, and the scale's ticks are neutral (minor in `line`, quarter hours in `muted`),
+// because the second colour marks only goals and kept days. Open is neutral: a hollow dot.
+// Motion is CSS only (motion spec 12): the fill glides, and reduced motion drops the glide.
+
+/** The seal's scale: a tick every 5 minutes, a major one every quarter hour. */
+export function sealTicks(plannedMinutes: number): { at: number; major: boolean }[] {
+  const total = Math.max(1, Math.round(plannedMinutes));
+  const out: { at: number; major: boolean }[] = [];
+  for (let m = 0; m <= total; m += 5) out.push({ at: m / total, major: m % 15 === 0 });
+  return out;
+}
 
 interface TrayData {
   session: SessionView | null;
@@ -41,7 +54,7 @@ async function load(resetTime?: string): Promise<TrayData> {
 }
 
 const field =
-  "h-8 w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-[26px] text-meta text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
+  "h-8 w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-[26px] text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
 
 function Select<T extends string | number>({ label, value, options, onChange, className = "", mono = false }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; className?: string; mono?: boolean }) {
   return (
@@ -149,7 +162,7 @@ export function TrayPanel() {
             sealed ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2"
           }`}
         >
-          <span className={`h-[6px] w-[6px] rounded-full ${sealed ? "bg-sealed" : "bg-open"}`} />
+          <span data-testid="state-dot" className={`box-border h-[6px] w-[6px] rounded-full ${sealed ? "bg-sealed" : "border-[1.5px] border-muted"}`} />
           {sealed ? "Sealed" : "Open"}
         </span>
         <button
@@ -167,19 +180,34 @@ export function TrayPanel() {
       {s ? (
         <div className="flex flex-col gap-[10px] p-[14px]">
           <div className="flex items-baseline justify-between">
-            <span role="timer" className="font-mono text-[30px] font-medium tracking-[-0.03em] text-sealed-on">
+            <span role="timer" className="font-mono text-[30px] font-medium tracking-[-0.03em] text-sealed-text">
               {countdown(s.remainingMs)}
             </span>
             <span className="truncate pl-3 text-meta text-muted">
               {s.profileName} · until {clock(s.endsAt)}
             </span>
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-line">
-            <div className="h-full bg-sealed" style={{ width: `${progress * 100}%` }} />
+          <div aria-hidden="true" data-testid="seal-ruler" className="flex flex-col gap-1">
+            <div className="h-1 overflow-hidden rounded-full bg-line">
+              <div
+                className="h-full origin-left rounded-full bg-sealed transition-transform duration-glide ease-glide motion-reduce:transition-none"
+                style={{ transform: `scaleX(${progress})` }}
+              />
+            </div>
+            <div className="relative h-[10px]">
+              {sealTicks(s.plannedMinutes).map((k) => (
+                <span
+                  key={k.at}
+                  data-major={k.major || undefined}
+                  className={`absolute top-0 w-px ${k.major ? "h-[9px] bg-muted" : "h-1 bg-line"}`}
+                  style={{ left: `${k.at * 100}%`, marginLeft: k.at === 1 ? -1 : 0 }}
+                />
+              ))}
+            </div>
           </div>
           <div className="flex gap-[6px]">
             <button type="button" onClick={() => void native.showCompact()} className="flex h-8 flex-1 items-center justify-center gap-2 rounded-control border border-line-input bg-raised text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-line">
-              Compact timer<span className="font-mono text-[11px] text-faint">Ctrl M</span>
+              Compact timer<span className="font-mono text-[11px] text-muted">Ctrl M</span>
             </button>
             <button type="button" onClick={() => void native.showMain()} className="flex h-8 flex-1 items-center justify-center rounded-control border border-line-input bg-raised text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-line">
               Open Sanctum
@@ -238,14 +266,14 @@ export function TrayPanel() {
               >
                 {i.done ? <CheckIcon size={9} /> : multi && (i.sessionsDone ?? 0) > 0 ? <span className="h-[6px] w-[6px] rounded-[2px] bg-sealed" /> : null}
               </button>
-              <span className={`min-w-0 grow truncate text-meta ${i.done ? "text-faint line-through" : "text-text"}`}>{i.title}</span>
+              <span className={`min-w-0 grow truncate text-meta ${i.done ? "text-muted line-through" : "text-text"}`}>{i.title}</span>
               {multi ? <span className="font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
               <span className="font-mono text-[11px] text-muted">{i.time ? shortTime(i.time) : ""}</span>
             </div>
           );
         })}
-        {!items.length ? <p className="m-0 px-[14px] py-2 text-meta text-faint">Nothing planned for today.</p> : null}
-        <label className="mt-auto flex h-[34px] shrink-0 items-center gap-2 border-t border-line px-[14px] text-faint focus-within:text-text-2">
+        {!items.length ? <p className="m-0 px-[14px] py-2 text-meta text-muted">Nothing planned for today.</p> : null}
+        <label className="focus-ring-within mt-auto flex h-[34px] shrink-0 items-center gap-2 border-t border-line px-[14px] text-muted focus-within:text-text-2">
           <PlusIcon size={12} />
           <input
             aria-label={data.session ? "Park a thought for later" : "Add a task for today"}
@@ -253,13 +281,13 @@ export function TrayPanel() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void add()}
-            className="min-w-0 grow bg-transparent text-meta text-text outline-none placeholder:text-faint"
+            className="focus-ring-off min-w-0 grow bg-transparent text-meta text-text placeholder:text-muted"
           />
         </label>
       </div>
 
       <div className="flex shrink-0 items-center gap-1 border-t border-line bg-panel-footer px-[10px] py-2">
-        <span className="truncate pl-1 text-[11px] text-faint">{data.next ? `Next check-in ${longTime(data.next.time)}` : "No more check-ins today"}</span>
+        <span className="truncate pl-1 text-[11px] text-muted">{data.next ? `Next check-in ${longTime(data.next.time)}` : "No more check-ins today"}</span>
         {sealed ? (
           <button
             type="button"

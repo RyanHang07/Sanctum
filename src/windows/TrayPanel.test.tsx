@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { TrayPanel } from "./TrayPanel";
+import { TrayPanel, sealTicks } from "./TrayPanel";
 import { resetMockBackend } from "../lib/mockBackend";
 import { EVENTS, native } from "../lib/native";
 import { bus } from "../lib/bus";
@@ -50,5 +50,49 @@ describe("Tray panel", () => {
     expect(panel.getByRole("checkbox", { name: "Water the plants" })).toBeInTheDocument();
     const todos = await native.listTodos("2000-01-01", "2100-01-01");
     expect(todos.find((t) => t.title === "Water the plants")?.parkedFrom).toBeTruthy();
+  });
+
+  it("draws the sealed timer as accent text on the panel, over a neutral ruler", async () => {
+    await seed();
+    const [p] = await native.listProfiles();
+    await native.startSession(p!.id, 60);
+    render(<TrayPanel />);
+    const panel = within(await screen.findByRole("region", { name: "Sanctum tray panel" }));
+    const timer = await panel.findByRole("timer");
+    // sealed-on is for text on the accent fill; on the dark panel it was unreadable (Aura, Night Owl).
+    expect(timer).toHaveClass("text-sealed-text");
+    expect(timer).not.toHaveClass("text-sealed-on");
+    const ruler = panel.getByTestId("seal-ruler");
+    const ticks = ruler.querySelectorAll("span");
+    expect(ticks).toHaveLength(13);
+    const majors = ruler.querySelectorAll("span[data-major]");
+    expect(majors).toHaveLength(5);
+    majors.forEach((t) => expect(t).toHaveClass("bg-muted"));
+    // The second colour marks only goals and kept days, never the scale.
+    expect(ruler.innerHTML).not.toMatch(/second/);
+    expect(panel.getByTestId("state-dot")).toHaveClass("bg-sealed");
+  });
+
+  it("is neutral when open: a hollow dot, readable foot line, no faint text or outline-none", async () => {
+    await seed();
+    render(<TrayPanel />);
+    const panel = within(await screen.findByRole("region", { name: "Sanctum tray panel" }));
+    await panel.findByText("Quit Sanctum");
+    const dot = panel.getByTestId("state-dot");
+    expect(dot).toHaveClass("border-muted");
+    expect(dot).not.toHaveClass("bg-open");
+    expect(panel.getByText(/check-in/)).toHaveClass("text-muted");
+    const html = (await screen.findByRole("region", { name: "Sanctum tray panel" })).outerHTML;
+    expect(html).not.toMatch(/text-faint|outline-none|uppercase/);
+    expect(panel.getByLabelText("Add a task for today")).toHaveClass("focus-ring-off");
+  });
+});
+
+describe("sealTicks", () => {
+  it("ticks every 5 minutes, with quarter hours major", () => {
+    const t = sealTicks(45);
+    expect(t.map((k) => k.major)).toEqual([true, false, false, true, false, false, true, false, false, true]);
+    expect(t[t.length - 1]!.at).toBe(1);
+    expect(sealTicks(0)).toEqual([{ at: 0, major: true }]);
   });
 });
