@@ -186,7 +186,7 @@ export function NoteEditor({
             (view as unknown as { dragging: { slice: typeof slice; move: boolean } | null }).dragging = { slice, move: true };
           }}
           style={{ top: handle.top - 2, left: 2, width: GUTTER - 8 }}
-          className="absolute z-[5] flex h-8 cursor-grab items-center justify-center rounded-control text-faint opacity-70 transition-[opacity,color,background-color,top] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
+          className="absolute z-[5] flex h-8 cursor-grab items-center justify-center rounded-control text-muted opacity-70 transition-[opacity,color,background-color,top] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 hover:opacity-100 active:cursor-grabbing"
         >
           <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true">
             {[3, 9, 15].map((y) => (

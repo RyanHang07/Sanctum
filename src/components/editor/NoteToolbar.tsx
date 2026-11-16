@@ -2,14 +2,16 @@ import type { ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { insertImages } from "./extensions";
 import { pickImages } from "../../lib/noteImages";
+import { ToolIcon } from "./toolIcons";
 
 // The small row of tools above a note (v0.2): text size for every note, then the formats you'd
-// otherwise type ("/" and markdown still work). Buttons keep the caret in the note.
+// otherwise type ("/" and markdown still work). Buttons keep the caret in the note. v0.4: line
+// icons (toolIcons.tsx) instead of text glyphs; B, I, S, H1, H2 and 1. stay letters.
 
 export const NOTE_SIZES = [12, 13, 14, 15, 16, 18, 20, 22] as const;
 export const DEFAULT_NOTE_SIZE = 14;
 
-function Tool({ label, active, onRun, children, wide = false }: { label: string; active?: boolean; onRun: () => void; children: ReactNode; wide?: boolean }) {
+function Tool({ label, active, onRun, children }: { label: string; active?: boolean; onRun: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -19,7 +21,7 @@ function Tool({ label, active, onRun, children, wide = false }: { label: string;
       // Don't take focus from the note: the format applies to the selection there.
       onMouseDown={(e) => e.preventDefault()}
       onClick={onRun}
-      className={`flex h-7 shrink-0 items-center justify-center rounded-control text-meta transition-colors duration-ui ease-ui ${wide ? "px-2" : "w-7"} ${
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-meta transition-colors duration-ui ease-ui ${
         active ? "bg-raised text-text" : "text-muted hover:bg-line-soft hover:text-text"
       }`}
     >
@@ -73,7 +75,7 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
         <span className="font-bold">B</span>
       </Tool>
       <Tool label="Italic" active={on.italic} onRun={() => run((c) => c.toggleItalic())}>
-        <span className="font-serif text-[14px] italic">I</span>
+        <span className="text-[14px] italic">I</span>
       </Tool>
       <Tool label="Strikethrough" active={on.strike} onRun={() => run((c) => c.toggleStrike())}>
         <span className="line-through">S</span>
@@ -87,33 +89,47 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
       </Tool>
       <Divider />
       <Tool label="Bulleted list" active={on.bullets} onRun={() => run((c) => c.toggleBulletList())}>
-        •≡
+        <ToolIcon name="bullets" />
       </Tool>
       <Tool label="Numbered list" active={on.numbers} onRun={() => run((c) => c.toggleOrderedList())}>
         <span className="font-mono text-[11px]">1.</span>
       </Tool>
       <Tool label="Checklist" active={on.tasks} onRun={() => run((c) => c.toggleTaskList())}>
-        ☑
+        <ToolIcon name="checklist" />
       </Tool>
       <Tool label="Table" onRun={() => run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))}>
-        ▦
+        <ToolIcon name="table" />
       </Tool>
       <Tool label="Image" onRun={() => void pickImages().then((files) => insertImages(editor, files))}>
-        ▣
+        <ToolIcon name="image" />
       </Tool>
       <Tool label="Callout" active={on.callout} onRun={() => run((c) => (on.callout ? c.lift("callout") : c.wrapIn("callout")))}>
-        !
+        <ToolIcon name="callout" />
       </Tool>
       {on.table ? (
         <>
           <Divider />
-          <Tool wide label="Add row above" onRun={() => run((c) => c.addRowBefore())}>R↑</Tool>
-          <Tool wide label="Add row below" onRun={() => run((c) => c.addRowAfter())}>R↓</Tool>
-          <Tool wide label="Delete row" onRun={() => run((c) => c.deleteRow())}>R×</Tool>
-          <Tool wide label="Add column before" onRun={() => run((c) => c.addColumnBefore())}>C←</Tool>
-          <Tool wide label="Add column after" onRun={() => run((c) => c.addColumnAfter())}>C→</Tool>
-          <Tool wide label="Delete column" onRun={() => run((c) => c.deleteColumn())}>C×</Tool>
-          <Tool wide label="Delete table" onRun={() => run((c) => c.deleteTable())}>T×</Tool>
+          <Tool label="Add row above" onRun={() => run((c) => c.addRowBefore())}>
+            <ToolIcon name="rowAbove" />
+          </Tool>
+          <Tool label="Add row below" onRun={() => run((c) => c.addRowAfter())}>
+            <ToolIcon name="rowBelow" />
+          </Tool>
+          <Tool label="Delete row" onRun={() => run((c) => c.deleteRow())}>
+            <ToolIcon name="rowDelete" />
+          </Tool>
+          <Tool label="Add column before" onRun={() => run((c) => c.addColumnBefore())}>
+            <ToolIcon name="colBefore" />
+          </Tool>
+          <Tool label="Add column after" onRun={() => run((c) => c.addColumnAfter())}>
+            <ToolIcon name="colAfter" />
+          </Tool>
+          <Tool label="Delete column" onRun={() => run((c) => c.deleteColumn())}>
+            <ToolIcon name="colDelete" />
+          </Tool>
+          <Tool label="Delete table" onRun={() => run((c) => c.deleteTable())}>
+            <ToolIcon name="trash" />
+          </Tool>
         </>
       ) : null}
     </div>
