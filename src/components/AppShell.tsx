@@ -19,7 +19,7 @@ import { JournalPage } from "../pages/journal/JournalPage";
 import { useNotes } from "../state/notes";
 import { CheckinDialog } from "./CheckinDialog";
 import { BootSplash } from "./BootSplash";
-import { StateBackdrop } from "./Mesh";
+import { StateBackdrop } from "./Aurora";
 import { QuietPauseDialog } from "./QuietPauseDialog";
 import { CommandBar } from "./CommandBar";
 import { useTrackers } from "../state/trackers";
@@ -190,7 +190,7 @@ export function AppShell() {
     <div data-state={appState} className="relative box-border flex h-full w-full overflow-hidden bg-app">
       <Sidebar pillMeta={pillMeta} />
       <main className="relative min-w-0 grow">
-        {/* The page background says the state (decided 2026-09-30): cobalt mesh sealed, ember in an event. */}
+        {/* The page background says the state (decided 2026-09-30): the aurora, stronger while sealed. */}
         <StateBackdrop state={appState} />
         <div ref={contentRef} className="relative h-full">
           <div key={activeTab} className="page-in h-full">
