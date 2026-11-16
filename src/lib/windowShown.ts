@@ -4,7 +4,7 @@ import { inTauri } from "./native";
 // Whether the window can be seen: false while it is minimized, hidden in the tray, or the page is
 // hidden. One shared store, so the app attaches one set of listeners however many components ask
 // (lifted from Mesh.tsx, motion spec §1.4). While hidden, <html> carries data-window-hidden, so CSS
-// loops (aurora, held mesh, keyhole breathe) can pause through one switch.
+// loops (the keyhole breathe and anything marked .loop) can pause through one switch.
 
 type Listener = () => void;
 

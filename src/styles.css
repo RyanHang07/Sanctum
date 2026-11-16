@@ -109,23 +109,8 @@
   }
 }
 
-/* The aurora (components/Aurora.tsx, lib/aurora.ts): a WebGL canvas drawn from the theme. Where
-   WebGL is missing, this gradient stands in: a band of the accent with the second colour above it,
-   veiled toward the page. It does not move. Its strength is the inline opacity, eased like the shader. */
-.aurora { --aurora-band: var(--s-sealed); --aurora-tip: var(--s-second); }
-.aurora[data-tone="event"] { --aurora-band: var(--s-event); }
-.aurora[data-tone="broken"] { --aurora-band: var(--s-muted); --aurora-tip: color-mix(in srgb, var(--s-second) 35%, var(--s-muted)); }
-.aurora-fallback {
-  background:
-    radial-gradient(ellipse 70% 22% at 38% 30%, color-mix(in srgb, var(--aurora-band) 85%, transparent), transparent 70%),
-    radial-gradient(ellipse 60% 26% at 70% 34%, color-mix(in srgb, var(--aurora-band) 60%, transparent), transparent 72%),
-    radial-gradient(ellipse 80% 30% at 50% 12%, color-mix(in srgb, var(--aurora-tip) 55%, transparent), transparent 75%);
-  transition: opacity 1200ms cubic-bezier(0.37, 0, 0.63, 1);
-}
-.aurora[data-placement="bottom"] .aurora-fallback { transform: scaleY(-1); }
-
 /* One switch pauses every CSS loop while the window is hidden (motion spec 9): anything marked
-   .loop, and the keyhole breathe. The aurora's own loop stops in JS (useWindowShown). */
+   .loop, and the keyhole breathe. */
 html[data-window-hidden] .loop,
 html[data-window-hidden] .mark-breathe { animation-play-state: paused; }
 

@@ -4,7 +4,7 @@ import type { Palette, Theme } from "./palette";
 // The redesign's theme pass (v0.4, decided 2026-11-15, docs/decisions/2026-11-15-theme-pairs.md).
 // Every theme, Sanctum's and OpenCode's alike, goes through finishTheme() once, so the same
 // rules hold everywhere:
-// - a `second` colour (decoration only: kept marks, the goal tick, the aurora's tips) with its
+// - a `second` colour (decoration only: kept marks, the goal tick, the active sidebar icon) with its
 //   text, tint and line versions, defaulting to the theme's event colour;
 // - `muted` that reads at 4.5:1 on every surface muted text sits on;
 // - `line-input` that reaches 3:1, so an input's edge can be seen (WCAG 1.4.11);
