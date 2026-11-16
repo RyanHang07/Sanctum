@@ -148,3 +148,21 @@ Build in this order. Each step ships with Vitest coverage and a CHANGELOG entry,
    - Tray, compact timer, extension and the partner site
    
    Each page's gaps above are fixed as it's built.
+
+## After the impeccable critique and the motion spec (2026-11-15, evening)
+- **The second colour is a strict set:**
+  - the active sidebar icon
+  - dashed target lines
+  - goal ticks and marks
+  - kept days
+  - the ruler's major ticks
+  
+  Anything about the seal (time left, seal progress, the seal line, when a seal ends) is the accent. Pins, written days, plans and tallies go neutral or accent.
+- **Kept on Stats:** bars stay the accent and are labelled "Focused". Kept days get a small second-colour kept mark, matching Today and Week. "Goal missed" becomes "Missed".
+- **Glow** is only for kept days, the goal once met, and the held moment.
+- **The held page collapses** to the headline, one fact line and two actions (Enter again, Done). "Add a note" opens the review only on request.
+- **The aurora is near-still and barely visible while open.** It strengthens and moves a little only while sealed, and pauses when the window is hidden. It's drawn with radial gradients, not blur filters.
+- **Leaving a seal** is a quiet "End early", never a big "Stop". On the partner page, deny is never weaker than approve.
+- **Motion engine: GSAP** (`gsap`, `@gsap/react`; CustomEase and Flip). It replaces `motion` (Framer Motion) so the app has one animation engine.
+  - Spec: the motion spec from this session (its timings live in `src/theme/extra.json` motion tokens: ui 120, enter 180, state 240, glide 400, moment 700, drain 1200, breathe 3200 ms).
+  - The aurora and simple hovers stay CSS.
