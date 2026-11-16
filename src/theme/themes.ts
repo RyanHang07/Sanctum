@@ -1,4 +1,5 @@
-import { contrast, mix, onColor, rgb } from "./color";
+import { contrast, mix, onColor, readable, rgb } from "./color";
+import { RETIRED, finishTheme } from "./finish";
 import { SANCTUM_DARK, type Palette, type Theme } from "./palette";
 
 // The themes (v0.3, decided 2026-10-29): Sanctum Dark (the design tokens) and twelve more, each
@@ -33,13 +34,6 @@ interface Base {
 const WHITE = "#FFFFFF";
 const BLACK = "#000000";
 const rgba = (c: string, a: number) => `rgba(${rgb(c).join(", ")}, ${a})`;
-
-/** `c`, nudged toward `toward` until it reaches `ratio` on every background. */
-function readable(c: string, bgs: string[], ratio: number, toward: string): string {
-  let out = c;
-  for (let t = 0.04; bgs.some((bg) => contrast(out, bg) < ratio) && t <= 1; t += 0.04) out = mix(c, toward, t);
-  return out;
-}
 
 export function derive(b: Base): Theme {
   const dark = b.scheme === "dark";
@@ -353,11 +347,20 @@ const BASES: Base[] = [
 import { OPENCODE_THEMES } from "./opencodeThemes";
 
 // Keep Sanctum's own themes; add all OpenCode themes (de-duped by id, Sanctum themes win).
-const sanctumThemes = [SANCTUM_DARK, ...BASES.map(derive)].filter((t) => t.id === "sanctum-dark" || t.id === "sanctum-light");
+// Catppuccin Latte (v0.4) takes the place of the two retired "Light" copies of dark flavours.
+const derived = BASES.map(derive);
+const sanctumThemes = [SANCTUM_DARK, ...derived].filter((t) => t.id === "sanctum-dark" || t.id === "sanctum-light");
+const latte = derived.find((t) => t.id === "catppuccin-latte")!;
 const seen = new Set(sanctumThemes.map((t) => t.id));
-const opencode = OPENCODE_THEMES.filter((t) => !seen.has(t.id) && (seen.add(t.id), true));
+const opencode = OPENCODE_THEMES.flatMap((t) => (t.id === "catppuccin-frappe-light" ? [latte] : RETIRED[t.id] ? [] : [t])).filter(
+  (t) => !seen.has(t.id) && (seen.add(t.id), true),
+);
 
-/** Every theme, Sanctum's own first. */
-export const THEMES: Theme[] = [...sanctumThemes, ...opencode];
+/** Every theme, Sanctum's own first, each through the redesign's theme pass (finish.ts). */
+export const THEMES: Theme[] = [...sanctumThemes, ...opencode].map(finishTheme);
 
-export const themeById = (id: string | null | undefined): Theme | undefined => THEMES.find((t) => t.id === id);
+/** A theme by id; a retired theme's id opens the theme that replaced it. */
+export const themeById = (id: string | null | undefined): Theme | undefined => {
+  const want = id ? (RETIRED[id] ?? id) : id;
+  return THEMES.find((t) => t.id === want);
+};
