@@ -26,7 +26,9 @@ import { useTrackers } from "../state/trackers";
 import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
 import { WeekPage } from "../pages/week/WeekPage";
-import { TABS, type AppState, type TabId } from "../state/appState";
+import { TABS, type TabId } from "../state/appState";
+import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
+import { useMotion } from "../lib/useMotion";
 import { useStore } from "../state/store";
 import { native } from "../lib/native";
 import { clock, countdown } from "../lib/time";
@@ -101,24 +103,27 @@ function useShortcuts() {
   }, []);
 }
 
-/** Changing state eases the page in with the backdrop, without remounting it. */
-function useStateFade(state: AppState) {
+/**
+ * Moving between screens (motion spec §8): the content swaps almost at once, opacity 0.6 to 1
+ * over `ui`, with no transform and no page-wide fade-and-rise. The sidebar indicator carries the
+ * movement. A state change (open, sealed, event) does not touch the page: the backdrop says it.
+ * Under reduced motion the swap is instant (useMotion jumps the timeline to its end).
+ */
+function usePageSwap(tab: TabId) {
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef(true);
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    ref.current?.animate?.(
-      [
-        { opacity: 0.25, transform: "translateY(6px)", filter: "blur(2px)" },
-        { opacity: 1, transform: "none", filter: "none" },
-      ],
-      { duration: 520, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" },
-    );
-  }, [state]);
+  const { run } = useMotion(ref);
+  useGSAP(
+    () => {
+      if (first.current) {
+        first.current = false;
+        return;
+      }
+      if (!ref.current) return;
+      run(() => gsap.timeline({ id: "page-swap" }).fromTo(ref.current, { opacity: 0.6 }, { opacity: 1, duration: DUR.ui, ease: EASE.ui }));
+    },
+    { scope: ref, dependencies: [tab] },
+  );
   return ref;
 }
 
@@ -168,7 +173,7 @@ export function AppShell() {
   const meeting = useStore((s) => s.meeting);
   const quiet = useStore((s) => s.quiet);
   const now = useNow(15_000);
-  const contentRef = useStateFade(appState);
+  const contentRef = usePageSwap(activeTab);
   useShortcuts();
   useNativeEvents();
   useScheduleFocus();
@@ -192,8 +197,8 @@ export function AppShell() {
       <main className="relative min-w-0 grow">
         {/* The page background says the state (decided 2026-09-30): cobalt mesh sealed, ember in an event. */}
         <StateBackdrop state={appState} />
-        <div ref={contentRef} className="relative h-full">
-          <div key={activeTab} className="page-in h-full">
+        <div ref={contentRef} data-page={activeTab} className="relative h-full">
+          <div key={activeTab} className="h-full">
             <Page tab={activeTab} />
           </div>
         </div>

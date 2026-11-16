@@ -208,7 +208,8 @@ export function CommandBar() {
         aria-label="Command bar"
         className="absolute left-1/2 top-[96px] flex max-h-[440px] w-[520px] -translate-x-1/2 animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog"
       >
-        <label className="flex h-12 shrink-0 items-center gap-[10px] border-b border-line px-4 text-muted">
+        {/* The search row shows keyboard focus as an accent underline; the field itself opts out of the ring. */}
+        <label className="flex h-12 shrink-0 items-center gap-[10px] border-b border-line px-4 text-muted transition-colors duration-ui ease-ui has-[:focus-visible]:border-sealed">
           <SearchIcon size={14} />
           <input
             autoFocus
@@ -221,7 +222,7 @@ export function CommandBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKey}
-            className="min-w-0 grow bg-transparent text-[14px] text-text outline-none placeholder:text-faint"
+            className="focus-ring-off min-w-0 grow bg-transparent text-[14px] text-text placeholder:text-faint"
           />
           <span className="font-mono text-[11px] text-faint">Esc</span>
         </label>
@@ -231,7 +232,7 @@ export function CommandBar() {
             lastGroup = c.group;
             return (
               <div key={c.id}>
-                {header ? <div className="px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">{header}</div> : null}
+                {header ? <div className="label px-4 pb-1 pt-2">{header}</div> : null}
                 <div
                   id={`command-${c.id}`}
                   data-index={i}
