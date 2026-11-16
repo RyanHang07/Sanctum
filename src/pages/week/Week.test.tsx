@@ -450,13 +450,13 @@ describe("Home panels", () => {
     render(<Home />);
     // One list for the day: no separate Schedule panel.
     expect(screen.queryByRole("region", { name: "Schedule" })).toBeNull();
-    expect(screen.getByTestId("focus-strip")).toHaveTextContent("Focus today");
+    expect(screen.getByTestId("next-strip")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Collapse Today" }));
     expect(screen.queryByLabelText("Add a task for today")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show Today" }));
     fireEvent.click(screen.getByRole("button", { name: "Customize" }));
-    fireEvent.click(screen.getByRole("switch", { name: "Show Focus today" }));
-    expect(screen.queryByTestId("focus-strip")).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Show Next up" }));
+    expect(screen.queryByTestId("next-strip")).toBeNull();
     await waitFor(async () => expect(JSON.parse((await native.getSetting("home_layout"))!)).toEqual({ collapsed: [], hidden: ["progress"] }));
   });
 });

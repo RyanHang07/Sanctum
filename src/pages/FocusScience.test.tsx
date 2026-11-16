@@ -249,7 +249,7 @@ describe("the week, reviewed", () => {
 
   it("Stats shows the week against its target, Home doesn't; Setup changes it or goes back to the average", async () => {
     render(<Home />);
-    expect(screen.getByTestId("focus-strip")).not.toHaveTextContent("week");
+    expect(screen.getByTestId("next-strip")).not.toHaveTextContent("week");
     render(<StatsPage />);
     expect(await within(await screen.findByTestId("stats-summary")).findByText(/^focused of 10h\. /)).toBeInTheDocument();
     render(<WeekTargetRow />);

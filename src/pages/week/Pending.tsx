@@ -2,7 +2,7 @@
 // before. Shown on Home (a tab under Today), in Week (a strip, or the eighth box in two rows), and
 // in List. Not in Month or Routines. Drag an item onto a day to give it one; drop one here to park it.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ChevronIcon, PlusIcon } from "../../components/icons";
 import { usePlanner } from "../../state/planner";
 import { addDays, fromKey, pendingFor, todayKey, weekStart, type AgendaItem } from "../../lib/planner";
@@ -11,6 +11,8 @@ import { useStore } from "../../state/store";
 import type { Todo } from "../../lib/types";
 import { drag, dragProps, parkOn, todoItem } from "./drag";
 import { Fold } from "./marks";
+import { gsap, RISE_FROM, RISE_STAGGER, RISE_TO, useGSAP } from "../../lib/gsap";
+import { useMotion } from "../../lib/useMotion";
 
 /** The week's pending items, kept current. */
 export function usePending(week: string): Todo[] {
@@ -157,11 +159,22 @@ export function PendingTab() {
   const items = usePending(week);
   const [open, setOpen] = useState(false);
   const park = useParkTarget(week);
+  // Opening cascades the rows in, one rise-in 40ms after the next: the screens' motion, per row.
+  const list = useRef<HTMLDivElement>(null);
+  const { run } = useMotion(list);
+  useGSAP(
+    () => {
+      if (!open || !list.current) return;
+      const rows = Array.from(list.current.children);
+      run(() => gsap.timeline({ id: "pending-cascade" }).fromTo(rows, RISE_FROM, { ...RISE_TO, stagger: RISE_STAGGER }));
+    },
+    { scope: list, dependencies: [open] },
+  );
   return (
     <div {...park.props} data-testid="pending-tab" className={`flex min-h-0 shrink-0 flex-col border-t border-line ${park.over ? "bg-sealed-tint" : ""} ${open ? "max-h-[55%]" : ""}`}>
       <Toggle open={open} count={items.length} onClick={() => setOpen(!open)} label={open ? "Hide pending" : "Show pending"} />
       {open ? (
-        <div className="flex min-h-0 flex-col overflow-y-auto px-[6px] pb-[6px]">
+        <div ref={list} className="flex min-h-0 flex-col overflow-y-auto px-[6px] pb-[6px]">
           {items.map((t) => (
             <PendingRow key={t.id} t={t} week={week} />
           ))}

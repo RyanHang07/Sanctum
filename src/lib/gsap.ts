@@ -30,4 +30,12 @@ export const EASE = Object.fromEntries(Object.keys(extra.motion.easing).map((k) 
 // overwrite "auto": a tween that lands while another is still moving the same property takes it over.
 gsap.defaults({ duration: DUR.enter, ease: EASE.ui, overwrite: "auto" });
 
+/**
+ * The rise-in (decided 2026-11-16): screens and Pending's rows come in the same way, a short fade
+ * up from 6px below. Screens rise as one; a list cascades its rows `RISE_STAGGER` apart.
+ */
+export const RISE_FROM: gsap.TweenVars = { opacity: 0, y: 6 };
+export const RISE_TO: gsap.TweenVars = { opacity: 1, y: 0, duration: DUR.state, ease: EASE.glide, clearProps: "opacity,transform" };
+export const RISE_STAGGER = 0.04;
+
 export { gsap, Flip, CustomEase, useGSAP };
