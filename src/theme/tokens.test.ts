@@ -88,7 +88,8 @@ describe("design tokens", () => {
     expect(ext.spacing).toEqual({ control: "32px", row: "38px", sidebar: "220px", "sidebar-rail": "60px" });
     expect(ext.fontFamily.sans[0]).toContain("Geist");
     expect(ext.fontFamily.mono[0]).toContain("Geist Mono");
-    expect(ext.fontFamily.serif[0]).toContain("Instrument Serif");
+    expect(ext.fontFamily.headline[0]).toContain("Schibsted Grotesk");
+    expect(ext.fontFamily).not.toHaveProperty("serif");
   });
 
   it("defines one shared motion scale for hover and enter transitions", () => {

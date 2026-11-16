@@ -1,75 +1,50 @@
 import type { Broke } from "../lib/types";
 import type { AppState } from "../state/appState";
 
-// The words on the moments (SPEC 4.0, design/README.md headline rule): a bold statement and a
-// serif payoff. Each moment has a few, so it doesn't read the same every day. Picks are seeded
-// (by the day, the session), never random per render, so a line holds still while you look at it.
-
-type Line = readonly [string, string];
+// The words on the moments (SPEC 4.0, design/README.md headline rule). A headline is one plain
+// sentence in Schibsted Grotesk: one weight, one colour, no italic payoff, no question. Every
+// headline in the app comes from here. Each moment has a few lines, so it doesn't read the same
+// every day. Picks are seeded (by the day, the session), never random per render, so a line holds
+// still while you look at it.
 
 /** Open, any time of day. */
-export const OPEN: readonly Line[] = [
-  ["Dial in.", "Or stay mid."],
-  ["Keep dreaming.", "Or start living them."],
-  ["The work is waiting.", "So is the excuse."],
-  ["Nobody is coming.", "Start anyway."],
-  ["Small promises, kept.", "That’s the whole game."],
-  ["Your word is the plan.", "Keep it."],
-  ["Show up.", "Then stay."],
-  ["Today counts.", "Act like it."],
+export const OPEN: readonly string[] = [
+  "Dial in, or stay mid.",
+  "Dreams start with the next block.",
+  "The work is waiting, and so is the excuse.",
+  "Nobody is coming, so start anyway.",
+  "Small promises, kept, are the whole game.",
+  "Your word is the plan.",
+  "Show up, then stay.",
+  "Today counts, so act like it.",
 ];
 
 /** Open, one more for each part of the day. */
-export const OPEN_BY_HOUR: readonly { from: number; to: number; line: Line }[] = [
-  { from: 5, to: 11, line: ["First hour, best hour.", "Spend it well."] },
-  { from: 11, to: 17, line: ["Half the day is left.", "Use it."] },
-  { from: 17, to: 22, line: ["One more block.", "Then rest."] },
-  { from: 22, to: 29, line: ["It’s late.", "Close the gaps, or sleep."] },
+export const OPEN_BY_HOUR: readonly { from: number; to: number; line: string }[] = [
+  { from: 5, to: 11, line: "The first hour is the best hour." },
+  { from: 11, to: 17, line: "Half the day is left to use." },
+  { from: 17, to: 22, line: "One more block, then rest." },
+  { from: 22, to: 29, line: "It’s late, so close the gaps or sleep." },
 ];
 
 /** Open, when today's goal is already met. */
-export const GOAL_MET_TODAY: readonly Line[] = [
-  ["Goal met.", "Go again, or go rest."],
-  ["The day is kept.", "Anything more is extra."],
-  ["Today’s promise is paid.", "Spend the rest well."],
-];
+export const GOAL_MET_TODAY: readonly string[] = ["Goal met, so go again or go rest.", "The day is kept, and anything more is extra.", "Today’s promise is paid."];
 
 /** Open, the day after a miss: one more and the streak resets. */
-export const AT_RISK: readonly Line[] = [
-  ["You missed yesterday.", "Not twice."],
-  ["One miss is a slip.", "Two is a pattern."],
-  ["The streak is on the line.", "Keep it today."],
-];
+export const AT_RISK: readonly string[] = ["You missed yesterday, so not twice.", "One miss is a slip, and two is a pattern.", "The streak is on the line today."];
 
-export const SEALED: readonly Line[] = [
-  ["Nothing else right now.", "Just this."],
-  ["Head down.", "The noise can wait."],
-  ["This is the rep.", "Don’t skip it."],
-  ["No one’s watching.", "Show who you are."],
-  ["You’re locked in.", "Finish what you started."],
+export const SEALED: readonly string[] = [
+  "Nothing else matters right now.",
+  "Head down, the noise can wait.",
+  "This is the rep you don’t skip.",
+  "Show who you are when no one’s watching.",
+  "You’re locked in until it’s finished.",
 ];
 
 /** Sealed, the last few minutes. */
-export const FINISHING: readonly Line[] = [
-  ["Last stretch.", "Finish clean."],
-  ["Almost there.", "Don’t drift now."],
-  ["Minutes left.", "Make them count."],
-];
+export const FINISHING: readonly string[] = ["Finish the last stretch clean.", "Almost there, so don’t drift now.", "Make the last minutes count."];
 
-/** In event: the statement is the event ("Design review until 10:39 AM."), the payoff one of these. */
-export const EVENT_PAYOFFS: readonly string[] = [
-  "Stay all in.",
-  "Give it your all.",
-  "Phone down, eyes up.",
-  "Be the one who listened.",
-  "Focus will be here after.",
-  "Be where your feet are.",
-  "One room at a time.",
-  "Listen like it matters.",
-  "Here, not halfway.",
-];
-
-/** Under "Sanctum held." */
+/** Under "Sanctum held." (a fact line, not part of the headline). */
 export const HELD: readonly string[] = [
   "Promise kept.",
   "You did what you said.",
@@ -86,9 +61,8 @@ export const FIRST: readonly string[] = ["First one down.", "The day has started
 /** The seal that reached today's goal, on the first day of a streak. */
 export const GOAL_CROSSED: readonly string[] = ["Goal met for today, but the best never stopped here.", "Goal met. The rest is extra.", "That’s today’s promise kept."];
 
-/** When downtime broke the session but it still landed on the held page. */
 /** A broken seal, when what broke it isn't known (v0.3.1: plain, never scolding). */
-export const HELD_BROKEN: readonly string[] = ["The seal broke, so today's streak resets. The work still counts.", "Held, but the downtime broke it. Next seal, fresh start."];
+export const HELD_BROKEN: readonly string[] = ["The seal broke, so today's streak resets. The work still counts.", "The downtime broke the seal. The next one starts fresh."];
 
 /** The if-then plan as it's shown on a catch (v0.3.1): "If you're tempted, you said you'd stand up." */
 export function planLine(plan: string): string {
@@ -112,15 +86,19 @@ export const OVERLAY_ENDING: readonly string[] = ["Under ten minutes. Hold.", "A
 /** The overlay from the third attempt on. `{n}` is the count. */
 export const OVERLAY_REPEAT: readonly string[] = ["That’s {n} tries. It hasn’t gotten more urgent.", "{n} attempts. The answer hasn’t changed.", "Try {n}. Still sealed."];
 
-/** "Still want Discord?" and its payoff, on a pause. */
+/** Pause mode's headline, on the app overlay and the extension's page (extension/blocked.js keeps
+ *  the same lines). `{site}` is the app or site. A statement, never "Still want it?". */
+export const PAUSE: readonly string[] = ["{site} can wait five seconds.", "Decide on {site} on purpose.", "Take a breath before {site}.", "{site} is your call, so make it a real one."];
+
+/** @deprecated The old italic payoffs after the question "Still want Discord?". Use pauseHeadline. */
 export const PAUSE_PAYOFFS: readonly string[] = ["Take a breath.", "Decide on purpose.", "It can wait five seconds.", "Your call. Make it a real one."];
 
 /** The park card. */
-export const PARK: readonly Line[] = [
-  ["Park it.", "Back to work."],
-  ["Out of your head.", "Back to it."],
-  ["Write it down.", "Let it go."],
-];
+export const PARK_LINES: readonly string[] = ["Park it and get back to work.", "Out of your head, back to the work.", "Write it down and let it go."];
+
+/** @deprecated Statement-and-payoff pairs for old markup (`{line[0]} <em>{line[1]}</em>`); the
+ *  payoff is empty. Use PARK_LINES. */
+export const PARK: readonly (readonly [string, string])[] = PARK_LINES.map((l) => [l, ""] as const);
 
 /** What a break is for. */
 export const BREAK_TIPS: readonly string[] = ["stand up, look away from the screen", "get some water, rest your eyes", "walk to another room and back", "stretch, then look out a window"];
@@ -128,11 +106,37 @@ export const BREAK_TIPS: readonly string[] = ["stand up, look away from the scre
 /** Why a flagged app is closed in quiet hours. */
 export const QUIET_LINES: readonly string[] = ["Quiet hours keep your Distractions list closed.", "You closed this hour on purpose.", "This is the time you protected."];
 
-export const WELCOME: readonly Line[] = [
-  ["Welcome back.", "Pick it up."],
-  ["Back in.", "Keep going."],
-  ["You stepped away.", "Step back in."],
-];
+export const WELCOME: readonly string[] = ["Welcome back to the work.", "You’re back in, so keep going.", "You stepped away, now step back in."];
+
+/** Fixed headlines, one sentence each, for the screens that don't rotate lines. */
+export const HEADLINE = {
+  held: "Sanctum held.",
+  broken: "Seal broken.",
+  /** The block overlay and the extension's page (SPEC 8 core string). */
+  stays: (what: string) => `${what} stays sealed.`,
+  keyword: (keyword: string) => `Pages about “${keyword}” stay sealed.`,
+  open: "You’re open again.",
+  /** Quiet hours, on the overlay. */
+  waits: (what: string, until: string) => `${what} waits until ${until}.`,
+  quietPause: "Fifteen minutes needs a reason.",
+  partnerDenied: (partner: string) => `${partner} said no, so the seal stands.`,
+  partnerExpired: "The request expired, so the seal stands.",
+  journalLocked: "The journal is locked.",
+  journalSetup: "A page a day, yours alone.",
+  journalPrompts: "Choose what a page asks.",
+} as const;
+
+/** Onboarding step titles. */
+export const ONBOARDING = {
+  welcome: "Distractions get sealed while you do the work.",
+  profile: (name: string) => `Define ${name}.`,
+  distractions: "Name your distractions.",
+  look: "Pick a look you can change any time.",
+  goal: "Set the bar.",
+  calendar: "Bring your calendar.",
+  browser: "Seal the browser too.",
+  done: "You’re set.",
+} as const;
 
 /** A small stable hash, so the same seed always picks the same line. */
 export function seedOf(s: string | number): number {
@@ -162,24 +166,30 @@ export interface HomeMoment {
 }
 
 /**
- * Home headline per state. One pick a day for each state; Open also mixes in a line for the
- * part of the day, so it can change when morning turns to afternoon.
+ * Home headline per state, one sentence. One pick a day for each state; Open also mixes in a line
+ * for the part of the day, so it can change when morning turns to afternoon. In an event, the
+ * headline is the event itself ("Design review until 10:39 AM.").
  */
-export function homeHeadline(state: AppState, event?: { title: string; until: string }, now = new Date(), moment: HomeMoment = {}): [string, string] {
+export function homeLine(state: AppState, event?: { title: string; until: string }, now = new Date(), moment: HomeMoment = {}): string {
   const day = dayOf(now);
   switch (state) {
     case "sealed":
-      return [...pick(moment.finishing ? FINISHING : SEALED, `sealed:${day}`)];
+      return pick(moment.finishing ? FINISHING : SEALED, `sealed:${day}`);
     case "event":
-      return [`${event?.title ?? "Event"} until ${event?.until ?? "it ends"}.`, pick(EVENT_PAYOFFS, `event:${day}:${event?.title ?? ""}`)];
+      return `${event?.title ?? "Event"} until ${event?.until ?? "it ends"}.`;
     default: {
       // What's true today beats a line for the hour.
-      if (moment.goalMet) return [...pick(GOAL_MET_TODAY, `met:${day}`)];
-      if (moment.atRisk) return [...pick(AT_RISK, `risk:${day}`)];
+      if (moment.goalMet) return pick(GOAL_MET_TODAY, `met:${day}`);
+      if (moment.atRisk) return pick(AT_RISK, `risk:${day}`);
       const part = partOfDay(now);
-      return [...pick([...OPEN, part.line], `open:${day}:${part.from}`)];
+      return pick([...OPEN, part.line], `open:${day}:${part.from}`);
     }
   }
+}
+
+/** @deprecated For old markup (`{a} <em>{b}</em>`): the line and an empty payoff. Use homeLine. */
+export function homeHeadline(...args: Parameters<typeof homeLine>): [string, string] {
+  return [homeLine(...args), ""];
 }
 
 export interface HeldContext {
@@ -216,7 +226,12 @@ export function overlayLine(seed: string | number, until: string, moment: { atte
   return pick(OVERLAY, seed).replace("{until}", until);
 }
 
-export const welcomeLine = (seed: string | number): [string, string] => [...pick(WELCOME, seed)];
+export const welcome = (seed: string | number): string => pick(WELCOME, seed);
+
+/** @deprecated For old markup (`{w[0]} <em>{w[1]}</em>`): the line and an empty payoff. Use welcome. */
+export const welcomeLine = (seed: string | number): [string, string] => [welcome(seed), ""];
+
+export const pauseHeadline = (site: string, seed: string | number): string => pick(PAUSE, seed).replaceAll("{site}", site);
 
 /** What broke a seal, said plainly, with the fix that would have stopped it (v0.3.1). Self-
  *  compassion after a lapse raises the will to improve (Breines & Chen 2012): no scolding. */

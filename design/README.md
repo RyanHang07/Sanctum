@@ -46,4 +46,8 @@ Older screens from v1 of the design are in `design/_archive/` for history only. 
 `tokens.css` and `tokens.json` hold the colors and fonts. Wire them into Tailwind (`theme.extend.colors` / `fontFamily`) so components use names, not raw hex.
 
 ## Headline rule
-Only for moments (Home headline, sealed dialogs, held dialog, onboarding titles): bold Geist 700 statement, tight tracking, then an Instrument Serif italic payoff in `#8C96AB` at 1.12em. Example: `Keep your promises. <em>Or stay mid.</em>`. Page titles are plain Geist 600 at 20px.
+Only for moments (Home headline, sealed dialogs, held dialog, onboarding titles): one plain sentence in **Schibsted Grotesk 700**, tight tracking (-0.03em), in one weight and one colour (`text`). No italic payoff, no accented word or phrase, no question. Examples: `Your word is the plan.`, `Sanctum held.`, `Discord stays sealed.`. Every headline string lives in `src/pages/headlines.ts` (the extension's `blocked.js` mirrors its lines). The day's fact goes in plain text under the headline ("1h 18m left to reach today's 2 hours"), never in the headline. Decided 2026-11-15 in `docs/decisions/2026-11-15-second-colour-and-headlines.md`; the Instrument Serif payoffs in the older `screens/*.dc.html` mocks are superseded.
+
+Interface text stays **Geist**; numbers and timers stay **Geist Mono**. Page titles are plain Geist 600 at 20px.
+
+**Labels** (field labels, group headers, list headers) are sentence case, never all caps: Geist 500 at 12px in `muted` (the `.label` class). No `uppercase`, no wide tracking, no `faint` for text that must be read.

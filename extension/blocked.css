@@ -55,20 +55,12 @@ body {
 
 h1 {
   margin: 0;
+  font-family: var(--font-headline);
   font-weight: 700;
   font-size: 36px;
   line-height: 1.1;
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
-}
-
-h1 em {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.12em;
-  letter-spacing: -0.01em;
-  color: var(--payoff);
 }
 
 p {
