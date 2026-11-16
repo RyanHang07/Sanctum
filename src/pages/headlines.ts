@@ -124,6 +124,7 @@ export const HEADLINE = {
   journalLocked: "The journal is locked.",
   journalSetup: "A page a day, yours alone.",
   journalPrompts: "Choose what a page asks.",
+  journalLock: "Choose whether it locks.",
 } as const;
 
 /** Onboarding step titles. */
