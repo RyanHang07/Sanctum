@@ -11,6 +11,8 @@ import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { addDays, todayKey } from "../../lib/planner";
 import type { Checkin } from "../../lib/types";
+import { DUR, gsap } from "../../lib/gsap";
+import { finish, moment, seek, setReducedMotion } from "../../test/motion";
 
 const initial = useStore.getState();
 const initialTrackers = useTrackers.getState();
@@ -148,6 +150,70 @@ describe("Trackers page", () => {
     expect(table.queryByText("Long day.")).toBeNull();
   });
 
+  it("draws rulers with taller second-colour ticks on days at goal", async () => {
+    const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
+    const weight = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb", goal: 170 });
+    mockControls.history(sleep.id, [
+      [3, 7],
+      [2, 8.2],
+      [1, 8.5],
+    ]);
+    mockControls.history(weight.id, [
+      [5, 172],
+      [1, 169.8],
+    ]);
+    render(<TrackersPage />);
+    await click(await screen.findByRole("button", { name: "7D" }));
+    expect(screen.getByRole("button", { name: "7D" })).toHaveAttribute("aria-pressed", "true");
+
+    const card = within(screen.getByRole("region", { name: "Sleep" }));
+    expect(card.getByText("Goal 8 h")).toBeInTheDocument();
+    expect(card.getByText("2 of 3 days at goal")).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "Sleep" });
+    expect(region.querySelectorAll('[data-kind="goal"]')).toHaveLength(2);
+    expect(region.querySelectorAll('[data-kind="major"]')).toHaveLength(5);
+    expect(region.querySelector("[data-goal-tick]")).toHaveClass("bg-second");
+    expect(region.querySelectorAll("[data-hit]")).toHaveLength(2);
+    expect(card.getByRole("img")).toHaveAccessibleName(/Sleep from .*, latest 8.5 h, goal 8 h, 2 of 3 days at goal/);
+
+    // Weight started above its goal, so at goal means at or under it.
+    const w = within(screen.getByRole("region", { name: "Weight" }));
+    expect(w.getByText("Goal 170 lb or less")).toBeInTheDocument();
+    expect(w.getByText("1 of 2 days at goal")).toBeInTheDocument();
+  });
+
+  it("rolls the figure and grows today's tick when a logged entry reaches the goal", async () => {
+    setReducedMotion(false);
+    const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
+    mockControls.history(sleep.id, [[1, 7]]);
+    render(<TrackersPage />);
+    await click(await screen.findByRole("button", { name: "7D" }));
+    const region = screen.getByRole("region", { name: "Sleep" });
+    expect(region.querySelector('[data-xt="last"]')).toHaveAttribute("data-kind", "major"); // nothing today yet: a plain tick
+    expect(moment("tracker-goal")).toBeUndefined();
+
+    await act(async () => void (await useTrackers.getState().log([{ trackerId: sleep.id, value: 8.4 }])));
+    expect(within(region).getByText("8.4")).toBeInTheDocument();
+    expect(moment("odometer")).toBeDefined();
+    const tick = region.querySelector<HTMLElement>('[data-xt="last"]')!;
+    expect(tick).toHaveAttribute("data-kind", "goal");
+    // It waits for the roll, then grows from a plain tick's height to the full one.
+    seek("tracker-goal", DUR.glide * 0.75);
+    expect(Number(gsap.getProperty(tick, "scaleY"))).toBeCloseTo(8 / 11);
+    finish("tracker-goal");
+    expect(tick.style.transform).toBe("");
+  });
+
+  it("lands on the full tick at once under reduced motion", async () => {
+    const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
+    mockControls.history(sleep.id, [[1, 7]]);
+    render(<TrackersPage />);
+    await click(await screen.findByRole("button", { name: "7D" }));
+    await act(async () => void (await useTrackers.getState().log([{ trackerId: sleep.id, value: 9 }])));
+    expect(moment("tracker-goal")!.progress()).toBe(1);
+    expect(screen.getByRole("region", { name: "Sleep" }).querySelector<HTMLElement>('[data-xt="last"]')!.style.transform).toBe("");
+  });
+
   it("logs a manual entry with only what was filled in", async () => {
     const { mood, journal } = await seed();
     render(
@@ -159,7 +225,7 @@ describe("Trackers page", () => {
     await click(await screen.findByRole("button", { name: "Log entry" }));
     const dialog = within(screen.getByRole("dialog", { name: "Log entry" }));
     expect(dialog.getByRole("button", { name: /^Log/ })).toBeDisabled();
-    await click(within(dialog.getByRole("group", { name: "Mood" })).getByRole("button", { name: "7" }));
+    await click(within(dialog.getByRole("radiogroup", { name: "Mood, 1 to 10" })).getByRole("radio", { name: "7" }));
     fireEvent.change(dialog.getByLabelText("Journal"), { target: { value: "Shipped M11." } });
     await click(dialog.getByRole("button", { name: /^Log/ }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -189,7 +255,9 @@ describe("Scheduled check-in", () => {
     const { w } = await seed();
     const { off } = await due({ id: 0, name: "Morning weigh-in", time: "08:00", daysMask: 127, trackerIds: [w.id], includeGoalReview: false });
     const dialog = within(await screen.findByRole("dialog", { name: "Morning weigh-in" }));
-    expect(dialog.getByText("Scheduled check-in · 8:00 AM")).toBeInTheDocument();
+    // The title leads; when it was due sits under it.
+    expect(dialog.getByRole("heading", { level: 1 })).toHaveTextContent("Morning weigh-in");
+    expect(dialog.getByText(/^Scheduled for/)).toHaveTextContent("Scheduled for 8:00 AM");
     await waitFor(() => expect(dialog.getByLabelText("Weight")).toHaveValue("172.4"));
     await click(dialog.getByRole("button", { name: "Decrease Weight" }));
     expect(dialog.getByLabelText("Weight")).toHaveValue("172.3");
@@ -199,6 +267,57 @@ describe("Scheduled check-in", () => {
     const last = useTrackers.getState().entries.at(-1)!;
     expect([last.value, last.source]).toEqual([172.3, "checkin"]);
     expect(await native.checkinPending()).toBeNull();
+    off();
+  });
+
+  it("shows each goal as a dashed line, answers by radio, and scrolls inside", async () => {
+    const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8 });
+    const mood = await native.saveTracker({ name: "Mood", kind: "scale", goal: 7 });
+    const gym = await native.saveTracker({ name: "Gym", kind: "bool" });
+    mockControls.history(sleep.id, [
+      [2, 7.2],
+      [1, 6.8],
+    ]);
+    mockControls.history(mood.id, [
+      [2, 6],
+      [1, 7],
+    ]);
+    const { off } = await due({ id: 0, name: "Evening check-in", time: "21:00", daysMask: 127, trackerIds: [sleep.id, mood.id, gym.id], includeGoalReview: false });
+    const dialog = await screen.findByRole("dialog", { name: "Evening check-in" });
+    const d = within(dialog);
+    // Sleep and Mood have goals; their sparklines draw them dashed in the second colour.
+    const goals = dialog.querySelectorAll("[data-spark-goal]");
+    expect(goals).toHaveLength(2);
+    expect(goals[0]).toHaveClass("stroke-second");
+    expect(goals[0]).toHaveAttribute("stroke-dasharray", "3 3");
+
+    // One tab stop per question; the arrows move the answer.
+    const scale = d.getByRole("radiogroup", { name: "Mood, 1 to 10" });
+    const radios = within(scale).getAllByRole("radio");
+    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
+    await click(radios[6]!);
+    expect(radios[6]).toHaveAttribute("aria-checked", "true");
+    await act(async () => fireEvent.keyDown(radios[6]!, { key: "ArrowRight" }));
+    expect(radios[7]).toHaveAttribute("aria-checked", "true");
+    expect(radios[7]).toHaveFocus();
+    await click(radios[7]!); // picking it again leaves Mood blank
+    expect(radios[7]).toHaveAttribute("aria-checked", "false");
+    await click(within(d.getByRole("radiogroup", { name: "Gym" })).getByRole("radio", { name: "No" }));
+
+    // The questions scroll under a fixed header, which draws a hairline once they do.
+    const body = d.getByRole("region", { name: "Check-in questions" });
+    const head = dialog.querySelector("[data-checkin-head]")!;
+    expect(head).toHaveClass("border-transparent");
+    body.scrollTop = 40;
+    fireEvent.scroll(body);
+    expect(head).toHaveClass("border-line");
+
+    await click(d.getByRole("button", { name: /^Log/ }));
+    const last = useTrackers.getState().entries.filter((e) => e.source === "checkin").slice(-2);
+    expect(last.map((e) => [e.trackerId, e.value])).toEqual([
+      [sleep.id, 6.8],
+      [gym.id, 0],
+    ]);
     off();
   });
 
