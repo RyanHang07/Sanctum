@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.pt button{font:inherit;cursor:pointer}
+.pt h1,.pt h2{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.pt input::placeholder{color:inherit;opacity:1}
+.pt .hov:hover{opacity:.85}
+/* Keyboard focus: one visible ring on every interactive element. */
+.pt :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Odometer: each digit is a masked column holding a 0-9 strip (11 cells, the first digit repeated at the end). */
+.pt .odo{display:inline-flex;align-items:flex-start;line-height:1.15;white-space:pre}
+.pt .odo-base{display:inline-block;width:0}
+.pt .odo-col{display:inline-block;height:1.15em;overflow:hidden;vertical-align:top}
+.pt .odo-strip{position:relative;display:flex;flex-direction:column}
+.pt .odo-cell{display:block;height:1.15em;line-height:1.15;text-align:center}
+.pt .odo-ch{display:inline-block;line-height:1.15}
+/* Colour changes stay CSS. Without GSAP (this file alone), these classes also carry the old fades. */
+.pt .fade{transition:opacity 300ms ease, visibility 300ms ease, background 400ms ease, border-color 400ms ease, color 400ms ease}
+.pt .tools-off{opacity:0;visibility:hidden}
+.pt .seal-line{opacity:0;visibility:hidden}
+.pt .goal-glow{opacity:.6}
+.pt .chk path{stroke-dasharray:9}
+/* Fallback keyframes, used only when GSAP is not loaded. */
+@keyframes ptLightA{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+@keyframes ptLightB{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+.pt .light-a{animation:ptLightA 700ms ease-out}
+.pt .light-b{animation:ptLightB 700ms ease-out}
+@keyframes ptFlare{0%{opacity:0}25%{opacity:1}100%{opacity:.6}}
+.pt .goal-flare{animation:ptFlare 1600ms ease-out}
+@keyframes ptKeptIn{from{opacity:0}to{opacity:1}}
+.pt .kept-in{animation:ptKeptIn 1200ms ease-out}
+/* The strip's key (Kept, Missed, Today): an overlay beside the chip, revealed with a clip, so the chip never changes size. */
+.pt .pt-streak{position:relative}
+.pt .pt-legend{position:absolute;right:calc(100% + 8px);top:0;height:32px;box-sizing:border-box;pointer-events:none;white-space:nowrap;clip-path:inset(0 0 0 100%);opacity:0;transition:clip-path 240ms cubic-bezier(.2,0,0,1), opacity 240ms cubic-bezier(.2,0,0,1)}
+.pt .pt-streak:hover .pt-legend,.pt .pt-streak:focus-visible .pt-legend{clip-path:inset(0 0 0 0);opacity:1;transition-delay:150ms}
+@media (prefers-reduced-motion: reduce){.pt *,.pt *::before,.pt *::after{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="pt" data-proto-root="" ref="{{ rootRef }}" style="--accent: {{t.sealed}}; width: 100%; min-height: 800px; box-sizing: border-box; padding: 26px 32px 22px; display: flex; flex-direction: column; gap: 22px; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 32px; font-size: 13px">
+    <span class="{{fadeCls}}" style="{{dateStyle}}">{{dateLabel}}</span>
+
+    <button type="button" class="hov pt-streak" aria-label="{{streakLabel}}" onClick="{{ openStats }}" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.panel}}; color: {{t.text}}; font-size: 13px">
+      <span class="odo" data-odo="streak" aria-hidden="true" style="font-family: 'Geist Mono', monospace; font-weight: 500"><span class="odo-base">&#8203;</span><sc-for list="{{odoStreak.tokens}}" as="tk" hint-placeholder-count="2"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="c" hint-placeholder-count="11"><span class="odo-cell">{{c.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></span>
+      <span style="color: {{t.muted}}">day streak</span>
+      <span aria-hidden="true" style="display: flex; align-items: center; gap: 3px">
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+          <span class="{{fadeCls}}" data-today-cell="{{d.todayAttr}}" title="{{d.title}}" style="{{d.style}}"><span style="{{d.fill}}"></span><span data-cell-kept="" class="{{d.keptCls}}" style="{{d.keptStyle}}"></span><span data-cell-glow="" class="{{d.keptCls}}" style="{{d.glowStyle}}"></span></span>
+        </sc-for>
+      </span>
+      <span aria-hidden="true" class="pt-legend" style="display: flex; align-items: center; gap: 9px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.panel}}; font-size: 11px; color: {{t.muted}}">
+        <span style="display: flex; align-items: center; gap: 4px"><span style="{{legendKept}}"></span>Kept</span>
+        <span style="display: flex; align-items: center; gap: 4px"><span style="{{legendMissed}}"></span>Missed</span>
+        <span style="display: flex; align-items: center; gap: 4px"><span style="{{legendToday}}"><span style="{{legendTodayFill}}"></span></span>Today</span>
+      </span>
+    </button>
+
+    <span data-tools="" class="{{toolsCls}}" style="display: flex; align-items: center; gap: 8px" aria-hidden="{{toolsHidden}}">
+      <button type="button" class="hov" style="display: flex; align-items: center; gap: 8px; width: 200px; height: 32px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.panel}}; color: {{t.muted}}; font-size: 13px; text-align: left">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="stroke: {{t.muted}}"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+        <span style="flex: 1">Search or command</span>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 11px">Ctrl K</span>
+      </button>
+      <button type="button" class="hov" style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-weight: 500; font-size: 13px">Customize</button>
+    </span>
+  </div>
+
+  <header style="display: flex; flex-direction: column; gap: 16px">
+    <h1 data-headline="" style="margin: 0; font-size: 42px; line-height: 1.06; font-weight: 700; letter-spacing: -0.03em">{{headline}}</h1>
+    <div data-ruler="" role="img" aria-label="{{rulerLabel}}" style="position: relative; height: 104px; overflow-x: clip; overflow-clip-margin: 6px">
+      <div data-run="label" style="{{labelRun}}">
+        <div data-flipper="" style="{{labelInner}}">
+          <span class="odo" data-odo="minutes" style="font-family: 'Geist Mono', monospace; font-size: 30px; font-weight: 500; letter-spacing: -0.03em"><span class="odo-base">&#8203;</span><sc-for list="{{odoMinutes.tokens}}" as="tk" hint-placeholder-count="3"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="c" hint-placeholder-count="11"><span class="odo-cell">{{c.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></span>
+          <span style="font-size: 13px; color: {{t.muted}}">focused</span>
+          <sc-if value="{{leftInline}}" hint-placeholder-val="{{ false }}">
+            <span style="font-size: 13px; color: {{t.text2}}">· <b class="odo" data-odo="left" style="font-family: 'Geist Mono', monospace; font-weight: 500; color: {{t.text}}"><span class="odo-base">&#8203;</span><sc-for list="{{odoLeft.tokens}}" as="tk" hint-placeholder-count="3"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="c" hint-placeholder-count="11"><span class="odo-cell">{{c.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></b> left</span>
+          </sc-if>
+        </div>
+      </div>
+      <sc-if value="{{leftMid}}" hint-placeholder-val="{{ true }}">
+        <div data-run="mid" style="{{midRun}}">
+          <div style="position: absolute; left: 0; top: 0; transform: translateX(-50%); font-size: 13px; color: {{t.text2}}; white-space: nowrap"><b class="odo" data-odo="left" style="font-family: 'Geist Mono', monospace; font-weight: 500; color: {{t.text}}"><span class="odo-base">&#8203;</span><sc-for list="{{odoLeft.tokens}}" as="tk" hint-placeholder-count="5"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="c" hint-placeholder-count="11"><span class="odo-cell">{{c.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></b> left</div>
+        </div>
+      </sc-if>
+      <div style="{{goalLabelStyle}}">Goal <span style="font-family: 'Geist Mono', monospace">{{goalText}}</span><span data-goal-suffix="" style="display: inline-block">{{goalSuffix}}</span></div>
+      <div style="position: absolute; left: 0; right: 0; bottom: 22px; height: 46px">
+        <sc-for list="{{ticks}}" as="k" hint-placeholder-count="37"><span data-m="{{k.m}}" style="{{k.style}}"><sc-if value="{{k.major}}" hint-placeholder-val="{{ false }}"><span data-tick-light="{{k.m}}" class="{{k.lightCls}}" style="{{k.lightStyle}}"></span></sc-if><sc-if value="{{k.hasGlow}}" hint-placeholder-val="{{ false }}"><span data-goal-glow="" class="{{k.glowCls}}" style="{{k.glowStyle}}"></span></sc-if></span></sc-for>
+        <span style="position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: {{t.line}}"></span>
+        <span data-fill="" style="{{fillStyle}}"></span>
+        <span data-run="needle" style="{{needleRun}}"><span style="{{needleStyle}}"></span></span>
+      </div>
+      <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 14px; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">
+        <sc-for list="{{rulerLabels}}" as="l" hint-placeholder-count="4"><span style="{{l.style}}"><span data-lm="{{l.m}}" style="display: inline-block">{{l.text}}</span></span></sc-for>
+      </div>
+    </div>
+  </header>
+
+  <sc-if value="{{isOpen}}" hint-placeholder-val="{{ true }}">
+    <section aria-label="Focus" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; padding: 18px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+      <div data-open-cell="" style="position: relative; display: flex; flex-direction: column; gap: 7px">
+        <span id="pt-profile-label" style="font-size: 12px; color: {{t.muted}}">Profile</span>
+        <button type="button" data-trigger="profile" aria-haspopup="listbox" aria-expanded="{{profileOpen}}" aria-labelledby="pt-profile-label pt-profile-value" onClick="{{ toggleProfile }}" onKeyDown="{{ profileTriggerKeys }}" style="{{profileBtnStyle}}">
+          <span id="pt-profile-value" style="flex: 1; text-align: center">{{profile}}</span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2 3.5l3 3l3-3"></path></svg>
+        </button>
+        <sc-if value="{{profileMenu}}" hint-placeholder-val="{{ false }}">
+          <div role="listbox" aria-label="Profile" data-menu="profile" onKeyDown="{{ profileListKeys }}" style="{{menuStyle}}">
+            <sc-for list="{{profileOptions}}" as="o" hint-placeholder-count="4">
+              <button type="button" role="option" data-opt="{{o.i}}" aria-selected="{{o.sel}}" onClick="{{ o.pick }}" style="{{o.style}}"><span style="flex: 1">{{o.label}}</span><span style="{{o.markStyle}}">✓</span></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div data-open-cell="" style="position: relative; display: flex; flex-direction: column; gap: 7px">
+        <span id="pt-length-label" style="font-size: 12px; color: {{t.muted}}">Length</span>
+        <button type="button" data-trigger="length" aria-haspopup="listbox" aria-expanded="{{lengthOpen}}" aria-labelledby="pt-length-label pt-length-value" onClick="{{ toggleLength }}" onKeyDown="{{ lengthTriggerKeys }}" style="{{lengthBtnStyle}}">
+          <span id="pt-length-value" style="flex: 1; text-align: center">{{lengthText}}</span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2 3.5l3 3l3-3"></path></svg>
+        </button>
+        <sc-if value="{{lengthMenu}}" hint-placeholder-val="{{ false }}">
+          <div role="listbox" aria-label="Length" data-menu="length" onKeyDown="{{ lengthListKeys }}" style="{{menuStyle}}">
+            <sc-for list="{{lengthOptions}}" as="o" hint-placeholder-count="8">
+              <button type="button" role="option" data-opt="{{o.i}}" aria-selected="{{o.sel}}" onClick="{{ o.pick }}" style="{{o.style}}"><span style="flex: 1">{{o.label}}</span><span style="{{o.markStyle}}">✓</span></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div data-open-cell="" style="display: flex; flex-direction: column; gap: 7px">
+        <span style="font-size: 12px; color: {{t.muted}}">{{closesLead}} <b style="font-weight: 500; color: {{t.text2}}">{{closesNames}}</b> {{closesTail}}</span>
+        <button type="button" class="hov" onClick="{{ enter }}" style="position: relative; height: 52px; border: 0; border-radius: 8px; padding: 0; background: transparent; color: {{t.sealedOn}}; font-size: 17px; font-weight: 600"><span data-seal-src="" aria-hidden="true" style="position: absolute; inset: 0; border-radius: 8px; background: {{t.sealed}}"></span><span style="position: relative; display: flex; align-items: center; justify-content: center; gap: 10px">Enter focus <span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 400; opacity: .8">Ctrl ↵</span></span></button>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{isSealed}}" hint-placeholder-val="{{ false }}">
+    <section aria-label="Sealed session" style="position: relative; overflow: hidden; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; padding: 18px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+      <span data-seal-border="" aria-hidden="true" style="position: absolute; inset: -1px; border: 1px solid {{sealedBorder}}; border-radius: 12px; pointer-events: none"></span>
+      <div data-sealed-cell="" style="display: flex; flex-direction: column; gap: 7px">
+        <span style="font-size: 12px; color: {{t.muted}}">Profile</span>
+        <div style="height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.raised}}; color: {{t.text}}; font-size: 15px; font-weight: 600">{{sessionProfile}}</div>
+      </div>
+      <div data-sealed-cell="" style="display: flex; flex-direction: column; gap: 7px">
+        <span style="font-size: 12px; color: {{t.muted}}">Time left</span>
+        <div role="timer" aria-label="{{timeLeftLabel}}" style="height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 0.35em; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.raised}}; color: {{t.sealedText}}; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500"><span class="odo" data-odo="timeleft" aria-hidden="true"><span class="odo-base">&#8203;</span><sc-for list="{{odoTimeLeft.tokens}}" as="tk" hint-placeholder-count="2"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="c" hint-placeholder-count="11"><span class="odo-cell">{{c.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></span><span aria-hidden="true">min</span></div>
+      </div>
+      <div data-sealed-cell="" style="display: flex; flex-direction: column; gap: 7px">
+        <span role="status" style="font-size: 12px; color: {{t.text2}}"><b style="font-weight: 500; color: {{t.sealedText}}">Sealed</b> · <span style="font-family: 'Geist Mono', monospace">{{sessionElapsed}}</span> of <span style="font-family: 'Geist Mono', monospace">{{sessionLength}}</span> min</span>
+        <div style="height: 52px; display: flex; align-items: center">
+          <button type="button" class="hov" onClick="{{ stop }}" style="height: 32px; padding: 0 14px; border: 1px solid {{t.lineInput}}; border-radius: 8px; background: transparent; color: {{t.text2}}; font-size: 13px; font-weight: 500">End early</button>
+        </div>
+      </div>
+      <span aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: {{t.line}}"><span style="{{sessionBarStyle}}"></span></span>
+      <span data-seal-line="" class="seal-line" aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 2px; z-index: 2; background: {{t.sealed}}"></span>
+    </section>
+  </sc-if>
+
+  <section aria-label="Today" style="flex: 1; min-height: 220px; display: flex; flex-direction: column; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}; overflow: hidden">
+    <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))">
+      <div style="border-right: 1px solid {{t.line}}">
+        <div style="display: flex; align-items: center; height: 42px; padding: 0 16px; border-bottom: 1px solid {{t.line}}">
+          <h2 style="margin: 0; flex: 1; font-size: 14px; font-weight: 600">Routines</h2>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: {{t.muted}}">{{routinesCount}}</span>
+        </div>
+        <sc-for list="{{routines}}" as="i" hint-placeholder-count="2">
+          <div data-flip-row="" data-flip-id="{{i.id}}" data-done="{{i.checked}}" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px">
+            <button type="button" role="checkbox" aria-checked="{{i.checked}}" aria-label="{{i.title}}" onClick="{{ i.toggle }}" class="{{fadeCls}}" style="{{i.boxStyle}}"><svg class="chk" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{i.checkStyle}}"><path data-check="" d="M2 5.2l2 2l4-4.4"></path></svg></button>
+            <span class="{{fadeCls}}" style="{{i.textStyle}}"><span style="position: relative; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top">{{i.title}}<span data-strike="" style="{{i.strikeStyle}}"></span></span></span>
+            <sc-if value="{{i.hasTag}}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 11px; padding: 3px 7px; border-radius: 5px; background: {{t.raised}}; color: {{t.text2}}">{{i.tag}}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; height: 42px; padding: 0 16px; border-bottom: 1px solid {{t.line}}">
+          <h2 style="margin: 0; flex: 1; font-size: 14px; font-weight: 600">Today</h2>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: {{t.muted}}">{{dayCount}}</span>
+        </div>
+        <label style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px; border-bottom: 1px solid {{t.line}}; color: {{t.muted}}; cursor: text">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M6 1.5v9 M1.5 6h9"></path></svg>
+          <input type="text" placeholder="Add a task for today" aria-label="Add a task for today" style="flex: 1; min-width: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-size: 14px; padding: 0">
+        </label>
+        <sc-for list="{{dayItems}}" as="i" hint-placeholder-count="1">
+          <div data-flip-row="" data-flip-id="{{i.id}}" data-done="{{i.checked}}" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px">
+            <sc-if value="{{i.isEvent}}" hint-placeholder-val="{{ false }}">
+              <span aria-hidden="true" style="width: 3px; height: 16px; margin: 0 6px 0 6px; border-radius: 2px; background: {{t.muted}}"></span>
+              <span style="flex: 1; font-size: 14px; color: {{t.text2}}">{{i.title}}</span>
+              <span style="font-size: 11px; color: {{t.muted}}">Calendar</span>
+              <span style="width: 46px; text-align: right; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{i.time}}</span>
+            </sc-if>
+            <sc-if value="{{i.isTask}}" hint-placeholder-val="{{ true }}">
+              <button type="button" role="checkbox" aria-checked="{{i.checked}}" aria-label="{{i.title}}" onClick="{{ i.toggle }}" class="{{fadeCls}}" style="{{i.boxStyle}}"><svg class="chk" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{i.checkStyle}}"><path data-check="" d="M2 5.2l2 2l4-4.4"></path></svg></button>
+              <span class="{{fadeCls}}" style="{{i.textStyle}}"><span style="position: relative; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top">{{i.title}}<span data-strike="" style="{{i.strikeStyle}}"></span></span></span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px; height: 40px; padding: 0 16px; border-top: 1px solid {{t.line}}; font-size: 13px; color: {{t.muted}}">
+      <span>Focus today</span>
+      <div role="img" aria-label="{{stripLabel}}" style="flex: 1; height: 5px; border-radius: 3px; background: {{t.raised}}; position: relative">
+        <div style="{{stripFill}}"></div>
+        <div style="{{stripGoal}}"><sc-if value="{{met}}" hint-placeholder-val="{{ false }}"><span data-strip-goal-glow="" class="{{stripGlowCls}}" style="{{stripGoalGlow}}"></span></sc-if></div>
+      </div>
+      <span><b style="font-family: 'Geist Mono', monospace; font-weight: 500; color: {{t.text}}">{{minutesText}}</b> / <span style="font-family: 'Geist Mono', monospace">{{goalText}}</span></span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"app":{"editor":null},"$preview":{"width":1060,"height":800}}'>
+const AURA = { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" };
+const NOOP = () => {};
+// Used only when this file renders alone, without the shell's app.
+const DEFAULT_APP = {
+  theme: "Aura", t: AURA, screen: "today", today: "2026-11-15", goal: 120, minutes: 42,
+  session: null, justKept: false, profile: "Interview Prep", length: 60,
+  week: [
+    { date: "2026-11-09", label: "Mon", num: 9, minutes: 90, status: "missed" },
+    { date: "2026-11-10", label: "Tue", num: 10, minutes: 222, status: "kept" },
+    { date: "2026-11-11", label: "Wed", num: 11, minutes: 158, status: "kept" },
+    { date: "2026-11-12", label: "Thu", num: 12, minutes: 78, status: "missed" },
+    { date: "2026-11-13", label: "Fri", num: 13, minutes: 204, status: "kept" },
+    { date: "2026-11-14", label: "Sat", num: 14, minutes: 132, status: "kept" },
+    { date: "2026-11-15", label: "Sun", num: 15, minutes: 42, status: "today" }
+  ],
+  streak: 11,
+  items: [
+    { id: "r1", kind: "routine", title: "LeetCode practice", tag: "Interview Prep", date: "2026-11-15", done: true },
+    { id: "r2", kind: "routine", title: "Read 20 pages", date: "2026-11-15", done: false },
+    { id: "t1", kind: "task", title: "Send the weekly update", date: "2026-11-15", done: false },
+    { id: "e1", kind: "event", title: "Mock interview", time: "15:00", date: "2026-11-10" },
+    { id: "t2", kind: "task", title: "Book flights", date: "2026-11-10", done: true },
+    { id: "e2", kind: "event", title: "Dentist", time: "10:30", date: "2026-11-11" },
+    { id: "t3", kind: "task", title: "Renew passport", date: "2026-11-12", done: false },
+    { id: "e3", kind: "event", title: "Climbing", time: "18:00", date: "2026-11-14" },
+    { id: "t4", kind: "task", title: "Pay rent", date: "2026-11-13", done: true }
+  ],
+  trackers: [],
+  tempted: [],
+  go: NOOP, startSession: NOOP, stopSession: NOOP, toggleItem: NOOP, logTracker: NOOP, setProfile: NOOP, setLength: NOOP
+};
+// Profiles and what each closes when you enter (prototype data).
+const PROFILES = [
+  ["Interview Prep", ["Discord"]],
+  ["Deep Work", ["Discord", "Steam"]],
+  ["Writing", ["Discord", "youtube.com"]],
+  ["Study", ["Steam"]]
+];
+const LENGTHS = [15, 30, 45, 60, 75, 90, 105, 120]; // the app's durationsMin
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const GLIDE_CSS = "400ms cubic-bezier(.2,.7,.2,1)";
+
+// ---- Motion tokens (motion spec 1.2), shared by every prototype file ----
+const EASES = { ui: "0.2,0,0,1", glide: "0.2,0.7,0.2,1", settle: "0.2,0.8,0.2,1", exit: "0.4,0,1,1", drift: "0.37,0,0.63,1" };
+const DUR = { ui: 0.12, enter: 0.18, state: 0.24, glide: 0.4, moment: 0.7, drain: 1.2 };
+// GSAP lives on window only when the shell loaded it. Alone, this file uses its CSS fallback.
+function motion() {
+  const w = typeof window !== "undefined" ? window : null;
+  const g = w && w.gsap;
+  if (!g) return null;
+  if (!w.__sanctumEases) {
+    w.__sanctumEases = true;
+    try {
+      if (w.Flip) g.registerPlugin(w.Flip);
+      if (w.CustomEase) { g.registerPlugin(w.CustomEase); for (const k in EASES) w.CustomEase.create(k, EASES[k]); }
+    } catch (e) { /* plugins missing: the eases fall back below */ }
+  }
+  return g;
+}
+const ease = (name) => (typeof window !== "undefined" && window.CustomEase ? name : "power2.out");
+// Motion plays only when it can be seen and isn't reduced; otherwise moments jump to their end state.
+function live() {
+  if (typeof window === "undefined") return false;
+  if (typeof document !== "undefined" && document.hidden) return false;
+  return !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+// ---- Odometer: a masked 0-9 strip per digit, built as markup through sc-for ----
+const CELL_EM = 1.15;
+const UP_CELLS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((v) => ({ v: String(v) }));
+const DOWN_CELLS = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 9].map((v) => ({ v: String(v) }));
+function odo(text, dir, gs) {
+  const s = String(text);
+  return {
+    text: s,
+    tokens: Array.from(s).map((ch) => {
+      if (!/\d/.test(ch)) return { digit: false, char: true, ch: ch === " " ? " " : ch, idx: "0", cells: [], strip: "" };
+      const d = Number(ch);
+      const idx = dir === "down" ? 9 - d : d;
+      // With GSAP the resting place is `top` and GSAP owns transform; without it, a CSS transform transition rolls the strip.
+      const strip = gs ? `top: -${(idx * CELL_EM).toFixed(3)}em` : `transform: translateY(-${((idx * 100) / 11).toFixed(4)}%); transition: transform ${GLIDE_CSS}`;
+      return { digit: true, char: false, ch, idx: String(idx), cells: dir === "down" ? DOWN_CELLS : UP_CELLS, strip };
+    })
+  };
+}
+// Rolls only the columns that changed, rightmost first; 9 -> 0 turns forward through the repeated cell.
+function rollOdometer(g, el, from, to, dir, delay) {
+  if (!el || from === to) return null;
+  const sk = (x) => String(x).replace(/\d/g, "#");
+  if (sk(from) !== sk(to)) {
+    // The skeleton changed ("9m" to "10m", "59m" to "1h"): the whole figure rolls as one.
+    return g.fromTo(el, { yPercent: dir === "down" ? -60 : 60, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: DUR.state, ease: ease("glide"), delay: delay || 0, overwrite: "auto", clearProps: "transform,opacity,visibility" });
+  }
+  const a = String(from).match(/\d/g) || [], b = String(to).match(/\d/g) || [];
+  const strips = el.querySelectorAll("[data-strip]");
+  const tl = g.timeline({ delay: delay || 0 });
+  let k = 0;
+  for (let j = b.length - 1; j >= 0; j--) {
+    if (a[j] === b[j] || !strips[j]) continue;
+    const ia = dir === "down" ? 9 - Number(a[j]) : Number(a[j]);
+    const ib = dir === "down" ? 9 - Number(b[j]) : Number(b[j]);
+    // The strip rests at index ib (set by React); o is the extra offset in cells.
+    let o0 = ia - ib, o1 = 0;
+    if (ib === 0 && ia > 0) { o0 = ia; o1 = 10; } // wrap forward to the repeated cell; clearing the offset lands on index 0, the same digit
+    tl.fromTo(strips[j], { yPercent: (-o0 * 100) / 11 }, { yPercent: (-o1 * 100) / 11, duration: DUR.glide, ease: ease("glide"), overwrite: "auto", clearProps: "transform" }, k * 0.04);
+    k++;
+  }
+  return tl;
+}
+
+// 42 -> "42m", 78 -> "1h 18m", 120 -> "2h" (the app's minutes()).
+function fmt(total) {
+  const m = Math.max(0, Math.round(total));
+  const h = Math.floor(m / 60);
+  if (!h) return `${m}m`;
+  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
+}
+function spoken(total) {
+  const m = Math.max(0, Math.round(total));
+  const h = Math.floor(m / 60), r = m % 60;
+  const parts = [];
+  if (h) parts.push(`${h} hour${h === 1 ? "" : "s"}`);
+  if (r || !h) parts.push(`${r} minute${r === 1 ? "" : "s"}`);
+  return parts.join(" ");
+}
+function joinNames(names) {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { menu: null, gs: false };
+    this.root = null;
+    this.rootRef = (el) => { this.root = el; };
+    this.ctx = null;
+    this.rv = null;     // motion-relevant values from the last renderVals
+    this.prev = null;   // the same values as of the previous commit
+    this.toggled = null;
+    this.rowState = null;
+    this.btnRect = null;
+    this.focusReq = null;
+    this.enterTl = null;
+  }
+
+  componentDidMount() {
+    const g = motion();
+    if (g && this.root) {
+      this.ctx = g.context(() => {}, this.root);
+      // Re-render with GSAP-owned positions; this happens before the first paint.
+      this.setState({ ...(this.state || {}), gs: true });
+    }
+    this.sync(true);
+  }
+
+  componentDidUpdate() {
+    this.sync(false);
+  }
+
+  componentWillUnmount() {
+    if (this.ctx) this.ctx.revert();
+    this.ctx = null;
+  }
+
+  q(sel) { return this.root ? this.root.querySelector(sel) : null; }
+  rel(el) {
+    const r = el.getBoundingClientRect(), o = this.root.getBoundingClientRect();
+    return { left: r.left - o.left, top: r.top - o.top, width: r.width, height: r.height };
+  }
+
+  // Sets a GSAP-owned value without animating, skipping elements that are mid-tween or already there.
+  place(g, sel, vars) {
+    this.root.querySelectorAll(sel).forEach((el) => {
+      if (g.isTweening(el)) return;
+      const off = Object.keys(vars).some((k) => Math.abs(Number(g.getProperty(el, k)) - vars[k]) > 0.001);
+      if (off) g.set(el, vars);
+    });
+  }
+
+  sync(first) {
+    this.runFocus();
+    const g = motion();
+    const cur = this.rv;
+    const prev = first ? null : this.prev;
+    this.prev = cur;
+    if (!g || !this.ctx || !this.root || !cur || !(this.state && this.state.gs)) return;
+    if (!cur.sealed) {
+      const src = this.q("[data-seal-src]");
+      if (src) this.btnRect = this.rel(src);
+    }
+    const go = !!prev && live();
+    this.ctx.add(() => {
+      // ---- 1. Live minutes: needle, label and fill glide; digits roll; a crossed major tick lights ----
+      const step = !!prev && cur.mins === prev.mins + 1;
+      if (go && step) {
+        // The needle, label, mid label and fill glide by CSS transition from their own styles; a
+        // re-render rewrites inline styles, so GSAP never owns their transform.
+        for (let m = 30; m <= cur.span; m += 30) {
+          if (m === cur.goal || !(prev.mins < m && cur.mins >= m)) continue;
+          const light = this.q(`[data-tick-light="${m}"]`);
+          if (light) g.timeline().fromTo(light, { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "none" }, DUR.glide * 0.7).to(light, { opacity: 0, duration: 0.6, ease: "power2.out" });
+        }
+      }
+      // A span change (3 h to 4 h): every tick and label moves to its new place at once.
+      if (go && prev.span !== cur.span) {
+        const ruler = this.q("[data-ruler]");
+        const w = ruler ? ruler.offsetWidth : 0;
+        this.root.querySelectorAll("[data-m],[data-lm]").forEach((el) => {
+          const m = Number(el.getAttribute("data-m") || el.getAttribute("data-lm"));
+          if (m > prev.span) g.from(el, { opacity: 0, duration: DUR.moment, ease: ease("glide"), clearProps: "opacity" });
+          else g.from(el, { x: (m / prev.span - m / cur.span) * w, duration: DUR.moment, ease: ease("glide"), clearProps: "transform" });
+        });
+      }
+
+      const justMet = !!prev && cur.met && !prev.met;
+      if (go) {
+        rollOdometer(g, this.q("[data-odo='minutes']"), prev.minutesText, cur.minutesText, "up", 0);
+        if (prev.leftText !== cur.leftText) rollOdometer(g, this.q("[data-odo='left']"), prev.leftText, cur.leftText, "down", 0);
+        if (prev.sealed && cur.sealed) rollOdometer(g, this.q("[data-odo='timeleft']"), prev.remaining, cur.remaining, "down", 0);
+        rollOdometer(g, this.q("[data-odo='streak']"), prev.streak, cur.streak, "up", justMet ? 0.95 : 0);
+      }
+
+      // ---- 2. Goal reached: goal tick flares and settles, the label gains "kept", today's cell turns kept ----
+      if (go && justMet) {
+        const tl = g.timeline({ defaults: { ease: ease("drift") } });
+        tl.addLabel("flare", 0.3)
+          .fromTo("[data-goal-glow]", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, "flare")
+          .to("[data-goal-glow]", { opacity: 0.6, duration: DUR.drain, clearProps: "opacity" }, ">")
+          .fromTo("[data-goal-suffix]", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: DUR.state, ease: ease("ui"), clearProps: "clipPath" }, "flare")
+          .addLabel("kept", 0.55)
+          .fromTo("[data-today-cell='true'] [data-cell-kept]", { autoAlpha: 0 }, { autoAlpha: 1, duration: DUR.moment, clearProps: "opacity,visibility" }, "kept")
+          .fromTo("[data-today-cell='true'] [data-cell-glow], [data-strip-goal-glow]", { opacity: 0 }, { opacity: 1, duration: DUR.drain, clearProps: "opacity" }, "kept");
+        if (prev.headline !== cur.headline) tl.fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: ease("ui"), clearProps: "opacity" }, 0.4);
+      }
+
+      // ---- 3. Entering focus: the button's fill collapses into the seal line; the cells crossfade ----
+      if (prev && !prev.sealed && cur.sealed) {
+        const line = this.q("[data-seal-line]");
+        const b = this.btnRect;
+        if (go && line && b) {
+          const r = this.rel(line);
+          const tl = g.timeline();
+          tl.addLabel("seal", 0)
+            .fromTo(line, { autoAlpha: 1, transformOrigin: "0 0", x: b.left - r.left, y: b.top - r.top, scaleX: b.width / Math.max(1, r.width), scaleY: b.height / Math.max(1, r.height) }, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: 0.38, ease: ease("settle") }, "seal")
+            .fromTo("[data-tools]", { autoAlpha: 1 }, { autoAlpha: 0, duration: DUR.ui, ease: ease("exit"), clearProps: "opacity,visibility" }, "seal")
+            .from("[data-sealed-cell]", { opacity: 0, duration: DUR.state, ease: ease("ui"), stagger: 0.04, clearProps: "opacity" }, 0.08)
+            .fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: ease("ui"), clearProps: "opacity" }, 0.1)
+            .fromTo("[data-odo='timeleft'] [data-strip]", { yPercent: (i, el) => (Number(el.getAttribute("data-idx")) * 100) / 11 }, { yPercent: 0, duration: DUR.glide, ease: ease("glide"), stagger: 0.04, clearProps: "transform" }, 0.12)
+            .fromTo("[data-seal-border]", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: ease("ui"), clearProps: "opacity" }, 0.3)
+            .addLabel("line", 0.38)
+            .to(line, { autoAlpha: 0, duration: 0.4, ease: ease("ui"), clearProps: "transform,opacity,visibility" }, "line+=0.2");
+          this.enterTl = tl;
+        }
+      }
+      // Leaving (End early, or the session ran out): faster, no Flip.
+      if (prev && prev.sealed && !cur.sealed) {
+        if (this.enterTl) { this.enterTl.kill(); this.enterTl = null; }
+        if (go) {
+          g.timeline()
+            .fromTo("[data-tools]", { autoAlpha: 0 }, { autoAlpha: 1, duration: DUR.ui, ease: ease("ui"), clearProps: "opacity,visibility" }, 0)
+            .from("[data-open-cell]", { opacity: 0, duration: DUR.ui, ease: ease("ui"), clearProps: "opacity" }, 0)
+            .fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: ease("ui"), clearProps: "opacity" }, 0);
+        }
+      }
+
+      // ---- 9. Ticking: the check draws, the strike grows, then the row sinks (Flip) ----
+      if (this.toggled) {
+        const id = this.toggled, state = this.rowState;
+        this.toggled = null; this.rowState = null;
+        const row = this.q(`[data-flip-row][data-flip-id="${id}"]`);
+        const done = !!row && row.getAttribute("data-done") === "true";
+        if (go && row && done) {
+          const path = row.querySelector("[data-check]"), strike = row.querySelector("[data-strike]");
+          if (path) g.fromTo(path, { strokeDashoffset: 9 }, { strokeDashoffset: 0, duration: DUR.enter, ease: ease("ui"), clearProps: "strokeDashoffset" });
+          if (strike) g.fromTo(strike, { scaleX: 0, transformOrigin: "0 50%" }, { scaleX: 1, duration: DUR.enter, ease: ease("ui"), clearProps: "transform" });
+        }
+        const F = window.Flip;
+        if (go && state && F) F.from(state, { targets: this.root.querySelectorAll("[data-flip-row]"), duration: DUR.state, ease: ease("ui"), delay: done ? DUR.enter : 0, simple: true });
+      }
+    });
+  }
+
+  // Moves keyboard focus after a picker opens or closes.
+  runFocus() {
+    const f = this.focusReq;
+    if (!f || !this.root) return;
+    this.focusReq = null;
+    const el = f.opt != null ? this.q(`[data-menu="${f.menu}"] [data-opt="${f.opt}"]`) : this.q(`[data-trigger="${f.menu}"]`);
+    if (el && el.focus) el.focus();
+  }
+
+  renderVals() {
+    const app = (this.props && this.props.app) || DEFAULT_APP;
+    const t = app.t || AURA;
+    const local = this.state || {};
+    const gs = !!(local.gs && motion());
+    const menu = local.menu || null;
+    const setMenu = (m) => this.setState({ ...(this.state || {}), menu: m });
+
+    const light = t.scheme === "light";
+    const glowAlpha = light ? "59" : "99"; // about 35% on light themes, 60% on dark
+    const keptGlow = `0 0 0 1px ${t.secLine}, 0 0 12px -2px ${t.sec}${glowAlpha}`;
+    const goal = app.goal || 120;
+    const mins = app.minutes || 0;
+    const session = app.session;
+    const sealed = !!session;
+    const met = mins >= goal;
+
+    // --- Top bar ---
+    const [y, mo, da] = (app.today || "2026-11-15").split("-").map(Number);
+    const date = new Date(y, mo - 1, da);
+    const dateLabel = `${WEEKDAYS[date.getDay()]}, ${MONTHS[mo - 1]} ${da}`;
+
+    // The days strip: the real chip's size (6 by 12, radius 2, 3 apart), with the decided day states.
+    // Only kept days glow. Today's cell keeps its accent fill underneath, so turning kept reads as a crossfade.
+    const week = app.week || [];
+    const cell = "position: relative; display: block; box-sizing: border-box; width: 6px; height: 12px; border-radius: 2px;";
+    const layer = "position: absolute; inset: -1px; border-radius: 2px; pointer-events: none;";
+    const days = week.map((d, i) => {
+      const last = i === week.length - 1;
+      const status = d.status;
+      let style, fill = "display: none", title;
+      const kept = status === "kept";
+      if (last && (status === "today" || kept)) {
+        const p = Math.min(1, mins / goal);
+        style = `${cell} border: 1px solid ${t.sealed}`;
+        fill = `position: absolute; left: 0; right: 0; bottom: 0; height: 100%; border-radius: 1px; background: ${t.sealed}; transform-origin: 50% 100%; transform: scaleY(${p.toFixed(3)}); transition: transform ${GLIDE_CSS}`;
+        title = kept ? `${d.label} ${d.num}: kept, ${fmt(mins)}` : `${d.label} ${d.num}: today, ${fmt(mins)} of ${fmt(goal)}`;
+      } else if (kept) {
+        style = cell;
+        title = `${d.label} ${d.num}: kept, ${fmt(d.minutes)}`;
+      } else if (status === "missed") {
+        style = `${cell} border: 1px solid ${t.muted}; background: transparent`;
+        title = `${d.label} ${d.num}: missed, ${fmt(d.minutes)} of ${fmt(goal)}`;
+      } else {
+        style = `${cell} background: ${t.line}; opacity: .5`;
+        title = `${d.label} ${d.num}: ahead`;
+      }
+      return {
+        style, fill, title,
+        todayAttr: last ? "true" : "false",
+        keptCls: !gs && last && app.justKept ? "kept-in" : "",
+        keptStyle: kept ? `${layer} background: ${t.sec}` : "display: none",
+        glowStyle: kept ? `${layer} box-shadow: ${keptGlow}` : "display: none"
+      };
+    });
+    const keptCount = week.filter((d) => d.status === "kept").length;
+    const swatch = "display: block; box-sizing: border-box; width: 6px; height: 10px; border-radius: 2px; position: relative; overflow: hidden;";
+
+    // --- The day ruler ---
+    const SPAN = mins > 170 ? 240 : 180;
+    const pctN = (m) => Math.max(0, Math.min(100, (m / SPAN) * 100));
+    const pct = (m) => `${pctN(m).toFixed(3)}%`;
+    const ticks = [];
+    for (let m = 0; m <= SPAN; m += 5) {
+      const isGoal = m === goal;
+      const major = m % 30 === 0;
+      const h = isGoal ? 46 : major ? (m % 60 === 0 ? 24 : 16) : 8;
+      const w = isGoal ? 2 : 1;
+      const c = isGoal || major ? t.sec : t.line;
+      const shift = m === SPAN ? w : m === 0 ? 0 : w / 2;
+      const lit = !isGoal && major && m > 0;
+      ticks.push({
+        m: String(m),
+        major: lit,
+        // The crossed tick lights by brightening in place: a slightly taller, wider mark, no halo (only completion glows).
+        lightCls: !gs && lit && sealed && mins === m ? ((m / 30) % 2 ? "light-a" : "light-b") : "",
+        lightStyle: `position: absolute; left: -0.5px; bottom: 0; width: 2px; height: calc(100% + 6px); border-radius: 1px; background: ${t.sec}; opacity: 0; pointer-events: none`,
+        hasGlow: isGoal && met,
+        glowCls: !gs && app.justKept ? "goal-glow goal-flare" : "goal-glow",
+        glowStyle: `position: absolute; inset: 0; border-radius: 1px; box-shadow: 0 0 14px 2px ${t.sec}${glowAlpha}; pointer-events: none`,
+        style: `position: absolute; bottom: 0; left: ${pct(m)}; margin-left: -${shift}px; width: ${w}px; height: ${h}px; border-radius: ${isGoal ? 1 : 0}px; background: ${c}`
+      });
+    }
+    const marks = [[0, "0"], [60, "1h"], [120, "2h"], [180, "3h"]];
+    if (SPAN > 180) marks.push([240, "4h"]);
+    const rulerLabels = marks.map(([m, text]) => ({
+      text, m: String(m),
+      style: `position: absolute; top: 0; left: ${pct(m)}; transform: translateX(${m === 0 ? "0" : m === SPAN ? "-100%" : "-50%"})`
+    }));
+
+    const left = Math.max(0, goal - mins);
+    const flip = pctN(mins) > 72; // keep the figure inside the ruler near its right end
+    const leftMid = !met && left >= 25;
+    const leftInline = !met && left > 0 && left < 25;
+    const midP = pctN((mins + goal) / 2);
+    // Runners are full-width layers moved by xPercent, so a percentage of the ruler is a transform, never `left`.
+    const run = (p, top) => `position: absolute; left: 0; top: ${top}px; width: 100%; height: 0; pointer-events: none; transform: translateX(${p.toFixed(3)}%); transition: transform ${GLIDE_CSS};`;
+
+    // --- Session ---
+    const length = session ? session.length : app.length;
+    const elapsed = session ? session.elapsed : 0;
+    const remaining = Math.max(0, length - elapsed);
+    const profileName = app.profile || "Interview Prep";
+    const closes = (PROFILES.find(([n]) => n === profileName) || [null, ["Discord"]])[1];
+
+    // --- Picker menus (keyboard: arrows move, Enter picks, Escape closes) ---
+    const optStyle = (sel) => `display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 6px; background: ${sel ? t.raised : "transparent"}; color: ${sel ? t.text : t.text2}; font-size: 14px; font-weight: ${sel ? 600 : 400}; text-align: left`;
+    const markStyle = (sel) => `font-size: 12px; color: ${t.sealed}; visibility: ${sel ? "visible" : "hidden"}`;
+    const profileSel = Math.max(0, PROFILES.findIndex(([n]) => n === profileName));
+    const lengthSel = Math.max(0, LENGTHS.indexOf(app.length));
+    const profileOptions = PROFILES.map(([name], i) => {
+      const sel = name === profileName;
+      return { i: String(i), label: name, sel: sel ? "true" : "false", style: optStyle(sel), markStyle: markStyle(sel), pick: () => { this.focusReq = { menu: "profile" }; app.setProfile(name); setMenu(null); } };
+    });
+    const lengthOptions = LENGTHS.map((m, i) => {
+      const sel = m === app.length;
+      return { i: String(i), label: `${m} min`, sel: sel ? "true" : "false", style: `${optStyle(sel)}; font-family: 'Geist Mono', monospace`, markStyle: markStyle(sel), pick: () => { this.focusReq = { menu: "length" }; app.setLength(m); setMenu(null); } };
+    });
+    const pickerBtn = (open) => `display: flex; align-items: center; gap: 8px; width: 100%; height: 52px; padding: 0 14px; border: 1px solid ${open ? t.muted : t.lineInput || t.line}; border-radius: 8px; background: ${t.raised}; color: ${t.text};`;
+    const openMenu = (name, opt) => { this.focusReq = { menu: name, opt }; setMenu(name); };
+    const triggerKeys = (name, sel, n) => (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        openMenu(name, menu === name ? (e.key === "ArrowDown" ? 0 : n - 1) : sel);
+      } else if (e.key === "Escape" && menu === name) {
+        e.preventDefault();
+        setMenu(null);
+      }
+    };
+    const listKeys = (name, n) => (e) => {
+      const at = Number((e.target && e.target.getAttribute && e.target.getAttribute("data-opt")) || 0);
+      const moveTo = (i) => { e.preventDefault(); const el = this.q(`[data-menu="${name}"] [data-opt="${(i + n) % n}"]`); if (el) el.focus(); };
+      if (e.key === "ArrowDown") moveTo(at + 1);
+      else if (e.key === "ArrowUp") moveTo(at - 1);
+      else if (e.key === "Home") moveTo(0);
+      else if (e.key === "End") moveTo(n - 1);
+      else if (e.key === "Escape") { e.preventDefault(); this.focusReq = { menu: name }; setMenu(null); }
+      else if (e.key === "Tab") setMenu(null);
+      // Enter and Space press the focused option button, which picks it.
+    };
+
+    // --- Lists: open items first, checked-off items sink (as in the app) ---
+    const todays = (app.items || []).filter((i) => i.date === app.today);
+    const openFirst = (list) => list.filter((i) => i.kind === "event" || !i.done).concat(list.filter((i) => i.kind !== "event" && i.done));
+    const row = (i) => {
+      const done = !!i.done;
+      return {
+        ...i,
+        checked: done ? "true" : "false",
+        hasTag: !!i.tag,
+        isEvent: i.kind === "event",
+        isTask: i.kind !== "event",
+        toggle: () => {
+          // Capture the rows before the store reorders them, so they can sink with Flip.
+          const F = typeof window !== "undefined" ? window.Flip : null;
+          if (gs && this.root) {
+            this.toggled = i.id;
+            this.rowState = F ? F.getState(this.root.querySelectorAll("[data-flip-row]")) : null;
+          }
+          app.toggleItem(i.id);
+        },
+        boxStyle: `flex: 0 0 auto; box-sizing: border-box; width: 16px; height: 16px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 4px; border: ${done ? `1px solid ${t.sealed}` : `1.5px solid ${t.muted}`}; background: ${done ? t.sealed : "transparent"}`,
+        checkStyle: `stroke: ${t.sealedOn}; opacity: ${done ? 1 : 0}`,
+        textStyle: `flex: 1; min-width: 0; font-size: 14px; color: ${done ? t.muted : t.text}`,
+        strikeStyle: `position: absolute; left: 0; right: 0; top: 55%; height: 1px; background: currentColor; display: ${done ? "block" : "none"}`
+      };
+    };
+    const routineList = todays.filter((i) => i.kind === "routine");
+    const dayList = todays.filter((i) => i.kind !== "routine");
+    const dayTasks = dayList.filter((i) => i.kind !== "event");
+
+    // One sentence each.
+    const headline = sealed ? "Nothing else right now but this." : met ? "Goal met, so go again or go rest." : "Your word is the plan, so keep it.";
+    const minutesText = fmt(mins);
+    const leftText = fmt(left);
+
+    // What the motion code compares between commits.
+    this.rv = {
+      mins, goal, met, sealed, span: SPAN, headline,
+      pct: pctN(mins), midPct: midP, flip,
+      minutesText, leftText, remaining: String(remaining), streak: String(app.streak)
+    };
+
+    return {
+      t,
+      rootRef: this.rootRef,
+      fadeCls: gs ? "" : "fade",
+      dateLabel,
+      dateStyle: `flex: 1; min-width: 160px; color: ${sealed ? t.text : t.muted}`,
+      odoStreak: odo(app.streak, "up", gs),
+      streakLabel: `${app.streak} day streak, ${keptCount} of the last ${week.length} days kept${met ? "" : `, today ${fmt(mins)} of ${fmt(goal)}`}. Open Stats`,
+      openStats: () => app.go("stats"),
+      days,
+      legendKept: `${swatch} overflow: visible; background: ${t.sec}; box-shadow: ${keptGlow}`,
+      legendMissed: `${swatch} border: 1px solid ${t.muted}`,
+      legendToday: `${swatch} border: 1px solid ${t.sealed}`,
+      legendTodayFill: `position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: ${t.sealed}`,
+      // Sealed: search and Customize step aside (as in the app); the streak chip stays so the day can turn kept on screen.
+      toolsCls: `${gs ? "" : "fade"} ${sealed ? "tools-off" : ""}`,
+      toolsHidden: sealed ? "true" : "false",
+
+      headline,
+      rulerLabel: `${spoken(mins)} focused of a ${spoken(goal)} goal${met ? ", goal met" : `, ${spoken(left)} left`}`,
+      minutesText,
+      odoMinutes: odo(minutesText, "up", gs),
+      odoLeft: odo(leftText, "down", gs),
+      labelRun: run(pctN(mins), 0),
+      labelInner: `position: absolute; left: 0; top: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; transform: ${flip ? "translateX(calc(-100% + 2px))" : "translateX(-2px)"}; transition: transform 240ms cubic-bezier(.2,0,0,1);`,
+      leftMid,
+      leftInline,
+      midRun: run(midP, 38),
+      goalText: fmt(goal),
+      goalSuffix: met ? " · kept" : "",
+      goalLabelStyle: `position: absolute; top: 34px; left: ${pct(goal)}; transform: translateX(8px); font-size: 13px; color: ${t.secText}; white-space: nowrap; font-weight: ${met ? 600 : 400}`,
+      ticks,
+      rulerLabels,
+      fillStyle: `position: absolute; left: 0; bottom: -1px; height: 3px; width: 100%; border-radius: 2px; background: ${t.sealed}; transform-origin: 0 50%; transform: scaleX(${(pctN(mins) / 100).toFixed(4)}); transition: transform ${GLIDE_CSS};`,
+      needleRun: `position: absolute; left: 0; bottom: 0; width: 100%; height: 0; transform: translateX(${pctN(mins).toFixed(3)}%); transition: transform ${GLIDE_CSS};`,
+      needleStyle: `position: absolute; left: 0; bottom: -1px; width: 2px; height: 50px; transform: translateX(-1px); border-radius: 1px; background: ${t.sealed}`,
+
+      isOpen: !sealed,
+      isSealed: sealed,
+      profile: profileName,
+      lengthText: `${app.length} min`,
+      profileOpen: menu === "profile" ? "true" : "false",
+      lengthOpen: menu === "length" ? "true" : "false",
+      profileMenu: menu === "profile",
+      lengthMenu: menu === "length",
+      toggleProfile: () => (menu === "profile" ? setMenu(null) : openMenu("profile", profileSel)),
+      toggleLength: () => (menu === "length" ? setMenu(null) : openMenu("length", lengthSel)),
+      profileTriggerKeys: triggerKeys("profile", profileSel, PROFILES.length),
+      lengthTriggerKeys: triggerKeys("length", lengthSel, LENGTHS.length),
+      profileListKeys: listKeys("profile", PROFILES.length),
+      lengthListKeys: listKeys("length", LENGTHS.length),
+      profileBtnStyle: `${pickerBtn(menu === "profile")} font-size: 15px; font-weight: 600`,
+      lengthBtnStyle: `${pickerBtn(menu === "length")} font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500`,
+      menuStyle: `position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid ${t.line}; border-radius: 10px; background: ${t.panel}; box-shadow: 0 12px 28px -12px #00000066`,
+      profileOptions,
+      lengthOptions,
+      closesLead: "Closes",
+      closesNames: joinNames(closes),
+      closesTail: "when you enter",
+      enter: () => { setMenu(null); app.startSession(); },
+
+      sealedBorder: `${t.sealed}55`,
+      sessionProfile: session ? session.profile : profileName,
+      sessionElapsed: elapsed,
+      sessionLength: length,
+      odoTimeLeft: odo(remaining, "down", gs),
+      timeLeftLabel: `${remaining} minutes left`,
+      sessionBarStyle: `position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: ${t.sealed}; transform-origin: 0 50%; transform: scaleX(${length ? (elapsed / length).toFixed(4) : 0}); transition: transform ${GLIDE_CSS}`,
+      stop: () => app.stopSession(),
+
+      routines: openFirst(routineList).map(row),
+      routinesCount: `${routineList.filter((i) => i.done).length}/${routineList.length}`,
+      dayItems: openFirst(dayList).map(row),
+      dayCount: `${dayTasks.filter((i) => i.done).length}/${dayTasks.length}`,
+
+      met,
+      stripLabel: `${spoken(mins)} of a ${spoken(goal)} goal`,
+      stripFill: `position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 3px; background: ${t.sealed}; transform-origin: 0 50%; transform: scaleX(${Math.min(1, mins / goal).toFixed(4)}); transition: transform ${GLIDE_CSS}`,
+      stripGoal: `position: absolute; right: 0; top: -4px; width: 2px; height: 13px; border-radius: 1px; background: ${t.sec}`,
+      stripGlowCls: !gs && app.justKept ? "kept-in" : "",
+      stripGoalGlow: `position: absolute; inset: 0; border-radius: 1px; box-shadow: 0 0 8px 0 ${t.sec}${glowAlpha}; pointer-events: none`
+    };
+  }
+}
+</script>
+</body>
+</html>

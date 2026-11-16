@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Tray</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+select{font:inherit}
+input{font:inherit}
+input::placeholder{color:inherit;opacity:1}
+@keyframes shellBreathe{0%,100%{opacity:1}50%{opacity:.45}}
+.keyhole-breathe{animation:shellBreathe 3.2s ease-in-out infinite}
+/* The aurora, scaled to a 340px panel: three soft lights drifting slowly, veiled toward the panel colour. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;transition:opacity 900ms ease, background 900ms ease;will-change:transform}
+.aurora-a{width:260px;height:220px;left:-110px;top:-130px;filter:blur(60px);animation:auroraA 46s ease-in-out infinite}
+.aurora-b{width:280px;height:240px;right:-150px;top:-90px;filter:blur(60px);animation:auroraB 54s ease-in-out infinite}
+.aurora-c{width:380px;height:170px;left:10%;bottom:-140px;border-radius:45%;filter:blur(60px);animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,30px) scale(1.15)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(-70px,24px) scale(.9)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0) rotate(-4deg)}50%{transform:translate(-40px,-20px) rotate(3deg)}}
+.tp-btn:hover{filter:brightness(1.1)}
+.tray-stage :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--ring) !important;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.tray-stage *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="tray-stage" style="width: 100%; min-height: 488px; box-sizing: border-box; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; font-family: Geist, system-ui, sans-serif; background: {{t.sidebar}}; color: {{t.text}}; --ring: {{t.sealed}}">
+
+  <!-- Open -->
+  <section aria-label="Sanctum tray panel, open" style="{{panelStyle}}">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraAOpen}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <div style="{{headStyle}}">
+      <svg width="15" height="15" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></svg>
+      <span style="font-size: 13px; font-weight: 600">Sanctum</span>
+      <span style="{{pillOpen}}"><span style="{{dotOpen}}"></span>Open</span>
+      <button type="button" aria-label="Open Sanctum" style="{{iconBtn}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px">
+      <div style="display: flex; gap: 6px">
+        <label style="position: relative; display: flex; align-items: center; flex: 1 1 auto">
+          <select aria-label="Profile" style="{{selectStyle}}"><option>Interview Prep</option><option>Deep Work</option><option>Reading</option></select>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 9px; pointer-events: none; color: {{t.muted}}"><path d="M3 4.5l3 3l3-3"></path></svg>
+        </label>
+        <label style="position: relative; display: flex; align-items: center; flex: 0 0 92px">
+          <select aria-label="Duration" style="{{selectMono}}"><option>15 min</option><option>30 min</option><option>45 min</option><option selected="">60 min</option><option>75 min</option><option>90 min</option><option>105 min</option><option>120 min</option></select>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; right: 9px; pointer-events: none; color: {{t.muted}}"><path d="M3 4.5l3 3l3-3"></path></svg>
+        </label>
+      </div>
+      <button type="button" class="tp-btn" style="{{enterStyle}}">Enter focus<span style="{{kbdOnFill}}">Ctrl ↵</span></button>
+    </div>
+    <div style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; border-top: 1px solid {{t.line}}">
+      <div style="display: flex; justify-content: space-between; padding: 10px 14px 4px">
+        <span style="font-size: 12px; font-weight: 500">Up next today</span>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{doneCount}}</span>
+      </div>
+      <sc-for list="{{items}}" as="i" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 14px">
+          <button type="button" role="checkbox" aria-checked="{{i.checked}}" aria-label="{{i.title}}" style="{{i.boxStyle}}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{i.checkStyle}}"><path d="M2 5.2l2 2l4-4.4"></path></svg></button>
+          <span style="{{i.textStyle}}">{{i.title}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{i.time}}</span>
+        </div>
+      </sc-for>
+      <label style="{{addRow}}">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9"></path></svg>
+        <input aria-label="Add a task for today" placeholder="Add a task for today" style="{{inputStyle}}">
+      </label>
+    </div>
+    <div style="{{footStyle}}">
+      <span style="padding-left: 4px; font-size: 11px; color: {{t.muted}}">Next check-in 3:00 PM</span>
+      <button type="button" style="{{footBtn}}">Quit Sanctum</button>
+    </div>
+  </section>
+
+  <!-- Sealed -->
+  <section aria-label="Sanctum tray panel, sealed" style="{{panelStyle}}">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraASealed}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <div style="{{headStyle}}">
+      <svg width="15" height="15" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g class="keyhole-breathe"><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+      <span style="font-size: 13px; font-weight: 600">Sanctum</span>
+      <span style="{{pillSealed}}"><span style="{{dotSealed}}"></span>Sealed</span>
+      <button type="button" aria-label="Open Sanctum" style="{{iconBtn}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <span role="timer" style="font-family: 'Geist Mono', monospace; font-size: 30px; font-weight: 500; letter-spacing: -0.03em; color: {{t.sealedText}}">38:12</span>
+        <span style="padding-left: 12px; font-size: 12px; color: {{t.muted}}; white-space: nowrap">Interview Prep · until 4:30 PM</span>
+      </div>
+      <!-- The session as a ruler: the accent fill is the seal's progress; the ruler's major (quarter-hour) ticks are the second colour, all alike. -->
+      <div aria-hidden="true" style="display: flex; flex-direction: column; gap: 4px">
+        <div style="height: 4px; border-radius: 999px; overflow: hidden; background: {{t.line}}">
+          <div style="{{fillStyle}}"></div>
+        </div>
+        <div style="position: relative; height: 10px">
+          <sc-for list="{{ticks}}" as="k" hint-placeholder-count="13">
+            <span style="{{k.style}}"></span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; gap: 6px">
+        <button type="button" style="{{ghostBtn}}">Compact timer<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">Ctrl M</span></button>
+        <button type="button" style="{{ghostBtn}}">Open Sanctum</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; border-top: 1px solid {{t.line}}">
+      <div style="display: flex; justify-content: space-between; padding: 10px 14px 4px">
+        <span style="font-size: 12px; font-weight: 500">Up next today</span>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{doneCount}}</span>
+      </div>
+      <sc-for list="{{items}}" as="i" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 14px">
+          <button type="button" role="checkbox" aria-checked="{{i.checked}}" aria-label="{{i.title}}" style="{{i.boxStyle}}"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{i.checkStyle}}"><path d="M2 5.2l2 2l4-4.4"></path></svg></button>
+          <span style="{{i.textStyle}}">{{i.title}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{i.time}}</span>
+        </div>
+      </sc-for>
+      <label style="{{addRow}}">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9"></path></svg>
+        <input aria-label="Park a thought for later" placeholder="Park a thought for later" style="{{inputStyle}}">
+      </label>
+    </div>
+    <div style="{{footStyle}}">
+      <span style="padding-left: 4px; font-size: 11px; color: {{t.muted}}">Next check-in 3:00 PM</span>
+      <button type="button" style="{{footBtn}}">Break the seal</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":752,"height":488}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// muted is raised to pass 4.5:1 on every surface here, the aurora's worst edge included
+// (Aura #9B9A9E, Night Owl #8592A1 and Cobalt2 Light #66747D failed on raised, sealedTint or the aurora).
+// Light themes are told by scheme, never by the app colour.
+// The app's own tokens these surfaces also use (src/theme/opencodeThemes.ts, design/tokens.css).
+// lineInput reaches 3:1 on app, panel, raised and sidebar. No "open" hue: the open state is neutral.
+const EXTRA = {
+  "Aura": { sealedLine: "#7E393D", lineInput: "#737277", panelFooter: "#1A1920" },
+  "Night Owl": { sealedLine: "#704B46", lineInput: "#647382", panelFooter: "#061B2C" },
+  "Cobalt2 Light": { sealedLine: "#B2D2D6", lineInput: "#7D8D98", panelFooter: "#FFFFFF" },
+  "Sanctum Dark": { sealedLine: "#1F3482", lineInput: "#656973", panelFooter: "#0F1218" }
+};
+
+const ITEMS = [
+  { title: "Read 20 pages", done: false, time: "" },
+  { title: "Send the weekly update", done: false, time: "5:00 PM" },
+  { title: "LeetCode practice", done: true, time: "" }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = { ...THEMES[theme], ...EXTRA[theme] };
+    const light = t.scheme === "light";
+    // Interview Prep, 60 minutes, 38:12 left: 21:48 in.
+    const pct = (21.8 / 60) * 100;
+
+    const ticks = [];
+    for (let m = 0; m <= 60; m += 5) {
+      const major = m % 15 === 0;
+      ticks.push({
+        style: `position: absolute; top: 0; left: ${(m / 60) * 100}%; margin-left: ${m === 60 ? -1 : 0}px; width: 1px; height: ${major ? 9 : 4}px; background: ${major ? t.sec : t.line}`
+      });
+    }
+
+    const items = ITEMS.map((i) => ({
+      ...i,
+      checked: i.done ? "true" : "false",
+      boxStyle: `flex: 0 0 auto; box-sizing: border-box; width: 15px; height: 15px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 4px; border: ${i.done ? `1px solid ${t.sealed}` : `1.5px solid ${t.lineInput}`}; background: ${i.done ? t.sealed : "transparent"}`,
+      checkStyle: `stroke: ${t.sealedOn}; opacity: ${i.done ? 1 : 0}`,
+      textStyle: `flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: ${i.done ? t.muted : t.text}; text-decoration: ${i.done ? "line-through" : "none"}`
+    }));
+
+    const field = `box-sizing: border-box; height: 32px; width: 100%; appearance: none; -webkit-appearance: none; border-radius: 8px; border: 1px solid ${t.lineInput}; background: ${t.raised}; padding: 0 26px 0 10px; font-size: 12px; color: ${t.text}`;
+    const pill = (on) => `display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px; box-sizing: border-box; border-radius: 5px; font-size: 11px; border: 1px solid ${on ? t.sealedLine : t.lineInput}; background: ${on ? t.sealedTint : "transparent"}; color: ${on ? t.text : t.text2}`;
+
+    return {
+      t, items, ticks,
+      doneCount: `${ITEMS.filter((i) => i.done).length}/${ITEMS.length}`,
+      panelStyle: `position: relative; isolation: isolate; flex: 0 0 340px; width: 340px; height: 440px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid ${t.lineInput}; background: ${t.panel}; box-shadow: 0 18px 40px ${light ? "#19354926" : "#00000080"}`,
+      auroraASealed: `background: ${t.sealed}; opacity: ${light ? 0.14 : 0.28}`,
+      auroraAOpen: `background: ${t.sealed}; opacity: ${light ? 0.08 : 0.16}`,
+      auroraB: `background: ${t.sec}; opacity: ${light ? 0.08 : 0.14}`,
+      auroraC: `background: linear-gradient(120deg, ${t.sealed}, ${t.sec}); opacity: ${light ? 0.05 : 0.1}`,
+      auroraVeil: `background: radial-gradient(ellipse 80% 70% at 50% 45%, ${t.panel}d9 0%, ${t.panel}a6 100%)`,
+      headStyle: `display: flex; align-items: center; gap: 8px; height: 44px; flex: 0 0 auto; box-sizing: border-box; padding: 0 12px 0 14px; border-bottom: 1px solid ${t.line}`,
+      pillOpen: pill(false),
+      pillSealed: pill(true),
+      // Open is neutral: a hollow dot in the muted colour.
+      dotOpen: `box-sizing: border-box; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid ${t.muted}`,
+      dotSealed: `width: 6px; height: 6px; border-radius: 50%; background: ${t.sealed}`,
+      iconBtn: `margin-left: auto; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: ${t.muted}`,
+      selectStyle: field,
+      selectMono: `${field}; font-family: 'Geist Mono', monospace`,
+      enterStyle: `display: flex; align-items: center; justify-content: center; gap: 8px; height: 32px; border: 0; border-radius: 8px; background: ${t.sealed}; color: ${t.sealedOn}; font-size: 13px; font-weight: 600`,
+      kbdOnFill: `font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 500; padding: 1px 5px; border-radius: 4px; border: 1px solid ${t.sealedOn}55; color: ${t.sealedOn}`,
+      fillStyle: `height: 100%; width: ${pct.toFixed(1)}%; background: ${t.sealed}; border-radius: 999px; transition: width 400ms cubic-bezier(.2,.7,.2,1)`,
+      ghostBtn: `flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 32px; border-radius: 8px; border: 1px solid ${t.lineInput}; background: ${t.raised}; color: ${t.text}; font-size: 12px`,
+      addRow: `margin-top: auto; display: flex; align-items: center; gap: 8px; height: 34px; flex: 0 0 auto; padding: 0 14px; border-top: 1px solid ${t.line}; color: ${t.muted}`,
+      inputStyle: `flex: 1; min-width: 0; border: 0; background: transparent; font-size: 12px; color: ${t.muted}`,
+      footStyle: `display: flex; align-items: center; gap: 4px; flex: 0 0 auto; padding: 8px 10px; border-top: 1px solid ${t.line}; background: ${t.panelFooter}`,
+      footBtn: `margin-left: auto; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: ${t.muted}; font-size: 12px`
+    };
+  }
+}
+</script>
+</body>
+</html>

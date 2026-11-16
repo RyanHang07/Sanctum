@@ -1,0 +1,222 @@
+<title>Sanctum Second Colour</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+/* Layout: a grid of five rows (today, then four ideas), one column per theme. Each mockup is the Today screen drawn at 640x420 and scaled to its cell. */
+:root {
+  color-scheme: dark;
+  --page: #0A0B0F;
+  --ink: #E6E9EF;
+  --ink-2: #A3ABBA;
+  --rule: #1D212B;
+  --chip: #151820;
+  --display: "Geist", system-ui, sans-serif;
+  --voice: "Instrument Serif", Georgia, serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--display); }
+.wrap { max-width: 1480px; margin: 0 auto; padding-block: 40px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 40px; }
+header.intro { display: flex; flex-direction: column; gap: 10px; max-width: 70ch; }
+header.intro h1 { margin: 0; font-size: clamp(26px, 3.4vw, 38px); font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+header.intro h1 em { font-family: var(--voice); font-weight: 400; color: var(--ink-2); }
+header.intro p { margin: 0; color: var(--ink-2); line-height: 1.6; font-size: 15px; }
+.keys { display: flex; flex-wrap: wrap; gap: 8px; }
+.key { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--rule); background: var(--chip); border-radius: 999px; font-size: 13px; color: var(--ink-2); }
+.key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.key b { color: var(--ink); font-weight: 500; }
+section.idea { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--rule); padding-top: 22px; }
+.group { margin: 56px 0 0; font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.idea-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.idea-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.idea-head .tag { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.idea-head p { margin: 0; flex-basis: 100%; color: var(--ink-2); font-size: 14px; line-height: 1.55; max-width: 80ch; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+figcaption { font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+figcaption i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.frame { width: 100%; aspect-ratio: 640 / 420; max-width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); position: relative; }
+.frame > .mk { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* ---------- The mockup: Today, as it is now ---------- */
+.mk { width: 640px; height: 420px; display: flex; background: var(--app); color: var(--text); font-family: var(--display); font-size: 12px; }
+.mk .rail { width: 38px; background: var(--sidebar); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+.mk .rail .pill { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); display: grid; place-items: center; }
+.mk .rail .pill span { width: 6px; height: 6px; border-radius: 50%; background: var(--text); }
+.mk .nav { position: relative; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+.mk .nav span { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--faint); }
+.mk .nav.on { background: var(--raised); }
+.mk .nav.on span { border-color: var(--text); }
+.mk main { flex: 1; min-width: 0; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.mk .top { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--muted); }
+.mk .top .date { flex: 1; display: flex; align-items: center; gap: 6px; }
+.mk .streak, .mk .search, .mk .btn { border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.mk .streak b { font-family: var(--mono); color: var(--text); font-weight: 500; }
+.mk .bars { display: flex; gap: 2px; }
+.mk .bars i { width: 4px; height: 9px; border-radius: 1px; background: var(--sealed-line); }
+.mk .bars i.k { background: var(--sealed); }
+.mk .btn { color: var(--text); }
+.mk kbd { font-family: var(--mono); font-size: 9.5px; color: var(--faint); }
+.mk h1 { margin: 4px 0 2px; font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
+.mk h1 em { font-family: var(--voice); font-weight: 400; color: var(--payoff); }
+.mk .focus { position: relative; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 10px; display: grid; grid-template-columns: 1.2fr .8fr 1.4fr; gap: 10px; align-items: end; }
+.mk label { display: flex; align-items: center; gap: 5px; font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.mk .pick { height: 38px; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+.mk .pick.mono { font-family: var(--mono); font-weight: 500; }
+.mk .enter button { all: unset; box-sizing: border-box; width: 100%; height: 46px; border-radius: 6px; background: var(--sealed); color: var(--sealed-on); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 600; font-size: 14px; }
+.mk .enter button small { font-family: var(--mono); font-size: 9px; font-weight: 400; opacity: .85; }
+.mk .lock { width: 7px; height: 6px; border: 1.5px solid currentColor; border-radius: 1px; position: relative; top: 1px; }
+.mk .cols { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); flex: 1; min-height: 0; }
+.mk .col + .col { border-left: 1px solid var(--line); }
+.mk .col header { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.mk .col header .n { margin-left: auto; font-family: var(--mono); font-weight: 400; color: var(--muted); font-size: 10.5px; }
+.mk .chev { width: 5px; height: 5px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); position: relative; top: -2px; }
+.mk .it { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+.mk .box { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--faint); display: grid; place-items: center; flex-shrink: 0; }
+.mk .it.done .box { background: var(--sealed); border-color: var(--sealed); }
+.mk .it.done .box::after { content: ""; width: 5px; height: 3px; border-left: 1.5px solid var(--sealed-on); border-bottom: 1.5px solid var(--sealed-on); transform: rotate(-45deg) translate(0.5px, -0.5px); }
+.mk .it.done .t { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint); }
+.mk .ptag { margin-left: auto; font-size: 9px; border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; color: var(--text-2); }
+.mk .add { color: var(--faint); }
+.mk .day { display: flex; align-items: center; gap: 10px; font-size: 10.5px; color: var(--muted); }
+.mk .track { flex: 1; height: 5px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.mk .fill { height: 100%; width: 35%; background: var(--sealed); border-radius: 3px; }
+.mk .day .mono { font-family: var(--mono); color: var(--text); }
+.mk svg.mark .torii { fill: var(--text); }
+.mk svg.mark .key { fill: var(--sealed); }
+
+/* ---------- 3 · Signals, swapped: the second colour is the call to action, the accent marks. ---------- */
+.s1 .enter button, .s2 .enter button { background: var(--sec); color: var(--sec-on); }
+.s1 .nav.on::before, .s2 .nav.on::before { content: ""; position: absolute; left: -8px; top: 7px; width: 3px; height: 8px; border-radius: 0 2px 2px 0; background: var(--sealed); }
+.s1 .ptag, .s2 .ptag { border-color: var(--sealed-line); background: var(--sealed-tint); color: var(--sealed-text); }
+.s1 .enter label, .s2 .enter label { color: var(--sealed-text); }
+.s1 .rail .pill span, .s2 .rail .pill span { background: var(--sealed); box-shadow: 0 0 0 3px var(--sealed-tint); }
+.s1 .streak b, .s2 .streak b { color: var(--sealed-text); }
+.s2 .enter button { box-shadow: 0 0 0 3px var(--sec-tint), 0 8px 22px -8px var(--sec); }
+.s2 .enter button small { background: color-mix(in srgb, var(--sec-on) 14%, transparent); padding: 1px 5px; border-radius: 3px; opacity: 1; }
+.s2 .date::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--sec); }
+.s2 .fill { background: var(--sec); }
+
+/* ---------- 4 · Edge: decoration in two tones, second colour into the accent. ---------- */
+.e1 .focus::before, .e2 .focus::before { content: ""; position: absolute; left: 10px; right: 10px; top: -1px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--sec), var(--sealed)); }
+.e1 .fill, .e2 .fill, .e3 .fill, .e4 .fill { background: linear-gradient(90deg, var(--sec), var(--sealed)); }
+.e1 .col header .chev { border-color: var(--sec); }
+.e1 h1 em, .e3 h1 em { color: var(--sec-text); }
+
+.e2 .focus { overflow: hidden; }
+.e2 .focus::after { content: ""; position: absolute; right: -60px; top: -90px; width: 260px; height: 200px; background: radial-gradient(closest-side, var(--sec), transparent); opacity: var(--glow); pointer-events: none; }
+.e2 .focus > * { position: relative; z-index: 1; }
+
+.e3 h1 { display: flex; flex-direction: column; gap: 7px; }
+.e3 h1::after { content: ""; width: 56px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--sec), var(--sealed)); }
+.e3 .col header { position: relative; }
+.e3 .col header::after { content: ""; position: absolute; left: 10px; bottom: -1px; width: 22px; height: 1px; background: var(--sec); }
+
+.e4 .focus { border: 1px solid transparent; background: linear-gradient(var(--panel), var(--panel)) padding-box, linear-gradient(115deg, var(--sec), var(--line) 40%, var(--line) 60%, var(--sealed)) border-box; }
+.e4 .cols { border: 1px solid transparent; background: linear-gradient(var(--panel), var(--panel)) padding-box, linear-gradient(180deg, var(--line), var(--line) 70%, var(--sec-line)) border-box; }
+.e4 .rail { position: relative; }
+.e4 .rail::after { content: ""; position: absolute; right: -1px; top: 30%; width: 1px; height: 40%; background: linear-gradient(transparent, var(--sec), var(--sealed), transparent); }
+
+.e5 main { background: radial-gradient(ellipse 60% 55% at 92% -8%, color-mix(in srgb, var(--sec) var(--wash), transparent), transparent 70%), radial-gradient(ellipse 45% 45% at 40% -18%, color-mix(in srgb, var(--sealed) var(--wash), transparent), transparent 70%); }
+.e5 h1 em { color: var(--sec-text); }
+.e5 .fill { background: linear-gradient(90deg, var(--sec), var(--sealed)); }
+
+@media (prefers-reduced-motion: no-preference) { .frame { transition: border-color .2s; } .frame:hover { border-color: var(--ink-2); } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>Two colours, not one. <em>Decoration first.</em></h1>
+    <p>The second colour is the one the theme picker shows beside the accent (the theme's event colour). Today in each theme as it ships, then the two directions you liked, expanded. Signals swaps the colours, so the complementary colour becomes the call to action. Edge gets five takes, with the second colour as decoration.</p>
+    <div class="keys" id="keys"></div>
+  </header>
+  <div id="ideas"></div>
+</div>
+
+<script>
+const THEMES = [
+  { name: "Aura", secName: "peach", p: { app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", text: "#EDECEE", "text-2": "#C6C5C8", muted: "#9B9A9E", faint: "#706F74", payoff: "#ACABAF", sealed: "#FF6767", "sealed-on": "#15141B", "sealed-line": "#7E393D", "sealed-tint": "#3D2228", "sealed-text": "#FF6767", sec: "#FFCA85", "sec-tint": "#382F2B", "sec-line": "#7E664B" } },
+  { name: "Night Owl", secName: "sand", p: { app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", text: "#D6DEEB", "text-2": "#B0BAC8", muted: "#8592A1", faint: "#5A6A79", payoff: "#96A2B1", sealed: "#F78C6C", "sealed-on": "#011627", "sealed-line": "#704B46", "sealed-tint": "#2B2A33", "sealed-text": "#F78C6C", sec: "#ECC48D", "sec-tint": "#243036", "sec-line": "#6B6455" } },
+  { name: "Cobalt2 Light", secName: "amber", p: { app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", text: "#193549", "text-2": "#4C6171", muted: "#66747D", faint: "#88929A", payoff: "#5C6C78", sealed: "#237D89", "sealed-on": "#FFFFFF", "sealed-line": "#B2D2D6", "sealed-tint": "#E9F2F3", "sealed-text": "#007583", sec: "#D68000", "sec-tint": "#FBF4E8", "sec-line": "#F1D3A6" } },
+  { name: "Sanctum Dark", secName: "ember", p: { app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", text: "#E6E9EF", "text-2": "#B8BFCC", muted: "#8A93A6", faint: "#5C6477", payoff: "#8C96AB", sealed: "#2F5BFF", "sealed-on": "#FFFFFF", "sealed-line": "#1F3482", "sealed-tint": "#172040", "sealed-text": "#7A95FF", sec: "#FF8A6B", "sec-tint": "#2A1712", "sec-line": "#5A2E24" } },
+];
+
+const IDEAS = [
+  { cls: "", group: "Now", title: "Today, as it ships", tag: "v0.3.3", text: "The accent does everything: streak bars, done boxes, the day's progress, Enter focus. Everything else is grey." },
+  { cls: "s1", group: "3 · Signals, swapped", title: "3a · The second colour calls to action", tag: "second colour = Enter focus", text: "The theme's complementary colour fills Enter focus, so the one button to press is the one colour that contrasts with everything else. The accent moves to the small markers: the tab marker, the state dot, profile tags, and the line about what closes when you enter." },
+  { cls: "s2", title: "3b · With a halo", tag: "3a + glow and a dot", text: "3a, plus a soft glow under Enter focus, a shortcut chip on it, a dot by the date, and the day's bar in the same colour, so the eye runs from the date to the bar to the button." },
+  { cls: "e1", group: "4 · Edge", title: "4a · Top edge", tag: "the first version", text: "A two-tone line on top of the focus card, repeated in the day's bar, with the payoff and the Routines chevron in the second colour." },
+  { cls: "e2", title: "4b · Corner glow", tag: "edge + light", text: "The top edge, with a soft glow of the second colour from the focus card's corner, as if light falls on the card. Purely decorative, kept behind the content." },
+  { cls: "e3", title: "4c · Underline", tag: "a dash under the headline", text: "A short two-tone dash under the headline and short dashes under each column's title. Reads like a printed page. The calmest Edge." },
+  { cls: "e4", title: "4d · Gradient frame", tag: "borders that shift colour", text: "The focus card's border fades from the second colour at one corner to the accent at the other. The list panel's border warms toward its bottom, and a short two-tone line sits midway down the sidebar's edge." },
+  { cls: "e5", title: "4e · Dawn wash", tag: "atmosphere behind the headline", text: "A faint wash of both colours across the top of the page, behind the headline: the held page's mesh, quieter. The most atmospheric; nothing else changes." },
+];
+
+const hx = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const toHex = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+const lum = (h) => { const [r, g, b] = hx(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+/** The second colour as text: moved toward the theme's text until it reads on the panel (4.5:1). */
+const readable = (c, bg, toward) => { let t = 0, out = c; while (contrast(out, bg) < 4.5 && t < 1) { t += 0.05; out = mix(c, toward, t); } return out; };
+
+function vars(p) {
+  const dark = lum(p.app) < 0.2;
+  const v = { ...p };
+  v["sec-on"] = contrast("#FFFFFF", p.sec) >= contrast(p.app, p.sec) && !dark ? "#FFFFFF" : (dark ? p.app : p.text);
+  if (contrast(v["sec-on"], p.sec) < 3) v["sec-on"] = contrast(p.text, p.sec) > contrast("#FFFFFF", p.sec) ? p.text : "#FFFFFF";
+  v["sec-text"] = readable(p.sec, p.panel, p.text);
+  v["sec-tint"] = p["sec-tint"] || mix(p.app, p.sec, dark ? 0.18 : 0.12);
+  v["sec-line"] = p["sec-line"] || mix(p.app, p.sec, dark ? 0.45 : 0.4);
+  v["sealed-tint"] = p["sealed-tint"] || mix(p.app, p.sealed, dark ? 0.17 : 0.1);
+  v["sealed-text"] = p["sealed-text"] || readable(p.sealed, p.panel, p.text);
+  v.glow = dark ? 0.32 : 0.22;
+  v.wash = dark ? "22%" : "16%";
+  return Object.entries(v).map(([k, val]) => `--${k}:${val}`).join(";");
+}
+
+const MARK = `<svg class="mark" width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><path class="torii" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z"/><rect class="torii" x="4.4" y="10.8" width="17.2" height="2.4"/><rect class="torii" x="6" y="7.4" width="3.2" height="16.6"/><rect class="torii" x="16.8" y="7.4" width="3.2" height="16.6"/><circle class="key" cx="13" cy="16.8" r="2.6"/><path class="key" d="M12 17.97L11.1 24H14.9L14 17.97Z"/></svg>`;
+
+function mock(theme, cls) {
+  const bars = [1, 1, 0, 1, 1, 1, 1].map((k) => `<i class="${k ? "k" : ""}"></i>`).join("");
+  return `<div class="mk ${cls}" style="${vars(theme.p)}" role="img" aria-label="Today in ${theme.name}">
+    <aside class="rail">${MARK}<div class="pill"><span></span></div>
+      <div class="nav on"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div>
+    </aside>
+    <main>
+      <div class="top"><span class="date">Sunday, November 15</span><span class="streak"><b>11</b> day streak <span class="bars">${bars}</span></span><span class="search">Search or command <kbd>Ctrl K</kbd></span><span class="btn">Customize</span></div>
+      <h1>Your word is the plan. <em>Keep it.</em></h1>
+      <div class="focus">
+        <div><label>Profile</label><div class="pick">Interview Prep</div></div>
+        <div><label>Length</label><div class="pick mono">60 min</div></div>
+        <div class="enter"><label><span class="lock"></span>Discord closes when you enter</label><button>Enter focus<small>Ctrl ↵</small></button></div>
+      </div>
+      <div class="cols">
+        <div class="col"><header><span class="chev"></span>Routines<span class="n"><b>1</b>/2</span></header>
+          <div class="it done"><span class="box"></span><span class="t">LeetCode practice</span><span class="ptag">Interview Prep</span></div>
+          <div class="it"><span class="box"></span><span class="t">Read 20 pages</span></div>
+          <div class="it"><span class="box"></span><span class="t">Stretch</span><span class="ptag">Deep Work</span></div>
+        </div>
+        <div class="col"><header><span class="dot"></span>Today</header>
+          <div class="it add">+ Add a task</div>
+          <div class="it done"><span class="box"></span><span class="t">Send the weekly update</span></div>
+          <div class="it"><span class="box"></span><span class="t">Review pull requests</span></div>
+        </div>
+      </div>
+      <div class="day"><span>Today</span><div class="track"><div class="fill"></div></div><span class="mono">42m / 2h</span></div>
+    </main>
+  </div>`;
+}
+
+document.getElementById("keys").innerHTML = THEMES.map((t) => `<span class="key"><i style="background:${t.p.sealed}"></i><i style="background:${t.p.sec}"></i><b>${t.name}</b> accent + ${t.secName}</span>`).join("");
+document.getElementById("ideas").innerHTML = IDEAS.map((idea, i) => `
+  ${idea.group ? `<p class="group">${idea.group}</p>` : ""}
+  <section class="idea" style="margin-top:${idea.group ? 14 : 28}px">
+    <div class="idea-head"><h2>${idea.title}</h2><span class="tag">${idea.tag}</span><p>${idea.text}</p></div>
+    <div class="row">${THEMES.map((t) => `<figure><div class="frame">${mock(t, idea.cls)}</div><figcaption><i style="background:${t.p.sealed}"></i><i style="background:${t.p.sec}"></i>${t.name}</figcaption></figure>`).join("")}</div>
+  </section>`).join("");
+
+function fit() { for (const f of document.querySelectorAll(".frame")) f.firstElementChild.style.transform = `scale(${f.clientWidth / 640})`; }
+new ResizeObserver(fit).observe(document.body);
+fit();
+</script>

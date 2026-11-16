@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Prototype</title>
+<script src="./support.js"></script>
+<script src="/_blob/74bf5c25b17db0caf8ca3d201d7cfe21"></script>
+<script src="/_blob/db658b98c21805fc7e14401fc5c3c73e"></script>
+<script src="/_blob/ca7318dbc0c0c4af9c08095ee6bda4d5"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{opacity:.85}
+button{font:inherit;cursor:pointer}
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.nav-btn:hover{opacity:.85}
+.nav-btn{position:relative}
+.nav-ico{transition:stroke 120ms cubic-bezier(.2,0,0,1)}
+/* Keyboard focus: one visible ring on every interactive element. */
+.proto-shell :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@keyframes shellBreathe{0%,100%{opacity:1}50%{opacity:.45}}
+/* While sealed only the keyhole breathes; it starts once the enter moment has settled. */
+.keyhole-breathe{animation:shellBreathe 3.2s cubic-bezier(.37,0,.63,1) 1s infinite}
+.proto-shell.doc-hidden .keyhole-breathe{animation-play-state:paused}
+/* The aurora behind every screen: three soft lights drawn as radial gradients (no filter pass), veiled toward the page colour.
+   Open: near-still, a very slow small drift (.au-drift). Sealed: stronger, and the larger drift (.au-blob) runs too.
+   The sealed drift pauses where it is when the seal ends, so nothing snaps back. Everything pauses while the document is hidden. */
+.aurora{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.au-drift{position:absolute;will-change:transform}
+.au-blob{position:absolute;inset:0;will-change:transform;transition:opacity 1200ms cubic-bezier(.37,0,.63,1);animation-play-state:paused}
+.aurora.sealed .au-blob{animation-play-state:running}
+.aurora.doc-hidden .au-drift,.aurora.doc-hidden .au-blob{animation-play-state:paused !important}
+.au-da{width:820px;height:700px;left:-260px;top:-320px;animation:auDriftA 150s cubic-bezier(.37,0,.63,1) infinite}
+.au-db{width:880px;height:740px;right:-320px;top:-240px;animation:auDriftB 170s cubic-bezier(.37,0,.63,1) infinite}
+.au-dc{width:1120px;height:540px;left:12%;bottom:-390px;animation:auDriftC 190s cubic-bezier(.37,0,.63,1) infinite}
+.au-a{animation:auroraA 46s cubic-bezier(.37,0,.63,1) infinite}
+.au-b{animation:auroraB 54s cubic-bezier(.37,0,.63,1) infinite}
+.au-c{animation:auroraC 62s cubic-bezier(.37,0,.63,1) infinite}
+@keyframes auDriftA{0%,100%{transform:translate(0,0)}50%{transform:translate(36px,18px)}}
+@keyframes auDriftB{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,14px)}}
+@keyframes auDriftC{0%,100%{transform:translate(0,0)}50%{transform:translate(-30px,-16px)}}
+@keyframes auroraA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(120px,60px) scale(1.12)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-150px,46px) scale(.92)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(-90px,-46px) rotate(4deg)}}
+/* Each screen draws on the aurora instead of a flat page colour. */
+.proto-main .pt,.proto-main .ps-root,.proto-main .pt-root,.proto-main [data-proto-root]{background:transparent !important}
+@media (prefers-reduced-motion: reduce){.proto-shell *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="{{shellCls}}" ref="{{ rootRef }}" onKeyDown="{{ onKey }}" style="--accent: {{t.sealed}}; width: 100%; min-height: 800px; display: flex; flex-wrap: wrap; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+
+  <nav aria-label="Sanctum" style="flex: 0 0 220px; box-sizing: border-box; padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; background: {{t.sidebar}}; border-right: 1px solid {{t.line}}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 2px 8px; font-weight: 600; font-size: 14px">
+      <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g class="{{keyholeClass}}"><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+      Sanctum
+    </div>
+    <div role="status" style="{{stateStyle}}">
+      <span style="{{stateDot}}"></span>{{stateLabel}}
+    </div>
+    <div style="position: relative; display: flex; flex-direction: column; gap: 2px">
+      <span data-nav-ind="" aria-hidden="true" style="{{navIndStyle}}"></span>
+      <sc-for list="{{nav}}" as="item" hint-placeholder-count="7">
+        <button type="button" class="nav-btn" data-nav-item="" aria-current="{{item.current}}" aria-disabled="{{item.disabled}}" title="{{item.hint}}" onClick="{{ item.go }}" style="{{item.style}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav-ico" style="stroke: {{item.icon}}"><path d="{{item.d}}"></path></svg>
+          <span style="flex: 1">{{item.label}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{keyColor}}">{{item.key}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </nav>
+
+  <main class="proto-main" style="position: relative; isolation: isolate; flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+    <div aria-hidden="true" class="{{auroraCls}}">
+      <div class="au-drift au-da"><div class="au-blob au-a" style="{{auroraA}}"></div></div>
+      <div class="au-drift au-db"><div class="au-blob au-b" style="{{auroraB}}"></div></div>
+      <div class="au-drift au-dc"><div class="au-blob au-c" style="{{auroraC}}"></div></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <div data-page="" style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+    <sc-if value="{{isToday}}" hint-placeholder-val="{{ true }}">
+      <dc-import name="ProtoToday" app="{{app}}" hint-size="100%,800px"></dc-import>
+    </sc-if>
+    <sc-if value="{{isWeek}}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ProtoWeek" app="{{app}}" hint-size="100%,800px"></dc-import>
+    </sc-if>
+    <sc-if value="{{isStats}}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ProtoStats" app="{{app}}" hint-size="100%,800px"></dc-import>
+    </sc-if>
+    <sc-if value="{{isTrackers}}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ProtoTrackers" app="{{app}}" hint-size="100%,800px"></dc-import>
+    </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":1280,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Motion tokens (motion spec 1.2). The children carry the same helper, so whichever runs first registers the eases.
+const EASES = { ui: "0.2,0,0,1", glide: "0.2,0.7,0.2,1", settle: "0.2,0.8,0.2,1", exit: "0.4,0,1,1", drift: "0.37,0,0.63,1" };
+const DUR = { ui: 0.12, enter: 0.18, state: 0.24, glide: 0.4, moment: 0.7, drain: 1.2 };
+function motion() {
+  const w = typeof window !== "undefined" ? window : null;
+  const g = w && w.gsap;
+  if (!g) return null;
+  if (!w.__sanctumEases) {
+    w.__sanctumEases = true;
+    try {
+      if (w.Flip) g.registerPlugin(w.Flip);
+      if (w.CustomEase) { g.registerPlugin(w.CustomEase); for (const k in EASES) w.CustomEase.create(k, EASES[k]); }
+    } catch (e) { /* plugins missing: the eases fall back below */ }
+  }
+  return g;
+}
+const ease = (name) => (typeof window !== "undefined" && window.CustomEase ? name : "power2.out");
+function live() {
+  if (typeof window === "undefined") return false;
+  if (typeof document !== "undefined" && document.hidden) return false;
+  return !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+// [label, shortcut, screen (null = not in this prototype), icon path]
+const NAV = [
+  ["Today", "Ctrl 1", "today", "M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13Z M5.5 8l1.8 1.8L10.5 6.5"],
+  ["Week", "Ctrl 2", "week", "M2.5 3.5h11v10h-11Z M2.5 6.5h11 M5.5 2v3 M10.5 2v3"],
+  ["Stats", "Ctrl 3", "stats", "M3 13V8 M8 13V3 M13 13V6"],
+  ["Trackers", "Ctrl 4", "trackers", "M2 12l4-4l3 3l5-6"],
+  ["Notes", "Ctrl 5", null, "M4 1.5h5.5l2.5 2.5v10.5h-8Z M6 7h4 M6 10h4"],
+  ["Journal", "Ctrl 6", null, "M3.5 2h8.5v12h-8.5Z M6 2v12"],
+  ["Setup", "Ctrl ,", null, "M2 5h12 M2 11h12 M5 3v4 M11 9v4"]
+];
+
+function makeState() {
+  return {
+    screen: "today",
+    gs: false,
+    docHidden: false,
+    today: "2026-11-15",
+    goal: 120,
+    minutes: 42,
+    session: null,
+    justKept: false,
+    profile: "Interview Prep",
+    length: 60,
+    week: [
+      { date: "2026-11-09", label: "Mon", num: 9, minutes: 90, status: "missed" },
+      { date: "2026-11-10", label: "Tue", num: 10, minutes: 222, status: "kept" },
+      { date: "2026-11-11", label: "Wed", num: 11, minutes: 158, status: "kept" },
+      { date: "2026-11-12", label: "Thu", num: 12, minutes: 78, status: "missed" },
+      { date: "2026-11-13", label: "Fri", num: 13, minutes: 204, status: "kept" },
+      { date: "2026-11-14", label: "Sat", num: 14, minutes: 132, status: "kept" },
+      { date: "2026-11-15", label: "Sun", num: 15, minutes: 42, status: "today" }
+    ],
+    streak: 11,
+    items: [
+      { id: "r1", kind: "routine", title: "LeetCode practice", tag: "Interview Prep", date: "2026-11-15", done: true },
+      { id: "r2", kind: "routine", title: "Read 20 pages", date: "2026-11-15", done: false },
+      { id: "t1", kind: "task", title: "Send the weekly update", date: "2026-11-15", done: false },
+      { id: "e1", kind: "event", title: "Mock interview", time: "15:00", date: "2026-11-10" },
+      { id: "t2", kind: "task", title: "Book flights", date: "2026-11-10", done: true },
+      { id: "e2", kind: "event", title: "Dentist", time: "10:30", date: "2026-11-11" },
+      { id: "t3", kind: "task", title: "Renew passport", date: "2026-11-12", done: false },
+      { id: "e3", kind: "event", title: "Climbing", time: "18:00", date: "2026-11-14" },
+      { id: "t4", kind: "task", title: "Pay rent", date: "2026-11-13", done: true }
+    ],
+    trackers: [
+      { id: "sleep", name: "Sleep", kind: "number", unit: "h", goal: 8, dir: "up", values: [7.2, 6.8, 8.1, 7.5, 8.0, 6.9, 8.0] },
+      { id: "weight", name: "Weight", kind: "number", unit: "lb", goal: 170, dir: "down", values: [171.4, 171.2, 171.0, 171.1, 170.9, 170.8, 170.6] },
+      { id: "mood", name: "Mood", kind: "scale", unit: "/ 10", goal: 7, dir: "up", values: [6, 7, 7, 5, 8, 7, 7] },
+      { id: "workout", name: "Workout", kind: "yesno", values: [1, 1, 0, 1, 1, 0, 1] }
+    ],
+    tempted: [
+      { name: "Discord", kind: "App", n: 9 },
+      { name: "youtube.com", kind: "Site", n: 6 },
+      { name: "“shorts”", kind: "Keyword", n: 4 },
+      { name: "Steam", kind: "App", n: 2 }
+    ]
+  };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = makeState();
+    motion(); // registers the shared eases before any child mounts
+    this.root = null;
+    this.rootRef = (el) => { this.root = el; };
+    this.ctx = null;
+    this.prevScreen = null;
+    this.timer = null;
+    this.keptTimer = null;
+    // Stable handler identities, shared with every child through `app`.
+    this.handlers = {
+      go: (screen) => this.update({ screen }),
+      startSession: () => this.startSession(),
+      stopSession: () => this.stopSession(),
+      toggleItem: (id) => this.toggleItem(id),
+      logTracker: (id, value) => this.logTracker(id, value),
+      setProfile: (name) => this.update({ profile: name }),
+      setLength: (min) => this.update({ length: Number(min) })
+    };
+  }
+
+  // The current state, even if the host replaced this.state before the first render.
+  S() {
+    return this.state && this.state.week ? this.state : { ...makeState(), ...(this.state || {}) };
+  }
+  // Always writes the full state, so a partial host state can't drop keys.
+  update(patch) {
+    this.setState({ ...this.S(), ...patch });
+  }
+
+  // The shortcuts the sidebar and Enter focus show: Ctrl 1..4 switch screens, Ctrl Enter enters focus on Today.
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (!e.ctrlKey || e.altKey || e.metaKey) return;
+      const screen = { "1": "today", "2": "week", "3": "stats", "4": "trackers" }[e.key];
+      if (screen) {
+        e.preventDefault();
+        this.handlers.go(screen);
+      } else if (e.key === "Enter" && this.S().screen === "today" && !this.S().session) {
+        e.preventDefault();
+        this.startSession();
+      }
+    };
+    // The aurora and the keyhole breathe pause while the document is hidden.
+    this.onVis = () => this.update({ docHidden: !!document.hidden });
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.onVis);
+    const g = motion();
+    if (g && this.root) {
+      this.ctx = g.context(() => {}, this.root);
+      this.update({ gs: true }); // re-render with the gliding indicator, before the first paint
+    }
+    this.syncNav(true);
+  }
+
+  componentDidUpdate() {
+    this.syncNav(false);
+  }
+
+  // 7. Moving between screens: the one indicator glides to the new item; the content swaps with a quick opacity ramp.
+  syncNav(first) {
+    const s = this.S();
+    const prevScreen = this.prevScreen;
+    this.prevScreen = s.screen;
+    const g = motion();
+    if (!g || !this.ctx || !this.root || !s.gs) return;
+    const idx = NAV.findIndex((n) => n[2] === s.screen);
+    const item = this.root.querySelectorAll("[data-nav-item]")[idx];
+    const ind = this.root.querySelector("[data-nav-ind]");
+    if (!item || !ind) return;
+    const y = item.offsetTop; // one read per navigation
+    this.ctx.add(() => {
+      if (!first && prevScreen && prevScreen !== s.screen && live()) {
+        g.to(ind, { y, duration: DUR.state, ease: ease("ui"), overwrite: "auto" });
+        g.fromTo("[data-page]", { opacity: 0.6 }, { opacity: 1, duration: DUR.ui, ease: ease("ui"), clearProps: "opacity" });
+      } else if (!g.isTweening(ind) && g.getProperty(ind, "y") !== y) {
+        g.set(ind, { y });
+      }
+    });
+  }
+
+  componentWillUnmount() {
+    if (this.onVis && typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVis);
+    if (this.ctx) this.ctx.revert();
+    this.ctx = null;
+    if (this.timer) clearInterval(this.timer);
+    if (this.keptTimer) clearTimeout(this.keptTimer);
+    this.timer = null;
+    this.keptTimer = null;
+  }
+
+  startSession() {
+    const s = this.S();
+    if (s.session) return;
+    this.update({ session: { profile: s.profile, length: s.length, elapsed: 0 } });
+    if (this.timer) clearInterval(this.timer);
+    // One prototype minute per real second.
+    this.timer = setInterval(() => this.tick(), 1000);
+  }
+
+  stopSession() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.update({ session: null });
+  }
+
+  tick() {
+    const s = this.S();
+    if (!s.session) {
+      if (this.timer) clearInterval(this.timer);
+      this.timer = null;
+      return;
+    }
+    const minutes = s.minutes + 1;
+    const elapsed = s.session.elapsed + 1;
+    const reached = s.minutes < s.goal && minutes >= s.goal;
+    const last = s.week.length - 1;
+    const week = s.week.map((d, i) => (i === last ? { ...d, minutes, status: minutes >= s.goal ? "kept" : d.status } : d));
+    const done = elapsed >= s.session.length;
+    const patch = { minutes, week, session: done ? null : { ...s.session, elapsed } };
+    if (reached) {
+      patch.justKept = true;
+      patch.streak = 12;
+      if (this.keptTimer) clearTimeout(this.keptTimer);
+      this.keptTimer = setTimeout(() => {
+        this.keptTimer = null;
+        this.update({ justKept: false });
+      }, 1600);
+    }
+    if (done) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    this.update(patch);
+  }
+
+  toggleItem(id) {
+    const s = this.S();
+    this.update({
+      items: s.items.map((i) => (i.id === id && i.kind !== "event" ? { ...i, done: !i.done } : i))
+    });
+  }
+
+  logTracker(id, value) {
+    const s = this.S();
+    this.update({
+      trackers: s.trackers.map((tr) => {
+        if (tr.id !== id) return tr;
+        const values = tr.values.slice();
+        values[values.length - 1] = Number(value);
+        return { ...tr, values };
+      })
+    });
+  }
+
+  renderVals() {
+    const s = this.S();
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = THEMES[theme];
+    const sealed = !!s.session;
+    const light = t.scheme === "light";
+    const gs = !!(s.gs && motion());
+
+    const nav = NAV.map(([label, key, screen, d]) => {
+      const on = screen === s.screen;
+      return {
+        label, key, d,
+        current: on ? "page" : "false",
+        disabled: screen ? "false" : "true",
+        hint: screen ? `${label} (${key})` : "Not in this prototype",
+        go: screen ? () => this.handlers.go(screen) : () => {},
+        icon: on ? t.sec : t.muted,
+        style: `display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13.5px; font-weight: ${on ? 600 : 400}; color: ${on ? t.text : t.text2}; background: ${on && !gs ? t.raised : "transparent"}; ${screen ? "" : "cursor: default;"}`
+      };
+    });
+
+    const app = { ...s, theme, t, ...this.handlers, handlers: this.handlers };
+
+    return {
+      t, nav, app,
+      onKey: (e) => { if (this.onKey) this.onKey(e); },
+      rootRef: this.rootRef,
+      shellCls: `proto-shell${s.docHidden ? " doc-hidden" : ""}`,
+      navIndStyle: `position: absolute; left: 0; right: 0; top: 0; height: 34px; border-radius: 8px; background: ${t.raised}; pointer-events: none; display: ${gs ? "block" : "none"}`,
+      // The aurora, in the theme's accent and second colour: barely there while open, stronger while sealed.
+      auroraCls: `aurora${sealed ? " sealed" : ""}${s.docHidden ? " doc-hidden" : ""}`,
+      auroraA: `background: radial-gradient(closest-side, ${t.sealed}, ${t.sealed}80 45%, ${t.sealed}00); opacity: ${sealed ? (light ? 0.14 : 0.28) : (light ? 0.08 : 0.16)}`,
+      auroraB: `background: radial-gradient(closest-side, ${t.sec}, ${t.sec}80 45%, ${t.sec}00); opacity: ${sealed ? (light ? 0.09 : 0.18) : (light ? 0.08 : 0.14)}`,
+      auroraC: `background: linear-gradient(120deg, ${t.sealed}, ${t.sec}); -webkit-mask-image: radial-gradient(closest-side, #000, #00000080 45%, #0000); mask-image: radial-gradient(closest-side, #000, #00000080 45%, #0000); opacity: ${sealed ? (light ? 0.06 : 0.12) : (light ? 0.05 : 0.1)}`,
+      auroraVeil: `background: radial-gradient(ellipse 80% 70% at 50% 45%, ${t.app}d9 0%, ${t.app}a6 100%)`,
+      // Cobalt2 Light's muted is 4.30:1 on the sidebar and 4.42:1 on raised, so the hints use text2 there.
+      keyColor: theme === "Cobalt2 Light" ? t.text2 : t.muted,
+      isToday: s.screen === "today",
+      isWeek: s.screen === "week",
+      isStats: s.screen === "stats",
+      isTrackers: s.screen === "trackers",
+      keyholeClass: sealed ? "keyhole-breathe" : "",
+      stateLabel: sealed ? "Sealed" : "Open",
+      stateStyle: `display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid ${sealed ? t.sealed + "66" : t.line}; border-radius: 8px; font-size: 13px; font-weight: 500; color: ${sealed ? t.sealedText : t.text}; background: ${sealed ? t.sealedTint : "transparent"}; transition: background 400ms ease, border-color 400ms ease, color 400ms ease`,
+      stateDot: `width: 7px; height: 7px; border-radius: 50%; background: ${sealed ? t.sealed : t.text}`
+    };
+  }
+}
+</script>
+</body>
+</html>

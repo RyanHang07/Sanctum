@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Setup General</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit}
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.nav-btn:hover,.hov:hover{opacity:.85}
+/* The aurora: three radial lights, no blur filter. Still while open; only a sealed screen (.aurora-live) drifts, slowly. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;transition:opacity 900ms ease}
+.aurora-a{width:900px;height:760px;left:-300px;top:-340px}
+.aurora-b{width:960px;height:800px;right:-360px;top:-280px}
+.aurora-c{width:1200px;height:620px;left:12%;bottom:-420px}
+.aurora-live .aurora-a{animation:auroraA 46s ease-in-out infinite}
+.aurora-live .aurora-b{animation:auroraB 54s ease-in-out infinite}
+.aurora-live .aurora-c{animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,30px)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0)}50%{transform:translate(-70px,24px)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-24px)}}
+
+/* One focus ring for every control: 2px accent, 2px off the edge. */
+.sg-root :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.sg-root *,.sg-root *::before,.sg-root *::after{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="sg-root" style="--ring: {{t.sealed}}; width: 100%; min-height: 800px; height: 800px; display: flex; flex-wrap: wrap; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+  <nav aria-label="Sanctum" style="flex: 0 0 220px; box-sizing: border-box; padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; background: {{t.sidebar}}; border-right: 1px solid {{t.line}}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 2px 8px; font-weight: 600; font-size: 14px">
+      <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+      Sanctum
+    </div>
+    <div role="status" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; font-size: 13px; font-weight: 500; color: {{t.text}}">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: {{t.text}}"></span>Open
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{nav}}" as="item" hint-placeholder-count="7">
+        <button type="button" class="nav-btn" aria-current="{{item.current}}" title="{{item.hint}}" style="{{item.style}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{item.icon}}"><path d="{{item.d}}"></path></svg>
+          <span style="flex: 1">{{item.label}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{keyColor}}">{{item.key}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </nav>
+  <main style="position: relative; isolation: isolate; flex: 999 1 560px; min-width: 0; height: 800px; display: flex; flex-direction: column; overflow: hidden">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraA}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <div style="flex: 1; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+      <div style="display: flex; align-items: center; height: 32px; flex-shrink: 0">
+        <h1 style="margin: 0; font-size: 26px; line-height: 1">Setup</h1>
+      </div>
+      <div style="flex: 1; min-height: 0; display: flex; gap: 24px">
+      <nav aria-label="Setup sections" style="flex: 0 0 176px; display: flex; flex-direction: column">
+        <div role="tablist" aria-label="Setup" aria-orientation="vertical" style="display: flex; flex-direction: column; gap: 1px">
+          <sc-for list="{{setupTabs}}" as="s" hint-placeholder-count="10">
+            <div style="display: flex; flex-direction: column">
+              <sc-if value="{{s.hasHeader}}" hint-placeholder-val="{{ false }}"><span style="{{s.headerStyle}}">{{s.header}}</span></sc-if>
+              <button type="button" role="tab" aria-selected="{{s.selected}}" class="hov" style="{{s.style}}">{{s.label}}</button>
+            </div>
+          </sc-for>
+        </div>
+      </nav>
+        <div role="tabpanel" aria-label="{{tabLabel}}" style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden; padding-right: 4px">
+          <div style="display: flex; flex-direction: column; gap: 2px; flex-shrink: 0">
+            <h2 style="margin: 0; font-size: 17px">{{tabLabel}}</h2>
+            <p style="margin: 0; font-size: 13px; color: {{t.muted}}">{{tabBlurb}}</p>
+          </div>
+          <sc-if value="{{isGeneral}}" hint-placeholder-val="{{ true }}">
+          <div style="max-width: 640px; display: flex; flex-direction: column; gap: 16px">
+            <section aria-label="Goal and streak" style="flex-shrink: 0; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid {{t.line}}">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">Goal and streak</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Daily focus goal</span><span style="font-size: 11px; color: {{t.muted}}">A day keeps the streak when you reach it and no seal breaks</span></span>
+              <span style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="{{goalTick}}"></span><button type="button" aria-label="Daily focus goal" aria-haspopup="listbox" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border: 1px solid {{lineInput}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 12px">2h<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2 3.5l3 3l3-3"></path></svg></button></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Day resets at</span><span style="font-size: 11px; color: {{t.muted}}">Routines and your day roll over at this time. Late nights count as the day you started.</span></span>
+              <input type="time" aria-label="Day resets at" value="04:00" readonly="" style="box-sizing: border-box; height: 26px; padding: 0 8px; border: 1px solid {{lineInput}}; border-radius: 8px; background: {{t.panel}}; color: {{t.text}}; font-family: 'Geist Mono', monospace; font-size: 11px; color-scheme: {{scheme}}">
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Rest days</span><span style="font-size: 11px; color: {{t.muted}}">Planned days off never break the streak</span></span>
+              <div role="group" aria-label="Rest days" style="display: flex; gap: 3px; flex-shrink: 0">
+                <sc-for list="{{restDays}}" as="d" hint-placeholder-count="7"><button type="button" aria-label="{{d.name}}" aria-pressed="{{d.pressed}}" style="{{d.style}}">{{d.short}}</button></sc-for>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; ">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Week’s focus target</span><span style="font-size: 11px; color: {{t.muted}}">Your recent average, 14h 30m. Stats shows the week against it.</span></span>
+              <input type="number" aria-label="Week's focus target, in hours" value="14.5" readonly="" style="box-sizing: border-box; width: 72px; height: 32px; padding: 0 8px; border: 1px solid {{lineInput}}; border-radius: 8px; background: {{t.raised}}; color: {{t.text}}; text-align: right; font-family: 'Geist Mono', monospace; font-size: 13px"><span style="font-size: 12px; color: {{t.muted}}">hours</span>
+            </div>
+            </section>
+            <section aria-label="App" style="flex-shrink: 0; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid {{t.line}}">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">App</h3><button type="button" class="hov" style="height: 26px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: {{t.text2}}; font-size: 12px; font-weight: 500">Run setup again</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Start with Windows</span><span style="font-size: 11px; color: {{t.muted}}">Same switch as Windows Settings › Apps › Startup</span></span>
+              <button type="button" role="switch" aria-label="Start with Windows" aria-checked="{{swStartup.checked}}" style="{{swStartup.track}}"><span style="{{swStartup.knob}}"></span></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">On login</span></span>
+              <button type="button" aria-label="On login" aria-haspopup="listbox" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border: 1px solid {{lineInput}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 12px">Open Home<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2 3.5l3 3l3-3"></path></svg></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Close button</span></span>
+              <button type="button" aria-label="Close button" aria-haspopup="listbox" style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; border: 1px solid {{lineInput}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 12px">Minimize to tray<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2 3.5l3 3l3-3"></path></svg></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Go compact when focus starts</span></span>
+              <button type="button" role="switch" aria-label="Go compact when focus starts" aria-checked="{{swCompact.checked}}" style="{{swCompact.track}}"><span style="{{swCompact.knob}}"></span></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Do not disturb while sealed</span><span style="font-size: 11px; color: {{t.muted}}">Notifications hold until the seal ends; alarms still ring.</span></span>
+              <button type="button" role="switch" aria-label="Do not disturb while sealed" aria-checked="{{swDnd.checked}}" style="{{swDnd.track}}"><span style="{{swDnd.knob}}"></span></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; ">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Do not disturb in quiet hours</span><span style="font-size: 11px; color: {{t.muted}}">Notifications hold until quiet hours end; alarms still ring.</span></span>
+              <button type="button" role="switch" aria-label="Do not disturb in quiet hours" aria-checked="{{swQuiet.checked}}" style="{{swQuiet.track}}"><span style="{{swQuiet.knob}}"></span></button>
+            </div>
+            </section>
+            <section aria-label="Sounds" style="flex-shrink: 0; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid {{t.line}}">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">Sounds</h3><button type="button" role="switch" aria-label="Sounds" aria-checked="{{swSounds.checked}}" style="{{swSounds.track}}"><span style="{{swSounds.knob}}"></span></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Volume</span></span>
+              <span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="position: relative; width: 160px; height: 4px; border-radius: 2px; background: {{t.line}}"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 60%; border-radius: 2px; background: {{t.sealed}}"></span><span style="position: absolute; left: calc(60% - 7px); top: -5px; width: 14px; height: 14px; border-radius: 50%; background: {{t.sealed}}"></span></span><span style="width: 36px; text-align: right; font-family: 'Geist Mono', monospace; font-size: 12px; color: {{t.muted}}">60</span></span>
+            </div>
+            </section>
+          </div>
+          </sc-if>
+          <sc-if value="{{isCalendar}}" hint-placeholder-val="{{ false }}">
+          <div style="max-width: 640px; display: flex; flex-direction: column; gap: 16px">
+            <section aria-label="Google Calendar" style="flex-shrink: 0; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid {{t.line}}">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">Google Calendar</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; border-bottom: 1px solid {{lineSoft}};">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Google Calendar</span><span style="font-size: 11px; color: {{t.muted}}">alex.morgan@gmail.com · Synced 2 min ago</span></span>
+              <span style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: 12px; color: {{t.muted}}"><span aria-hidden="true" style="{{syncDot}}"></span>Two-way sync</span>
+            </div>
+            <div style="padding: 4px 0; border-bottom: 1px solid {{lineSoft}}">
+              <span style="display: block; padding: 8px 14px 4px; font-size: 11px; font-weight: 500; color: {{t.muted}}">Show in Sanctum</span>
+              <sc-for list="{{calendars}}" as="c" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px">
+                  <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px">{{c.name}}<span style="color: {{t.muted}}">{{c.note}}</span></span>
+                  <button type="button" role="switch" aria-label="{{c.label}}" aria-checked="{{c.sw.checked}}" style="{{c.sw.track}}"><span style="{{c.sw.knob}}"></span></button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px">
+              <button type="button" class="hov" style="height: 26px; padding: 0 10px; border: 1px solid {{lineInput}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 12px; font-weight: 500">Sync now</button>
+              <button type="button" class="hov" style="height: 26px; padding: 0 10px; border: 1px solid {{lineInput}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 12px; font-weight: 500">Disconnect</button>
+              <span style="margin-left: auto"><button type="button" class="hov" style="height: 26px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: {{t.text2}}; font-size: 12px; font-weight: 500">Remove Sanctum calendar</button></span>
+            </div>
+            </section>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"tab":{"editor":"enum","options":["General","Calendar"],"default":"General"},"$preview":{"width":1280,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Shared helpers, the same in every page file.
+// muted and lineInput are contrast-checked in THEMES: muted clears 4.5:1 on app, panel, raised,
+// sidebar, sealedTint and secTint; lineInput clears 3:1 on app, panel, raised and sidebar.
+// Light themes come from the scheme field, never from the app colour.
+function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16)); }
+// mix(a, b, w): a moved toward b by w (0..1).
+function mix(a, b, w) {
+  const A = rgb(a), B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v * (1 - w) + B[i] * w).toString(16).padStart(2, "0")).join("");
+}
+function tokens(name) {
+  const base = THEMES[name] || THEMES.Aura;
+  return { ...base, light: base.scheme === "light", lineSoft: mix(base.line, base.panel, 0.4) };
+}
+// The aurora: three radial lights, no blur filter. Barely there while open; a little stronger while sealed.
+function auroraVals(t, sealed) {
+  const o = sealed ? (t.light ? [0.14, 0.09, 0.06] : [0.28, 0.18, 0.12]) : (t.light ? [0.08, 0.08, 0.05] : [0.16, 0.14, 0.10]);
+  const glow = (c, op) => "background: radial-gradient(closest-side, " + c + ", " + c + "00); opacity: " + op;
+  return {
+    auroraA: glow(t.sealed, o[0]),
+    auroraB: glow(t.sec, o[1]),
+    auroraC: glow(mix(t.sealed, t.sec, 0.5), o[2]),
+    auroraVeil: "background: radial-gradient(ellipse 80% 70% at 50% 45%, " + t.app + "d9 0%, " + t.app + "a6 100%)",
+    auroraClass: sealed ? "aurora-live" : ""
+  };
+}
+// [label, shortcut, icon path]
+const NAV = [
+  ["Today", "Ctrl 1", "M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13Z M5.5 8l1.8 1.8L10.5 6.5"],
+  ["Week", "Ctrl 2", "M2.5 3.5h11v10h-11Z M2.5 6.5h11 M5.5 2v3 M10.5 2v3"],
+  ["Stats", "Ctrl 3", "M3 13V8 M8 13V3 M13 13V6"],
+  ["Trackers", "Ctrl 4", "M2 12l4-4l3 3l5-6"],
+  ["Notes", "Ctrl 5", "M4 1.5h5.5l2.5 2.5v10.5h-8Z M6 7h4 M6 10h4"],
+  ["Journal", "Ctrl 6", "M3.5 2h8.5v12h-8.5Z M6 2v12"],
+  ["Setup", "Ctrl ,", "M2 5h12 M2 11h12 M5 3v4 M11 9v4"]
+];
+// The shell's sidebar and aurora, with the given item active (its icon in the second colour).
+function shellVals(t, theme, active) {
+  const nav = NAV.map(([label, key, d]) => {
+    const on = label === active;
+    return {
+      label, key, d,
+      current: on ? "page" : "false",
+      hint: label + " (" + key + ")",
+      icon: on ? t.sec : t.muted,
+      style: "display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13.5px; font-weight: " + (on ? 600 : 400) + "; color: " + (on ? t.text : t.text2) + "; background: " + (on ? t.raised : "transparent") + ";"
+    };
+  });
+  return {
+    nav,
+    keyColor: t.muted,
+    ...auroraVals(t, false)
+  };
+}
+// A switch, drawn the way controls.tsx draws it: 32x18 track, 14px knob.
+function switchStyle(t, on) {
+  return {
+    track: "box-sizing: border-box; display: flex; justify-content: " + (on ? "flex-end" : "flex-start") + "; width: 32px; height: 18px; flex-shrink: 0; padding: 2px; border: 0; border-radius: 999px; background: " + (on ? t.sealed : t.line) + ";",
+    knob: "width: 14px; height: 14px; border-radius: 50%; background: " + (on ? t.sealedOn : t.text2) + ";",
+    checked: on ? "true" : "false"
+  };
+}
+const TABS = [
+  ["profiles", "Focus", "Profiles", "What each kind of work opens, and how long it runs."],
+  ["distractions", "Focus", "Distractions", ""],
+  ["protection", "Focus", "Protection", ""],
+  ["trackers", "Tracking", "Trackers", ""],
+  ["tracking", "Tracking", "Activity", ""],
+  ["calendar", "Connections", "Calendar", "Two-way sync with Google Calendar."],
+  ["browser", "Connections", "Browser", ""],
+  ["partner", "Connections", "Partner", ""],
+  ["appearance", "App", "Appearance", "How Sanctum looks: a theme, or one for Windows' light and one for its dark."],
+  ["general", "App", "General", "Your goal, rest days, and how the app behaves."]
+];
+function setupNav(t, active) {
+  let group = "";
+  return TABS.map(([id, g, label], i) => {
+    const header = g !== group;
+    group = g;
+    const on = id === active;
+    return {
+      label, header: g, hasHeader: header,
+      selected: on ? "true" : "false",
+      headerStyle: "display: block; padding: " + (i === 0 ? "0" : "16px") + " 10px 4px; font-size: 11px; font-weight: 500; color: " + t.muted,
+      style: "display: flex; align-items: center; width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13px; font-weight: " + (on ? 500 : 400) + "; color: " + (on ? t.text : t.text2) + "; background: " + (on ? t.raised : "transparent")
+    };
+  });
+}
+function tabInfo(id) { const r = TABS.find((x) => x[0] === id); return { tabLabel: r[2], tabBlurb: r[3] }; }
+const WEEKDAYS = [["M", "Mon", false], ["T", "Tue", false], ["W", "Wed", false], ["T", "Thu", false], ["F", "Fri", false], ["S", "Sat", false], ["S", "Sun", true]];
+class Component extends DCLogic {
+  renderVals() {
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = tokens(theme);
+    const lineSoft = t.lineSoft;
+    const lineInput = t.lineInput;
+    const cal = this.props.tab === "Calendar";
+    const restDays = WEEKDAYS.map(([short, name, on]) => ({
+      short, name, pressed: on ? "true" : "false",
+      style: "width: 26px; height: 26px; padding: 0; border-radius: 8px; font-size: 12px; border: 1px solid " + (on ? t.sealed + "80" : lineInput) + "; background: " + (on ? t.sealedTint : "transparent") + "; color: " + (on ? t.text : t.muted)
+    }));
+    const calendars = [
+      ["alex.morgan@gmail.com", " · main", true],
+      ["Sanctum", " · timed items and chosen routines", true],
+      ["Holidays in United States", " · read-only", false]
+    ].map(([name, note, on]) => ({ name, note, label: "Show " + name, sw: switchStyle(t, on) }));
+    return {
+      t, lineSoft, lineInput,
+      scheme: t.light ? "light" : "dark",
+      ...shellVals(t, theme, "Setup"),
+      setupTabs: setupNav(t, cal ? "calendar" : "general"),
+      ...tabInfo(cal ? "calendar" : "general"),
+      isGeneral: !cal, isCalendar: cal,
+      restDays, calendars,
+      swStartup: switchStyle(t, true),
+      swCompact: switchStyle(t, false),
+      swDnd: switchStyle(t, true),
+      swQuiet: switchStyle(t, false),
+      swSounds: switchStyle(t, true),
+      // The second colour, as the strict set allows: the goal tick from Today's ruler, beside the goal it sets. No glow (the goal is a setting here, not met).
+      goalTick: "width: 2px; height: 16px; border-radius: 1px; background: " + t.sec,
+      // Connected: a neutral dot. Connection state is not the second colour.
+      syncDot: "width: 6px; height: 6px; border-radius: 50%; background: " + t.muted
+    };
+  }
+}
+</script>
+</body>
+</html>

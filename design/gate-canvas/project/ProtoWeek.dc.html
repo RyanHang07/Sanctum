@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+@keyframes rollA{from{transform:translateY(40%);opacity:.3}to{transform:translateY(0);opacity:1}}
+@keyframes rollB{from{transform:translateY(40%);opacity:.3}to{transform:translateY(0);opacity:1}}
+@keyframes keptIn{from{box-shadow:0 0 0 1px transparent, 0 0 0 0 transparent;opacity:.4}to{opacity:1}}
+/* Keyboard focus: one visible ring on every interactive element. */
+.wk :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Folds: the row track opens from 0fr to 1fr; the content fades in after 60 ms; closing is faster. Closed content is hidden from focus. */
+.wk .fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows 180ms cubic-bezier(.2,0,0,1)}
+.wk .fold.open{grid-template-rows:1fr;transition-duration:240ms}
+.wk .fold-in{min-height:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity 120ms cubic-bezier(.2,0,0,1), visibility 0s linear 180ms}
+.wk .fold.open .fold-in{visibility:visible;opacity:1;transition:opacity 120ms cubic-bezier(.2,0,0,1) 60ms, visibility 0s}
+.wk .chev{display:inline-block;width:8px;transition:transform 120ms cubic-bezier(.2,0,0,1)}
+/* Ticking: the check draws. */
+.wk .chk path{stroke-dasharray:11;stroke-dashoffset:11;transition:stroke-dashoffset 180ms cubic-bezier(.2,0,0,1)}
+.wk .chk.on path{stroke-dashoffset:0}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="wk" data-proto-root="" style="--accent: {{t.sealed}}; width: 100%; min-height: 800px; box-sizing: border-box; padding: 24px 28px 22px; display: flex; flex-direction: column; gap: 18px; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+    <h1 style="margin: 0 8px 0 0; font-size: 26px; letter-spacing: -0.02em; white-space: nowrap">{{title}}</h1>
+    <sc-if value="{{dated}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button type="button" aria-label="Previous week" onClick="{{ prevWeek }}" style="width: 32px; height: 32px; border: 1px solid {{t.line}}; border-radius: 8px; background: transparent; color: {{t.muted}}">‹</button>
+        <button type="button" onClick="{{ thisWeek }}" style="{{thisWeekStyle}}">This week</button>
+        <button type="button" aria-label="Next week" onClick="{{ nextWeek }}" style="width: 32px; height: 32px; border: 1px solid {{t.line}}; border-radius: 8px; background: transparent; color: {{t.muted}}">›</button>
+        <sc-if value="{{hasWhen}}" hint-placeholder-val="{{ false }}">
+          <span style="margin-left: 4px; font-size: 13px; color: {{t.muted}}">{{whenLabel}}</span>
+        </sc-if>
+      </div>
+    </sc-if>
+    <span style="flex: 1"></span>
+    <button type="button" aria-label="{{newLabel}}" onClick="{{ newItem }}" style="height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-weight: 600">+ New</button>
+    <div role="tablist" aria-label="View" style="display: flex; padding: 3px; gap: 2px; border: 1px solid {{t.line}}; border-radius: 9px">
+      <sc-for list="{{tabs}}" as="tab" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{tab.selected}}" onClick="{{ tab.pick }}" style="{{tab.style}}">{{tab.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{isWeek}}" hint-placeholder-val="{{ true }}">
+    <div style="overflow: hidden; flex: 1; padding: 10px 0 0">
+      <div style="position: relative; display: grid; grid-template-columns: repeat(7, minmax(128px, 1fr)); gap: 10px; align-items: start; min-height: 560px">
+        <sc-if value="{{showGlow}}" hint-placeholder-val="{{ true }}">
+          <div aria-hidden="true" style="{{glow}}"></div>
+        </sc-if>
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+          <section aria-label="{{d.full}}" style="{{d.col}}">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 14px; font-weight: 700; color: {{d.nameColor}}">{{d.name}}<span style="font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 400; color: {{d.numColor}}">{{d.num}}</span></div>
+
+            <sc-if value="{{d.hasMark}}" hint-placeholder-val="{{ true }}">
+              <span data-status="{{d.status}}" style="{{d.markStyle}}"><span style="{{d.markDot}}"></span>{{d.markLabel}}</span>
+            </sc-if>
+
+            <sc-if value="{{d.today}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px">
+                <div style="display: flex; align-items: baseline; gap: 5px; overflow: hidden"><span style="{{todayRoll}}">{{todayMinutes}}</span><span style="font-size: 12px; color: {{t.muted}}">of {{goal}} min</span></div>
+                <div role="img" aria-label="{{todayBarLabel}}" style="height: 4px; border-radius: 2px; background: {{t.line}}; position: relative"><span style="{{todayFill}}"></span></div>
+                <sc-if value="{{hasSession}}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 12px; color: {{t.muted}}"><b style="font-weight: 600; color: {{t.sealedText}}">Sealed</b> · <span style="font-family: 'Geist Mono', monospace">{{sessionText}}</span></span>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{d.showMin}}" hint-placeholder-val="{{ true }}">
+              <span style="font-size: 12px; color: {{t.muted}}"><b style="font-family: 'Geist Mono', monospace; font-weight: 500; color: {{t.text2}}">{{d.min}}</b> min</span>
+            </sc-if>
+            <sc-if value="{{d.empty}}" hint-placeholder-val="{{ false }}">
+              <span style="font-size: 12px; color: {{t.muted}}">Nothing recorded</span>
+            </sc-if>
+
+            <sc-if value="{{d.hasRoutines}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column">
+                <button type="button" aria-expanded="{{d.foldOpenStr}}" aria-label="{{d.foldLabel}}" onClick="{{ d.toggleFold }}" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 1px solid {{t.line}}; border-radius: 6px; background: transparent; color: {{t.muted}}; font-size: 12px"><span aria-hidden="true" class="chev" style="{{d.chevron}}">›</span>Routines<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px">{{d.routineCount}}</span></button>
+                <div class="{{d.foldCls}}">
+                  <div class="fold-in">
+                    <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 10px">
+                      <sc-for list="{{d.routineItems}}" as="it" hint-placeholder-count="2">
+                        <div data-kind="{{it.kind}}" style="{{it.card}}">
+                          <sc-if value="{{it.checkable}}" hint-placeholder-val="{{ true }}">
+                            <button type="button" role="checkbox" aria-checked="{{it.ariaChecked}}" aria-label="{{it.title}}" onClick="{{ it.toggle }}" style="{{it.box}}"><svg class="{{it.chkCls}}" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="{{it.tick}}"><path d="M2.5 6.3l2.4 2.4L9.6 3.8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="stroke: {{t.sealedOn}}"></path></svg></button>
+                          </sc-if>
+                          <sc-if value="{{it.fixedBox}}" hint-placeholder-val="{{ false }}">
+                            <span aria-hidden="true" style="{{it.box}}"></span>
+                          </sc-if>
+                          <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+                            <span style="{{it.titleStyle}}">{{it.title}}</span>
+                            <span style="display: flex; align-items: center; gap: 4px; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{it.metaColor}}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="stroke: {{t.muted}}"><path d="M2.2 5.6A3.8 3.8 0 0 1 9.4 4.1 M9.6 1.8v2.4H7.2 M9.8 6.4A3.8 3.8 0 0 1 2.6 7.9 M2.4 10.2V7.8h2.4" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{it.meta}}</span>
+                          </span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-for list="{{d.items}}" as="it" hint-placeholder-count="1">
+              <div data-kind="{{it.kind}}" style="{{it.card}}">
+                <sc-if value="{{it.checkable}}" hint-placeholder-val="{{ true }}">
+                  <button type="button" role="checkbox" aria-checked="{{it.ariaChecked}}" aria-label="{{it.title}}" onClick="{{ it.toggle }}" style="{{it.box}}"><svg class="{{it.chkCls}}" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="{{it.tick}}"><path d="M2.5 6.3l2.4 2.4L9.6 3.8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="stroke: {{t.sealedOn}}"></path></svg></button>
+                </sc-if>
+                <sc-if value="{{it.fixedBox}}" hint-placeholder-val="{{ false }}">
+                  <span aria-hidden="true" style="{{it.box}}"></span>
+                </sc-if>
+                <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+                  <span style="{{it.titleStyle}}">{{it.title}}</span>
+                  <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{it.metaColor}}">{{it.meta}}</span>
+                </span>
+              </div>
+            </sc-for>
+          </section>
+        </sc-for>
+      </div>
+    </div>
+
+    <section aria-label="Pending" style="border: 1px solid {{t.line}}; border-radius: 9px; background: {{t.panel}}">
+      <button type="button" aria-expanded="{{pendingOpenStr}}" aria-label="{{pendingToggleLabel}}" onClick="{{ togglePending }}" style="display: flex; width: 100%; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent; color: {{t.muted}}; font-size: 13px"><span aria-hidden="true" class="chev" style="{{pendingChevron}}">›</span>Pending<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 12px">{{pendingCount}}</span></button>
+      <div class="{{pendingFoldCls}}">
+        <div class="fold-in">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 8px; padding: 0 6px 6px">
+            <sc-for list="{{pending}}" as="p" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="{{p.title}}" onClick="{{ p.toggle }}" style="{{p.box}}"></button>
+                <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: {{t.text}}">{{p.title}}</span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{p.origin}}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{pendingEmpty}}" hint-placeholder-val="{{ false }}">
+              <span style="padding: 8px; font-size: 13px; color: {{t.muted}}">Nothing pending.</span>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{isOther}}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+      <h2 style="margin: 0; font-size: 17px">{{otherTitle}}</h2>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: {{t.muted}}; max-width: 520px">{{otherText}}</p>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"app":{"editor":null},"$preview":{"width":1060,"height":800}}'>
+// Sample state for rendering alone (the shell passes the live `app`).
+const DEFAULT_APP = {
+  theme: "Aura",
+  t: { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  screen: "week", today: "2026-11-15", goal: 120, minutes: 42, session: null, justKept: false,
+  profile: "Interview Prep", length: 60,
+  week: [
+    { date: "2026-11-09", label: "Mon", num: 9, minutes: 90, status: "missed" },
+    { date: "2026-11-10", label: "Tue", num: 10, minutes: 222, status: "kept" },
+    { date: "2026-11-11", label: "Wed", num: 11, minutes: 158, status: "kept" },
+    { date: "2026-11-12", label: "Thu", num: 12, minutes: 78, status: "missed" },
+    { date: "2026-11-13", label: "Fri", num: 13, minutes: 204, status: "kept" },
+    { date: "2026-11-14", label: "Sat", num: 14, minutes: 132, status: "kept" },
+    { date: "2026-11-15", label: "Sun", num: 15, minutes: 42, status: "today" }
+  ],
+  streak: 11,
+  items: [
+    { id: "r1", kind: "routine", title: "LeetCode practice", tag: "Interview Prep", date: "2026-11-15", done: true },
+    { id: "r2", kind: "routine", title: "Read 20 pages", date: "2026-11-15", done: false },
+    { id: "t1", kind: "task", title: "Send the weekly update", date: "2026-11-15", done: false },
+    { id: "e1", kind: "event", title: "Mock interview", time: "15:00", date: "2026-11-10" },
+    { id: "t2", kind: "task", title: "Book flights", date: "2026-11-10", done: true },
+    { id: "e2", kind: "event", title: "Dentist", time: "10:30", date: "2026-11-11" },
+    { id: "t3", kind: "task", title: "Renew passport", date: "2026-11-12", done: false },
+    { id: "e3", kind: "event", title: "Climbing", time: "18:00", date: "2026-11-14" },
+    { id: "t4", kind: "task", title: "Pay rent", date: "2026-11-13", done: true }
+  ],
+  trackers: [], tempted: [],
+  go() {}, startSession() {}, stopSession() {}, toggleItem() {}, logTracker() {}, setProfile() {}, setLength() {}
+};
+
+// The two routines that repeat every day; today's copies come from app.items.
+const ROUTINES = [
+  { rid: "r1", title: "LeetCode practice", tag: "Interview Prep" },
+  { rid: "r2", title: "Read 20 pages", tag: "" }
+];
+// This week's routine record for Mon..Sat (1 = done), matching the counts in Week-3.
+const THIS_WEEK_ROUTINES = [[0, 0], [1, 1], [1, 1], [1, 0], [1, 1], [1, 1]];
+// Focus minutes for the five weeks of history before this one; earlier weeks are empty.
+const HISTORY = [
+  [150, 95, 210, 130, 60, 180, 140],
+  [120, 200, 45, 160, 175, 0, 130],
+  [90, 140, 150, 210, 30, 125, 160],
+  [200, 110, 135, 80, 150, 165, 95],
+  [60, 150, 170, 125, 140, 0, 210]
+];
+// One-time items in other weeks: [day index, kind, title, done or time].
+const OTHER_ITEMS = {
+  "-1": [[2, "task", "Submit expense report", true], [4, "event", "Haircut", "11:00"], [5, "task", "Fix the bike light", false]],
+  "-2": [[1, "event", "Team offsite", "09:30"], [3, "task", "Return the library books", true]],
+  "-3": [[0, "task", "Water the plants", true], [6, "event", "Dinner with Sam", "19:30"]],
+  "1": [[2, "task", "Pack for the trip", false], [3, "event", "Flight to Boston", "08:40"]]
+};
+// Pending items with no day yet.
+const UNDATED = [{ id: "p1", title: "Call the bank" }, { id: "p2", title: "Order a new desk chair" }];
+
+const DAY_MS = 86400000;
+const BASE = Date.UTC(2026, 10, 9); // Monday, November 9
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const keyOf = (ms) => new Date(ms).toISOString().slice(0, 10);
+const shortDate = (key) => { const d = new Date(key + "T00:00:00Z"); return MONTHS[d.getUTCMonth()].slice(0, 3) + " " + d.getUTCDate(); };
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // Purely local: the shown week, open routine folds, the view tab, Pending, and ticks on sample days outside app.items.
+    this.state = { offset: 0, open: {}, view: "week", pendingOpen: false, local: {} };
+  }
+
+  flip(id, fallback) {
+    const local = { ...this.state.local };
+    local[id] = !(id in local ? local[id] : fallback);
+    this.setState({ local });
+  }
+
+  renderVals() {
+    const app = this.props.app || DEFAULT_APP;
+    const t = app.t;
+    const light = t.scheme === "light";
+    const { offset, open, view, pendingOpen, local } = this.state;
+    const done = (id, fallback) => (id in local ? local[id] : fallback);
+    const start = BASE + offset * 7 * DAY_MS;
+    const goal = app.goal;
+    const glowA = light ? "59" : "99";
+
+    // ---- Header ----
+    const a = new Date(start), b = new Date(start + 6 * DAY_MS);
+    const mo = (d) => MONTHS[d.getUTCMonth()].slice(0, 3);
+    const range = a.getUTCMonth() === b.getUTCMonth() ? `${mo(a)} ${a.getUTCDate()} – ${b.getUTCDate()}` : `${mo(a)} ${a.getUTCDate()} – ${mo(b)} ${b.getUTCDate()}`;
+    const mid = new Date(start + 3 * DAY_MS);
+    const title = view === "routines" ? "Routines" : view === "month" ? `${MONTHS[mid.getUTCMonth()]} ${mid.getUTCFullYear()}` : range;
+    const goWeek = (o) => this.setState({ offset: o, open: {} }); // a different week starts with its routines folded
+
+    // ---- Item models ----
+    const box = (state) => {
+      // state: done | open | slipped | ahead
+      const base = "box-sizing: border-box; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-top: 1px; padding: 0; border-radius: 4px; transition: background-color 160ms ease, border-color 160ms ease";
+      if (state === "done") return `${base}; border: 1px solid ${t.sealed}; background: ${t.sealed}`;
+      if (state === "ahead") return `${base}; border: 1.5px solid ${t.line}; background: transparent`;
+      return `${base}; border: 1.5px solid ${t.muted}; background: transparent`;
+    };
+    const titleStyle = (state, event) => {
+      const base = "font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; transition: color 160ms ease";
+      if (state === "done") return `${base}; font-weight: 500; color: ${t.muted}; text-decoration: line-through; text-decoration-color: ${t.muted}`;
+      if (state === "slipped") return `${base}; font-weight: 500; color: ${t.muted}`;
+      if (event && state === "past") return `${base}; font-weight: 600; color: ${t.text2}`;
+      return `${base}; font-weight: 600; color: ${t.text}`;
+    };
+    const card = (when) => when === "future"
+      ? `display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; border-radius: 8px; border: 1px solid ${t.line}; background: transparent`
+      : `display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; border-radius: 8px; border: 1px solid transparent; background: ${t.raised}`;
+    // when: past | today | future. Ticking works on past and today; future items are only planned.
+    const model = ({ id, kind, title, isDone, time, tag, when, toggle }) => {
+      const event = kind === "event";
+      const state = event ? (when === "past" ? "past" : "open") : isDone ? "done" : when === "past" ? "slipped" : when === "future" ? "ahead" : "open";
+      const checkable = !event && when !== "future";
+      let meta;
+      if (event) meta = time;
+      else if (kind === "routine") meta = tag || "anytime";
+      else meta = state === "slipped" ? "Not done" : isDone ? "Done" : "Task";
+      return {
+        id, kind, title, meta, checkable,
+        fixedBox: !event && !checkable,
+        ariaChecked: isDone ? "true" : "false",
+        toggle: toggle || (() => {}),
+        box: box(state),
+        tick: `opacity: ${isDone ? 1 : 0}; transition: opacity 120ms ease`,
+        chkCls: isDone ? "chk on" : "chk",
+        titleStyle: titleStyle(state, event),
+        // Cobalt2 Light's muted is 4.42:1 on raised, so meta on a raised card uses text2 there.
+        metaColor: light && when !== "future" ? t.text2 : t.muted,
+        card: card(when)
+      };
+    };
+
+    // ---- Days ----
+    const todayKey = app.today;
+    const histRow = offset < 0 && -offset <= HISTORY.length ? HISTORY[-offset - 1] : null;
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const key = keyOf(start + i * DAY_MS);
+      const d = new Date(start + i * DAY_MS);
+      const when = key < todayKey ? "past" : key === todayKey ? "today" : "future";
+      const beforeHistory = offset < 0 && !histRow;
+
+      // Status and minutes
+      let status, minutes;
+      if (offset === 0) {
+        const w = app.week[i];
+        minutes = when === "today" ? app.minutes : w.minutes;
+        status = w.status;
+      } else if (histRow) {
+        minutes = histRow[i];
+        status = minutes >= goal ? "kept" : "missed";
+      } else if (beforeHistory) {
+        minutes = 0; status = "none";
+      } else {
+        minutes = 0; status = "future";
+      }
+      const isToday = when === "today";
+      const kept = status === "kept";
+
+      // Routines
+      let routineItems = [];
+      if (!beforeHistory) {
+        routineItems = ROUTINES.map((r, ri) => {
+          if (isToday) {
+            const live = app.items.find((x) => x.kind === "routine" && x.id === r.rid && x.date === key) || { id: r.rid, done: false };
+            return model({ id: live.id, kind: "routine", title: r.title, isDone: !!live.done, tag: r.tag, when, toggle: () => app.toggleItem(live.id) });
+          }
+          const sid = `${r.rid}@${key}`;
+          let fallback = false;
+          if (offset === 0 && when === "past") fallback = THIS_WEEK_ROUTINES[i][ri] === 1;
+          else if (histRow) fallback = ri === 0 ? minutes >= 60 : (i - offset) % 3 !== 0;
+          const isDone = when === "future" ? false : done(sid, fallback);
+          return model({ id: sid, kind: "routine", title: r.title, isDone, tag: r.tag, when, toggle: () => this.flip(sid, fallback) });
+        });
+      }
+      const routinesDone = routineItems.filter((x) => x.ariaChecked === "true").length;
+
+      // One-time items and events
+      let items = [];
+      if (offset === 0) {
+        items = app.items
+          .filter((x) => x.kind !== "routine" && x.date === key)
+          .map((x) => model({ id: x.id, kind: x.kind, title: x.title, isDone: !!x.done, time: x.time, when, toggle: () => app.toggleItem(x.id) }));
+      } else {
+        items = (OTHER_ITEMS[String(offset)] || [])
+          .map((row, n) => ({ row, n }))
+          .filter(({ row }) => row[0] === i)
+          .map(({ row, n }) => {
+            const sid = `x${offset}-${n}`;
+            const [, kind, ttl, extra] = row;
+            if (kind === "event") return model({ id: sid, kind, title: ttl, time: extra, when });
+            const isDone = when === "future" ? false : done(sid, !!extra);
+            return model({ id: sid, kind, title: ttl, isDone, when, toggle: () => this.flip(sid, !!extra) });
+          });
+      }
+      // Events with a time first, then the rest in order.
+      items.sort((p, q) => (p.kind === "event" ? 0 : 1) - (q.kind === "event" ? 0 : 1));
+
+      // Day state: kept = second colour with a soft glow; today = accent; missed = hollow; future = faint.
+      const dotBase = "display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box";
+      const keptGlow = `box-shadow: 0 0 0 1px ${t.secLine}, 0 0 12px -2px ${t.sec}${glowA}`;
+      let dot, markStyle, markDot, markLabel;
+      const chip = "display: inline-flex; align-self: flex-start; align-items: center; gap: 7px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 600";
+      if (kept) {
+        dot = `${dotBase}; background: ${t.sec}; box-shadow: 0 0 6px ${t.sec}${glowA}`;
+        markDot = `${dotBase}; width: 7px; height: 7px; background: ${t.sec}`;
+        markStyle = `${chip}; background: ${t.secTint}; color: ${t.secText}; ${keptGlow}; ${isToday && app.justKept ? "animation: keptIn 1200ms ease-out" : ""}`;
+        markLabel = "Kept";
+      } else if (status === "today") {
+        dot = `${dotBase}; background: ${t.sealed}`;
+        markDot = `${dotBase}; width: 7px; height: 7px; background: ${t.sealed}`;
+        markStyle = `${chip}; border: 1px solid ${t.sealed}; color: ${t.sealedText}`;
+        markLabel = "In progress";
+      } else if (status === "missed") {
+        dot = `${dotBase}; border: 1.5px solid ${t.muted}`;
+        markDot = `${dotBase}; width: 7px; height: 7px; border: 1.5px solid ${t.muted}`;
+        markStyle = `${chip}; border: 1px solid ${t.line}; color: ${t.muted}`;
+        markLabel = "Missed";
+      } else {
+        dot = `${dotBase}; background: ${t.line}`;
+        markDot = ""; markStyle = ""; markLabel = "";
+      }
+      const hasMark = !!markLabel;
+      const future = status === "future";
+      const colBase = "position: relative; z-index: 1; display: flex; flex-direction: column; border-radius: 12px; min-height: 520px; box-sizing: border-box";
+      const col = isToday
+        ? `${colBase}; gap: 12px; padding: 16px 12px; border: 1px solid ${t.sealed}; background: ${t.panel}cc`
+        : future || beforeHistory
+          ? `${colBase}; gap: 10px; padding: 16px 10px; border: 1px solid ${t.line}; background: transparent`
+          : `${colBase}; gap: 10px; padding: 16px 10px; border: 1px solid ${t.line}; background: ${t.panel}`;
+      const foldOpen = !!open[key];
+      days.push({
+        key, status,
+        name: WEEKDAYS[i].slice(0, 3),
+        num: String(d.getUTCDate()),
+        full: `${WEEKDAYS[i]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`,
+        nameColor: isToday ? t.sealedText : future || beforeHistory ? t.muted : t.text,
+        numColor: isToday ? t.sealedText : t.muted,
+        today: isToday,
+        showMin: !isToday && !future && !beforeHistory,
+        empty: beforeHistory,
+        min: String(minutes),
+        dot, hasMark, markStyle, markDot, markLabel,
+        col,
+        hasRoutines: routineItems.length > 0,
+        foldOpenStr: foldOpen ? "true" : "false",
+        foldCls: foldOpen ? "fold open" : "fold",
+        foldLabel: `Routines, ${routinesDone} of ${routineItems.length} done`,
+        routineCount: `${routinesDone}/${routineItems.length}`,
+        chevron: `transform: rotate(${foldOpen ? 90 : 0}deg)`,
+        toggleFold: () => { const next = { ...this.state.open }; next[key] = !next[key]; this.setState({ open: next }); },
+        routineItems,
+        items,
+        kept, isToday, missed: status === "missed"
+      });
+    }
+
+    const nKept = days.filter((x) => x.kept).length;
+    const nMissed = days.filter((x) => x.missed).length;
+    const todayDay = days.find((x) => x.isToday);
+    const parts = [];
+    if (nKept) parts.push(`${nKept} kept`);
+    if (nMissed) parts.push(`${nMissed} missed`);
+    if (todayDay) parts.push(todayDay.kept ? "today kept" : "today in progress");
+    const hasMarks = days.some((x) => x.status !== "none");
+    const marksLabel = parts.length ? parts.join(", ") : "No days kept yet";
+
+    // ---- Today ----
+    const pct = Math.min(100, (app.minutes / goal) * 100);
+    const todayRoll = `display: inline-block; font-family: 'Geist Mono', monospace; font-size: 30px; font-weight: 500; line-height: 1; animation: ${app.minutes % 2 ? "rollA" : "rollB"} 300ms cubic-bezier(.2,.7,.2,1)`;
+    const todayFill = `position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 2px; background: ${t.sealed}; transform-origin: 0 50%; transform: scaleX(${(pct / 100).toFixed(4)}); transition: transform 400ms cubic-bezier(.2,.7,.2,1)`;
+    // One soft light of the second colour on today's column, only once today is kept (only completion glows).
+    const glow = `position: absolute; z-index: 0; pointer-events: none; right: -90px; top: -70px; width: calc((100% - 60px) / 7 + 180px); height: 520px; background: radial-gradient(closest-side, ${t.sec}${light ? "26" : "40"}, ${t.sec}${light ? "0c" : "14"} 55%, ${t.sec}00)`;
+
+    // ---- Pending: overdue tasks from earlier days, plus items with no day yet ----
+    const pboxStyle = box("open");
+    const pending = [
+      ...app.items
+        .filter((x) => x.kind === "task" && !x.done && x.date < todayKey)
+        .map((x) => ({ title: x.title, origin: shortDate(x.date), box: pboxStyle, toggle: () => app.toggleItem(x.id) })),
+      ...UNDATED.filter((u) => !done(u.id, false)).map((u) => ({ title: u.title, origin: "", box: pboxStyle, toggle: () => this.flip(u.id, false) }))
+    ];
+
+    // ---- View tabs ----
+    const VIEWS = [["week", "Week"], ["list", "List"], ["month", "Month"], ["routines", "Routines"]];
+    const tabs = VIEWS.map(([id, label]) => {
+      const on = view === id;
+      return {
+        label, selected: on ? "true" : "false",
+        pick: () => this.setState({ view: id }),
+        style: `height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: ${on ? t.raised : "transparent"}; color: ${on ? t.text : t.muted}; font-weight: ${on ? 600 : 400}`
+      };
+    });
+    const OTHER = {
+      list: ["The week as rows", "List shows these seven days as two columns of rows, with Pending at the end. This prototype covers the Week view."],
+      month: ["The month as a grid", "Month shows each day's mark and first three items. Picking a day opens its week. This prototype covers the Week view."],
+      routines: ["Everything that repeats", "Routines lists each routine in your order, with its days, time and profile. This prototype covers the Week view."]
+    };
+    const other = OTHER[view] || ["", ""];
+
+    return {
+      t, title, goal: String(goal),
+      dated: view === "week" || view === "list",
+      isWeek: view === "week",
+      isOther: view !== "week",
+      otherTitle: other[0], otherText: other[1],
+      prevWeek: () => goWeek(offset - 1),
+      nextWeek: () => goWeek(offset + 1),
+      thisWeek: () => goWeek(0),
+      thisWeekStyle: offset === 0
+        ? `height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: ${t.muted}`
+        : `height: 32px; padding: 0 12px; border: 1px solid ${t.line}; border-radius: 8px; background: transparent; color: ${t.text2}`,
+      hasWhen: offset !== 0,
+      whenLabel: offset < 0 ? "Past week" : "Upcoming",
+      hasMarks, marksLabel,
+      newLabel: view === "routines" ? "New routine" : "New item",
+      newItem: () => {},
+      tabs,
+      days,
+      showGlow: offset === 0 && !!todayDay && todayDay.kept,
+      glow,
+      todayMinutes: String(app.minutes),
+      todayRoll, todayFill,
+      todayBarLabel: `${app.minutes} minutes of a ${goal} minute goal`,
+      hasSession: !!app.session,
+      sessionText: app.session ? `${app.session.elapsed} of ${app.session.length} min` : "",
+      pending,
+      pendingCount: String(pending.length),
+      pendingEmpty: pending.length === 0,
+      pendingOpenStr: pendingOpen ? "true" : "false",
+      pendingFoldCls: pendingOpen ? "fold open" : "fold",
+      pendingToggleLabel: pendingOpen ? "Hide pending" : "Show pending",
+      pendingChevron: `transform: rotate(${pendingOpen ? 90 : 0}deg)`,
+      togglePending: () => this.setState({ pendingOpen: !this.state.pendingOpen })
+    };
+  }
+}
+</script>
+</body>
+</html>

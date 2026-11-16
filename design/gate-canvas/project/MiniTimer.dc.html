@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Mini Timer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+/* Focus: 2px accent ring, offset 2px; on the accent fill it switches to the on-accent colour. */
+.mini-stage :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--ring) !important;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.mini-stage *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="mini-stage" style="width: 100%; min-height: 184px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 20px; align-items: flex-start; font-family: Geist, system-ui, sans-serif; background: {{t.sidebar}}; color: {{t.text}}">
+  <sc-for list="{{widgets}}" as="w" hint-placeholder-count="2">
+    <div role="timer" aria-label="{{w.aria}}" title="{{w.hint}}" style="{{w.frame}}">
+      <div aria-hidden="true" style="{{w.fill}}"></div>
+      <!-- Over the panel: text colour. -->
+      <div aria-hidden="true" style="{{w.layerPanel}}">
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" style="flex: 0 0 auto">
+          <circle cx="15" cy="15" r="12" fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-width="3"></circle>
+          <circle cx="15" cy="15" r="12" fill="none" stroke="{{w.arcPanel}}" stroke-width="3" stroke-linecap="round" stroke-dasharray="75.4" stroke-dashoffset="{{w.offset}}" transform="rotate(-90 15 15)"></circle>
+          <rect x="14" y="0" width="2" height="6" rx="1" fill="{{t.sealed}}"></rect>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0">
+          <span style="font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Interview Prep</span>
+          <span style="font-size: 11px; color: {{t.text2}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{w.sub}}</span>
+        </div>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500; letter-spacing: -0.02em">{{w.left}}</span>
+        <span style="flex: 0 0 26px; height: 26px"></span>
+      </div>
+      <!-- Over the accent fill: the on-accent colour. -->
+      <div aria-hidden="true" style="{{w.layerFill}}">
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" style="{{w.ringFill}}">
+          <circle cx="15" cy="15" r="12" fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-width="3"></circle>
+          <circle cx="15" cy="15" r="12" fill="none" stroke="{{w.arcFill}}" stroke-width="3" stroke-linecap="round" stroke-dasharray="75.4" stroke-dashoffset="{{w.offset}}" transform="rotate(-90 15 15)"></circle>
+          <rect x="14" y="0" width="2" height="6" rx="1" fill="{{t.sealedOn}}"></rect>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0">
+          <span style="font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Interview Prep</span>
+          <span style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{w.sub}}</span>
+        </div>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500; letter-spacing: -0.02em">{{w.left}}</span>
+        <span style="flex: 0 0 26px; height: 26px"></span>
+      </div>
+      <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; --ring: {{w.ring}}">
+        <button type="button" aria-label="Expand to full window" style="{{w.expand}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":348,"height":184}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// muted is raised to pass 4.5:1 on every surface here, the aurora's worst edge included
+// (Aura #9B9A9E, Night Owl #8592A1 and Cobalt2 Light #66747D failed on raised, sealedTint or the aurora).
+// Light themes are told by scheme, never by the app colour.
+// The accent line around the running widget.
+const SEALED_LINE = { "Aura": "#7E393D", "Night Owl": "#704B46", "Cobalt2 Light": "#B2D2D6", "Sanctum Dark": "#1F3482" };
+const RING = 75.4;
+
+class Component extends DCLogic {
+  renderVals() {
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = THEMES[theme];
+    const light = t.scheme === "light";
+
+    const build = (held) => {
+      const p = held ? 1 : 21.8 / 60;
+      const pct = p * 100;
+      const layer = `position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 12px`;
+      return {
+        aria: held ? "Focus timer, held" : "Focus timer, 38:12 left",
+        hint: held ? "The moment the session is held" : "Sealed, 22 of 60 minutes",
+        sub: held ? "Held. 60 of 60 minutes." : "39 min left · until 4:30 PM",
+        left: held ? "0:00" : "38:12",
+        offset: (RING * (1 - p)).toFixed(1),
+        // The held moment may glow: the held widget wears the second colour's line and glow.
+        frame: `position: relative; width: 300px; height: 58px; box-sizing: border-box; overflow: hidden; user-select: none; border-radius: 12px; background: ${t.panel}; border: 1px solid ${held ? t.secLine : SEALED_LINE[theme]}; box-shadow: ${held ? `0 0 0 1px ${t.secLine}, 0 0 16px -2px ${t.sec}${light ? "59" : "99"}, ` : ""}0 12px 32px ${light ? "#19354926" : "#00000080"}`,
+        fill: `position: absolute; top: 0; bottom: 0; left: 0; width: ${pct.toFixed(1)}%; background: ${t.sealed}; transition: width 400ms cubic-bezier(.2,.7,.2,1)`,
+        layerPanel: `${layer}; color: ${t.text}; clip-path: inset(0 0 0 ${pct.toFixed(1)}%)`,
+        layerFill: `${layer}; color: ${t.sealedOn}; clip-path: inset(0 ${(100 - pct).toFixed(1)}% 0 0)`,
+        arcPanel: "currentColor",
+        // On the accent fill the held ring is drawn in the on-accent colour (4.8:1 or more against the fill).
+        arcFill: "currentColor",
+        ringFill: `flex: 0 0 auto; ${held ? `filter: drop-shadow(0 0 3px ${t.sec}cc)` : ""}`,
+        expand: `width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: ${pct > 88 ? t.sealedOn : t.muted}`,
+        ring: pct > 88 ? t.sealedOn : t.sealed
+      };
+    };
+
+    return { t, widgets: [build(false), build(true)] };
+  }
+}
+</script>
+</body>
+</html>

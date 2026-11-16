@@ -1,0 +1,121 @@
+<title>Sanctum Headline Payoff</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: one row per payoff treatment, one column per theme. Each card is the top of Today (date row, headline, focus card edge), drawn at 640x210 and scaled. */
+:root {
+  color-scheme: dark;
+  --page: #0A0B0F;
+  --ink: #E6E9EF;
+  --ink-2: #A3ABBA;
+  --rule: #1D212B;
+  --chip: #151820;
+  --display: "Geist", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--display); }
+.wrap { max-width: 1480px; margin: 0 auto; padding-block: 40px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 44px; }
+header.intro { display: flex; flex-direction: column; gap: 10px; max-width: 72ch; }
+header.intro h1 { margin: 0; font-size: clamp(26px, 3.4vw, 38px); font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+header.intro h1 span { font-weight: 400; color: var(--ink-2); }
+header.intro p { margin: 0; color: var(--ink-2); line-height: 1.6; font-size: 15px; }
+section.opt { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--rule); padding-top: 22px; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.head .tag { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.head p { margin: 0; flex-basis: 100%; color: var(--ink-2); font-size: 14px; line-height: 1.55; max-width: 80ch; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+figcaption { font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+figcaption i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.frame { width: 100%; aspect-ratio: 640 / 210; max-width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); position: relative; }
+.frame > .mk { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* ---------- The card: the top of Today ---------- */
+.mk { width: 640px; height: 210px; background: var(--app); color: var(--text); font-family: var(--display); padding: 18px 22px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+.mk .top { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.mk .top b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+.mk .lines { display: flex; flex-direction: column; gap: 10px; }
+.mk h3 { margin: 0; font-size: 27px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+.mk h3.small { font-size: 18px; letter-spacing: -0.015em; }
+.mk .card { margin-top: auto; height: 34px; border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; background: var(--panel); display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; }
+.mk .card span { height: 18px; width: 120px; border-radius: 5px; background: var(--sealed); }
+
+/* Now: Instrument Serif italic in the payoff grey. */
+.p0 .pay { font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-weight: 400; color: var(--payoff); }
+/* A: one family, two weights; the payoff steps down to regular in the second colour. */
+.pA .pay { font-weight: 400; color: var(--sec-text); }
+/* B: the payoff on a highlighter band of the second colour. */
+.pB .pay { font-weight: 700; color: var(--sec-text); background: linear-gradient(transparent 58%, var(--sec-tint) 58%, var(--sec-tint) 92%, transparent 92%); padding: 0 3px; margin: 0 -1px; }
+/* C: a two-tone gradient payoff, the second colour into the accent. */
+.pC .pay { font-weight: 800; background: linear-gradient(90deg, var(--sec), var(--sealed-text)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* D: a thick, low underline in the second colour; the words stay in text colour. */
+.pD .pay { text-decoration: underline; text-decoration-color: var(--sec); text-decoration-thickness: 3px; text-underline-offset: 6px; text-decoration-skip-ink: none; }
+/* E: Fraunces, an upright soft serif, in the second colour. */
+.pE .pay { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-variation-settings: "opsz" 72; letter-spacing: -0.01em; color: var(--sec-text); }
+/* F: Bricolage Grotesque, a characterful upright sans, in the second colour. */
+.pF .pay { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 600; font-variation-settings: "opsz" 72; letter-spacing: -0.02em; color: var(--sec-text); }
+/* G: Geist Mono payoff, set a touch smaller, like a readout. */
+.pG .pay { font-family: var(--mono); font-weight: 500; font-size: 0.82em; letter-spacing: -0.03em; color: var(--sec-text); }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>A payoff without the italic. <span>Colour and type do the work.</span></h1>
+    <p>Every headline in Sanctum ends in an Instrument Serif italic payoff. Below: the top of Today as it is, then seven upright treatments. Each uses the theme's second colour (its event colour, the dot the theme picker shows) and stays easy to read at a glance. Each card shows a main headline and a shorter one.</p>
+  </header>
+  <div id="opts"></div>
+</div>
+
+<script>
+const THEMES = [
+  { name: "Aura", p: { app: "#15141B", panel: "#1E1D24", line: "#3C3B41", text: "#EDECEE", muted: "#9B9A9E", payoff: "#ACABAF", sealed: "#FF6767", "sealed-text": "#FF6767", sec: "#FFCA85", "sec-tint": "#4A3B2C" } },
+  { name: "Night Owl", p: { app: "#011627", panel: "#0B1F30", line: "#273A4A", text: "#D6DEEB", muted: "#8592A1", payoff: "#96A2B1", sealed: "#F78C6C", "sealed-text": "#F78C6C", sec: "#ECC48D", "sec-tint": "#2E3A3B" } },
+  { name: "Cobalt2 Light", p: { app: "#FFFFFF", panel: "#FFFFFF", line: "#D6DBDE", text: "#193549", muted: "#66747D", payoff: "#5C6C78", sealed: "#237D89", "sealed-text": "#007583", sec: "#D68000", "sec-tint": "#F7E3C2" } },
+  { name: "Sanctum Dark", p: { app: "#0B0D12", panel: "#12151C", line: "#1F2430", text: "#E6E9EF", muted: "#8A93A6", payoff: "#8C96AB", sealed: "#2F5BFF", "sealed-text": "#7A95FF", sec: "#FF8A6B", "sec-tint": "#3A1D16" } },
+];
+
+const OPTS = [
+  { cls: "p0", title: "Now", tag: "Instrument Serif italic, payoff grey", text: "The pattern you flagged: the italic serif turn is what many AI-made interfaces reach for." },
+  { cls: "pA", title: "A · Weight step", tag: "Geist bold → Geist regular, second colour", text: "One family. The statement is bold, and the payoff steps down to regular weight in the second colour. The quietest change, and the easiest to read." },
+  { cls: "pB", title: "B · Highlighter", tag: "Geist bold on a tinted band", text: "The payoff sits on a low band of the second colour's tint, like a pen highlight. It reads as emphasis without changing the type." },
+  { cls: "pC", title: "C · Two-tone", tag: "Geist heavy, gradient second colour → accent", text: "The payoff runs from the second colour into the accent. It pairs with the Edge ideas, where the same two-tone line appears on the focus card." },
+  { cls: "pD", title: "D · Underlined", tag: "Geist bold, thick low underline", text: "The words stay in the text colour; a thick underline in the second colour carries the theme. Highest legibility, since the letters never change colour." },
+  { cls: "pE", title: "E · Upright serif", tag: "Fraunces semibold, second colour", text: "Keeps a serif's warmth for the payoff, but upright and heavier, so it reads as a decision rather than a whisper." },
+  { cls: "pF", title: "F · Character sans", tag: "Bricolage Grotesque semibold, second colour", text: "A sans with more personality than Geist (open shapes, slightly quirky curves). It sets the payoff apart while staying in the same register." },
+  { cls: "pG", title: "G · Readout", tag: "Geist Mono, second colour", text: "The payoff as a terminal readout, matching the mono already used for timers and counts. Feels like the app speaking." },
+];
+
+const hx = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const toHex = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+const lum = (h) => { const [r, g, b] = hx(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+/** The second colour as text: moved toward the theme's text until it reads on the page (4.5:1). */
+const readable = (c, bg, toward) => { let t = 0, out = c; while (contrast(out, bg) < 4.5 && t < 1) { t += 0.05; out = mix(c, toward, t); } return out; };
+
+function vars(p) {
+  const v = { ...p, "sec-text": readable(p.sec, p.app, p.text) };
+  return Object.entries(v).map(([k, val]) => `--${k}:${val}`).join(";");
+}
+
+const card = (t, cls) => `<div class="mk ${cls}" style="${vars(t.p)}" role="img" aria-label="${t.name}">
+  <div class="top"><span>Sunday, November 15</span><span><b>11</b> day streak</span></div>
+  <div class="lines">
+    <h3>Your word is the plan. <span class="pay">Keep it.</span></h3>
+    <h3 class="small">Two hours today. <span class="pay">Hold the line.</span></h3>
+  </div>
+  <div class="card"><span></span></div>
+</div>`;
+
+document.getElementById("opts").innerHTML = OPTS.map((o) => `
+  <section class="opt">
+    <div class="head"><h2>${o.title}</h2><span class="tag">${o.tag}</span><p>${o.text}</p></div>
+    <div class="row">${THEMES.map((t) => `<figure><div class="frame">${card(t, o.cls)}</div><figcaption><i style="background:${t.p.sealed}"></i><i style="background:${t.p.sec}"></i>${t.name}</figcaption></figure>`).join("")}</div>
+  </section>`).join("");
+
+function fit() { for (const f of document.querySelectorAll(".frame")) f.firstElementChild.style.transform = `scale(${f.clientWidth / 640})`; }
+new ResizeObserver(fit).observe(document.body);
+fit();
+</script>

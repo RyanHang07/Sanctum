@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Notes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.nt button{font:inherit;cursor:pointer}
+.nt input{font:inherit}
+.nt input::placeholder{color:inherit;opacity:1}
+.nt h1,.nt h2,.nt h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.nt .hov:hover{opacity:.85}
+.nt .nav-btn:hover{opacity:.85}
+/* The aurora: three radial lights, no blur filter. Still while open; only a sealed screen (.aurora-live) drifts, slowly. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;transition:opacity 900ms ease}
+.aurora-a{width:900px;height:760px;left:-300px;top:-340px}
+.aurora-b{width:960px;height:800px;right:-360px;top:-280px}
+.aurora-c{width:1200px;height:620px;left:12%;bottom:-420px}
+.aurora-live .aurora-a{animation:auroraA 46s ease-in-out infinite}
+.aurora-live .aurora-b{animation:auroraB 54s ease-in-out infinite}
+.aurora-live .aurora-c{animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,30px)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0)}50%{transform:translate(-70px,24px)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-24px)}}
+/* The note's table: header row raised, lines from the theme. */
+.nt .doc-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13.5px}
+.nt .doc-table th,.nt .doc-table td{padding:6px 10px;text-align:left;vertical-align:top}
+.nt .doc-table th{font-weight:600}
+/* One focus ring for every control: 2px accent, 2px off the edge. */
+.nt :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.nt *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="nt" style="--ring: {{t.sealed}}; width: 100%; min-height: 800px; display: flex; flex-wrap: wrap; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+
+  <nav aria-label="Sanctum" style="flex: 0 0 220px; box-sizing: border-box; padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; background: {{t.sidebar}}; border-right: 1px solid {{t.line}}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 2px 8px; font-weight: 600; font-size: 14px">
+      <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+      Sanctum
+    </div>
+    <div role="status" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; font-size: 13px; font-weight: 500; color: {{t.text}}">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: {{t.text}}"></span>Open
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{nav}}" as="item" hint-placeholder-count="7">
+        <button type="button" class="nav-btn" aria-current="{{item.current}}" title="{{item.hint}}" style="{{item.style}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{item.icon}}"><path d="{{item.d}}"></path></svg>
+          <span style="flex: 1">{{item.label}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{keyColor}}">{{item.key}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </nav>
+
+  <main style="position: relative; isolation: isolate; flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraA}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+
+    <div style="flex: 1; min-height: 800px; box-sizing: border-box; padding: 20px 28px 24px; display: flex; flex-direction: column; gap: 16px">
+
+      <div style="display: flex; align-items: center; justify-content: space-between; height: 32px; flex-shrink: 0">
+        <h1 style="margin: 0; font-size: 26px; line-height: 1">Notes</h1>
+        <button type="button" class="hov" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-size: 13px; font-weight: 600">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="stroke: {{t.sealedOn}}"><path d="M8 3v10M3 8h10"></path></svg>
+          New note
+        </button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+
+        <aside aria-label="All notes" style="width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px">
+          <label style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid {{t.lineInput}}; border-radius: 8px; background: {{t.panel}}; color: {{t.muted}}">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="stroke: {{t.muted}}"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+            <input aria-label="Search notes" placeholder="Search notes" style="flex: 1; min-width: 0; border: 0; background: transparent; color: {{t.text}}; font-size: 13px">
+          </label>
+          <div style="display: flex; flex-direction: column; gap: 1px">
+            <sc-for list="{{notes}}" as="n" hint-placeholder-count="6">
+              <button type="button" aria-current="{{n.current}}" style="{{n.rowStyle}}">
+                <span style="display: flex; align-items: center; gap: 6px">
+                  <sc-if value="{{n.pinned}}" hint-placeholder-val="{{ true }}">
+                    <span aria-label="Pinned" style="display: flex; color: {{t.text2}}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"></path><path d="M12 15v5"></path></svg>
+                    </span>
+                  </sc-if>
+                  <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: {{t.text}}">{{n.title}}</span>
+                  <span style="flex-shrink: 0; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.muted}}">{{n.edited}}</span>
+                </span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: {{t.muted}}">{{n.preview}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </aside>
+
+        <section style="flex: 1; min-width: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 32px 20px 16px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+          <article aria-label="Interview prep plan" style="display: flex; flex-direction: column; gap: 12px; min-height: 0">
+
+            <div style="display: flex; align-items: center; gap: 8px; padding-left: 32px">
+              <input aria-label="Title" value="Interview prep plan" style="flex: 1; min-width: 0; border: 0; background: transparent; color: {{t.text}}; font-family: 'Schibsted Grotesk', Geist, sans-serif; font-size: 21px; font-weight: 700; letter-spacing: -0.02em">
+              <span style="flex-shrink: 0; font-size: 12px; color: {{t.muted}}">Edited <span style="font-family: 'Geist Mono', monospace">2:14 PM</span></span>
+              <button type="button" class="hov" title="Share a read-only link" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: {{t.muted}}; font-size: 12px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"></path><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"></path></svg>
+                Share
+              </button>
+              <button type="button" class="hov" aria-pressed="true" aria-label="Unpin" title="Unpin" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: {{t.raised}}; color: {{t.text}}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"></path><path d="M12 15v5"></path></svg>
+              </button>
+              <button type="button" class="hov" aria-label="Delete note" title="Delete note" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: {{t.muted}}">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5h11 M6.2 4.5V2.8h3.6v1.7 M4 4.5l.7 8.7h6.6l.7-8.7 M6.8 7v4 M9.2 7v4"></path></svg>
+              </button>
+            </div>
+
+            <div style="position: relative; padding-left: 32px">
+              <div role="toolbar" aria-label="Note tools" style="display: flex; flex-wrap: wrap; align-items: center; gap: 1px; padding: 3px; margin-bottom: 14px; border: 1px solid {{t.line}}; border-radius: 8px; background: {{toolbarBg}}">
+                <span role="group" aria-label="Text size" style="display: flex; align-items: center">
+                  <button type="button" aria-label="Smaller text" title="Smaller text" style="{{tool}}"><span style="font-weight: 600">A</span><span style="font-size: 9px">−</span></button>
+                  <span aria-label="Text size 14" style="width: 28px; text-align: center; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.text2}}">14</span>
+                  <button type="button" aria-label="Larger text" title="Larger text" style="{{tool}}"><span style="font-size: 15px; font-weight: 600">A</span><span style="font-size: 9px">+</span></button>
+                </span>
+                <span aria-hidden="true" style="{{divider}}"></span>
+                <button type="button" aria-label="Bold" aria-pressed="false" title="Bold" style="{{tool}}"><span style="font-weight: 700">B</span></button>
+                <button type="button" aria-label="Italic" aria-pressed="false" title="Italic" style="{{tool}}"><span style="font-style: italic; font-size: 14px">I</span></button>
+                <button type="button" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough" style="{{tool}}"><span style="text-decoration: line-through">S</span></button>
+                <span aria-hidden="true" style="{{divider}}"></span>
+                <button type="button" aria-label="Heading" aria-pressed="false" title="Heading" style="{{tool}}"><span style="font-weight: 600">H1</span></button>
+                <button type="button" aria-label="Subheading" aria-pressed="false" title="Subheading" style="{{tool}}"><span style="font-weight: 600">H2</span></button>
+                <span aria-hidden="true" style="{{divider}}"></span>
+                <button type="button" aria-label="Bulleted list" aria-pressed="false" title="Bulleted list" style="{{tool}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h7 M6.5 8h7 M6.5 12h7 M2.8 4h.4 M2.8 8h.4 M2.8 12h.4"></path></svg></button>
+                <button type="button" aria-label="Numbered list" aria-pressed="false" title="Numbered list" style="{{tool}}"><span style="font-family: 'Geist Mono', monospace; font-size: 11px">1.</span></button>
+                <button type="button" aria-label="Checklist" aria-pressed="true" title="Checklist" style="{{toolOn}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.8h3.7v3.7h-3.7Z M3.4 4.7l.9.9l1.3-1.6 M8.5 4.6h5 M2.5 9.5h3.7v3.7h-3.7Z M8.5 11.4h5"></path></svg></button>
+                <button type="button" aria-label="Table" title="Table" style="{{tool}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3h11v10h-11Z M2.5 6.5h11 M6.2 6.5v6.5 M9.8 6.5v6.5"></path></svg></button>
+                <button type="button" aria-label="Image" title="Image" style="{{tool}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6.2" r="1.1"></circle><path d="M2.5 3h11v10h-11Z M2.5 11l3.5-3.5l3 3l2-2l2.5 2.5"></path></svg></button>
+                <button type="button" aria-label="Callout" aria-pressed="false" title="Callout" style="{{tool}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3h11v7.5h-6.5l-3 2.5v-2.5h-1.5Z M8 5v2.6 M8 9.1v.1"></path></svg></button>
+              </div>
+
+              <span aria-hidden="true" title="Drag to move" style="position: absolute; left: 2px; top: 124px; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: {{t.muted}}; opacity: .7">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.6"></circle><circle cx="9" cy="3" r="1.6"></circle><circle cx="3" cy="9" r="1.6"></circle><circle cx="9" cy="9" r="1.6"></circle><circle cx="3" cy="15" r="1.6"></circle><circle cx="9" cy="15" r="1.6"></circle></svg>
+              </span>
+
+              <div aria-label="Note text" style="font-size: 14px; line-height: 1.65; color: {{t.text}}; display: flex; flex-direction: column; gap: 7px">
+                <h2 style="margin: 0 0 2px; font-size: 19px; line-height: 1.25">Before Thursday's mock</h2>
+                <p style="margin: 0">Two problems a day, timed. Talk through each one out loud, then write the complexity before running it. Book a slot after the <span style="{{mention}}">Mock interview</span>.</p>
+
+                <ul aria-label="Checklist" style="list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+                  <sc-for list="{{checks}}" as="c" hint-placeholder-count="5">
+                    <li style="display: flex; align-items: flex-start; gap: 10px">
+                      <span role="checkbox" aria-checked="{{c.checked}}" style="{{c.box}}">
+                        <sc-if value="{{c.done}}" hint-placeholder-val="{{ true }}">
+                          <svg width="9" height="7" viewBox="0 0 9 7" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.sealedOn}}"><path d="M1 3.5l2.2 2.2L8 1"></path></svg>
+                        </sc-if>
+                      </span>
+                      <span style="{{c.textStyle}}">{{c.text}}</span>
+                    </li>
+                  </sc-for>
+                </ul>
+
+                <h2 style="margin: 14px 0 2px; font-size: 19px; line-height: 1.25">Practice log</h2>
+                <table class="doc-table" style="color: {{t.text}}">
+                  <thead>
+                    <tr>
+                      <sc-for list="{{tableHead}}" as="h" hint-placeholder-count="4"><th style="{{h.style}}">{{h.text}}</th></sc-for>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{tableRows}}" as="r" hint-placeholder-count="3">
+                      <tr>
+                        <td style="{{cell}}">{{r.day}}</td>
+                        <td style="{{cellMono}}">{{r.problems}}</td>
+                        <td style="{{cellMono}}">{{r.time}}</td>
+                        <td style="{{cell}}">{{r.note}}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+                <p style="margin: 4px 0 0; color: {{t.muted}}">Write, or type “/” for blocks and “@” to link to Sanctum</p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":1280,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Shared helpers, the same in every page file.
+// muted and lineInput are contrast-checked in THEMES: muted clears 4.5:1 on app, panel, raised,
+// sidebar, sealedTint and secTint; lineInput clears 3:1 on app, panel, raised and sidebar.
+// Light themes come from the scheme field, never from the app colour.
+function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16)); }
+// mix(a, b, w): a moved toward b by w (0..1).
+function mix(a, b, w) {
+  const A = rgb(a), B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v * (1 - w) + B[i] * w).toString(16).padStart(2, "0")).join("");
+}
+function tokens(name) {
+  const base = THEMES[name] || THEMES.Aura;
+  return { ...base, light: base.scheme === "light", lineSoft: mix(base.line, base.panel, 0.4) };
+}
+// The aurora: three radial lights, no blur filter. Barely there while open; a little stronger while sealed.
+function auroraVals(t, sealed) {
+  const o = sealed ? (t.light ? [0.14, 0.09, 0.06] : [0.28, 0.18, 0.12]) : (t.light ? [0.08, 0.08, 0.05] : [0.16, 0.14, 0.10]);
+  const glow = (c, op) => "background: radial-gradient(closest-side, " + c + ", " + c + "00); opacity: " + op;
+  return {
+    auroraA: glow(t.sealed, o[0]),
+    auroraB: glow(t.sec, o[1]),
+    auroraC: glow(mix(t.sealed, t.sec, 0.5), o[2]),
+    auroraVeil: "background: radial-gradient(ellipse 80% 70% at 50% 45%, " + t.app + "d9 0%, " + t.app + "a6 100%)",
+    auroraClass: sealed ? "aurora-live" : ""
+  };
+}
+// [label, shortcut, screen, icon path]
+const NAV = [
+  ["Today", "Ctrl 1", "today", "M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13Z M5.5 8l1.8 1.8L10.5 6.5"],
+  ["Week", "Ctrl 2", "week", "M2.5 3.5h11v10h-11Z M2.5 6.5h11 M5.5 2v3 M10.5 2v3"],
+  ["Stats", "Ctrl 3", "stats", "M3 13V8 M8 13V3 M13 13V6"],
+  ["Trackers", "Ctrl 4", "trackers", "M2 12l4-4l3 3l5-6"],
+  ["Notes", "Ctrl 5", "notes", "M4 1.5h5.5l2.5 2.5v10.5h-8Z M6 7h4 M6 10h4"],
+  ["Journal", "Ctrl 6", "journal", "M3.5 2h8.5v12h-8.5Z M6 2v12"],
+  ["Setup", "Ctrl ,", "setup", "M2 5h12 M2 11h12 M5 3v4 M11 9v4"]
+];
+const ACTIVE = "notes";
+
+// Pinned notes first, then the most recently edited.
+const NOTES = [
+  { title: "Interview prep plan", edited: "2:14 PM", preview: "Before Thursday's mock", pinned: true, open: true },
+  { title: "Reading list", edited: "Yesterday", preview: "A Philosophy of Software Design, then Designing Data-Intensive Applications", pinned: true },
+  { title: "Flight options for December", edited: "Yesterday", preview: "Nonstop on the 19th, back on the 2nd. Aisle, not the last row." },
+  { title: "Climbing gear", edited: "Nov 12", preview: "Shoes resoled, new chalk bag, finger tape" },
+  { title: "Ideas for the weekly update", edited: "Nov 10", preview: "Lead with what shipped, then what slipped and why" },
+  { title: "Apartment move", edited: "Nov 6", preview: "Measure the hallway before ordering the desk" },
+  { title: "What I learned from the Q3 review", edited: "Oct 28", preview: "Say no earlier. Write the plan down before the meeting." }
+];
+
+const CHECKS = [
+  { text: "Arrays and hashing, 8 problems", done: true },
+  { text: "Two pointers, 5 problems", done: true },
+  { text: "Sliding window, 6 problems", done: true },
+  { text: "Redo the graph problems I missed on Tuesday", done: false },
+  { text: "One system design question, out loud, 30 minutes", done: false }
+];
+
+const HEAD = ["Day", "Problems", "Time", "What went wrong"];
+const ROWS = [
+  { day: "Tue", problems: "3", time: "52m", note: "Off by one on the window bounds" },
+  { day: "Wed", problems: "2", time: "38m", note: "Clean. Explained both well." },
+  { day: "Fri", problems: "4", time: "1h 10m", note: "Graphs are still slow to set up" }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const t = tokens(this.props.theme);
+
+    const nav = NAV.map(([label, key, screen, d]) => {
+      const on = screen === ACTIVE;
+      return {
+        label, key, d,
+        current: on ? "page" : "false",
+        hint: `${label} (${key})`,
+        icon: on ? t.sec : t.muted,
+        style: `display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13.5px; font-weight: ${on ? 600 : 400}; color: ${on ? t.text : t.text2}; background: ${on ? t.raised : "transparent"}`
+      };
+    });
+
+    const notes = NOTES.map((n) => ({
+      ...n,
+      pinned: !!n.pinned,
+      current: n.open ? "true" : "false",
+      rowStyle: `display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; text-align: left; background: ${n.open ? t.raised : "transparent"}; color: ${t.text}`
+    }));
+
+    const checks = CHECKS.map((c) => ({
+      ...c,
+      checked: c.done ? "true" : "false",
+      box: `flex: none; margin-top: 4px; width: 15px; height: 15px; box-sizing: border-box; display: grid; place-content: center; border-radius: 4px; border: 1.5px solid ${c.done ? t.sealed : t.muted}; background: ${c.done ? t.sealed : "transparent"}`,
+      textStyle: c.done ? `color: ${t.muted}; text-decoration: line-through` : `color: ${t.text}`
+    }));
+
+    const border = `border: 1px solid ${t.line}`;
+    const tableHead = HEAD.map((text) => ({ text, style: `${border}; background: ${t.raised}; color: ${t.text}` }));
+
+    const toolBase = "display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 8px; font-size: 12px;";
+
+    return {
+      t, nav, notes, checks, tableHead, tableRows: ROWS,
+      keyColor: t.muted,
+      ...auroraVals(t, false),
+      toolbarBg: `${t.app}66`,
+      tool: `${toolBase} background: transparent; color: ${t.muted}`,
+      toolOn: `${toolBase} background: ${t.raised}; color: ${t.text}`,
+      divider: `width: 1px; height: 16px; margin: 0 4px; flex-shrink: 0; background: ${t.line}`,
+      mention: `padding: 1px 6px; border-radius: 4px; white-space: nowrap; background: ${t.sealedTint}; color: ${t.sealedText}; border: 1px solid ${t.sealed}55`,
+      cell: `${border}; color: ${t.text}`,
+      cellMono: `${border}; color: ${t.text}; font-family: 'Geist Mono', monospace; font-size: 12.5px`
+    };
+  }
+}
+</script>
+</body>
+</html>

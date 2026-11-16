@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Trackers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.pt-root button{font:inherit;cursor:pointer}
+/* Keyboard focus: one visible ring on every interactive element (the value input keeps its border cue too). */
+.pt-root :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--pt-sealed);outline-offset:2px}
+.pt-root h1,.pt-root h2{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight:700 !important;letter-spacing:-0.02em !important}
+.pt-input:focus{border-color:var(--pt-sealed) !important}
+/* Odometer: each digit is a masked column holding a 0-9 strip (11 cells, the first digit repeated at the end). */
+.pt-root .odo{display:inline-flex;align-items:flex-start;line-height:1.15;white-space:pre}
+.pt-root .odo-base{display:inline-block;width:0}
+.pt-root .odo-col{display:inline-block;height:1.15em;overflow:hidden;-webkit-mask-image:linear-gradient(transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(transparent,#000 12%,#000 88%,transparent)}
+.pt-root .odo-strip{position:relative;display:flex;flex-direction:column}
+.pt-root .odo-cell{display:block;height:1.15em;line-height:1.15;text-align:center}
+.pt-root .odo-ch{display:inline-block;line-height:1.15}
+@keyframes pt-rise{from{transform:translateY(-4px);opacity:0}to{transform:translateY(0);opacity:1}}
+.pt-pop{animation:pt-rise 160ms ease-out}
+@media (prefers-reduced-motion: reduce){.pt-root *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="pt-root" ref="{{ rootRef }}" style="{{rootStyle}}">
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+    <h1 style="margin: 0; flex: 1; min-width: 160px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Trackers</h1>
+    <div role="group" aria-label="Time range" style="display: flex; padding: 2px; gap: 2px; border: 1px solid {{t.line}}; border-radius: 6px">
+      <sc-for list="{{ranges}}" as="r" hint-placeholder-count="5"><button type="button" aria-pressed="{{r.on}}" onClick="{{r.pick}}" style="{{r.style}}">{{r.label}}</button></sc-for>
+    </div>
+    <div role="group" aria-label="View" style="display: flex; padding: 2px; gap: 2px; border: 1px solid {{t.line}}; border-radius: 6px">
+      <sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}" style="{{v.style}}">{{v.label}}</button></sc-for>
+    </div>
+    <button type="button" style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 6px; background: transparent; color: {{t.text2}}; font-weight: 500">Edit</button>
+    <button type="button" aria-expanded="{{formOpenStr}}" onClick="{{openForm}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 6px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-weight: 600">Log entry</button>
+  </div>
+
+  <sc-if value="{{formOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-label="Log entry" class="pt-pop" onKeyDown="{{formKey}}" style="{{form.style}}">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 14px 10px 16px">
+        <div style="display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 12px; color: {{t.muted}}">{{form.meta}}</span>
+          <h2 style="margin: 0; font-size: 18px">Log entry</h2>
+        </div>
+        <button type="button" aria-label="Close" onClick="{{closeForm}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: {{t.muted}}"><svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l6 6M8 2l-6 6"></path></svg></button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-top: 1px solid {{t.line}}">
+        <span id="pt-tracker-label" style="font-size: 12px; color: {{t.muted}}">Tracker</span>
+        <div role="group" aria-labelledby="pt-tracker-label" style="display: flex; flex-wrap: wrap; gap: 4px">
+          <sc-for list="{{form.pickers}}" as="p" hint-placeholder-count="4"><button type="button" aria-pressed="{{p.on}}" onClick="{{p.pick}}" style="{{p.style}}">{{p.name}}</button></sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-top: 1px solid {{t.line}}">
+        <sc-if value="{{form.isNumber}}" hint-placeholder-val="{{ true }}">
+          <label for="pt-value" style="font-size: 12px; color: {{t.muted}}">{{form.valueLabel}}</label>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <input id="pt-value" class="pt-input" type="text" inputmode="decimal" autocomplete="off" placeholder="{{form.placeholder}}" aria-invalid="{{form.invalid}}" aria-describedby="pt-error" value="{{form.text}}" onChange="{{onInput}}" style="{{form.inputStyle}}">
+            <span style="font-family: 'Geist Mono', monospace; font-size: 13px; color: {{t.muted}}">{{form.unit}}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{form.isScale}}" hint-placeholder-val="{{ false }}">
+          <span id="pt-scale-label" style="font-size: 12px; color: {{t.muted}}">{{form.valueLabel}}</span>
+          <div role="group" aria-labelledby="pt-scale-label" style="display: flex; justify-content: space-between; gap: 2px">
+            <sc-for list="{{form.choices}}" as="ch" hint-placeholder-count="10"><button type="button" aria-pressed="{{ch.on}}" onClick="{{ch.pick}}" style="{{ch.style}}">{{ch.label}}</button></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{form.isYesNo}}" hint-placeholder-val="{{ false }}">
+          <span id="pt-yn-label" style="font-size: 12px; color: {{t.muted}}">{{form.valueLabel}}</span>
+          <div role="group" aria-labelledby="pt-yn-label" style="display: flex; gap: 4px">
+            <sc-for list="{{form.choices}}" as="ch" hint-placeholder-count="2"><button type="button" aria-pressed="{{ch.on}}" onClick="{{ch.pick}}" style="{{ch.style}}">{{ch.label}}</button></sc-for>
+          </div>
+        </sc-if>
+        <span style="font-size: 12px; color: {{t.muted}}">{{form.note}}</span>
+        <span id="pt-error" role="alert" style="{{form.errorStyle}}">{{form.error}}</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid {{t.line}}; background: {{t.raised}}">
+        <button type="button" onClick="{{closeForm}}" style="height: 32px; padding: 0 12px; border: 1px solid {{t.line}}; border-radius: 6px; background: transparent; color: {{t.text2}}; font-weight: 500">Cancel</button>
+        <button type="button" onClick="{{save}}" style="margin-left: auto; height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 0; border-radius: 6px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-weight: 600">Log<span aria-hidden="true" style="font-family: 'Geist Mono', monospace; font-size: 11px; opacity: .75">&#8629;</span></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isChart}}" hint-placeholder-val="{{ true }}">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+        <section aria-label="{{c.name}}" data-card="{{c.id}}" style="display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 18px 12px; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.panel}}">
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <h2 style="margin: 0; font-size: 13px; font-weight: 600">{{c.name}}</h2>
+            <span style="font-size: 12px; color: {{t.muted}}">{{c.goalText}}</span>
+            <span style="margin-left: auto; display: inline-flex; align-items: baseline; font-family: 'Geist Mono', monospace; font-size: 22px; font-weight: 500; letter-spacing: -0.02em"><span aria-live="polite" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap">{{c.current}} {{c.unit}}</span><span class="odo" data-odo="{{c.id}}" aria-hidden="true"><span class="odo-base">&#8203;</span><sc-for list="{{c.odo.tokens}}" as="tk" hint-placeholder-count="3"><sc-if value="{{tk.digit}}" hint-placeholder-val="{{ true }}"><span class="odo-col"><span class="odo-strip" data-strip="" data-idx="{{tk.idx}}" style="{{tk.strip}}"><sc-for list="{{tk.cells}}" as="cl" hint-placeholder-count="11"><span class="odo-cell">{{cl.v}}</span></sc-for></span></span></sc-if><sc-if value="{{tk.char}}" hint-placeholder-val="{{ false }}"><span class="odo-ch">{{tk.ch}}</span></sc-if></sc-for></span><span aria-hidden="true" style="font-size: 12px; color: {{t.muted}}">&#160;{{c.unit}}</span></span>
+          </div>
+          <div role="img" aria-label="{{c.aria}}" style="position: relative; height: 104px; margin: 6px 4px 0 44px">
+            <div style="position: absolute; left: -12px; top: 0; bottom: 0; border-left: 1px solid {{t.line}}"></div>
+            <sc-for list="{{c.yticks}}" as="y" hint-placeholder-count="11"><span style="{{y.style}}"></span></sc-for>
+            <sc-for list="{{c.ylabels}}" as="l" hint-placeholder-count="3"><span style="{{l.style}}">{{l.label}}</span></sc-for>
+            <sc-if value="{{c.hasGoal}}" hint-placeholder-val="{{ false }}">
+              <span style="{{c.goalTick}}"></span>
+              <div style="{{c.goalStyle}}"></div>
+            </sc-if>
+            <sc-if value="{{c.isLine}}" hint-placeholder-val="{{ true }}">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible"><polyline points="{{c.points}}" fill="none" stroke="{{t.sealed}}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"></polyline></svg>
+            </sc-if>
+            <sc-for list="{{c.dots}}" as="d" hint-placeholder-count="7"><span style="{{d.style}}"></span></sc-for>
+          </div>
+          <div aria-hidden="true" style="position: relative; height: 12px; margin: 2px 4px 0 44px; border-top: 1px solid {{t.line}}">
+            <sc-for list="{{c.xticks}}" as="x" hint-placeholder-count="25"><span data-xt="{{x.key}}" style="{{x.style}}"><sc-if value="{{x.glow}}" hint-placeholder-val="{{ false }}"><span data-day-glow="" style="{{x.glowStyle}}"></span></sc-if></span></sc-for>
+          </div>
+          <div aria-hidden="true" style="position: relative; height: 14px; margin: 0 4px 0 44px">
+            <sc-for list="{{c.xlabels}}" as="x" hint-placeholder-count="7"><span style="{{x.style}}">{{x.label}}</span></sc-for>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid {{t.line}}; font-size: 12px; color: {{t.text2}}">
+            <span>{{c.note}}</span><span style="color: {{t.muted}}">{{c.hitText}}</span>
+          </div>
+        </section>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <section aria-label="Entries" style="display: flex; flex-direction: column; border: 1px solid {{t.line}}; border-radius: 8px; background: {{t.panel}}; overflow: hidden">
+    <div style="{{headStyle}}">
+      <span>Date</span><span>Tracker</span><span>Value</span><span>Source</span>
+    </div>
+    <sc-for list="{{rows}}" as="e" hint-placeholder-count="8">
+      <div style="{{e.style}}">
+        <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: {{t.text2}}">{{e.date}}</span>
+        <span>{{e.name}}</span>
+        <span style="{{e.valueStyle}}">{{e.value}}</span>
+        <span style="color: {{t.muted}}">{{e.source}}</span>
+      </div>
+    </sc-for>
+    <sc-if value="{{capped}}" hint-placeholder-val="{{ false }}">
+      <p style="margin: 0; padding: 10px 14px; border-top: 1px solid {{t.line}}; font-size: 12px; color: {{t.muted}}">{{cappedText}}</p>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"app":{"editor":null},"$preview":{"width":1060,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+const NOOP = () => {};
+// The shell's sample state, used only when this screen renders alone.
+const DEFAULT_APP = {
+  theme: "Aura", t: THEMES["Aura"], screen: "trackers", today: "2026-11-15", goal: 120, minutes: 42, session: null, justKept: false,
+  profile: "Interview Prep", length: 60, streak: 11,
+  week: [], items: [], tempted: [],
+  trackers: [
+    { id: "sleep", name: "Sleep", kind: "number", unit: "h", goal: 8, dir: "up", values: [7.2, 6.8, 8.1, 7.5, 8.0, 6.9, 8.0] },
+    { id: "weight", name: "Weight", kind: "number", unit: "lb", goal: 170, dir: "down", values: [171.4, 171.2, 171.0, 171.1, 170.9, 170.8, 170.6] },
+    { id: "mood", name: "Mood", kind: "scale", unit: "/ 10", goal: 7, dir: "up", values: [6, 7, 7, 5, 8, 7, 7] },
+    { id: "workout", name: "Workout", kind: "yesno", values: [1, 1, 0, 1, 1, 0, 1] }
+  ],
+  go: NOOP, startSession: NOOP, stopSession: NOOP, toggleItem: NOOP, logTracker: NOOP, setProfile: NOOP, setLength: NOOP
+};
+// A short-note tracker, as in the app: shown in the entries list, never charted.
+const JOURNAL = [[0, "Two mock interviews. Slower on graphs than arrays."], [1, "Long run before work. Focus held past noon."]];
+// Which trackers' entries show under the charts (the app's display "both" or "table").
+const LISTED = { weight: true, workout: true, journal: true };
+const RANGE_DAYS = { "7D": 7, "30D": 30, "90D": 90, "1Y": 365, "All": 365 };
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// ---- Motion tokens (motion spec 1.2), shared by every prototype file ----
+const EASES = { ui: "0.2,0,0,1", glide: "0.2,0.7,0.2,1", settle: "0.2,0.8,0.2,1", exit: "0.4,0,1,1", drift: "0.37,0,0.63,1" };
+const DUR = { ui: 0.12, enter: 0.18, state: 0.24, glide: 0.4, moment: 0.7, drain: 1.2 };
+// GSAP lives on window only when the shell loaded it. Alone, this file uses its CSS fallback.
+function motion() {
+  const w = typeof window !== "undefined" ? window : null;
+  const g = w && w.gsap;
+  if (!g) return null;
+  if (!w.__sanctumEases) {
+    w.__sanctumEases = true;
+    try {
+      if (w.Flip) g.registerPlugin(w.Flip);
+      if (w.CustomEase) { g.registerPlugin(w.CustomEase); for (const k in EASES) w.CustomEase.create(k, EASES[k]); }
+    } catch (e) { /* plugins missing: the eases fall back below */ }
+  }
+  return g;
+}
+const ease = (name) => (typeof window !== "undefined" && window.CustomEase ? name : "power2.out");
+// Motion plays only when it can be seen and isn't reduced; otherwise moments jump to their end state.
+function live() {
+  if (typeof window === "undefined") return false;
+  if (typeof document !== "undefined" && document.hidden) return false;
+  return !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+// ---- Odometer: a masked 0-9 strip per digit, built as markup through sc-for ----
+const GLIDE_CSS = "400ms cubic-bezier(.2,.7,.2,1)";
+const CELL_EM = 1.15;
+const UP_CELLS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((v) => ({ v: String(v) }));
+const DOWN_CELLS = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 9].map((v) => ({ v: String(v) }));
+function odo(text, dir, gs) {
+  const s = String(text);
+  return {
+    text: s,
+    tokens: Array.from(s).map((ch) => {
+      if (!/\d/.test(ch)) return { digit: false, char: true, ch: ch === " " ? " " : ch, idx: "0", cells: [], strip: "" };
+      const d = Number(ch);
+      const idx = dir === "down" ? 9 - d : d;
+      // With GSAP the resting place is `top` and GSAP owns transform; without it, a CSS transform transition rolls the strip.
+      const strip = gs ? `top: -${(idx * CELL_EM).toFixed(3)}em` : `transform: translateY(-${((idx * 100) / 11).toFixed(4)}%); transition: transform ${GLIDE_CSS}`;
+      return { digit: true, char: false, ch, idx: String(idx), cells: dir === "down" ? DOWN_CELLS : UP_CELLS, strip };
+    })
+  };
+}
+// Rolls only the columns that changed, rightmost first; 9 -> 0 turns forward through the repeated cell.
+function rollOdometer(g, el, from, to, dir, delay) {
+  if (!el || from === to) return null;
+  const sk = (x) => String(x).replace(/\d/g, "#");
+  if (sk(from) !== sk(to)) {
+    // The skeleton changed ("9m" to "10m", "59m" to "1h"): the whole figure rolls as one.
+    return g.fromTo(el, { yPercent: dir === "down" ? -60 : 60, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: DUR.state, ease: ease("glide"), delay: delay || 0, overwrite: "auto", clearProps: "transform,opacity,visibility" });
+  }
+  const a = String(from).match(/\d/g) || [], b = String(to).match(/\d/g) || [];
+  const strips = el.querySelectorAll("[data-strip]");
+  const tl = g.timeline({ delay: delay || 0 });
+  let k = 0;
+  for (let j = b.length - 1; j >= 0; j--) {
+    if (a[j] === b[j] || !strips[j]) continue;
+    const ia = dir === "down" ? 9 - Number(a[j]) : Number(a[j]);
+    const ib = dir === "down" ? 9 - Number(b[j]) : Number(b[j]);
+    // The strip rests at index ib (set by React); o is the extra offset in cells.
+    let o0 = ia - ib, o1 = 0;
+    if (ib === 0 && ia > 0) { o0 = ia; o1 = 10; } // wrap forward to the repeated cell; clearing the offset lands on index 0, the same digit
+    tl.fromTo(strips[j], { yPercent: (-o0 * 100) / 11 }, { yPercent: (-o1 * 100) / 11, duration: DUR.glide, ease: ease("glide"), overwrite: "auto", clearProps: "transform" }, k * 0.04);
+    k++;
+  }
+  return tl;
+}
+
+const isBool = (tr) => tr.kind === "yesno" || tr.kind === "bool";
+const num = (v) => String(Math.round(v * 10) / 10);
+const dayAt = (today, back) => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - back); return d; };
+const shortDate = (d) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+const hasGoal = (tr) => !isBool(tr) && tr.goal != null;
+const hit = (tr, v) => hasGoal(tr) && (tr.dir === "down" ? v <= tr.goal : v >= tr.goal);
+const unitOf = (tr) => isBool(tr) ? "" : tr.kind === "scale" ? "/ 10" : (tr.unit || "");
+function formatValue(tr, v) {
+  if (isBool(tr)) return v ? "Yes" : "No";
+  if (tr.kind === "scale") return `${num(v)} / 10`;
+  return tr.unit ? `${num(v)} ${tr.unit}` : num(v);
+}
+function formatChange(tr, diff) {
+  const d = Math.round(diff * 10) / 10;
+  const sign = d > 0 ? "+" : d < 0 ? "−" : "";
+  const unit = tr.kind === "number" && tr.unit ? ` ${tr.unit}` : "";
+  return `${sign}${num(Math.abs(d))}${unit}`;
+}
+// What a number tracker accepts.
+function bounds(tr) {
+  if (tr.unit === "h") return [0, 24];
+  if (tr.unit === "lb") return [50, 700];
+  if (tr.unit === "%") return [0, 100];
+  return [0, 100000];
+}
+
+// History before the real week is made up, steadily, so the longer ranges have something to show.
+function synth(tr, back) {
+  const v = tr.values, L = v.length;
+  const r = ((Math.sin(back * 12.9898 + tr.name.length * 78.233) * 43758.5453) % 1 + 1) % 1;
+  const base = v[(L - 1 - (back % L))];
+  if (isBool(tr)) return r < 0.65 ? 1 : 0;
+  if (tr.kind === "scale") return Math.min(10, Math.max(1, Math.round(base + (r - 0.5) * 3)));
+  const spread = Math.max(...v) - Math.min(...v) || 1;
+  const drift = tr.dir === "down" ? (back - L) * 0.02 : 0;
+  return Math.round((base + (r - 0.5) * spread + drift) * 10) / 10;
+}
+function daily(tr, n, today) {
+  const L = tr.values.length;
+  return Array.from({ length: n }, (_, i) => {
+    const back = n - 1 - i;
+    return { back, date: dayAt(today, back), value: back < L ? tr.values[L - 1 - back] : synth(tr, back) };
+  });
+}
+// Chart points: days up to 30, then weeks (90D) or months (1Y, All).
+function bucket(tr, days, range) {
+  const n = days.length;
+  const avg = (arr) => {
+    const m = arr.reduce((s, d) => s + d.value, 0) / arr.length;
+    return isBool(tr) ? m : Math.round(m * 10) / 10;
+  };
+  if (n <= 30) return days.map((d) => ({ value: d.value, label: n === 7 ? WD[d.date.getUTCDay()] : shortDate(d.date), full: shortDate(d.date) }));
+  const groups = [];
+  if (range === "90D") {
+    for (let end = n; end > 0; end -= 7) groups.unshift(days.slice(Math.max(0, end - 7), end));
+    return groups.map((g) => ({ value: avg(g), label: shortDate(g[0].date), full: `week of ${shortDate(g[0].date)}` }));
+  }
+  let key = null;
+  for (const d of days) {
+    const k = d.date.getUTCFullYear() * 12 + d.date.getUTCMonth();
+    if (k !== key) { groups.push([]); key = k; }
+    groups[groups.length - 1].push(d);
+  }
+  return groups.map((g) => ({ value: avg(g), label: MONTHS[g[0].date.getUTCMonth()], full: `${MONTHS[g[0].date.getUTCMonth()]} ${g[0].date.getUTCFullYear()}` }));
+}
+
+const seg = (t, on, mono) => `height: 26px; padding: 0 10px; border: 0; border-radius: 4px; font-size: 12px; ${mono ? "font-family: 'Geist Mono', monospace;" : ""} background: ${on ? t.raised : "transparent"}; color: ${on ? t.text : t.muted}; font-weight: ${on ? 600 : 400}`;
+const choice = (t, on, wide) => `height: 28px; ${wide ? "padding: 0 14px;" : "flex: 1; min-width: 0; padding: 0;"} border: 1px solid ${on ? t.sealed : t.line}; border-radius: 6px; background: ${on ? t.sealed : "transparent"}; color: ${on ? t.sealedOn : t.text2}; font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: ${on ? 600 : 400}`;
+
+class Component extends DCLogic {
+  constructor(...a) {
+    super(...a);
+    this.state = { range: "7D", view: "chart", form: null, logged: {}, bump: 0, lastId: null, fb: null, gs: false };
+    this.root = null;
+    this.rootRef = (el) => { this.root = el; };
+    this.ctx = null;
+    this.rv = null;
+    this.prev = null;
+  }
+
+  componentDidMount() {
+    const g = motion();
+    if (g && this.root) {
+      this.ctx = g.context(() => {}, this.root);
+      this.setState({ gs: true });
+    }
+    this.prev = this.rv;
+  }
+
+  componentDidUpdate() {
+    this.sync();
+  }
+
+  componentWillUnmount() {
+    if (this.ctx) this.ctx.revert();
+    this.ctx = null;
+  }
+
+  q(sel) { return this.root ? this.root.querySelector(sel) : null; }
+
+  // 9. A saved entry: the value rolls; if it reaches the goal, today's tick grows to full height and its glow rises.
+  sync() {
+    const g = motion();
+    const cur = this.rv, prev = this.prev;
+    this.prev = cur;
+    if (!g || !this.ctx || !cur || !prev || !this.state.gs || !live()) return;
+    this.ctx.add(() => {
+      for (const id in cur) {
+        const a = prev[id], b = cur[id];
+        if (!a || a.text === b.text) continue;
+        rollOdometer(g, this.q(`[data-odo="${id}"]`), a.text, b.text, "up", 0);
+        if (b.hit && !a.hit) {
+          const card = this.q(`[data-card="${id}"]`);
+          const tick = card && card.querySelector('[data-xt="last"]');
+          const glow = card && card.querySelector("[data-day-glow]");
+          if (tick) g.fromTo(tick, { scaleY: 8 / 11, transformOrigin: "50% 0%" }, { scaleY: 1, duration: DUR.state, ease: ease("settle"), delay: 0.3, clearProps: "transform" });
+          if (glow) g.fromTo(glow, { opacity: 0 }, { opacity: 1, duration: DUR.drain, ease: ease("drift"), delay: 0.3, clearProps: "opacity" });
+        }
+      }
+    });
+  }
+
+  getApp() {
+    if (this.props.app) return this.props.app;
+    // Alone on the canvas: keep logging working against a local copy.
+    const trackers = this.state.fb || DEFAULT_APP.trackers;
+    return { ...DEFAULT_APP, trackers, logTracker: (id, value) => this.setState({ fb: trackers.map((tr) => tr.id === id ? { ...tr, values: [...tr.values.slice(0, -1), value] } : tr) }) };
+  }
+
+  openForm(trackers) {
+    if (this.state.form) return this.setState({ form: null });
+    const id = trackers[0] ? trackers[0].id : null;
+    this.setState({ form: { id, text: "", value: null, error: "" } });
+  }
+
+  // Returns [value, error].
+  check(tr, f) {
+    if (isBool(tr)) return f.value === null ? [null, "Pick yes or no."] : [f.value, ""];
+    if (tr.kind === "scale") {
+      if (f.value === null) return [null, "Pick a value from 1 to 10."];
+      return f.value >= 1 && f.value <= 10 ? [f.value, ""] : [null, "Mood takes a whole number from 1 to 10."];
+    }
+    const raw = (f.text || "").trim().replace(",", ".");
+    if (!raw) return [null, `Enter ${tr.name.toLowerCase()} first.`];
+    const v = Number(raw);
+    if (!isFinite(v) || !/^-?\d*\.?\d+$/.test(raw)) return [null, "Enter a number, like " + num(tr.values[tr.values.length - 1]) + "."];
+    const [lo, hi] = bounds(tr);
+    if (v < lo || v > hi) return [null, `${tr.name} takes ${lo} to ${hi} ${tr.unit || ""}.`.replace(" .", ".")];
+    return [Math.round(v * 10) / 10, ""];
+  }
+
+  save(app) {
+    const f = this.state.form;
+    const tr = f && app.trackers.find((x) => x.id === f.id);
+    if (!tr) return;
+    const [value, error] = this.check(tr, f);
+    if (error) return this.setState({ form: { ...f, error } });
+    app.logTracker(tr.id, value);
+    this.setState({ form: null, logged: { ...this.state.logged, [tr.id]: true }, bump: this.state.bump + 1, lastId: tr.id });
+  }
+
+  renderVals() {
+    const app = this.getApp();
+    const t = app.t || THEMES[app.theme] || THEMES["Aura"];
+    const today = app.today || "2026-11-15";
+    const trackers = app.trackers || [];
+    const { range, view, form: f, logged, bump, lastId } = this.state;
+    const n = RANGE_DAYS[range];
+    const gs = !!(this.state.gs && motion());
+    const rv = {};
+
+    const ranges = ["7D", "30D", "90D", "1Y", "All"].map((label) => ({ label, on: String(label === range), style: seg(t, label === range, true), pick: () => this.setState({ range: label }) }));
+    const views = [["chart", "Chart"], ["table", "Table"]].map(([id, label]) => ({ label, on: String(id === view), style: seg(t, id === view, false), pick: () => this.setState({ view: id }) }));
+
+    const cards = trackers.map((tr) => {
+      const days = daily(tr, n, today);
+      const pts = bucket(tr, days, range);
+      const P = pts.length;
+      const vals = pts.map((p) => p.value);
+      const lastVal = days[days.length - 1].value;
+      const aggBool = isBool(tr) && n > 30;
+      let lo, hi;
+      if (isBool(tr)) { lo = 0; hi = 1; }
+      else if (tr.kind === "scale") { lo = Math.min(1, ...vals); hi = Math.max(10, ...vals); }
+      else {
+        const all = hasGoal(tr) ? [...vals, tr.goal] : vals;
+        lo = Math.min(...all); hi = Math.max(...all);
+        const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
+      }
+      const X = (i) => P === 1 ? 50 : (i / (P - 1)) * 100;
+      const Y = (v) => (1 - (v - lo) / (hi - lo)) * 100;
+      const dec = hi - lo >= 10 ? 0 : 1;
+      const labels = isBool(tr) ? (aggBool ? ["100%", "50%", "0%"] : ["Yes", "", "No"]) : [0, 0.5, 1].map((fr) => (hi - (hi - lo) * fr).toFixed(dec));
+      const hitDays = days.filter((d) => hit(tr, d.value)).length;
+
+      // Left ruler: a minor tick every tenth; the three labelled ones are longer.
+      const yticks = Array.from({ length: 11 }, (_, i) => {
+        const major = i % 5 === 0;
+        return { style: `position: absolute; left: ${major ? -18 : -16}px; width: ${major ? 6 : 4}px; top: ${i * 10}%; border-top: 1px solid ${major ? t.muted : t.line}` };
+      });
+      const ylabels = labels.map((label, i) => ({ label, style: `position: absolute; left: -48px; width: 28px; top: ${i * 50}%; transform: translateY(-50%); text-align: right; font-family: 'Geist Mono', monospace; font-size: 10px; color: ${t.muted}` }));
+
+      // Bottom ruler: a major tick per point (in the second colour; taller at goal), minor ticks between.
+      const minors = P <= 7 ? 3 : P <= 13 ? 1 : 0;
+      const steps = (P - 1) * (minors + 1);
+      const xticks = Array.from({ length: steps + 1 }, (_, i) => {
+        const left = steps ? (i / steps) * 100 : 50;
+        if (i % (minors + 1) === 0) {
+          const on = hit(tr, vals[i / (minors + 1)]);
+          const last = i === steps;
+          const col = on ? t.sec : t.muted;
+          return {
+            key: last ? "last" : "",
+            glow: last && on,
+            glowStyle: `position: absolute; left: -2px; top: 0; bottom: 0; width: 2px; border-radius: 1px; box-shadow: 0 0 8px 1px ${t.sec}${t.scheme === "light" ? "59" : "99"}; pointer-events: none`,
+            style: `position: absolute; left: ${left}%; top: 0; height: ${on ? 11 : 8}px; margin-left: -${on ? 1 : 0.75}px; border-left: ${on ? 2 : 1.5}px solid ${col}`
+          };
+        }
+        return { key: "", glow: false, glowStyle: "", style: `position: absolute; left: ${left}%; top: 0; height: 4px; border-left: 1px solid ${t.line}` };
+      });
+      // Day labels: all of them for a week, else up to six spread out, always the last.
+      const every = P <= 7 ? 1 : Math.ceil(P / 6);
+      const xlabels = pts.map((p, i) => ({ p, i })).filter(({ i }) => (P - 1 - i) % every === 0).map(({ p, i }) => {
+        const on = hit(tr, p.value);
+        const edge = i === P - 1 && P > 7 ? "translateX(-100%)" : i === 0 && P > 7 ? "translateX(0)" : "translateX(-50%)";
+        return { label: p.label, style: `position: absolute; left: ${X(i)}%; top: 0; transform: ${edge}; white-space: nowrap; font-size: 10.5px; font-weight: ${on ? 600 : 400}; color: ${on ? t.secText : t.muted}` };
+      });
+      const dots = pts.map((p, i) => {
+        const pos = `position: absolute; left: ${X(i)}%; top: ${Y(p.value)}%; transform: translate(-50%, -50%); box-sizing: border-box;`;
+        if (isBool(tr) && !aggBool) {
+          const sz = P > 7 ? 7 : 9;
+          return { style: `${pos} width: ${sz}px; height: ${sz}px; border-radius: 50%; ${p.value ? `background: ${t.sealed}` : `border: 1.5px solid ${t.line}; background: ${t.panel}`}` };
+        }
+        if (i === P - 1) return { style: `${pos} width: 9px; height: 9px; border-radius: 50%; background: ${t.sealed}; border: 2px solid ${t.panel}` };
+        return { style: "display: none" };
+      });
+      const unit = unitOf(tr);
+      const yes = days.filter((d) => d.value).length;
+      const first = pts[0].full, last = pts[P - 1].full;
+      const current = isBool(tr) ? (lastVal ? "Yes" : "No") : num(lastVal);
+      rv[tr.id] = { text: current, hit: hit(tr, lastVal) };
+      return {
+        id: tr.id,
+        name: tr.name,
+        goalText: isBool(tr) ? "Yes or no" : tr.kind === "scale" ? `Goal ${tr.goal} of 10` : `Goal ${tr.goal} ${tr.unit}${tr.dir === "down" ? " or less" : ""}`,
+        current,
+        odo: odo(current, "up", gs),
+        unit,
+        note: isBool(tr) ? `${yes} of ${days.length} logged yes` : `${formatChange(tr, lastVal - days[0].value)} this range`,
+        hitText: hasGoal(tr) ? `${hitDays} of ${days.length} days at goal` : "No goal",
+        aria: `${tr.name} from ${first} to ${last}, today ${formatValue(tr, lastVal)}${hasGoal(tr) ? `, goal ${tr.goal} ${unit}${tr.dir === "down" ? " or less" : ""}, ${hitDays} of ${days.length} days at goal` : ""}`,
+        yticks, ylabels, xticks, xlabels, dots,
+        hasGoal: hasGoal(tr),
+        goalTick: hasGoal(tr) ? `position: absolute; left: -22px; width: 10px; top: ${Y(tr.goal)}%; border-top: 2px solid ${t.sec}; transform: translateY(-1px)` : "",
+        goalStyle: hasGoal(tr) ? `position: absolute; left: 0; right: 0; top: ${Y(tr.goal)}%; border-top: 1px solid ${t.secLine}` : "",
+        isLine: !isBool(tr) || aggBool,
+        points: pts.map((p, i) => `${X(i).toFixed(2)},${Y(p.value).toFixed(2)}`).join(" ")
+      };
+    });
+
+    // Entries, newest first; within a day: Journal, then trackers in reverse order (as the app lists them).
+    const all = [];
+    for (let back = 0; back < n; back++) {
+      const date = shortDate(dayAt(today, back));
+      const j = JOURNAL.find(([b]) => b === back);
+      if (j) all.push({ id: "journal", date, name: "Journal", value: j[1], source: "Check-in", text: true });
+      for (const tr of [...trackers].reverse()) {
+        const L = tr.values.length;
+        const v = back < L ? tr.values[L - 1 - back] : synth(tr, back);
+        const source = tr.id === "weight" || (back === 0 && logged[tr.id]) ? "Logged" : "Check-in";
+        all.push({ id: tr.id, date, name: tr.name, value: formatValue(tr, v), source, text: false });
+      }
+    }
+    const isChart = view === "chart";
+    const CAP = 40;
+    const picked = isChart ? all.filter((e) => LISTED[e.id]).slice(0, 8) : all.slice(0, CAP);
+    const cols = "grid-template-columns: 90px 110px minmax(0, 1fr) 90px";
+    const rows = picked.map((e, i) => ({
+      ...e,
+      valueStyle: e.text ? "min-width: 0; padding-right: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" : "font-family: 'Geist Mono', monospace",
+      style: `display: grid; ${cols}; align-items: center; min-height: 34px; padding: 0 14px; font-size: 13px; ${i < picked.length - 1 ? `border-bottom: 1px solid ${t.line}` : ""}`
+    }));
+    const capped = !isChart && all.length > CAP;
+
+    // The Log entry form.
+    let form = null;
+    const tr = f && trackers.find((x) => x.id === f.id);
+    if (f && tr) {
+      const d = dayAt(today, 0);
+      const cur = tr.values[tr.values.length - 1];
+      const setForm = (patch) => this.setState({ form: { ...this.state.form, ...patch, error: "" } });
+      const pickers = trackers.map((x) => ({ name: x.name, on: String(x.id === tr.id), style: seg(t, x.id === tr.id, false) + `; border: 1px solid ${x.id === tr.id ? t.line : "transparent"}`, pick: () => setForm({ id: x.id, text: "", value: null }) }));
+      const choices = isBool(tr)
+        ? [["Yes", 1], ["No", 0]].map(([label, v]) => ({ label, on: String(f.value === v), style: choice(t, f.value === v, true), pick: () => setForm({ value: f.value === v ? null : v }) }))
+        : tr.kind === "scale"
+          ? Array.from({ length: 10 }, (_, i) => i + 1).map((v) => ({ label: String(v), on: String(f.value === v), style: choice(t, f.value === v, false), pick: () => setForm({ value: f.value === v ? null : v }) }))
+          : [];
+      form = {
+        meta: `Today · ${WEEKDAY[d.getUTCDay()]}, ${shortDate(d)}`,
+        pickers, choices,
+        isNumber: tr.kind === "number", isScale: tr.kind === "scale", isYesNo: isBool(tr),
+        valueLabel: tr.kind === "number" ? `${tr.name}${tr.unit ? ` in ${tr.unit === "h" ? "hours" : tr.unit}` : ""}` : tr.kind === "scale" ? `${tr.name}, 1 to 10` : `${tr.name} today`,
+        unit: tr.kind === "number" ? (tr.unit || "") : "",
+        placeholder: num(cur),
+        text: f.text,
+        invalid: String(!!f.error),
+        note: `Today has ${formatValue(tr, cur)}${hasGoal(tr) ? `, goal ${tr.goal}${tr.kind === "scale" ? " of 10" : ` ${tr.unit}`}${tr.dir === "down" ? " or less" : ""}` : ""}. Logging replaces it.`,
+        error: f.error,
+        errorStyle: f.error ? `font-size: 12px; font-weight: 500; color: ${t.sealedText}` : "display: none",
+        inputStyle: `width: 120px; height: 32px; box-sizing: border-box; padding: 0 10px; border: 1px solid ${f.error ? t.sealed : t.lineInput || t.line}; border-radius: 6px; background: ${t.raised}; color: ${t.text}; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; text-align: right`,
+        style: `position: absolute; top: 66px; right: 28px; z-index: 5; width: 340px; max-width: calc(100% - 56px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid ${t.line}; border-radius: 10px; background: ${t.panel}; box-shadow: 0 16px 40px -12px #00000080`
+      };
+    }
+
+    this.rv = rv;
+    return {
+      t,
+      rootRef: this.rootRef,
+      rootStyle: `--pt-sealed: ${t.sealed}; position: relative; width: 100%; min-height: 800px; box-sizing: border-box; padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; font-family: Geist, system-ui, sans-serif; background: ${t.app}; color: ${t.text}`,
+      ranges, views, cards, rows,
+      isChart,
+      capped,
+      cappedText: `Latest ${CAP} of ${all.length} entries in this range.`,
+      headStyle: `display: grid; ${cols}; align-items: center; height: 32px; padding: 0 14px; border-bottom: 1px solid ${t.line}; font-size: 12px; color: ${t.muted}`,
+      formOpen: !!form,
+      formOpenStr: String(!!form),
+      form: form || {},
+      openForm: () => this.openForm(trackers),
+      closeForm: () => this.setState({ form: null }),
+      save: () => this.save(app),
+      onInput: (e) => this.setState({ form: { ...this.state.form, text: e.target.value, error: "" } }),
+      formKey: (e) => {
+        if (e.key === "Escape") this.setState({ form: null });
+        else if (e.key === "Enter" && e.target && e.target.tagName !== "BUTTON") { e.preventDefault && e.preventDefault(); this.save(app); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

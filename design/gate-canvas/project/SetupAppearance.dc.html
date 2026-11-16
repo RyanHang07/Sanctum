@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Setup Appearance</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit}
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.nav-btn:hover,.hov:hover{opacity:.85}
+/* The aurora: three radial lights, no blur filter. Still while open; only a sealed screen (.aurora-live) drifts, slowly. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;transition:opacity 900ms ease}
+.aurora-a{width:900px;height:760px;left:-300px;top:-340px}
+.aurora-b{width:960px;height:800px;right:-360px;top:-280px}
+.aurora-c{width:1200px;height:620px;left:12%;bottom:-420px}
+.aurora-live .aurora-a{animation:auroraA 46s ease-in-out infinite}
+.aurora-live .aurora-b{animation:auroraB 54s ease-in-out infinite}
+.aurora-live .aurora-c{animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,30px)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0)}50%{transform:translate(-70px,24px)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-24px)}}
+@keyframes apRise{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.ap-rise>div{animation:apRise 220ms cubic-bezier(.2,.7,.2,1)}
+/* One focus ring for every control: 2px accent, 2px off the edge. */
+.ap-root :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.ap-root *,.ap-root *::before,.ap-root *::after{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="ap-root" style="--ring: {{t.sealed}}; width: 100%; min-height: 800px; height: 800px; display: flex; flex-wrap: wrap; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+  <nav aria-label="Sanctum" style="flex: 0 0 220px; box-sizing: border-box; padding: 16px 12px; display: flex; flex-direction: column; gap: 14px; background: {{t.sidebar}}; border-right: 1px solid {{t.line}}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 2px 8px; font-weight: 600; font-size: 14px">
+      <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+      Sanctum
+    </div>
+    <div role="status" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; font-size: 13px; font-weight: 500; color: {{t.text}}">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: {{t.text}}"></span>Open
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{nav}}" as="item" hint-placeholder-count="7">
+        <button type="button" class="nav-btn" aria-current="{{item.current}}" title="{{item.hint}}" style="{{item.style}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{item.icon}}"><path d="{{item.d}}"></path></svg>
+          <span style="flex: 1">{{item.label}}</span>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{keyColor}}">{{item.key}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </nav>
+  <main style="position: relative; isolation: isolate; flex: 999 1 560px; min-width: 0; height: 800px; display: flex; flex-direction: column; overflow: hidden">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraA}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <div style="flex: 1; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px 28px 24px">
+      <div style="display: flex; align-items: center; height: 32px; flex-shrink: 0">
+        <h1 style="margin: 0; font-size: 26px; line-height: 1">Setup</h1>
+      </div>
+      <div style="flex: 1; min-height: 0; display: flex; gap: 24px">
+      <nav aria-label="Setup sections" style="flex: 0 0 176px; display: flex; flex-direction: column">
+        <div role="tablist" aria-label="Setup" aria-orientation="vertical" style="display: flex; flex-direction: column; gap: 1px">
+          <sc-for list="{{setupTabs}}" as="s" hint-placeholder-count="10">
+            <div style="display: flex; flex-direction: column">
+              <sc-if value="{{s.hasHeader}}" hint-placeholder-val="{{ false }}"><span style="{{s.headerStyle}}">{{s.header}}</span></sc-if>
+              <button type="button" role="tab" aria-selected="{{s.selected}}" class="hov" style="{{s.style}}">{{s.label}}</button>
+            </div>
+          </sc-for>
+        </div>
+      </nav>
+        <div role="tabpanel" aria-label="{{tabLabel}}" style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden; padding-right: 4px">
+          <div style="display: flex; flex-direction: column; gap: 2px; flex-shrink: 0">
+            <h2 style="margin: 0; font-size: 17px">{{tabLabel}}</h2>
+            <p style="margin: 0; font-size: 13px; color: {{t.muted}}">{{tabBlurb}}</p>
+          </div>
+          <!-- The theme list scrolls (it was cut off), and opens scrolled so the chosen theme sits mid-view. -->
+          <div data-ap-scroll="{{scrollId}}" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; padding-right: 4px">
+            <section aria-label="Theme" style="flex-shrink: 0; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid {{t.line}}">
+              <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">Theme</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 48px; box-sizing: border-box; padding: 6px 14px; ">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Follow Windows</span><span style="font-size: 11px; color: {{t.muted}}">Light or dark as Windows is set, with a theme for each.</span></span>
+              <button type="button" role="switch" aria-label="Follow Windows" aria-checked="{{followSw.checked}}" style="{{followSw.track}}"><span style="{{followSw.knob}}"></span></button>
+            </div>
+            </section>
+            <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+              <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px">
+                <h3 style="margin: 0; font-size: 13.5px; font-weight: 600">{{g.title}}</h3>
+                <div role="radiogroup" aria-label="{{g.label}}" style="display: flex; flex-direction: column; overflow: hidden; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}">
+                  <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="12">
+                    <button type="button" role="radio" aria-checked="{{r.checked}}" aria-label="{{r.name}}" style="{{r.style}}">
+                      <span style="{{r.nameStyle}}">{{r.name}}</span>
+                      <sc-if value="{{r.on}}" hint-placeholder-val="{{ false }}">
+                        <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: {{t.sealedText}}">Selected<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke: {{t.sealedText}}"><path d="M2.5 6.2l2.3 2.3l4.7-5"></path></svg></span>
+                      </sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div aria-hidden="true" class="ap-rise" style="position: absolute; left: {{pv.left}}; top: {{pv.top}}; width: 236px; pointer-events: none; z-index: 5">
+      <div style="box-sizing: border-box; padding: 8px; border: 1px solid {{pv.lineInput}}; border-radius: 12px; background: {{pv.panel}}; box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04)">
+        <div style="display: flex; height: 84px; overflow: hidden; border: 1px solid {{pv.line}}; border-radius: 6px; background: {{pv.app}}">
+          <div style="width: 30%; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; padding: 7px; background: {{pv.sidebar}}">
+            <span style="height: 5px; width: 70%; border-radius: 9px; background: {{pv.text}}"></span>
+            <span style="margin-top: 3px; display: flex; align-items: center; gap: 3px; height: 6px; width: 84%; padding: 0 2px; border-radius: 3px; background: {{pv.raised}}"><span style="width: 4px; height: 4px; border-radius: 1px; background: {{pv.event}}"></span></span>
+            <span style="height: 4px; width: 60%; border-radius: 9px; background: {{pv.line}}"></span>
+            <span style="height: 4px; width: 70%; border-radius: 9px; background: {{pv.line}}"></span>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 7px">
+            <span style="height: 6px; width: 62%; border-radius: 9px; background: {{pv.text}}"></span>
+            <div style="display: flex; gap: 5px">
+              <span style="height: 18px; flex: 1; box-sizing: border-box; border: 1px solid {{pv.line}}; border-radius: 3px; background: {{pv.panel}}"></span>
+              <span style="height: 18px; width: 38%; border-radius: 3px; background: {{pv.sealed}}"></span>
+            </div>
+            <div style="position: relative; display: flex; align-items: flex-end; gap: 3px; height: 22px; box-sizing: border-box; padding: 4px 5px; border: 1px solid {{pv.line}}; border-radius: 3px; background: {{pv.panel}}">
+              <span style="width: 10%; height: 50%; border-radius: 1px; background: {{pv.sealed}}"></span>
+              <span style="width: 10%; height: 80%; border-radius: 1px; background: {{pv.sealed}}"></span>
+              <span style="width: 10%; height: 35%; border-radius: 1px; background: {{pv.muted}}"></span>
+              <span style="width: 10%; height: 95%; border-radius: 1px; background: {{pv.sealed}}"></span>
+              <span style="width: 10%; height: 60%; border-radius: 1px; background: {{pv.sealed}}"></span>
+              <span style="position: absolute; left: 4px; right: 4px; top: 7px; border-top: 1px dashed {{pv.event}}"></span>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 9px; padding: 0 2px">
+          <span style="font-size: 12.5px; font-weight: 500; color: {{pv.text}}">{{pv.name}}</span>
+          <span style="font-size: 11px; color: {{pv.muted}}">{{pv.schemeLabel}}</span>
+        </div>
+        <div style="margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; padding: 0 2px">
+          <span style="height: 22px; border-radius: 6px 0 0 6px; background: {{pv.sealed}}"></span>
+          <span style="height: 22px; border-radius: 0 6px 6px 0; background: {{pv.event}}"></span>
+          <span style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px">
+            <span style="font-size: 11px; color: {{pv.text}}">Accent</span>
+            <span style="font-family: 'Geist Mono', monospace; font-size: 10.5px; color: {{pv.muted}}">{{pv.sealedHex}}</span>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 1px; padding: 6px 0 0 8px; border-left: 1px solid {{pv.line}}">
+            <span style="font-size: 11px; color: {{pv.text}}">Second colour</span>
+            <span style="font-family: 'Geist Mono', monospace; font-size: 10.5px; color: {{pv.muted}}">{{pv.eventHex}}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <svg width="14" height="20" viewBox="0 0 14 20" aria-hidden="true" style="position: absolute; left: {{cursor.left}}; top: {{cursor.top}}; z-index: 6"><path d="M1 1v15l4-4l3 6l2.5-1.2l-3-5.8h5.5Z" fill="#FFFFFF" stroke="#000000" stroke-width="1"></path></svg>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":1280,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Shared helpers, the same in every page file.
+// muted and lineInput are contrast-checked in THEMES: muted clears 4.5:1 on app, panel, raised,
+// sidebar, sealedTint and secTint; lineInput clears 3:1 on app, panel, raised and sidebar.
+// Light themes come from the scheme field, never from the app colour.
+function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16)); }
+// mix(a, b, w): a moved toward b by w (0..1).
+function mix(a, b, w) {
+  const A = rgb(a), B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v * (1 - w) + B[i] * w).toString(16).padStart(2, "0")).join("");
+}
+function tokens(name) {
+  const base = THEMES[name] || THEMES.Aura;
+  return { ...base, light: base.scheme === "light", lineSoft: mix(base.line, base.panel, 0.4) };
+}
+// The aurora: three radial lights, no blur filter. Barely there while open; a little stronger while sealed.
+function auroraVals(t, sealed) {
+  const o = sealed ? (t.light ? [0.14, 0.09, 0.06] : [0.28, 0.18, 0.12]) : (t.light ? [0.08, 0.08, 0.05] : [0.16, 0.14, 0.10]);
+  const glow = (c, op) => "background: radial-gradient(closest-side, " + c + ", " + c + "00); opacity: " + op;
+  return {
+    auroraA: glow(t.sealed, o[0]),
+    auroraB: glow(t.sec, o[1]),
+    auroraC: glow(mix(t.sealed, t.sec, 0.5), o[2]),
+    auroraVeil: "background: radial-gradient(ellipse 80% 70% at 50% 45%, " + t.app + "d9 0%, " + t.app + "a6 100%)",
+    auroraClass: sealed ? "aurora-live" : ""
+  };
+}
+// [label, shortcut, icon path]
+const NAV = [
+  ["Today", "Ctrl 1", "M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13Z M5.5 8l1.8 1.8L10.5 6.5"],
+  ["Week", "Ctrl 2", "M2.5 3.5h11v10h-11Z M2.5 6.5h11 M5.5 2v3 M10.5 2v3"],
+  ["Stats", "Ctrl 3", "M3 13V8 M8 13V3 M13 13V6"],
+  ["Trackers", "Ctrl 4", "M2 12l4-4l3 3l5-6"],
+  ["Notes", "Ctrl 5", "M4 1.5h5.5l2.5 2.5v10.5h-8Z M6 7h4 M6 10h4"],
+  ["Journal", "Ctrl 6", "M3.5 2h8.5v12h-8.5Z M6 2v12"],
+  ["Setup", "Ctrl ,", "M2 5h12 M2 11h12 M5 3v4 M11 9v4"]
+];
+// The shell's sidebar and aurora, with the given item active (its icon in the second colour).
+function shellVals(t, theme, active) {
+  const nav = NAV.map(([label, key, d]) => {
+    const on = label === active;
+    return {
+      label, key, d,
+      current: on ? "page" : "false",
+      hint: label + " (" + key + ")",
+      icon: on ? t.sec : t.muted,
+      style: "display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13.5px; font-weight: " + (on ? 600 : 400) + "; color: " + (on ? t.text : t.text2) + "; background: " + (on ? t.raised : "transparent") + ";"
+    };
+  });
+  return {
+    nav,
+    keyColor: t.muted,
+    ...auroraVals(t, false)
+  };
+}
+// A switch, drawn the way controls.tsx draws it: 32x18 track, 14px knob.
+function switchStyle(t, on) {
+  return {
+    track: "box-sizing: border-box; display: flex; justify-content: " + (on ? "flex-end" : "flex-start") + "; width: 32px; height: 18px; flex-shrink: 0; padding: 2px; border: 0; border-radius: 999px; background: " + (on ? t.sealed : t.line) + ";",
+    knob: "width: 14px; height: 14px; border-radius: 50%; background: " + (on ? t.sealedOn : t.text2) + ";",
+    checked: on ? "true" : "false"
+  };
+}
+const TABS = [
+  ["profiles", "Focus", "Profiles", "What each kind of work opens, and how long it runs."],
+  ["distractions", "Focus", "Distractions", ""],
+  ["protection", "Focus", "Protection", ""],
+  ["trackers", "Tracking", "Trackers", ""],
+  ["tracking", "Tracking", "Activity", ""],
+  ["calendar", "Connections", "Calendar", "Two-way sync with Google Calendar."],
+  ["browser", "Connections", "Browser", ""],
+  ["partner", "Connections", "Partner", ""],
+  ["appearance", "App", "Appearance", "How Sanctum looks: a theme, or one for Windows' light and one for its dark."],
+  ["general", "App", "General", "Your goal, rest days, and how the app behaves."]
+];
+function setupNav(t, active) {
+  let group = "";
+  return TABS.map(([id, g, label], i) => {
+    const header = g !== group;
+    group = g;
+    const on = id === active;
+    return {
+      label, header: g, hasHeader: header,
+      selected: on ? "true" : "false",
+      headerStyle: "display: block; padding: " + (i === 0 ? "0" : "16px") + " 10px 4px; font-size: 11px; font-weight: 500; color: " + t.muted,
+      style: "display: flex; align-items: center; width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; text-align: left; font-size: 13px; font-weight: " + (on ? 500 : 400) + "; color: " + (on ? t.text : t.text2) + "; background: " + (on ? t.raised : "transparent")
+    };
+  });
+}
+function tabInfo(id) { const r = TABS.find((x) => x[0] === id); return { tabLabel: r[2], tabBlurb: r[3] }; }
+// Every theme in src/theme (Sanctum's own first, then the OpenCode set), as [name, scheme].
+// Every theme in src/theme (Sanctum's own first, then the OpenCode set), split by name.
+// Catppuccin Frappe Light and Macchiato Light now sit in the light list. (opencodeThemes.ts still marks
+// both scheme "dark" with dark palettes, so the theme data needs the same fix.)
+const DARK = ["Sanctum Dark", "OC-2", "AMOLED", "Aura", "Ayu", "Carbonfox", "Catppuccin", "Catppuccin Frappe", "Catppuccin Macchiato", "Cobalt2", "Cursor", "Dracula", "Everforest", "Flexoki", "GitHub", "Gruvbox", "Kanagawa", "Lucent Orng", "Material", "Matrix", "Mercury", "Monokai", "Night Owl", "Nord", "One Dark", "One Dark Pro", "OpenCode", "Orng", "Osaka Jade", "Palenight", "Rose Pine", "Shades of Purple", "Solarized", "Synthwave '84", "Tokyonight", "Vercel", "Vesper", "Zenburn"];
+const LIGHT = ["Sanctum Light", "OC-2 Light", "AMOLED Light", "Aura Light", "Ayu Light", "Carbonfox Light", "Catppuccin Light", "Catppuccin Frappe Light", "Catppuccin Macchiato Light", "Cobalt2 Light", "Cursor Light", "Dracula Light", "Everforest Light", "Flexoki Light", "GitHub Light", "Gruvbox Light", "Kanagawa Light", "Lucent Orng Light", "Material Light", "Matrix Light", "Mercury Light", "Monokai Light", "Night Owl Light", "Nord Light", "One Dark Light", "One Dark Pro Light", "OpenCode Light", "Orng Light", "Osaka Jade Light", "Palenight Light", "Rose Pine Light", "Shades of Purple Light", "Solarized Light", "Synthwave '84 Light", "Tokyonight Light", "Vercel Light", "Vesper Light", "Zenburn Light"];
+// The hovered theme's own palette (opencodeThemes.ts), a row near the chosen one so it is in view.
+const PALETTES = {
+  "Cobalt2": { scheme: "dark", app: "#193549", sidebar: "#142939", panel: "#223D50", raised: "#2B4558", line: "#42596A", lineInput: "#596E7C", text: "#FFFFFF", muted: "#A8B2BA", sealed: "#2AFFDF", event: "#FFC600" },
+  "Nord": { scheme: "dark", app: "#2E3440", sidebar: "#242932", panel: "#363C48", raised: "#3F444F", line: "#4F5560", lineInput: "#616771", text: "#E5E9F0", muted: "#A3A8B0", sealed: "#DA878F", event: "#D08770" },
+  "Cursor Light": { scheme: "light", app: "#FCFCFC", sidebar: "#EFEFEF", panel: "#FEFEFE", raised: "#F2F2F2", line: "#D2D2D2", lineInput: "#BBBBBB", text: "#141414", muted: "#707070", sealed: "#6B959F", event: "#DB704B" }
+};
+const HOVER_FOR = { "Aura": "Cobalt2", "Sanctum Dark": "Cobalt2", "Night Owl": "Nord", "Cobalt2 Light": "Cursor Light" };
+const ROW_H = 41;
+// The scroll box, measured from main's top: padding 20, title 32, gap 16, tab head 38, gap 16. It runs to 24 above the bottom.
+const VIEW_TOP = 122, VIEW_H = 800 - VIEW_TOP - 24;
+// Inside it: Theme section 90, gap 20, group title 18, gap 8, the list's 1px border, then rows; 20 between groups.
+const DARK_TOP = 90 + 20 + 18 + 8 + 1;
+const LIGHT_TOP = DARK_TOP + DARK.length * ROW_H + 1 + 20 + 18 + 8 + 1;
+const CONTENT_H = LIGHT_TOP + LIGHT.length * ROW_H + 1;
+const rowTop = (name) => DARK.includes(name) ? DARK_TOP + DARK.indexOf(name) * ROW_H : LIGHT_TOP + LIGHT.indexOf(name) * ROW_H;
+let apSeq = 0;
+class Component extends DCLogic {
+  componentDidMount() { this.applyScroll(); }
+  componentDidUpdate() { this.applyScroll(); }
+  // Bring the chosen theme into view, as the real list should on open.
+  applyScroll() {
+    if (typeof document === "undefined") return;
+    const el = document.querySelector('[data-ap-scroll="' + this.apId + '"]');
+    if (el && typeof this.scrollY === "number") el.scrollTop = this.scrollY;
+  }
+  renderVals() {
+    if (!this.apId) this.apId = "ap" + (++apSeq);
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = tokens(theme);
+    const lineSoft = t.lineSoft;
+    const lineInput = t.lineInput;
+    const chosenDark = DARK.includes(theme) ? theme : "Sanctum Dark";
+    const chosenLight = LIGHT.includes(theme) ? theme : "Sanctum Light";
+    const hoverName = HOVER_FOR[theme] || "Cobalt2";
+    const hover = PALETTES[hoverName];
+    const rows = (names, chosen) => names.map((name, i) => {
+      const on = name === chosen;
+      const hov = name === hoverName;
+      return {
+        name, on, checked: on ? "true" : "false",
+        nameStyle: "font-size: 13px; " + (on || hov ? "font-weight: 500; color: " + t.text : "color: " + t.text2),
+        style: "display: flex; align-items: center; justify-content: space-between; gap: 12px; height: " + ROW_H + "px; flex-shrink: 0; box-sizing: border-box; padding: 0 14px; border: 0; " + (i < names.length - 1 ? "border-bottom: 1px solid " + lineSoft + ";" : "") + " text-align: left; background: " + (on ? t.sealedTint : hov ? lineSoft : "transparent")
+      };
+    });
+    // Centre the current theme's row, clamped to the list's ends.
+    const scrollY = Math.max(0, Math.min(CONTENT_H - VIEW_H, Math.round(rowTop(theme) + ROW_H / 2 - VIEW_H / 2)));
+    this.scrollY = scrollY;
+    const cx = 28 + 176 + 24 + 300; // the cursor, partway along the hovered row
+    const cy = VIEW_TOP + rowTop(hoverName) - scrollY + 22;
+    const above = cy - 196 - 8;
+    return {
+      t, lineSoft, lineInput,
+      ...shellVals(t, theme, "Setup"),
+      setupTabs: setupNav(t, "appearance"),
+      ...tabInfo("appearance"),
+      followSw: switchStyle(t, true),
+      scrollId: this.apId,
+      groups: [
+        { title: "In dark mode", label: "Theme in dark mode", rows: rows(DARK, chosenDark) },
+        { title: "In light mode", label: "Theme in light mode", rows: rows(LIGHT, chosenLight) }
+      ],
+      pv: { ...hover, name: hoverName, schemeLabel: hover.scheme === "light" ? "Light" : "Dark", sealedHex: hover.sealed, eventHex: hover.event, left: (cx + 18) + "px", top: (above >= 8 ? above : cy + 28) + "px" },
+      cursor: { left: cx + "px", top: cy + "px" }
+    };
+  }
+}
+</script>
+</body>
+</html>

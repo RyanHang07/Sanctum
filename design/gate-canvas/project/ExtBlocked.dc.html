@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Extension Blocked Page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+input::placeholder{color:inherit;opacity:1}
+/* Headlines: Schibsted Grotesk 700, one plain sentence, no italic payoff (Instrument Serif and h1 em are gone).
+   The real extension bundles Schibsted Grotesk (and Geist, Geist Mono) as local woff2 files with @font-face,
+   because the blocked page and the popup can't load Google Fonts. The link above is only for this canvas. */
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.eb-primary:hover{filter:brightness(1.1)}
+.eb-stage :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--ring) !important;outline-offset:2px}
+@keyframes shellBreathe{0%,100%{opacity:1}50%{opacity:.45}}
+.keyhole-breathe{animation:shellBreathe 3.2s ease-in-out infinite}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.eb-card{animation:rise 220ms cubic-bezier(0.2,0,0,1) both}
+/* The aurora behind the page, as in the app shell. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;filter:blur(110px);transition:opacity 900ms ease, background 900ms ease;will-change:transform}
+.aurora-a{width:620px;height:520px;left:-160px;top:-220px;animation:auroraA 46s ease-in-out infinite}
+.aurora-b{width:680px;height:560px;right:-220px;top:-140px;animation:auroraB 54s ease-in-out infinite}
+.aurora-c{width:900px;height:380px;left:18%;bottom:-300px;border-radius:45%;animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(160px,80px) scale(1.15)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(-200px,60px) scale(.9)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0) rotate(-4deg)}50%{transform:translate(-120px,-60px) rotate(3deg)}}
+@media (prefers-reduced-motion: reduce){.eb-stage *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="eb-stage" style="width: 100%; min-height: 760px; display: flex; flex-wrap: wrap; font-family: Geist, system-ui, sans-serif; background: {{t.line}}; gap: 1px; color: {{t.text}}; --ring: {{t.sealed}}">
+
+  <!-- Seal mode -->
+  <div title="Seal mode" style="{{viewStyle}}">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraASealed}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <main class="eb-card" style="{{cardStyle}}">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><g class="keyhole-breathe"><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></g></svg>
+        <span style="font-size: 13px; font-weight: 600">Sanctum</span>
+        <span style="{{chipStyle}}"><span style="{{dotSealed}}"></span>Sealed until 4:30 PM</span>
+      </div>
+      <h1 style="{{h1Style}}">youtube.com stays sealed.</h1>
+      <p style="{{pStyle}}">You're in Interview Prep for <span style="font-family: 'Geist Mono', monospace; color: {{t.sealedText}}">38:12</span> more. Scrolling is how mid happens.</p>
+      <p style="{{planStyle}}">If you're tempted, you said you'd stand up and refill your water.</p>
+      <div style="display: flex; gap: 8px">
+        <button type="button" class="eb-primary" style="{{primaryBtn}}">Back to github.com</button>
+        <button type="button" style="{{ghostBtn}}">Open Sanctum</button>
+      </div>
+      <form style="display: flex; gap: 8px">
+        <input type="text" maxlength="200" autocomplete="off" placeholder="Park a thought for later" aria-label="Park a thought for later" style="{{inputStyle}}">
+        <button type="submit" style="{{ghostBtn}}">Park</button>
+      </form>
+      <span style="{{footStyle}}">Blocked by the Sanctum extension. Only the site's name is logged, as an attempt.</span>
+    </main>
+  </div>
+
+  <!-- Pause mode -->
+  <div title="Pause mode" style="{{viewStyle}}">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+      <div class="aurora-a" style="{{auroraAOpen}}"></div>
+      <div class="aurora-b" style="{{auroraB}}"></div>
+      <div class="aurora-c" style="{{auroraC}}"></div>
+      <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+    </div>
+    <main class="eb-card" style="{{cardStyle}}">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></svg>
+        <span style="font-size: 13px; font-weight: 600">Sanctum</span>
+      </div>
+      <h1 style="{{h1Style}}">youtube.com waits five seconds.</h1>
+      <p style="{{pStyle}}">Take a breath. Go on unlocks in 4s, for 15 minutes if you still want it.</p>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button type="button" class="eb-primary" style="{{primaryBtn}}">Not now</button>
+        <button type="button" disabled="disabled" style="{{ghostDisabled}}">Go on</button>
+        <!-- The five-second wait as five neutral ticks; the next to go out is the accent, and one goes out each second. -->
+        <span aria-hidden="true" style="display: flex; align-items: center; gap: 5px; margin-left: 4px">
+          <sc-for list="{{waitTicks}}" as="k" hint-placeholder-count="5">
+            <span style="{{k.style}}"></span>
+          </sc-for>
+        </span>
+      </div>
+      <span style="{{footStyle}}">Asked by Sanctum's Pause mode. Only the site's name is logged, with your answer.</span>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":1441,"height":760}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// muted is raised to pass 4.5:1 on every surface here, the aurora's worst edge included
+// (Aura #9B9A9E, Night Owl #8592A1 and Cobalt2 Light #66747D failed on raised, sealedTint or the aurora).
+// Light themes are told by scheme, never by the app colour.
+// lineInput reaches 3:1 on app, panel and raised.
+const EXTRA = {
+  "Aura": { sealedLine: "#7E393D", lineInput: "#737277" },
+  "Night Owl": { sealedLine: "#704B46", lineInput: "#647382" },
+  "Cobalt2 Light": { sealedLine: "#B2D2D6", lineInput: "#7D8D98" },
+  "Sanctum Dark": { sealedLine: "#1F3482", lineInput: "#656973" }
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = { ...THEMES[theme], ...EXTRA[theme] };
+    const light = t.scheme === "light";
+    const btn = `height: 32px; padding: 0 14px; border-radius: 8px; font-size: 13px`;
+    // One second of five has passed: four ticks still lit.
+    const waitTicks = [0, 1, 2, 3, 4].map((i) => ({
+      style: `display: block; width: 2px; height: 12px; border-radius: 1px; background: ${i < 3 ? t.muted : i === 3 ? t.sealed : t.line}; transition: background 300ms ease`
+    }));
+    return {
+      t, waitTicks,
+      viewStyle: `position: relative; isolation: isolate; overflow: hidden; flex: 1 1 720px; min-width: 0; min-height: 760px; display: grid; place-items: center; background: ${t.app}`,
+      auroraASealed: `background: ${t.sealed}; opacity: ${light ? 0.14 : 0.28}`,
+      auroraAOpen: `background: ${t.sealed}; opacity: ${light ? 0.08 : 0.16}`,
+      auroraB: `background: ${t.sec}; opacity: ${light ? 0.08 : 0.14}`,
+      auroraC: `background: linear-gradient(120deg, ${t.sealed}, ${t.sec}); opacity: ${light ? 0.05 : 0.1}`,
+      auroraVeil: `background: radial-gradient(ellipse 80% 70% at 50% 45%, ${t.app}d9 0%, ${t.app}a6 100%)`,
+      cardStyle: `width: min(440px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 18px`,
+      chipStyle: `margin-left: auto; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; box-sizing: border-box; border: 1px solid ${t.sealedLine}; background: ${t.sealedTint}; border-radius: 6px; font-size: 12px; color: ${t.text}`,
+      dotSealed: `width: 6px; height: 6px; border-radius: 50%; background: ${t.sealed}`,
+      h1Style: `margin: 0; font-size: 36px; line-height: 1.1; overflow-wrap: anywhere; color: ${t.text}`,
+      pStyle: `margin: 0; font-size: 14px; line-height: 1.5; color: ${t.text2}`,
+      // The if-then plan, as on Intercept: a neutral raised panel, no left border and no mark.
+      planStyle: `margin: 0; padding: 10px 12px; border: 1px solid ${t.line}; border-radius: 8px; background: ${t.raised}; font-size: 13px; line-height: 1.5; color: ${t.text}`,
+      primaryBtn: `${btn}; border: 0; background: ${t.sealed}; color: ${t.sealedOn}; font-weight: 600`,
+      ghostBtn: `${btn}; border: 1px solid ${t.lineInput}; background: transparent; color: ${t.text2}`,
+      ghostDisabled: `${btn}; border: 1px solid ${t.lineInput}; background: transparent; color: ${t.text2}; opacity: .5; cursor: default`,
+      inputStyle: `flex: 1; min-width: 0; height: 32px; box-sizing: border-box; padding: 0 10px; border: 1px solid ${t.lineInput}; border-radius: 8px; background: ${t.panel}; color: ${t.muted}; font-size: 13px`,
+      footStyle: `padding-top: 14px; border-top: 1px solid ${t.line}; font-size: 12px; color: ${t.muted}`
+    };
+  }
+}
+</script>
+</body>
+</html>

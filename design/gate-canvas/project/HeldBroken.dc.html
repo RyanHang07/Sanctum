@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seal Broken</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.hp button{font:inherit;cursor:pointer}
+.hp h1{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important}
+.hp .hov:hover{opacity:.85}
+/* The held mesh, built like components/Mesh.tsx: four blurred blobs and a radial veil (no grain). Same drift as the app. */
+.hp .blob{position:absolute;border-radius:50%;will-change:transform}
+.hp .blob-a{left:-160px;top:-200px;width:680px;height:680px;filter:blur(120px);animation:hpBlobA 14s ease-in-out infinite}
+.hp .blob-b{right:-200px;top:-80px;width:700px;height:700px;filter:blur(130px);animation:hpBlobB 17s ease-in-out infinite}
+.hp .blob-c{left:260px;bottom:-380px;width:720px;height:720px;filter:blur(130px);animation:hpBlobC 19s ease-in-out infinite}
+.hp .blob-d{right:120px;bottom:-200px;width:460px;height:460px;filter:blur(110px);animation:hpBlobD 15s ease-in-out infinite}
+@keyframes hpBlobA{0%{transform:translate(0,0) scale(1)}33%{transform:translate(180px,90px) scale(1.2)}66%{transform:translate(60px,-60px) scale(.9)}100%{transform:translate(0,0) scale(1)}}
+@keyframes hpBlobB{0%{transform:translate(0,0) scale(1.1)}50%{transform:translate(-220px,40px) scale(.85)}100%{transform:translate(0,0) scale(1.1)}}
+@keyframes hpBlobC{0%{transform:translate(0,0)}50%{transform:translate(120px,-140px) scale(1.15)}100%{transform:translate(0,0)}}
+@keyframes hpBlobD{0%{transform:translate(0,0) scale(.9)}50%{transform:translate(-100px,-80px) scale(1.2)}100%{transform:translate(0,0) scale(.9)}}
+/* Broken: the drift slows to the ambient speeds. */
+.hp .blob-a{animation-duration:42s}.hp .blob-b{animation-duration:51s}.hp .blob-c{animation-duration:57s}.hp .blob-d{animation-duration:45s}
+/* One focus ring for every control: 2px accent, 2px off the edge. */
+.hp :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.hp *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="hp" style="--ring: {{t.sealed}}; position: relative; isolation: isolate; width: 100%; min-height: 800px; overflow: hidden; font-family: Geist, system-ui, sans-serif; background: {{t.app}}; color: {{t.text}}">
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+    <div class="blob blob-a" style="{{blobA}}"></div>
+    <div class="blob blob-b" style="{{blobB}}"></div>
+    <div class="blob blob-c" style="{{blobC}}"></div>
+    <div class="blob blob-d" style="{{blobD}}"></div>
+    <div style="position: absolute; inset: 0; {{veil}}"></div>
+  </div>
+
+  <div style="min-height: 800px; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px">
+
+    <svg width="96" height="96" viewBox="0 0 26 26" fill="none" role="img" aria-label="Sanctum" style="overflow: visible; flex-shrink: 0">
+      <path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path>
+      <rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect>
+      <rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect>
+      <rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect>
+      <g opacity="0.55"><circle cx="13" cy="16.8" r="2.6" fill="{{t.muted}}"></circle>
+      <path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.muted}}"></path></g>
+    </svg>
+
+    <!-- Everything readable sits on one quiet glass panel, so text and controls clear 4.5:1 over the mesh in every theme. -->
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 36px 56px 22px; border-radius: 12px; border: 1px solid {{edge}}; background: {{glass}}; text-align: center">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
+        <h1 style="margin: 0; font-size: 88px; line-height: 1; letter-spacing: -0.04em; color: {{t.text}}">Seal broken.</h1>
+        <p style="margin: 0; font-size: 16px; color: {{t.text2}}">Sanctum was closed 23 minutes into Interview Prep. With Protection on, it reopens itself.</p>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" class="hov" style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid {{edgeStrong}}; border-radius: 8px; background: transparent; color: {{t.text}}; font-size: 13px">Done<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: {{t.text2}}">Esc</span></button>
+        <button type="button" class="hov" style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-size: 13px; font-weight: 600">Enter again<span aria-hidden="true" style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500">↵</span></button>
+      </div>
+      <!-- Opens the session review (result, focus rating, where I left off) only when asked. -->
+      <button type="button" class="hov" aria-haspopup="dialog" aria-label="Add a note: review this session" style="height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: {{t.text2}}; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: {{edgeStrong}}">Add a note</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":1280,"height":800}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Shared helpers, the same in every page file.
+// muted and lineInput are contrast-checked in THEMES: muted clears 4.5:1 on app, panel, raised,
+// sidebar, sealedTint and secTint; lineInput clears 3:1 on app, panel, raised and sidebar.
+// Light themes come from the scheme field, never from the app colour.
+function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16)); }
+// mix(a, b, w): a moved toward b by w (0..1).
+function mix(a, b, w) {
+  const A = rgb(a), B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v * (1 - w) + B[i] * w).toString(16).padStart(2, "0")).join("");
+}
+function tokens(name) {
+  const base = THEMES[name] || THEMES.Aura;
+  return { ...base, light: base.scheme === "light", lineSoft: mix(base.line, base.panel, 0.4) };
+}
+// The aurora: three radial lights, no blur filter. Barely there while open; a little stronger while sealed.
+function auroraVals(t, sealed) {
+  const o = sealed ? (t.light ? [0.14, 0.09, 0.06] : [0.28, 0.18, 0.12]) : (t.light ? [0.08, 0.08, 0.05] : [0.16, 0.14, 0.10]);
+  const glow = (c, op) => "background: radial-gradient(closest-side, " + c + ", " + c + "00); opacity: " + op;
+  return {
+    auroraA: glow(t.sealed, o[0]),
+    auroraB: glow(t.sec, o[1]),
+    auroraC: glow(mix(t.sealed, t.sec, 0.5), o[2]),
+    auroraVeil: "background: radial-gradient(ellipse 80% 70% at 50% 45%, " + t.app + "d9 0%, " + t.app + "a6 100%)",
+    auroraClass: sealed ? "aurora-live" : ""
+  };
+}
+
+
+class Component extends DCLogic {
+  renderVals() {
+    const t = tokens(this.props.theme);
+    // The same mesh with the seal drained out of it: the accent blobs go neutral, and only a
+    // faint warmth of the second colour stays (the minutes still count). Plain, never alarming.
+    const k = t.light ? 0.7 : 0.62;
+    const a = mix(t.muted, t.app, k);           // held-1: was the accent, now grey
+    const b = mix(t.sec, t.app, k + 0.14);      // held-2: the second colour, faint
+    const c = mix(t.line, t.app, 0.2);          // held-3: neutral
+    const d = mix(t.sealed, t.app, 0.88);       // held-4: a trace of the accent, barely there
+    return {
+      t,
+      blobA: `background: ${a}; opacity: 0.9`,
+      blobB: `background: ${b}; opacity: 0.8`,
+      blobC: `background: ${c}; opacity: 0.85`,
+      blobD: `background: ${d}; opacity: 0.7`,
+      veil: `background: radial-gradient(ellipse 70% 60% at 50% 48%, ${t.app}1a 0%, ${t.app}8c 100%)`,
+      // The glass under the text: the page colour at 72%. Measured over the mesh's strongest blob,
+      // text2 stays at 5.6:1 or better and the accent button at 3.3:1 or better in all four themes.
+      glass: t.app + "b8",
+      edge: t.text + "29",
+      edgeStrong: t.text + "80"
+    };
+  }
+}
+</script>
+</body>
+</html>

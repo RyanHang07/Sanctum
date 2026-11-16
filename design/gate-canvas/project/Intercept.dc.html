@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Intercept</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.ic button{font:inherit;cursor:pointer}
+.ic h1{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+.ic .hov:hover{opacity:.85}
+/* One focus ring for every control: 2px accent, 2px off the edge. */
+.ic :is(button,a,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+</style>
+</helmet>
+<!-- The intercept window: widened to 520x360 with a plan (was 480x320), transparent, always on top. The 420px card keeps 50px each side and its shadow is tightened to 0 12px 32px, so the shadow is never clipped. The backdrop stands in for whatever is behind it. -->
+<div class="ic" style="--ring: {{t.sealed}}; width: 100%; min-height: 360px; display: flex; align-items: center; justify-content: center; font-family: Geist, system-ui, sans-serif; background: {{backdrop}}; color: {{t.text}}">
+  <div role="alertdialog" aria-label="Discord is sealed" style="position: relative; width: 420px; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid {{sealedLine}}; background: {{t.panel}}; box-shadow: {{shadow}}">
+
+    <!-- The seal's ruler along the card's top edge: 60 minutes, minor ticks every 5, major every 15. It is the seal's progress, so it is all accent: filled to now, passed major ticks in the accent, later ones muted. No glow. -->
+    <div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 8px">
+      <div style="position: absolute; left: 0; top: 0; height: 2px; width: {{fillPct}}; background: {{t.sealed}}"></div>
+      <sc-for list="{{ticks}}" as="tk" hint-placeholder-count="11">
+        <div style="{{tk.style}}"></div>
+      </sc-for>
+      <div style="{{needle}}"></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 18px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h1 style="margin: 0; font-size: 24px; line-height: 1.15">Discord stays sealed.</h1>
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: {{t.text2}}">18 minutes into Interview Prep, <span style="font-family: 'Geist Mono', monospace; color: {{t.text}}">42:14</span> to go. It hasn’t gotten more urgent.</p>
+      </div>
+      <p style="margin: 0; padding: 8px 12px; border-radius: 8px; background: {{t.sealedTint}}; font-size: 13px; color: {{t.text}}">If you're tempted, you said you'd stand up and stretch.</p>
+      <div style="display: flex; gap: 16px; font-size: 12px; color: {{t.muted}}">
+        <span>3rd attempt this session</span>
+        <span>Logged to stats</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; padding: 12px 22px; border-top: 1px solid {{t.line}}; background: {{footer}}">
+      <button type="button" class="hov" style="margin-left: -12px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: {{t.muted}}; font-size: 13px">Break the seal</button>
+      <span style="margin-left: auto; white-space: nowrap; font-size: 12px; color: {{t.muted}}">Returning in <span style="font-family: 'Geist Mono', monospace">4s</span></span>
+      <button type="button" class="hov" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: {{t.sealed}}; color: {{t.sealedOn}}; font-size: 13px; font-weight: 600">Back to VS Code<span style="font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 500; opacity: .7">↵</span></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":520,"height":360}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// Shared helpers, the same in every page file.
+// muted and lineInput are contrast-checked in THEMES: muted clears 4.5:1 on app, panel, raised,
+// sidebar, sealedTint and secTint; lineInput clears 3:1 on app, panel, raised and sidebar.
+// Light themes come from the scheme field, never from the app colour.
+function rgb(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.substr(i, 2), 16)); }
+// mix(a, b, w): a moved toward b by w (0..1).
+function mix(a, b, w) {
+  const A = rgb(a), B = rgb(b);
+  return "#" + A.map((v, i) => Math.round(v * (1 - w) + B[i] * w).toString(16).padStart(2, "0")).join("");
+}
+function tokens(name) {
+  const base = THEMES[name] || THEMES.Aura;
+  return { ...base, light: base.scheme === "light", lineSoft: mix(base.line, base.panel, 0.4) };
+}
+// The aurora: three radial lights, no blur filter. Barely there while open; a little stronger while sealed.
+function auroraVals(t, sealed) {
+  const o = sealed ? (t.light ? [0.14, 0.09, 0.06] : [0.28, 0.18, 0.12]) : (t.light ? [0.08, 0.08, 0.05] : [0.16, 0.14, 0.10]);
+  const glow = (c, op) => "background: radial-gradient(closest-side, " + c + ", " + c + "00); opacity: " + op;
+  return {
+    auroraA: glow(t.sealed, o[0]),
+    auroraB: glow(t.sec, o[1]),
+    auroraC: glow(mix(t.sealed, t.sec, 0.5), o[2]),
+    auroraVeil: "background: radial-gradient(ellipse 80% 70% at 50% 45%, " + t.app + "d9 0%, " + t.app + "a6 100%)",
+    auroraClass: sealed ? "aurora-live" : ""
+  };
+}
+
+
+class Component extends DCLogic {
+  renderVals() {
+    const t = tokens(this.props.theme);
+    const length = 60, elapsed = 18;
+    const pct = (m) => `${(m / length) * 100}%`;
+    // Minor ticks every 5 minutes, major every 15; the ends are the card's corners, so they're left out.
+    const ticks = [];
+    for (let m = 5; m < length; m += 5) {
+      const major = m % 15 === 0;
+      ticks.push({ style: `position: absolute; top: 0; left: ${pct(m)}; width: 1px; height: ${major ? 8 : 4}px; background: ${major ? (m <= elapsed ? t.sealed : t.muted) : t.line}` });
+    }
+    return {
+      t, ticks,
+      fillPct: pct(elapsed),
+      needle: `position: absolute; top: 0; left: calc(${pct(elapsed)} - 1px); width: 2px; height: 8px; border-radius: 0 0 1px 1px; background: ${t.sealed}`,
+      backdrop: t.light ? mix(t.app, t.text, 0.1) : mix(t.app, "#000000", 0.4),
+      sealedLine: t.sealed + "66",
+      footer: mix(t.panel, t.app, 0.5),
+      shadow: `0 12px 32px ${t.light ? t.text + "33" : "#0000008c"}`
+    };
+  }
+}
+</script>
+</body>
+</html>

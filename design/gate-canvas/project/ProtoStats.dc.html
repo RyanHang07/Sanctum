@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sanctum Stats prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.ps-root button{font:inherit;cursor:pointer}
+.ps-root h1,.ps-root h2{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif;font-weight:700;letter-spacing:-0.02em}
+/* Keyboard focus: one visible ring on every interactive element. */
+.ps-root :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ps-day{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:100%;padding:0;border:0;border-radius:4px;background:transparent;color:inherit;cursor:default}
+.ps-bar{position:relative;transition:height 400ms cubic-bezier(.2,.7,.2,1), background-color 600ms ease, border-color 600ms ease, outline-color 150ms ease}
+/* A kept day's mark: a short second-colour cap on the bar, with the kept glow. */
+.ps-mark{position:absolute;left:3px;right:3px;top:-6px;height:3px;border-radius:2px;pointer-events:none}
+.ps-fill{transition:width 400ms cubic-bezier(.2,.7,.2,1)}
+.ps-mark-in{animation:ps-mark-in 1200ms cubic-bezier(.37,0,.63,1) 1}
+.ps-roll-a{display:inline-block;animation:ps-roll-a 300ms ease-out}
+.ps-roll-b{display:inline-block;animation:ps-roll-b 300ms ease-out}
+@keyframes ps-mark-in{from{opacity:0}to{opacity:1}}
+@keyframes ps-roll-a{from{transform:translateY(40%);opacity:.3}to{transform:none;opacity:1}}
+@keyframes ps-roll-b{from{transform:translateY(40%);opacity:.3}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .ps-bar,.ps-fill{transition:none}
+  .ps-mark-in,.ps-roll-a,.ps-roll-b{animation:none}
+}
+</style>
+</helmet>
+<div class="ps-root" style="{{rootStyle}}">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+    <h1 style="margin: 0; flex: 1; font-size: 26px">Stats</h1>
+    <div role="tablist" aria-label="Stats" style="display: flex; padding: 3px; gap: 2px; border: 1px solid {{t.line}}; border-radius: 9px">
+      <sc-for list="{{tabs}}" as="tab" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{tab.sel}}" onClick="{{ tab.select }}" style="{{tab.style}}">{{tab.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{isOverview}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: {{t.muted}}">
+      <span style="color: {{t.text2}}">{{rangeTitle}}</span>
+      <button type="button" style="height: 30px; padding: 0 10px; border: 1px solid {{t.line}}; border-radius: 8px; background: transparent; color: {{t.text2}}">{{thisRange}}</button>
+      <span style="flex: 1"></span>
+      <div role="tablist" aria-label="Range" style="display: flex; padding: 3px; gap: 2px; border: 1px solid {{t.line}}; border-radius: 9px">
+        <sc-for list="{{ranges}}" as="r" hint-placeholder-count="2">
+          <button type="button" role="tab" aria-selected="{{r.sel}}" onClick="{{ r.select }}" style="{{r.style}}">{{r.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showWeek}}" hint-placeholder-val="{{ true }}">
+    <div data-testid="stats-summary" style="display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)) minmax(240px, 2fr); border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}; overflow: hidden">
+      <sc-for list="{{tiles}}" as="tile" hint-placeholder-count="4">
+        <div style="{{tile.style}}">
+          <span style="font-family: 'Geist Mono', monospace; font-size: 24px; font-weight: 500; letter-spacing: -0.02em"><span class="{{tile.roll}}">{{tile.value}}</span></span>
+          <span style="font-size: 12.5px; color: {{t.muted}}">{{tile.label}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-left: 1px solid {{t.line}}">
+        <div style="display: flex; align-items: baseline; gap: 8px">
+          <span style="font-family: 'Geist Mono', monospace; font-size: 24px; font-weight: 500; letter-spacing: -0.02em"><span class="{{focusRoll}}">{{focusTotal}}</span></span>
+          <span style="font-size: 12.5px; color: {{t.muted}}">{{focusNote}}</span>
+        </div>
+        <div role="img" aria-label="{{focusAria}}" style="position: relative; height: 16px">
+          <sc-for list="{{weekTicks}}" as="k" hint-placeholder-count="16"><span style="{{k.style}}"></span></sc-for>
+          <span class="ps-fill" style="{{focusFill}}"></span>
+        </div>
+        <div style="position: relative; height: 12px; font-family: 'Geist Mono', monospace; font-size: 10.5px; color: {{t.muted}}">
+          <sc-for list="{{weekLabels}}" as="l" hint-placeholder-count="4"><span style="{{l.style}}">{{l.text}}</span></sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; flex: 1">
+      <section aria-label="Focus by day" style="flex: 999 1 460px; min-width: 0; box-sizing: border-box; padding: 22px 22px 18px 14px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; gap: 12px">
+          <div aria-hidden="true" style="position: relative; flex: 0 0 38px; height: 300px; border-right: 1px solid {{t.line}}">
+            <sc-for list="{{ruler}}" as="k" hint-placeholder-count="17"><span style="{{k.style}}"></span></sc-for>
+            <sc-for list="{{rulerLabels}}" as="l" hint-placeholder-count="5"><span style="{{l.style}}">{{l.text}}</span></sc-for>
+          </div>
+          <div style="position: relative; flex: 1; min-width: 0; height: 300px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; align-items: end">
+            <div aria-hidden="true" style="{{targetLine}}"></div>
+            <span aria-hidden="true" style="{{targetLabel}}">{{targetText}}</span>
+            <sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+              <button type="button" class="ps-day" aria-label="{{b.detail}}" onMouseEnter="{{ b.enter }}" onMouseLeave="{{ b.leave }}" onFocus="{{ b.enter }}" onBlur="{{ b.leave }}">
+                <sc-if value="{{b.shown}}" hint-placeholder-val="{{ true }}">
+                  <span class="ps-bar" style="{{b.style}}"><sc-if value="{{b.kept}}" hint-placeholder-val="{{ false }}"><span class="{{b.markCls}}" style="{{b.markStyle}}"></span></sc-if></span>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; text-align: center; margin-left: 50px">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="7">
+            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12.5px">
+              <span style="font-weight: 600">{{b.day}} <span style="{{b.noteStyle}}">{{b.note}}</span></span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 11.5px; color: {{t.muted}}">{{b.time}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-wrap: nowrap; align-items: center; gap: 8px 18px; min-width: 0; font-size: 12px; color: {{t.muted}}; border-top: 1px solid {{t.line}}; padding-top: 12px; margin-left: 8px">
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{t.sealed}}"></span>Focused</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="{{legendMark}}"></span>Kept</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{t.raised}}; border: 1px solid {{t.line}}; box-sizing: border-box"></span>Missed</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{t.sealedTint}}; border: 1.5px solid {{t.sealed}}; box-sizing: border-box"></span>Today</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; border-top: 2px dashed {{t.sec}}"></span>Target</span>
+          <span data-testid="stats-hover" aria-live="polite" style="margin-left: auto; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: {{t.text2}}">{{hoverText}}</span>
+        </div>
+      </section>
+
+      <section aria-label="What tempted you" style="flex: 1 1 260px; box-sizing: border-box; padding: 18px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: baseline; font-weight: 600; font-size: 14px">What tempted you<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 12px; color: {{t.muted}}">{{attempts}}</span></div>
+        <sc-if value="{{noTempted}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; font-size: 13px; color: {{t.muted}}">Nothing tried to get in.</p>
+        </sc-if>
+        <sc-for list="{{tempt}}" as="x" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: baseline; gap: 8px; font-size: 13.5px"><span style="font-weight: 500">{{x.name}}</span><span style="font-size: 11.5px; color: {{t.muted}}">{{x.kind}}</span><span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 12px">{{x.n}}</span></div>
+            <div style="height: 4px; border-radius: 2px; background: {{t.raised}}"><div style="{{x.bar}}"></div></div>
+          </div>
+        </sc-for>
+      </section>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showMissing}}" hint-placeholder-val="{{ false }}">
+    <section aria-label="{{missing.title}}" style="flex: 1; box-sizing: border-box; padding: 28px; border: 1px solid {{t.line}}; border-radius: 12px; background: {{t.panel}}; display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0; font-size: 18px">{{missing.title}}</h2>
+      <p style="margin: 0; max-width: 520px; font-size: 13.5px; line-height: 1.5; color: {{t.muted}}">{{missing.body}}</p>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"app":{"editor":null},"$preview":{"width":1060,"height":800}}'>
+const AURA = { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" };
+const noop = () => {};
+// Used only when this file renders alone, without the shell's app.
+const DEFAULT_APP = {
+  theme: "Aura", t: AURA, screen: "stats", today: "2026-11-15", goal: 120, minutes: 42, session: null, justKept: false,
+  profile: "Interview Prep", length: 60,
+  week: [
+    { date: "2026-11-09", label: "Mon", num: 9, minutes: 90, status: "missed" },
+    { date: "2026-11-10", label: "Tue", num: 10, minutes: 222, status: "kept" },
+    { date: "2026-11-11", label: "Wed", num: 11, minutes: 158, status: "kept" },
+    { date: "2026-11-12", label: "Thu", num: 12, minutes: 78, status: "missed" },
+    { date: "2026-11-13", label: "Fri", num: 13, minutes: 204, status: "kept" },
+    { date: "2026-11-14", label: "Sat", num: 14, minutes: 132, status: "kept" },
+    { date: "2026-11-15", label: "Sun", num: 15, minutes: 42, status: "today" }
+  ],
+  streak: 11, items: [], trackers: [],
+  tempted: [{ name: "Discord", kind: "App", n: 9 }, { name: "youtube.com", kind: "Site", n: 6 }, { name: "“shorts”", kind: "Keyword", n: 4 }, { name: "Steam", kind: "App", n: 2 }],
+  go: noop, startSession: noop, stopSession: noop, toggleItem: noop, logTracker: noop, setProfile: noop, setLength: noop
+};
+const LONGEST_STREAK = 16;   // sample history: the longest run before this one
+const WEEK_TARGET = 600;     // this week's target: 10 hours
+const CHART_H = 300;         // px height of the bar chart and its ruler
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+// Same format as the app's minutes(): "42m", "2h", "3h 42m".
+const fmt = (total) => { const m = Math.max(0, Math.round(total)); const h = Math.floor(m / 60); if (!h) return `${m}m`; return m % 60 ? `${h}h ${m % 60}m` : `${h}h`; };
+const monthOf = (key) => Number(key.slice(5, 7)) - 1;
+const shortDate = (key) => `${MONTHS[monthOf(key)]} ${Number(key.slice(8, 10))}`;
+// The app's dayDetail(), the hover text under the chart.
+const dayDetail = (d, goal, today) => {
+  if (d.status === "today") return `Today: ${fmt(d.minutes)} of ${fmt(goal)} so far`;
+  if (d.status === "kept") return `${d.date === today ? "Today" : shortDate(d.date)}: kept, ${fmt(d.minutes)} focused`;
+  if (d.status === "missed") return `${shortDate(d.date)}: ${fmt(d.minutes)} focused of ${fmt(goal)}, streak reset`;
+  if (d.status === "future") return `${shortDate(d.date)}: ahead`;
+  return `${shortDate(d.date)}: before your first session`;
+};
+const TABS = [["overview", "Overview"], ["sessions", "Sessions"], ["activity", "Activity"], ["day", "Day"]];
+const MISSING = {
+  sessions: { title: "Sessions is not in this prototype.", body: "In the app, this tab lists every finished session, kept for good. Filter by range, outcome and profile, open one for its details, or save the list as CSV." },
+  activity: { title: "Activity is not in this prototype.", body: "In the app, this tab shows where the time went by app and by site, for today, 7 days or 30. One click sets an app's or site's category." },
+  day: { title: "Day is not in this prototype.", body: "In the app, this tab draws one day from its first activity to its last, with each focus session as a band above it." },
+  month: { title: "Month is not in this prototype.", body: "In the app, Month shows the whole month as a grid of days: kept, missed, broken and rest, with each day's focused time." }
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const app = (this.props && this.props.app) || DEFAULT_APP;
+    const t = app.t || AURA;
+    // Local UI state only; defaults apply until the first setState.
+    const s = this.state || {};
+    const tab = s.tab || "overview";
+    const range = s.range || "week";
+    const hover = s.hover === undefined ? null : s.hover;
+    const dark = t.scheme !== "light";
+    const segBtn = (on, h, pad) => `height: ${h}px; padding: 0 ${pad}px; border: 0; border-radius: 6px; background: ${on ? t.raised : "transparent"}; color: ${on ? t.text : t.muted}; font-weight: ${on ? 600 : 400}`;
+
+    const tabs = TABS.map(([id, label]) => ({
+      label, sel: String(tab === id), style: segBtn(tab === id, 28, 12),
+      select: () => this.setState({ tab: id, hover: null })
+    }));
+    const ranges = [["week", "Week"], ["month", "Month"]].map(([id, label]) => ({
+      label, sel: String(range === id), style: segBtn(range === id, 26, 10),
+      select: () => this.setState({ range: id, hover: null })
+    }));
+
+    const week = app.week || [];
+    const goal = app.goal || 120;
+    const first = week[0], last = week[week.length - 1];
+    const rangeTitle = range === "month"
+      ? `${MONTHS_LONG[monthOf(app.today)]} ${app.today.slice(0, 4)}`
+      : first && last ? `${shortDate(first.date)} – ${monthOf(first.date) === monthOf(last.date) ? last.num : shortDate(last.date)}` : "";
+
+    // Tiles: live from app.
+    const kept = week.filter((d) => d.status === "kept").length;
+    const roll = (n) => (n % 2 ? "ps-roll-a" : "ps-roll-b");
+    const tiles = [
+      [app.streak, "Current streak"],
+      [Math.max(LONGEST_STREAK, app.streak), "Longest streak"],
+      [kept, "Days kept"],
+      [0, "Seals broken"]
+    ].map(([value, label], i) => ({
+      value: String(value), label, roll: roll(value),
+      style: `display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 16px 18px; ${i ? `border-left: 1px solid ${t.line}` : ""}`
+    }));
+
+    // This week's focus against the 10 h target, on an hour scale (15 h, or more if passed).
+    const total = week.reduce((a, d) => a + (d.status === "future" ? 0 : d.minutes), 0);
+    const scaleH = Math.max(15, Math.ceil(total / 60));
+    const met = total >= WEEK_TARGET;
+    const focusNote = `focused of ${fmt(WEEK_TARGET)}. ${met ? "Target met." : `${fmt(WEEK_TARGET - total)} to go.`}`;
+    const weekTicks = Array.from({ length: scaleH + 1 }, (_, h) => {
+      const major = h % 5 === 0;
+      return { style: `position: absolute; bottom: 5px; left: calc(${(h / scaleH) * 100}% - ${h === scaleH ? 1 : 0}px); width: 1px; height: ${major ? 11 : 6}px; background: ${major ? t.sec : t.line}` };
+    });
+    const weekLabels = [0, 5, 10].filter((h) => h < scaleH - 1).map((h) => ({
+      text: `${h}${h ? "h" : ""}`,
+      style: `position: absolute; left: ${(h / scaleH) * 100}%; ${h ? "transform: translateX(-50%);" : ""} ${h * 60 === WEEK_TARGET ? `color: ${t.secText}` : ""}`
+    })).concat([{ text: `${scaleH}h`, style: "position: absolute; right: 0" }]);
+    const focusFill = `position: absolute; left: 0; bottom: 0; height: 3px; width: ${Math.min(100, (total / (scaleH * 60)) * 100)}%; border-radius: 2px; background: ${t.sealed}`;
+    const focusAria = `${fmt(total)} focused against a ${fmt(WEEK_TARGET)} target, on a ${scaleH} hour scale`;
+
+    // Day chart: 4 h tall unless a day goes past it. A ruler tick every 15 minutes, hours in the second colour.
+    const topH = Math.max(4, ...week.map((d) => Math.ceil(d.minutes / 60)));
+    const topMin = topH * 60;
+    const px = (m) => Math.round((m / topMin) * CHART_H);
+    const ruler = Array.from({ length: topH * 4 + 1 }, (_, i) => {
+      const major = i % 4 === 0;
+      return { style: `position: absolute; right: 0; bottom: ${Math.round((i / (topH * 4)) * CHART_H) - (i === topH * 4 ? 1 : 0)}px; width: ${major ? 12 : 6}px; height: 1px; background: ${major ? t.sec : t.line}` };
+    });
+    const rulerLabels = Array.from({ length: topH + 1 }, (_, h) => ({
+      text: `${h}h`,
+      style: `position: absolute; right: 16px; bottom: ${px(h * 60) - (h === topH ? 10 : h === 0 ? 0 : 6)}px; font-family: 'Geist Mono', monospace; font-size: 10.5px; color: ${h * 60 === goal ? t.secText : t.muted}`
+    }));
+    const goalPx = px(goal);
+    const targetLine = `position: absolute; left: 0; right: 0; bottom: ${goalPx}px; border-top: 2px dashed ${t.sec}; opacity: .7; pointer-events: none`;
+    const targetLabel = `position: absolute; right: 0; bottom: ${goalPx + 6}px; font-size: 11px; color: ${t.secText}; pointer-events: none`;
+    const targetText = `${fmt(goal)} a day`;
+
+    const bars = week.map((d, i) => {
+      const isToday = d.date === app.today;
+      const fill = d.status === "kept"
+        ? `background: ${t.sealed}; border: 1.5px solid ${t.sealed}`
+        : d.status === "today"
+          ? `background: ${t.sealedTint}; border: 1.5px solid ${t.sealed}`
+          : `background: ${t.raised}; border: 1px solid ${t.line}`;
+      const h = d.status === "future" ? 0 : Math.max(4, px(d.minutes));
+      const on = hover === i;
+      return {
+        day: d.label,
+        time: d.status === "future" ? "" : fmt(d.minutes),
+        shown: d.status !== "future",
+        detail: dayDetail(d, goal, app.today),
+        note: d.status === "missed" ? "Missed" : isToday ? "Today" : "",
+        noteStyle: `font-weight: 500; font-size: 11px; color: ${t.muted}`,
+        kept: d.status === "kept",
+        markCls: `ps-mark${isToday && app.justKept ? " ps-mark-in" : ""}`,
+        markStyle: `background: ${t.sec}; box-shadow: 0 0 0 1px ${t.secLine}, 0 0 10px 0 ${t.sec}${dark ? "99" : "59"}`,
+        style: `display: block; width: 100%; height: ${h}px; box-sizing: border-box; border-radius: 3px 3px 2px 2px; ${fill}; outline: 1px solid ${on ? t.muted : "transparent"}; outline-offset: 2px`,
+        enter: () => this.setState({ hover: i }),
+        leave: () => this.setState({ hover: null })
+      };
+    });
+    const hoverText = hover !== null && week[hover] ? dayDetail(week[hover], goal, app.today) : "Hover or focus a day for details";
+
+    const tempted = app.tempted || [];
+    const topN = Math.max(1, ...tempted.map((x) => x.n));
+    const tempt = tempted.map((x) => ({
+      name: x.name, kind: x.kind, n: x.n,
+      bar: `height: 4px; width: ${Math.round((x.n / topN) * 100)}%; border-radius: 2px; background: ${t.muted}`
+    }));
+    const attemptsN = tempted.reduce((a, x) => a + x.n, 0);
+
+    const isOverview = tab === "overview";
+    const showWeek = isOverview && range === "week";
+    const missing = !isOverview ? MISSING[tab] : range === "month" ? MISSING.month : MISSING.sessions;
+
+    return {
+      t,
+      rootStyle: `--accent: ${t.sealed}; width: 100%; min-height: 800px; box-sizing: border-box; padding: 24px 28px 22px; display: flex; flex-direction: column; gap: 16px; font-family: Geist, system-ui, sans-serif; background: ${t.app}; color: ${t.text}`,
+      tabs, ranges, isOverview, showWeek, showMissing: !showWeek, missing,
+      rangeTitle, thisRange: range === "month" ? "This month" : "This week",
+      legendMark: `position: relative; width: 10px; height: 3px; border-radius: 2px; background: ${t.sec}; box-shadow: 0 0 0 1px ${t.secLine}, 0 0 8px 0 ${t.sec}${dark ? "99" : "59"}`,
+      tiles, focusTotal: fmt(total), focusRoll: roll(total), focusNote, focusAria, focusFill, weekTicks, weekLabels,
+      ruler, rulerLabels, targetLine, targetLabel, targetText, bars, hoverText,
+      tempt, noTempted: tempt.length === 0, attempts: `${attemptsN} attempt${attemptsN === 1 ? "" : "s"}`
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<title>Sanctum Gate Light</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: plan at the top, then three headline treatments (top of Today), then two full Today compositions; one column per theme. */
+:root {
+  color-scheme: dark;
+  --page: #0A0B0F;
+  --ink: #E6E9EF;
+  --ink-2: #A3ABBA;
+  --rule: #1D212B;
+  --display: "Geist", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--display); }
+.wrap { max-width: 1480px; margin: 0 auto; padding-block: 44px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 48px; }
+.intro { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px 48px; align-items: start; }
+@media (max-width: 860px) { .intro { grid-template-columns: minmax(0, 1fr); } }
+.intro h1 { margin: 0 0 12px; font-size: clamp(28px, 3.6vw, 42px); line-height: 1.08; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance; }
+.intro p { margin: 0; color: var(--ink-2); line-height: 1.6; font-size: 15px; max-width: 62ch; }
+.intro .beamdemo { width: min(320px, 100%); height: 14px; margin: 0 0 18px; display: block; }
+.plan { display: grid; gap: 14px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.plan div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.plan b { color: var(--ink); font-weight: 600; }
+section.opt { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--rule); padding-top: 22px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+.head h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
+.head p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.55; max-width: 78ch; }
+.group { margin: 24px 0 -24px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+figcaption { font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+figcaption i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.frame { width: 100%; max-width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); position: relative; }
+.frame.t { aspect-ratio: 640 / 200; }
+.frame.u { aspect-ratio: 640 / 430; }
+.frame > .mk { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* ---------- Shared mock pieces ---------- */
+.mk { width: 640px; background: var(--app); color: var(--text); font-family: var(--display); font-size: 12px; box-sizing: border-box; }
+.mk svg.beam path { fill: var(--sec); }
+.mk .date { font-size: 11px; color: var(--muted); }
+.mk .hl { margin: 0; font-size: 27px; line-height: 1.15; font-weight: 700; letter-spacing: -0.022em; text-wrap: balance; }
+.mk .sub { font-size: 13px; color: var(--text-2); line-height: 1.4; }
+.mk .sub b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+/* Title cards: 640 x 200 */
+.mk.title { height: 200px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+/* T1 · Beam: the gate's top beam in the second colour, spanning the headline. */
+.tb .beamwrap { display: inline-flex; flex-direction: column; gap: 9px; align-self: flex-start; }
+.tb svg.beam { width: 100%; height: 11px; display: block; }
+
+/* T2 · Stamp: a seal pressed beside the headline, holding today's figure. */
+.ts .line { display: flex; align-items: center; gap: 18px; }
+.ts .stamp { flex-shrink: 0; width: 56px; height: 56px; border: 2px solid var(--sec); border-radius: 9px; background: var(--sec-tint); color: var(--sec-text); display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(-4deg); gap: 1px; }
+.ts .stamp b { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.ts .stamp span { font-size: 9.5px; font-weight: 500; }
+
+/* T3 · Threshold: the headline stands under the beam and between two posts. */
+.tg .gate { position: relative; align-self: flex-start; padding: 14px 18px 4px; }
+.tg .gate svg.beam { position: absolute; left: -8px; right: -8px; top: 0; width: calc(100% + 16px); height: 10px; }
+.tg .gate::before, .tg .gate::after { content: ""; position: absolute; top: 6px; bottom: -6px; width: 3px; border-radius: 1px; background: var(--sec); opacity: .55; }
+.tg .gate::before { left: 4px; } .tg .gate::after { right: 4px; }
+
+/* ---------- Full Today: 640 x 430 ---------- */
+.mk.ui { height: 430px; display: flex; }
+.ui .rail { width: 40px; background: var(--sidebar); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 13px 0; }
+.ui .rail svg.mark .torii { fill: var(--text); } .ui .rail svg.mark .key { fill: var(--sealed); }
+.ui .nav { position: relative; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+.ui .nav span { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--faint); }
+.ui .nav.on { background: var(--raised); }
+.ui .nav.on span { border-color: var(--text); }
+.ui .nav.on::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 10px; height: 2px; margin-left: -5px; border-radius: 1px; background: var(--sec); }
+.ui main { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ui .top { display: flex; align-items: center; gap: 8px; }
+.ui .top .date { flex: 1; }
+.ui .chip { border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.ui .chip b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+.ui .days { display: flex; gap: 2px; }
+.ui .days i { width: 6px; height: 6px; border-radius: 2px; border: 1px solid var(--line-input); }
+.ui .days i.k { background: var(--sec); border-color: var(--sec); }
+.ui .hl { font-size: 25px; }
+.ui .focus { position: relative; border: 1px solid var(--line); background: var(--panel); border-radius: 9px; padding: 16px 12px 12px; display: grid; grid-template-columns: 1.15fr .75fr 1.4fr; gap: 10px; align-items: end; }
+.ui .focus svg.beam { position: absolute; left: 12px; right: 12px; top: -6px; width: calc(100% - 24px); height: 10px; }
+.ui label { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 5px; }
+.ui .pick { height: 40px; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); display: grid; place-items: center; font-weight: 600; font-size: 12.5px; }
+.ui .pick.mono { font-family: var(--mono); font-weight: 500; }
+.ui .enter label { color: var(--muted); }
+.ui .enter label b { color: var(--text-2); font-weight: 500; }
+.ui .enter button { all: unset; box-sizing: border-box; width: 100%; height: 46px; border-radius: 7px; background: var(--sealed); color: var(--sealed-on); display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.ui .enter button small { font-family: var(--mono); font-size: 9.5px; font-weight: 400; opacity: .8; }
+.ui .cols { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); flex: 1; min-height: 0; }
+.ui .col + .col { border-left: 1px solid var(--line); }
+.ui .col header { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.ui .col header .n { margin-left: auto; font-family: var(--mono); font-weight: 400; color: var(--muted); font-size: 10.5px; }
+.ui .it { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+.ui .box { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--faint); display: grid; place-items: center; flex-shrink: 0; }
+.ui .it.done .box { background: var(--sealed); border-color: var(--sealed); }
+.ui .it.done .box::after { content: ""; width: 5px; height: 3px; border-left: 1.5px solid var(--sealed-on); border-bottom: 1.5px solid var(--sealed-on); transform: rotate(-45deg) translate(.5px, -.5px); }
+.ui .it.done .t { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint); }
+.ui .ptag { margin-left: auto; font-size: 9.5px; border-radius: 4px; padding: 2px 6px; color: var(--text-2); background: var(--raised); }
+.ui .add { color: var(--faint); }
+.ui .day { display: flex; align-items: center; gap: 10px; font-size: 10.5px; color: var(--muted); }
+.ui .track { flex: 1; height: 4px; border-radius: 2px; background: var(--raised); position: relative; }
+.ui .fill { position: absolute; inset: 0 65% 0 0; background: var(--sealed); border-radius: 2px; }
+.ui .track .goal { position: absolute; right: 0; top: -3px; width: 2px; height: 10px; border-radius: 1px; background: var(--sec); }
+.ui .day b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+/* U1 · Beam composition: the beam crowns the headline and the focus card. */
+.ub .hlwrap { display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start; }
+.ub .hlwrap svg.beam { width: 100%; height: 10px; }
+
+/* U2 · Stamp composition: the stamp carries today's figure; the beam stays on the card. */
+.us .hlrow { display: flex; align-items: center; gap: 16px; }
+.us .hlrow .stamp { flex-shrink: 0; width: 52px; height: 52px; border: 2px solid var(--sec); border-radius: 9px; background: var(--sec-tint); color: var(--sec-text); display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(-4deg); }
+.us .hlrow .stamp b { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.us .hlrow .stamp span { font-size: 9px; font-weight: 500; }
+.us .top .chip:first-of-type { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .intro .beamdemo path { transform-origin: 50% 100%; animation: rise .9s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rise { from { transform: scaleX(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <div>
+      <svg class="beamdemo" viewBox="0 0 26 4" preserveAspectRatio="none" aria-hidden="true"><path d="M0 2.6Q13 -0.2 26 2.6L25.5 4Q13 1.6 0.5 4Z" fill="#FFCA85"/></svg>
+      <h1>Light through the gate.</h1>
+      <p>The accent is the seal: Enter focus, the keyhole, ticked boxes. The theme's second colour is the light that comes through the gate. It never colours a word. It lives in a few shapes taken from the mark itself, so the decoration could only belong to Sanctum.</p>
+    </div>
+    <div class="plan">
+      <div><b>Type</b><span>Geist only. Headlines are one sentence in one weight and one colour. No accented phrase, no italic payoff. Supporting facts go on a quieter line below, in regular weight.</span></div>
+      <div><b>Colour</b><span>Accent for what you act on and what's sealed. Second colour (the theme's event colour, the dot in the theme picker) for decoration only: the beam, the stamp, kept days, the goal mark.</span></div>
+      <div><b>Bold move</b><span>The beam: the torii's curved top beam from the logo, stretched to the headline's width. Spent once per screen.</span></div>
+      <div><b>Cut</b><span>The straight gradient line (generic), all-caps labels (now sentence case), and the italic payoff.</span></div>
+    </div>
+  </div>
+  <div id="opts"></div>
+</div>
+
+<script>
+const THEMES = [
+  { name: "Aura", p: { app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", "line-input": "#515056", text: "#EDECEE", "text-2": "#C6C5C8", muted: "#9B9A9E", faint: "#706F74", sealed: "#FF6767", "sealed-on": "#15141B", sec: "#FFCA85", "sec-tint": "#382F2B" } },
+  { name: "Night Owl", p: { app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", "line-input": "#3D4E5E", text: "#D6DEEB", "text-2": "#B0BAC8", muted: "#8592A1", faint: "#5A6A79", sealed: "#F78C6C", "sealed-on": "#011627", sec: "#ECC48D", "sec-tint": "#243036" } },
+  { name: "Cobalt2 Light", p: { app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", "line-input": "#BFC6CC", text: "#193549", "text-2": "#4C6171", muted: "#66747D", faint: "#88929A", sealed: "#237D89", "sealed-on": "#FFFFFF", sec: "#D68000", "sec-tint": "#FBF4E8" } },
+  { name: "Sanctum Dark", p: { app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", "line-input": "#2A3040", text: "#E6E9EF", "text-2": "#B8BFCC", muted: "#8A93A6", faint: "#5C6477", sealed: "#2F5BFF", "sealed-on": "#FFFFFF", sec: "#FF8A6B", "sec-tint": "#2A1712" } },
+];
+
+const hx = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const toHex = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+const lum = (h) => { const [r, g, b] = hx(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const readable = (c, bg, toward) => { let t = 0, out = c; while (contrast(out, bg) < 4.5 && t < 1) { t += 0.05; out = mix(c, toward, t); } return out; };
+const vars = (p) => Object.entries({ ...p, "sec-text": readable(p.sec, p["sec-tint"], p.text) }).map(([k, v]) => `--${k}:${v}`).join(";");
+
+const BEAM = `<svg class="beam" viewBox="0 0 26 4" preserveAspectRatio="none" aria-hidden="true"><path d="M0 2.6Q13 -0.2 26 2.6L25.5 4Q13 1.6 0.5 4Z"/></svg>`;
+const MARK = `<svg class="mark" width="18" height="18" viewBox="0 0 26 26" aria-hidden="true"><path class="torii" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z"/><rect class="torii" x="4.4" y="10.8" width="17.2" height="2.4"/><rect class="torii" x="6" y="7.4" width="3.2" height="16.6"/><rect class="torii" x="16.8" y="7.4" width="3.2" height="16.6"/><circle class="key" cx="13" cy="16.8" r="2.6"/><path class="key" d="M12 17.97L11.1 24H14.9L14 17.97Z"/></svg>`;
+const HL = "Your word is the plan. Keep it.";
+const SUB = `<div class="sub"><b>1h 18m</b> left to reach today's 2 hours.</div>`;
+
+const TITLES = [
+  { cls: "tb", title: "Beam", text: "The headline is one sentence in one colour. Above it, the gate's beam in the second colour, exactly as wide as the words, with the date tucked under it. Below, a plain line with the fact that matters today.",
+    body: () => `<div class="beamwrap">${BEAM}<span class="date">Sunday, November 15</span></div><h3 class="hl">${HL}</h3>${SUB}` },
+  { cls: "ts", title: "Stamp", text: "A seal pressed beside the headline, in the second colour, holding today's number. Sealing is what Sanctum does, so the mark says it without words. The headline stays plain.",
+    body: () => `<span class="date">Sunday, November 15</span><div class="line"><h3 class="hl">${HL}</h3><div class="stamp"><b>42m</b><span>of 2h</span></div></div>${SUB}` },
+  { cls: "tg", title: "Threshold", text: "The headline stands inside a faint gate: the beam above, two posts at its sides. The most literal of the three; strongest for a big moment like a goal met or the held page.",
+    body: () => `<span class="date">Sunday, November 15</span><div class="gate">${BEAM}<h3 class="hl">${HL}</h3></div>${SUB}` },
+];
+
+const ui = (variant) => {
+  const days = [1, 1, 0, 1, 1, 1, 1].map((k) => `<i class="${k ? "k" : ""}"></i>`).join("");
+  const head = variant === "ub"
+    ? `<div class="hlwrap">${BEAM}<h3 class="hl">${HL}</h3></div>`
+    : `<div class="hlrow"><h3 class="hl">${HL}</h3><div class="stamp"><b>11</b><span>days</span></div></div>`;
+  return `<aside class="rail">${MARK}<div class="nav on"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div><div class="nav"><span></span></div></aside>
+  <main>
+    <div class="top"><span class="date">Sunday, November 15</span><span class="chip"><b>11</b> days <span class="days">${days}</span></span><span class="chip">Search <b>Ctrl K</b></span></div>
+    ${head}
+    <div class="focus">${variant === "us" ? BEAM : ""}
+      <div><label>Profile</label><div class="pick">Interview Prep</div></div>
+      <div><label>Length</label><div class="pick mono">60 min</div></div>
+      <div class="enter"><label>Closes <b>Discord</b> when you enter</label><button>Enter focus <small>Ctrl ↵</small></button></div>
+    </div>
+    <div class="cols">
+      <div class="col"><header>Routines<span class="n">1/2</span></header>
+        <div class="it done"><span class="box"></span><span class="t">LeetCode practice</span><span class="ptag">Interview Prep</span></div>
+        <div class="it"><span class="box"></span><span class="t">Read 20 pages</span></div>
+        <div class="it"><span class="box"></span><span class="t">Stretch</span><span class="ptag">Deep Work</span></div>
+      </div>
+      <div class="col"><header>Today</header>
+        <div class="it add">+ Add a task</div>
+        <div class="it done"><span class="box"></span><span class="t">Send the weekly update</span></div>
+        <div class="it"><span class="box"></span><span class="t">Review pull requests</span></div>
+      </div>
+    </div>
+    <div class="day"><span>Today</span><div class="track"><div class="fill"></div><div class="goal"></div></div><b>42m</b><span>of 2h</span></div>
+  </main>`;
+};
+
+const UIS = [
+  { cls: "ub", title: "Today with the beam", text: "The beam crowns the headline. The second colour shows up three more times, each small: kept days in the streak, a short bar under the active page in the sidebar, and the goal mark at the end of the day's bar. Enter focus and ticked boxes keep the accent." },
+  { cls: "us", title: "Today with the stamp", text: "The streak moves out of the top bar into a stamp beside the headline, and the beam sits on the focus card's top edge instead, so the gate frames the button you press. Same small touches elsewhere." },
+];
+
+const fig = (t, frameCls, inner) => `<figure><div class="frame ${frameCls}">${inner}</div><figcaption><i style="background:${t.p.sealed}"></i><i style="background:${t.p.sec}"></i>${t.name}</figcaption></figure>`;
+
+document.getElementById("opts").innerHTML =
+  `<p class="group">The title</p>` +
+  TITLES.map((o) => `<section class="opt"><div class="head"><h2>${o.title}</h2><p>${o.text}</p></div>
+    <div class="row">${THEMES.map((t) => fig(t, "t", `<div class="mk title ${o.cls}" style="${vars(t.p)}" role="img" aria-label="${o.title} headline in ${t.name}">${o.body()}</div>`)).join("")}</div></section>`).join("") +
+  `<p class="group" style="margin-top:40px">The whole screen</p>` +
+  UIS.map((o) => `<section class="opt"><div class="head"><h2>${o.title}</h2><p>${o.text}</p></div>
+    <div class="row">${THEMES.map((t) => fig(t, "u", `<div class="mk ui ${o.cls}" style="${vars(t.p)}" role="img" aria-label="${o.title} in ${t.name}">${ui(o.cls)}</div>`)).join("")}</div></section>`).join("");
+
+function fit() { for (const f of document.querySelectorAll(".frame")) f.firstElementChild.style.transform = `scale(${f.clientWidth / 640})`; }
+new ResizeObserver(fit).observe(document.body);
+fit();
+</script>

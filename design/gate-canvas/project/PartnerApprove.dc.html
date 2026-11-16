@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Partner Approve</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&amp;family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{opacity:.85}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+input::placeholder{color:inherit;opacity:1}
+h1,h2,h3{font-family:'Schibsted Grotesk', Geist, system-ui, sans-serif !important;font-weight: 700 !important;letter-spacing: -0.02em !important}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pa-card{animation:rise 220ms cubic-bezier(0.2,0,0,1) both}
+.pa-stage :is(button,a,input,select,[tabindex]):focus-visible{outline:2px solid var(--ring) !important;outline-offset:2px}
+/* The PIN input is invisible over its boxes, so the ring goes on the row of boxes. */
+.pa-pin:focus-within{outline:2px solid var(--ring);outline-offset:2px;border-radius:8px}
+/* The aurora, scaled to a phone. */
+.aurora-a,.aurora-b,.aurora-c{position:absolute;border-radius:50%;filter:blur(80px);transition:opacity 900ms ease, background 900ms ease;will-change:transform}
+.aurora-a{width:340px;height:300px;left:-140px;top:-120px;animation:auroraA 46s ease-in-out infinite}
+.aurora-b{width:360px;height:320px;right:-200px;top:-60px;animation:auroraB 54s ease-in-out infinite}
+.aurora-c{width:520px;height:240px;left:-10%;bottom:-180px;border-radius:45%;animation:auroraC 62s ease-in-out infinite}
+@keyframes auroraA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,40px) scale(1.15)}}
+@keyframes auroraB{0%,100%{transform:translate(0,0) scale(1.05)}50%{transform:translate(-80px,30px) scale(.9)}}
+@keyframes auroraC{0%,100%{transform:translate(0,0) rotate(-4deg)}50%{transform:translate(-50px,-30px) rotate(3deg)}}
+@media (prefers-reduced-motion: reduce){.pa-stage *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="pa-stage" style="position: relative; isolation: isolate; overflow: hidden; width: 100%; min-height: 844px; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; font-size: 14px; background: {{t.app}}; color: {{t.text}}; --ring: {{t.sealed}}">
+  <div aria-hidden="true" style="position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none">
+    <div class="aurora-a" style="{{auroraA}}"></div>
+    <div class="aurora-b" style="{{auroraB}}"></div>
+    <div class="aurora-c" style="{{auroraC}}"></div>
+    <div style="position: absolute; inset: 0; {{auroraVeil}}"></div>
+  </div>
+
+  <header style="{{barStyle}}">
+    <a href="#" aria-label="Sanctum home" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 650; text-decoration: none; color: {{t.text}}">
+      <svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></svg>
+      <span>Sanctum</span>
+    </a>
+    <span style="flex: 1"></span>
+    <!-- No light/dark switch on this page: it follows Alex's Sanctum theme. -->
+    <a href="#" style="{{downloadStyle}}">Download</a>
+    <button type="button" aria-label="Menu" aria-expanded="false" style="{{iconBtn}}"><svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"></path></svg></button>
+  </header>
+
+  <main class="pa-card" style="{{cardStyle}}">
+    <div style="display: flex; justify-content: flex-end; font-size: 13px">
+      <button type="button" style="{{linkStyle}}">Your partners</button>
+    </div>
+    <h1 style="{{h1Style}}">Alex wants out early.</h1>
+    <section aria-label="Request" style="{{panelStyle}}">
+      <p style="margin: 0; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: {{t.text}}">“My manager moved the design review up and I need Slack to share the deck.”</p>
+      <dl style="{{factsStyle}}">
+        <div style="{{factCell}}">
+          <dt style="{{dtStyle}}">Session</dt>
+          <dd style="{{ddStyle}}">Deep Work</dd>
+        </div>
+        <div style="{{factCellRule}}">
+          <dt style="{{dtStyle}}">Time left</dt>
+          <dd style="{{ddTime}}">52:14</dd>
+        </div>
+        <div style="{{factCellRule}}">
+          <dt style="{{dtStyle}}">Asks this week</dt>
+          <dd style="{{ddAsks}}"><span>2</span><span aria-hidden="true" style="display: flex; gap: 3px"><sc-for list="{{askTicks}}" as="k" hint-placeholder-count="2"><span style="{{k.style}}"></span></sc-for></span></dd>
+        </div>
+      </dl>
+    </section>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="pin" style="font-size: 12px; color: {{t.muted}}">Your PIN, to confirm it's you</label>
+      <div class="pa-pin" style="position: relative; display: flex; gap: 6px">
+        <sc-for list="{{pinBoxes}}" as="b" hint-placeholder-count="6">
+          <span aria-hidden="true" style="{{b.style}}">{{b.ch}}</span>
+        </sc-for>
+        <input id="pin" inputmode="numeric" type="password" autocomplete="off" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: text">
+      </div>
+    </div>
+    <label style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 12px; color: {{t.muted}}">Note back (optional)</span>
+      <input placeholder="Use your phone for the link. Finish the set." maxlength="280" style="{{inputStyle}}">
+    </label>
+    <!-- Deny is the primary: the partner's job is to protect the seal. Visual order and tab order match. -->
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <button type="button" style="{{denyBtn}}">Deny, keep the seal</button>
+      <button type="button" style="{{approveBtn}}">Approve, end it</button>
+    </div>
+    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: {{t.muted}}">Works once and expires in 28 minutes. 3 wrong PINs lock approvals for 30 minutes.</p>
+  </main>
+
+  <footer style="{{footerStyle}}">
+    <span style="display: inline-flex; align-items: center; gap: 8px; font-weight: 650">
+      <svg width="16" height="16" viewBox="0 0 26 26" aria-hidden="true"><path d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z" fill="{{t.text}}"></path><rect x="4.4" y="10.8" width="17.2" height="2.4" fill="{{t.text}}"></rect><rect x="6" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><rect x="16.8" y="7.4" width="3.2" height="16.6" fill="{{t.text}}"></rect><circle cx="13" cy="16.8" r="2.6" fill="{{t.sealed}}"></circle><path d="M12 17.97L11.1 24H14.9L14 17.97Z" fill="{{t.sealed}}"></path></svg>
+      Sanctum
+    </span>
+    <span style="color: {{t.muted}}">Free and open source, MIT.</span>
+    <span style="flex: 1"></span>
+    <a href="#" style="{{footLink}}">Docs</a>
+    <a href="#" style="{{footLink}}">Changelog</a>
+    <a href="#" style="{{footLink}}">Privacy</a>
+    <a href="#" style="{{footLink}}">Terms</a>
+    <a href="#" style="{{footLink}}">Legal</a>
+    <a href="#" style="{{footLink}}">GitHub</a>
+    <!-- The theme note: the theme's accent and second colour, as the theme picker shows them, then the fact. -->
+    <span title="{{themeTitle}}" style="flex: 1 0 100%; display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{t.muted}}">
+      <span aria-hidden="true" style="display: flex; gap: 3px"><span style="{{swatchAccent}}"></span><span style="{{swatchSecond}}"></span></span>
+      Matches Alex's Sanctum theme
+    </span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Aura","Night Owl","Cobalt2 Light","Sanctum Dark"],"default":"Aura"},"$preview":{"width":390,"height":844}}'>
+const THEMES = {
+  "Aura": { scheme: "dark", app: "#15141B", sidebar: "#101015", panel: "#1E1D24", raised: "#28272D", line: "#3C3B41", lineInput: "#737277", text: "#EDECEE", text2: "#C6C5C8", muted: "#A2A1A4", sealed: "#FF6767", sealedOn: "#15141B", sealedText: "#FF6767", sealedTint: "#3D2228", sec: "#FFCA85", secText: "#FFCA85", secTint: "#382F2B", secLine: "#7E664B" },
+  "Night Owl": { scheme: "dark", app: "#011627", sidebar: "#01111E", panel: "#0B1F30", raised: "#152938", line: "#273A4A", lineInput: "#647382", text: "#D6DEEB", text2: "#B0BAC8", muted: "#96A2B1", sealed: "#F78C6C", sealedOn: "#011627", sealedText: "#F78C6C", sealedTint: "#2B2A33", sec: "#ECC48D", secText: "#ECC48D", secTint: "#243036", secLine: "#6B6455" },
+  "Cobalt2 Light": { scheme: "light", app: "#FFFFFF", sidebar: "#F2F2F2", panel: "#FFFFFF", raised: "#F5F5F5", line: "#D6DBDE", lineInput: "#7D8D98", text: "#193549", text2: "#4C6171", muted: "#5E6B74", sealed: "#237D89", sealedOn: "#FFFFFF", sealedText: "#007583", sealedTint: "#E9F2F3", sec: "#D68000", secText: "#8F5600", secTint: "#FBF4E8", secLine: "#F1D3A6" },
+  "Sanctum Dark": { scheme: "dark", app: "#0B0D12", sidebar: "#0E1016", panel: "#12151C", raised: "#171B24", line: "#1F2430", lineInput: "#656973", text: "#E6E9EF", text2: "#B8BFCC", muted: "#8A93A6", sealed: "#2F5BFF", sealedOn: "#FFFFFF", sealedText: "#7A95FF", sealedTint: "#172040", sec: "#FF8A6B", secText: "#FF8A6B", secTint: "#2A1712", secLine: "#5A2E24" }
+};
+// muted is raised to pass 4.5:1 on every surface here, the aurora's worst edge included
+// (Aura #9B9A9E, Night Owl #8592A1 and Cobalt2 Light #66747D failed on raised, sealedTint or the aurora).
+// Light themes are told by scheme, never by the app colour.
+// The partner site follows the person's Sanctum theme: the approval link carries Alex's theme,
+// and the page uses the app's own palettes (the THEMES above, the same as the app's theme tweak).
+// lineInput (input and PIN borders) reaches 3:1 on app and panel.
+
+class Component extends DCLogic {
+  renderVals() {
+    const theme = THEMES[this.props.theme] ? this.props.theme : "Aura";
+    const t = THEMES[theme];
+    const light = t.scheme === "light";
+    const lineInput = t.lineInput;
+    const typed = 3;
+    const pinBoxes = [0, 1, 2, 3, 4, 5].map((i) => ({
+      ch: i < typed ? "•" : "",
+      style: `flex: 1 1 0; height: 48px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 8px; background: ${t.panel}; font-family: 'Geist Mono', monospace; font-size: 20px; color: ${t.text}; border: 1px solid ${i === typed ? t.sealed : i < typed ? t.muted : lineInput}; transition: border-color 120ms cubic-bezier(0.2,0,0,1)`
+    }));
+    // One tally tick per ask this week, neutral.
+    const askTicks = [0, 1].map(() => ({ style: `display: block; width: 2px; height: 11px; border-radius: 1px; background: ${t.muted}` }));
+    const cell = `display: flex; flex-direction: column; gap: 2px; padding: 10px; min-width: 0`;
+    const dd = `margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${t.text}`;
+    const choice = `height: 44px; border-radius: 8px; font-size: 14px; font-weight: 600`;
+    return {
+      t, pinBoxes, askTicks,
+      // The aurora as while open: barely there.
+      auroraA: `background: ${t.sealed}; opacity: ${light ? 0.08 : 0.16}`,
+      auroraB: `background: ${t.sec}; opacity: ${light ? 0.08 : 0.14}`,
+      auroraC: `background: linear-gradient(120deg, ${t.sealed}, ${t.sec}); opacity: ${light ? 0.05 : 0.1}`,
+      auroraVeil: `background: radial-gradient(ellipse 80% 70% at 50% 45%, ${t.app}d9 0%, ${t.app}a6 100%)`,
+      barStyle: `display: flex; align-items: center; gap: 8px; height: 56px; flex: 0 0 auto; box-sizing: border-box; padding: 0 16px; border-bottom: 1px solid ${t.line}; background: ${t.app}b8`,
+      iconBtn: `width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: ${t.muted}`,
+      downloadStyle: `display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px; background: ${t.sealed}; color: ${t.sealedOn}; font-size: 13px; font-weight: 600; text-decoration: none`,
+      cardStyle: `width: calc(100% - 32px); margin: 20px 16px 40px; display: flex; flex-direction: column; gap: 16px`,
+      linkStyle: `height: auto; padding: 0; border: 0; background: none; font-size: 12px; color: ${t.sealedText}`,
+      h1Style: `margin: 0; font-size: 28px; line-height: 1.1; color: ${t.text}`,
+      panelStyle: `display: flex; flex-direction: column; overflow: hidden; background: ${t.panel}; border: 1px solid ${t.line}; border-radius: 12px`,
+      factsStyle: `margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid ${t.line}`,
+      factCell: cell,
+      factCellRule: `${cell}; border-left: 1px solid ${t.line}`,
+      dtStyle: `font-size: 11px; color: ${t.muted}`,
+      ddStyle: dd,
+      // Time left on the seal is the accent.
+      ddTime: `${dd}; font-family: 'Geist Mono', monospace; color: ${t.sealedText}`,
+      ddAsks: `${dd}; font-family: 'Geist Mono', monospace; display: flex; align-items: center; gap: 8px`,
+      inputStyle: `height: 36px; box-sizing: border-box; padding: 0 12px; border: 1px solid ${lineInput}; border-radius: 8px; background: ${t.panel}; color: ${t.muted}; font-size: 13px`,
+      denyBtn: `${choice}; border: 0; background: ${t.sealed}; color: ${t.sealedOn}`,
+      approveBtn: `${choice}; border: 1px solid ${lineInput}; background: transparent; color: ${t.text}`,
+      footerStyle: `margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 22px 16px; border-top: 1px solid ${t.line}; font-size: 13px`,
+      footLink: `color: ${t.muted}; text-decoration: none`,
+      themeTitle: `Alex's theme: ${theme}`,
+      swatchAccent: `display: block; width: 8px; height: 8px; border-radius: 50%; background: ${t.sealed}`,
+      swatchSecond: `display: block; width: 8px; height: 8px; border-radius: 50%; background: ${t.sec}`
+    };
+  }
+}
+</script>
+</body>
+</html>
