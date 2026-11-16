@@ -73,6 +73,19 @@ jsdom has no layout, so these need the real app on Windows:
 - [ ] **Days strip key:** hovering the streak shows Kept, Missed, Today beside it after a short pause without moving the chip; tabbing to it shows the same.
 - [ ] **Windows "Show animations" off:** all of the above change at once, with no motion.
 
+## Moments (v0.4.0 redesign)
+
+The intercept window is a real Windows window, and the held build plays on real timing, so these need the installed app:
+
+- [ ] **Intercept window size:** seal a profile with an if-then plan and open a sealed app. The window is 520×360 (logical) and centred, and the card's shadow isn't clipped on any side. Without a plan it is 520×330 with the same margins. Try it at 100%, 125% and 150% display scaling.
+- [ ] **Long "Back to" name:** with a long window title in front (VS Code with a long file name), "Back to …" truncates inside the button and the footer doesn't wrap.
+- [ ] **Seal ruler:** 18 minutes into a 60-minute seal, the fill and needle run about 30% along the card's top edge and stop there; the 15-minute major is the accent and 30 and 45 are muted. A 3-hour seal shows majors at each hour only.
+- [ ] **Intercept motion:** the card appears in place with no slide, the ruler fills after it, and "Returning in" counts down. With Windows' "Show animations" off, all of it shows at once.
+- [ ] **Held build:** finish a seal with the window open. The gate builds, the keyhole seats, the rings settle as the chime plays, and the text rises, once, smoothly. Minimize mid-build and come back: the page is whole and nothing replays.
+- [ ] **Broken seal:** close Sanctum during a seal and reopen it. "Seal broken." shows the keyhole draining to a broken-colour outline with the falling notes, no rings, and no break lengths under "Add a note".
+- [ ] **Held page in four themes:** Aura, Night Owl, Cobalt2 Light and Sanctum Dark; the fact line, "Add a note" and the review panel read clearly, and Enter again's accent stands out from the page.
+- [ ] **Close dialog while sealed:** press the window's close button during a seal; it says "Quit opens at" the seal's end time, and the tray choice shows the time left.
+
 ## Themes (in the installed app)
 
 - [x] **Every theme everywhere:** all 13 look right in every window: main, tray panel, compact timer, the blocked-app overlay, the held page, the boot splash, and dialogs.
