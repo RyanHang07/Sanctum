@@ -141,7 +141,7 @@ function Toggle({ open, count, onClick, label }: { open: boolean; count: number;
       aria-expanded={open}
       aria-label={label}
       onClick={onClick}
-      className={`group/pending flex h-9 w-full shrink-0 items-center gap-2 px-[14px] text-left text-meta transition-colors duration-ui ease-ui hover:text-text-2 ${open ? "text-text-2" : "text-faint"}`}
+      className={`group/pending flex h-9 w-full shrink-0 items-center gap-2 px-[14px] text-left text-meta transition-colors duration-ui ease-ui hover:text-text-2 ${open ? "text-text-2" : "text-muted"}`}
     >
       <ChevronIcon size={10} className={`transition-transform duration-ui ease-ui ${open ? "" : "-rotate-90"}`} />
       <span className="grow font-medium">Pending</span>

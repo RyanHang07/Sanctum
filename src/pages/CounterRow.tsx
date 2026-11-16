@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRolling } from "../lib/motion";
+import { useEffect, useMemo, useState } from "react";
+import { Odometer } from "../components/Odometer";
 import { CheckIcon, ChevronIcon, XIcon } from "../components/icons";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
@@ -14,7 +14,7 @@ import type { Routine } from "../lib/types";
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 const inputClass =
-  "h-[26px] min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint focus:border-sealed";
+  "h-[26px] min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-faint focus:border-sealed";
 
 export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routine }) {
   const loaded = useTrackers((s) => s.loaded);
@@ -26,19 +26,6 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
   const total = entries.reduce((sum, e) => sum + (e.value ?? 0), 0);
   const goal = routine.goalAmount ?? 0;
   const met = goal > 0 && total >= goal;
-  const rolled = useRolling(total);
-  // A shimmer across the bar, once, when the goal is reached (not on load).
-  const [shine, setShine] = useState(false);
-  const wasMet = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (wasMet.current === false && met) {
-      setShine(true);
-      const t = setTimeout(() => setShine(false), 900);
-      wasMet.current = met;
-      return () => clearTimeout(t);
-    }
-    wasMet.current = met;
-  }, [met]);
   const unit = tracker?.unit ? ` ${tracker.unit}` : "";
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -80,13 +67,19 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
           onClick={() => setOpen(!open)}
           className="flex shrink-0 items-center gap-[6px] rounded-control px-1 font-mono text-[11px] text-muted transition-colors duration-ui ease-ui hover:text-text-2"
         >
-          <span className={met ? "text-sealed-text" : "text-text-2"}>{fmt(Math.round(rolled * 10) / 10)}</span> / {fmt(goal)}
+          <Odometer text={fmt(Math.round(total * 10) / 10)} className={met ? "text-second-text" : "text-text-2"} /> / {fmt(goal)}
           {unit}
           <ChevronIcon size={9} className={`transition-transform duration-ui ease-ui ${open ? "" : "-rotate-90"}`} />
         </button>
       </div>
-      <div className={`ml-[26px] h-1 overflow-hidden rounded-full bg-line ${shine ? "goal-shine" : ""}`}>
-        <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${goal > 0 ? Math.min(100, (total / goal) * 100) : 0}%` }} />
+      {/* The fill tracks the total (a transform, never a width); at the goal its end mark is the second colour. */}
+      <div className="relative ml-[26px] h-1 rounded-full bg-line">
+        <div
+          data-counter-fill
+          className="absolute inset-0 origin-left rounded-full bg-sealed transition-transform duration-glide ease-glide"
+          style={{ transform: `scaleX(${goal > 0 ? Math.min(1, total / goal) : 0})` }}
+        />
+        {met ? <span data-counter-goal className="absolute right-0 top-[-3px] h-[10px] w-[2px] rounded-[1px] bg-second" /> : null}
       </div>
       <form
         className="ml-[26px] mt-[3px] flex items-center gap-[6px]"
