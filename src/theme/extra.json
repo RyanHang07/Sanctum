@@ -26,10 +26,20 @@
   "motion": {
     "duration": {
       "ui": "120ms",
-      "enter": "180ms"
+      "enter": "180ms",
+      "state": "240ms",
+      "glide": "400ms",
+      "moment": "700ms",
+      "drain": "1200ms",
+      "breathe": "3200ms"
     },
     "easing": {
-      "ui": "cubic-bezier(0.2, 0, 0, 1)"
+      "ui": "cubic-bezier(0.2, 0, 0, 1)",
+      "glide": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+      "settle": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      "seat": "cubic-bezier(0.3, 1.4, 0.5, 1)",
+      "exit": "cubic-bezier(0.4, 0, 1, 1)",
+      "drift": "cubic-bezier(0.37, 0, 0.63, 1)"
     }
   }
 }
