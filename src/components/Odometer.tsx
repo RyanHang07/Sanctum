@@ -9,8 +9,10 @@ import { cellOf, cellY, rollPlan, skeletonOf, stripOf, type Direction } from "..
 
 const isDigit = (c: string) => c >= "0" && c <= "9";
 
-/** A column's window: one digit tall, fading at its top and bottom edges. */
-const COL = "inline-block h-[1em] overflow-clip [mask-image:linear-gradient(transparent,black_22%,black_78%,transparent)]";
+/** A column's window: one digit tall, fading at its top and bottom edges. overflow-hidden, not
+ *  clip: a hidden inline-block takes its bottom edge as its baseline, so the strip's last digit
+ *  can't stretch the line it sits in. */
+const COL = "inline-block h-[1em] overflow-hidden [mask-image:linear-gradient(transparent,black_22%,black_78%,transparent)]";
 const CELL = "block h-[1em] leading-none";
 
 function Column({ col, digit, direction }: { col: number; digit: number; direction: Direction }) {
