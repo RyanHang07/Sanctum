@@ -10,6 +10,7 @@ import { parseQuickAdd } from "../../lib/quickAdd";
 import { useStore } from "../../state/store";
 import type { Todo } from "../../lib/types";
 import { drag, dragProps, parkOn, todoItem } from "./drag";
+import { Fold } from "./marks";
 
 /** The week's pending items, kept current. */
 export function usePending(week: string): Todo[] {
@@ -72,7 +73,7 @@ function PendingRow({ t, week, onOpen }: { t: Todo; week: string; onOpen?: (i: A
         aria-checked={false}
         aria-label={t.title}
         onClick={() => void toggle(item)}
-        className="check-pop box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-check-line bg-transparent p-0 text-sealed-on transition-colors duration-ui ease-ui hover:border-muted"
+        className="box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-check-line bg-transparent p-0 text-sealed-on transition-colors duration-ui ease-ui hover:border-muted"
       >
         {t.done ? <CheckIcon /> : null}
       </button>
@@ -83,7 +84,7 @@ function PendingRow({ t, week, onOpen }: { t: Todo; week: string; onOpen?: (i: A
       ) : (
         <span className="min-w-0 grow truncate text-body text-text">{t.title}</span>
       )}
-      {from ? <span className="shrink-0 font-mono text-[11px] text-faint">{from}</span> : null}
+      {from ? <span className="shrink-0 font-mono text-[11px] text-muted">{from}</span> : null}
     </div>
   );
 }
@@ -115,7 +116,7 @@ function AddPending({ week, className = "" }: { week: string; className?: string
     if (ok) setTitle("");
   };
   return (
-    <label className={`flex h-8 shrink-0 cursor-text items-center gap-[10px] rounded-control px-2 text-faint transition-colors duration-ui ease-ui hover:bg-line-soft ${className}`}>
+    <label className={`focus-ring-within flex h-8 shrink-0 cursor-text items-center gap-[10px] rounded-control px-2 text-faint transition-colors duration-ui ease-ui hover:bg-line-soft ${className}`}>
       <PlusIcon size={11} className="shrink-0" />
       <input
         aria-label="Add to pending"
@@ -126,7 +127,7 @@ function AddPending({ week, className = "" }: { week: string; className?: string
           if (e.key === "Enter") void save();
           if (e.key === "Escape") setTitle("");
         }}
-        className="min-w-0 grow bg-transparent text-body text-text outline-none placeholder:text-faint"
+        className="focus-ring-off min-w-0 grow bg-transparent text-body text-text placeholder:text-faint"
       />
     </label>
   );
@@ -180,17 +181,17 @@ export function PendingStrip({ week, onOpen }: { week: string; onOpen: (i: Agend
     <section
       {...park.props}
       aria-label="Pending"
-      className={`shrink-0 rounded-panel border transition-colors duration-ui ease-ui ${park.over ? "border-sealed bg-sealed-tint" : "border-line bg-panel/40"}`}
+      className={`shrink-0 rounded-panel border transition-colors duration-ui ease-ui ${park.over ? "border-sealed bg-sealed-tint" : "border-line bg-panel"}`}
     >
       <Toggle open={open} count={items.length} onClick={() => setOpen(!open)} label={open ? "Hide pending" : "Show pending"} />
-      {open ? (
+      <Fold open={open}>
         <div className="grid max-h-[132px] grid-cols-3 gap-x-2 overflow-y-auto px-[6px] pb-[6px]">
           {items.map((t) => (
             <PendingRow key={t.id} t={t} week={week} onOpen={onOpen} />
           ))}
           <AddPending week={week} />
         </div>
-      ) : null}
+      </Fold>
     </section>
   );
 }

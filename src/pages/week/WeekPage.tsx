@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StreakDot, StreakMark, useDayStats } from "../../components/StreakMark";
+import { useDayStats } from "../../components/StreakMark";
 import type { DayStat } from "../../lib/types";
 import { Button } from "../../components/Button";
-import { Switch } from "../../components/controls";
-import { CheckIcon, ChevronRightIcon, PlusIcon } from "../../components/icons";
+import { Segmented, Switch, type SegmentOption } from "../../components/controls";
+import { ChevronRightIcon, PlusIcon } from "../../components/icons";
+import { DUR, EASE, gsap } from "../../lib/gsap";
+import { useMotion } from "../../lib/useMotion";
+import { DayDot, DayMark, Fold, TickBox, whenOf, type When } from "./marks";
 import { EventDialog, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
 import { drag, dragProps, moveTo } from "./drag";
 import { PendingBox, PendingSection, PendingStrip } from "./Pending";
@@ -20,30 +23,16 @@ import type { CalEvent, Routine, Todo } from "../../lib/types";
 
 type View = WeekView;
 
+const VIEWS: readonly SegmentOption<View>[] = [
+  { value: "week", label: "Week" },
+  { value: "list", label: "List" },
+  { value: "month", label: "Month" },
+  { value: "routines", label: "Routines" },
+];
+
+/** The four views. They swap the whole page rather than a panel, so a pressed-button group, not tabs. */
 function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
-  const views: { id: View; label: string }[] = [
-    { id: "week", label: "Week" },
-    { id: "list", label: "List" },
-    { id: "month", label: "Month" },
-    { id: "routines", label: "Routines" },
-  ];
-  return (
-    <div role="tablist" aria-label="View" className="flex rounded-control border border-line-input p-[2px]">
-      {views.map((v) => (
-        <button
-          key={v.id}
-          role="tab"
-          aria-selected={view === v.id}
-          onClick={() => onChange(v.id)}
-          className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
-            view === v.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-          }`}
-        >
-          {v.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <Segmented label="View" options={VIEWS} value={view} onChange={onChange} />;
 }
 
 function rangeTitle(start: string) {
@@ -53,58 +42,67 @@ function rangeTitle(start: string) {
   return a.getMonth() === b.getMonth() ? `${month(a)} ${a.getDate()} – ${b.getDate()}` : `${month(a)} ${a.getDate()} – ${month(b)} ${b.getDate()}`;
 }
 
-/** A Google Calendar event: a teal bar (cobalt when #focus-tagged), no checkbox (Week.dc.html). */
-function EventCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      data-kind="event"
-      {...dragProps(item)}
-      onClick={onOpen}
-      title={item.event?.calendarName}
-      className="flex w-full shrink-0 items-start gap-[6px] whitespace-normal rounded-control border border-line bg-panel py-[7px] pl-[6px] pr-[5px] text-left transition-colors duration-ui ease-ui hover:border-line-input"
-    >
-      <span aria-hidden="true" className={`w-[3px] shrink-0 self-stretch rounded-[2px] ${item.profileId !== null ? "bg-sealed" : "bg-event"}`} />
-      <span className="flex min-w-0 grow flex-col gap-[2px]">
-        <span className="line-clamp-3 hyphens-auto break-words text-meta leading-snug text-text">{item.title}</span>
-        <span className="truncate font-mono text-[10px] text-muted">{item.time ? shortTime(item.time) : "all day"}</span>
-      </span>
-    </button>
-  );
+/** The words under a card's title: its time, then what it is or how it went. */
+function cardMeta(item: AgendaItem, when: When, tag: string | undefined): string {
+  const parts: string[] = [];
+  if (item.kind === "event") parts.push(item.time ? shortTime(item.time) : "all day");
+  else if (item.kind === "routine" && (item.sessionsTarget ?? 1) > 1) parts.push(`${item.sessionsDone ?? 0}/${item.sessionsTarget}`);
+  else if (item.time) parts.push(shortTime(item.time));
+  if (tag) parts.push(tag);
+  if (item.kind === "todo" && !item.time && !tag) {
+    if (item.done) parts.push("Done");
+    else if (when === "past") parts.push("Not done");
+  }
+  if (item.kind === "routine" && !parts.length) parts.push("anytime");
+  return parts.join(" · ");
 }
 
-function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
+/**
+ * One card in a day (ProtoWeek.dc.html). Past and today sit on a raised surface; future items are
+ * outlined, only planned. A Google Calendar event has no box. Done items are struck through;
+ * past ones left undone keep a hollow box and dim, so what slipped stays visible. No left-edge
+ * accent: the profile's name in the meta line says an item seals a profile.
+ */
+function ItemCard({ item, when, onOpen }: { item: AgendaItem; when: When; onOpen: () => void }) {
   const toggle = usePlanner((s) => s.toggle);
-  if (item.kind === "event") return <EventCard item={item} onOpen={onOpen} />;
+  const tag = useStore((s) => (item.profileId === null ? undefined : s.profiles.find((p) => p.id === item.profileId)?.name));
+  const event = item.kind === "event";
   const routine = item.kind === "routine";
-  const focus = item.profileId !== null;
   const multi = routine && (item.sessionsTarget ?? 1) > 1;
   const partial = multi && (item.sessionsDone ?? 0) > 0 && !item.done;
-  // Routines carry a tinted edge; focus-linked items (which seal their profile) a cobalt one.
-  const edge = focus ? "border-l-sealed" : routine ? "border-l-check-line" : "border-l-transparent";
+  const slipped = !event && !item.done && when === "past";
+  const title = item.done
+    ? "font-medium text-muted line-through decoration-muted"
+    : slipped
+      ? "font-medium text-muted"
+      : event && when === "past"
+        ? "font-semibold text-text-2"
+        : "font-semibold text-text";
   return (
     <div
       data-kind={item.kind}
+      data-when={when}
+      data-state={event ? undefined : item.done ? "done" : slipped ? "slipped" : "open"}
+      data-focus={item.profileId !== null || undefined}
       {...dragProps(item)}
-      className={`row-in group flex items-start gap-[6px] rounded-control border border-l-2 border-line bg-panel py-[7px] pl-[6px] pr-[5px] transition-[color,background-color,border-color,transform,box-shadow] duration-ui ease-ui hover:-translate-y-px hover:border-line-input hover:shadow-lift ${edge}`}
+      className={`group flex shrink-0 items-start gap-2 rounded-control border px-[10px] py-[9px] transition-colors duration-ui ease-ui hover:border-line-input ${
+        when === "future" ? "border-line bg-transparent" : "border-transparent bg-raised"
+      }`}
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
-        aria-label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
-        onClick={() => void toggle(item)}
-        className={`check-pop mt-px box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-          item.done ? "border border-sealed bg-sealed" : partial ? "border border-sealed bg-sealed/25" : "border-[1.5px] border-check-line hover:border-muted"
-        }`}
-      >
-        {item.done ? <CheckIcon size={8} /> : partial ? <span className="h-[5px] w-[5px] rounded-[1px] bg-sealed" /> : null}
-      </button>
-      <button type="button" onClick={onOpen} className="flex min-w-0 grow flex-col gap-[2px] whitespace-normal text-left">
-        <span className={`line-clamp-3 hyphens-auto break-words text-meta leading-snug ${item.done ? "text-faint line-through" : "text-text"}`}>{item.title}</span>
-        <span className="flex items-center gap-1 font-mono text-[10px] text-muted">
-          {routine ? <RepeatGlyph className="h-[10px] w-[10px]" /> : null}
-          {multi ? `${item.sessionsDone ?? 0}/${item.sessionsTarget}` : item.time ? shortTime(item.time) : routine ? "anytime" : ""}
+      {event ? null : (
+        <TickBox
+          done={item.done}
+          partial={partial}
+          checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
+          label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
+          onToggle={() => void toggle(item)}
+        />
+      )}
+      <button type="button" onClick={onOpen} title={item.event?.calendarName} className="flex min-w-0 grow flex-col gap-[3px] whitespace-normal text-left">
+        <span className={`line-clamp-3 hyphens-auto break-words text-meta leading-snug transition-colors duration-ui ease-ui ${title}`}>{item.title}</span>
+        <span className="flex min-w-0 items-center gap-1 font-mono text-[11px] text-muted">
+          {routine ? <RepeatGlyph className="h-[10px] w-[10px] shrink-0" /> : null}
+          <span className="truncate">{cardMeta(item, when, tag)}</span>
         </span>
       </button>
     </div>
@@ -112,40 +110,83 @@ function ItemCard({ item, onOpen }: { item: AgendaItem; onOpen: () => void }) {
 }
 
 /** A day's routines, folded under one row at the top so the week shows what's different. */
-function RoutineFold({ date, items, onOpen }: { date: string; items: AgendaItem[]; onOpen: (i: AgendaItem) => void }) {
+function RoutineFold({ date, when, items, onOpen }: { date: string; when: When; items: AgendaItem[]; onOpen: (i: AgendaItem) => void }) {
   const open = useStore((s) => s.weekRoutinesOpen.includes(date));
   const toggle = useStore((s) => s.toggleWeekRoutines);
   const done = items.filter((i) => i.done).length;
   return (
-    <>
+    <div className="flex shrink-0 flex-col">
       <button
         type="button"
         aria-expanded={open}
         aria-label={`Routines, ${done} of ${items.length} done`}
         onClick={() => toggle(date)}
-        className="flex h-7 w-full shrink-0 items-center gap-1 rounded-control border border-line bg-panel px-1 text-left text-[11px] text-muted transition-colors duration-ui ease-ui hover:border-line-input hover:text-text-2"
+        className="flex h-7 w-full shrink-0 items-center gap-[6px] rounded-control border border-line px-2 text-left text-meta text-muted transition-colors duration-ui ease-ui hover:border-line-input hover:text-text-2"
       >
         <ChevronRightIcon size={8} className={`shrink-0 transition-transform duration-ui ease-ui ${open ? "rotate-90" : ""}`} />
         <span className="min-w-0 truncate">Routines</span>
-        <span className="ml-auto shrink-0 font-mono text-[10px]">
+        <span className="ml-auto shrink-0 font-mono text-[11px]">
           {done}/{items.length}
         </span>
       </button>
-      {open ? items.map((i) => <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />) : null}
-    </>
+      <Fold open={open}>
+        <div className="flex flex-col gap-[10px] pt-[10px]">
+          {items.map((i) => (
+            <ItemCard key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
+          ))}
+        </div>
+      </Fold>
+    </div>
+  );
+}
+
+/** Focused minutes under the mark: a figure and the goal on today, a total on past days. */
+function DayMinutes({ when, stat }: { when: When; stat?: DayStat }) {
+  const goal = useStore((s) => s.settings.dailyGoalMin);
+  if (when === "future") return null;
+  const min = stat?.focusMin ?? 0;
+  if (when === "today") {
+    const pct = goal > 0 ? Math.min(1, min / goal) : 0;
+    return (
+      <div className="flex shrink-0 flex-col gap-2 pb-[2px] pt-1">
+        <span className="flex items-baseline gap-[5px] overflow-hidden">
+          <span data-testid="today-minutes" className="font-mono text-[30px] font-medium leading-none text-text">
+            {min}
+          </span>
+          <span className="whitespace-nowrap text-meta text-muted">of {goal} min</span>
+        </span>
+        <div role="img" aria-label={`${min} minutes of a ${goal} minute goal`} className="relative h-1 overflow-hidden rounded-full bg-line">
+          <span
+            data-testid="today-fill"
+            className="absolute inset-0 origin-left rounded-full bg-sealed transition-transform duration-glide ease-glide"
+            style={{ transform: `scaleX(${pct})` }}
+          />
+        </div>
+      </div>
+    );
+  }
+  if (!stat || stat.status === "none") return <span className="shrink-0 text-meta text-muted">Nothing recorded</span>;
+  return (
+    <span className="shrink-0 text-meta text-muted">
+      <span className="font-mono font-medium text-text-2">{min}</span> min
+    </span>
   );
 }
 
 /** One day. `fixed`: a cell in the two-row grid, which doesn't widen on hover. */
-function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: string; items: AgendaItem[]; today: boolean; stat?: DayStat; onOpen: (i: AgendaItem) => void; fixed?: boolean }) {
+function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: string; items: AgendaItem[]; today: string; stat?: DayStat; onOpen: (i: AgendaItem) => void; fixed?: boolean }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
   const [over, setOver] = useState(false);
   const d = fromKey(date);
+  const when = whenOf(date, today);
   const accepts = () => drag.item !== null && (drag.item.date !== date || !!drag.item.undated);
   const routines = items.filter((i) => i.kind === "routine");
+  // Events first, then the rest in their order.
+  const rest = items.filter((i) => i.kind === "event").concat(items.filter((i) => i.kind !== "routine" && i.kind !== "event"));
   return (
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+      data-when={when}
       data-drop={over || undefined}
       onDragOver={(e) => {
         if (!accepts()) return;
@@ -163,27 +204,28 @@ function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: 
         drag.item = null;
         if (item) void moveTo(item, date);
       }}
-      className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-col gap-[6px] overflow-y-auto overflow-x-hidden rounded-panel border p-[6px] [scrollbar-width:none] transition-[flex-grow,opacity,background-color] duration-enter ease-ui ${fixed ? "" : "flex-[1_1_0%] hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100!"} ${
-        today ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40 hover:bg-panel"
+      className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-col gap-[10px] overflow-y-auto overflow-x-hidden rounded-panel border px-[10px] py-[14px] [scrollbar-width:none] transition-[flex-grow,opacity] duration-enter ease-ui ${fixed ? "" : "flex-[1_1_0%] hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100!"} ${
+        when === "today" ? "border-sealed bg-panel" : when === "future" ? "border-line bg-transparent" : "border-line bg-panel"
       }`}
     >
-      <div className="flex items-baseline justify-between px-1 pb-1 pt-[2px]">
-        <span className={`text-meta font-semibold ${today ? "text-sealed-text" : "text-text"}`}>{d.toLocaleDateString("en-US", { weekday: "short" })}</span>
-        <span className={`font-mono text-[11px] ${today ? "text-sealed-text" : "text-muted"}`}>{d.getDate()}</span>
+      <div className="flex shrink-0 items-baseline justify-between">
+        <span className={`text-[14px] font-bold ${when === "today" ? "text-sealed-text" : when === "future" ? "text-muted" : "text-text"}`}>
+          {d.toLocaleDateString("en-US", { weekday: "short" })}
+        </span>
+        <span className={`font-mono text-meta ${when === "today" ? "text-sealed-text" : "text-muted"}`}>{d.getDate()}</span>
       </div>
-      <StreakMark day={stat} />
-      {routines.length ? <RoutineFold date={date} items={routines} onOpen={onOpen} /> : null}
-      {items
-        .filter((i) => i.kind !== "routine")
-        .map((i) => (
-          <ItemCard key={i.key} item={i} onOpen={() => onOpen(i)} />
-        ))}
+      <DayMark day={stat} />
+      <DayMinutes when={when} stat={stat} />
+      {routines.length ? <RoutineFold date={date} when={when} items={routines} onOpen={onOpen} /> : null}
+      {rest.map((i) => (
+        <ItemCard key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
+      ))}
       <button
         type="button"
         aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}
         aria-expanded={!!adding}
         onClick={(e) => setAdding(e.currentTarget)}
-        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-faint opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:opacity-100 group-hover/day:opacity-100 aria-expanded:opacity-100"
+        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:opacity-100 group-hover/day:opacity-100 aria-expanded:opacity-100"
       >
         <PlusIcon size={11} /> Add
       </button>
@@ -212,43 +254,10 @@ function SyncStatus() {
   );
 }
 
-/** What the marks mean, behind one button so the week itself stays quiet. */
-function WeekKey() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="flex items-center gap-[18px]">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="h-6 rounded-control px-[6px] text-meta text-muted transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
-      >
-        {open ? "Hide key" : "Key"}
-      </button>
-      {open ? (
-        <div role="list" aria-label="Key" className="page-in flex gap-[18px]">
-          <span role="listitem" className="flex items-center gap-[6px]">
-            <span className="h-3 w-[3px] rounded-[2px] bg-sealed" />
-            Focus block, seals its profile
-          </span>
-          <span role="listitem" className="flex items-center gap-[6px]">
-            <RepeatGlyph className="h-3 w-3" />
-            Routine, edit in Routines
-          </span>
-          <span role="listitem" className="flex items-center gap-[6px]">
-            <span className="box-border h-[10px] w-[10px] rounded-[3px] border-[1.5px] border-check-line" />
-            One-time item
-          </span>
-          <span role="listitem" className="flex items-center gap-[6px]">
-            <span className="h-3 w-[3px] rounded-[2px] bg-event" />
-            Calendar event
-          </span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
+/**
+ * The seven days and Pending. Stepping to another week slides the days 16 px in the direction of
+ * travel and settles (motion spec §8: the direction is the information). Reduced motion: no move.
+ */
 function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) => void }) {
   const days = useMemo(() => weekKeys(start), [start]);
   const agenda = useAgenda(days);
@@ -256,29 +265,41 @@ function WeekView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const today = todayKey(new Date(), dailyResetTime);
   const narrow = useMedia(NARROW);
+  const grid = useRef<HTMLDivElement>(null);
+  const { run } = useMotion(grid);
+  const shown = useRef(start);
+  useEffect(() => {
+    if (shown.current === start || !grid.current) return;
+    const dir = start > shown.current ? 1 : -1;
+    shown.current = start;
+    run(() =>
+      gsap
+        .timeline({ id: "week-step" })
+        .fromTo(grid.current, { x: 16 * dir, opacity: 0.5 }, { x: 0, opacity: 1, duration: DUR.state, ease: EASE.ui, clearProps: "transform,opacity" }),
+    );
+  }, [start]);
   return (
     <>
-      {narrow ? (
-        // Narrow (a vertical monitor): two rows, Monday to Thursday, then Friday to Sunday and Pending.
-        <div className="grid min-h-0 grow grid-cols-4 grid-rows-2 gap-2">
-          {days.map((d) => (
-            <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} fixed />
-          ))}
-          <PendingBox week={start} onOpen={onOpen} />
-        </div>
-      ) : (
-        <>
-          {/* The day under the pointer (or being edited) widens; the rest step back. */}
-          <div className="group/week flex min-h-0 grow gap-2">
+      <div ref={grid} data-testid="week-grid" className="flex min-h-0 grow flex-col gap-2">
+        {narrow ? (
+          // Narrow (a vertical monitor): two rows, Monday to Thursday, then Friday to Sunday and Pending.
+          <div className="grid min-h-0 grow grid-cols-4 grid-rows-2 gap-2">
             {days.map((d) => (
-              <DayColumn key={d} date={d} items={agenda[d] ?? []} today={d === today} stat={stats[d]} onOpen={onOpen} />
+              <DayColumn key={d} date={d} items={agenda[d] ?? []} today={today} stat={stats[d]} onOpen={onOpen} fixed />
+            ))}
+            <PendingBox week={start} onOpen={onOpen} />
+          </div>
+        ) : (
+          // The day under the pointer (or being edited) widens; the rest step back.
+          <div className="group/week flex min-h-0 grow gap-[10px]">
+            {days.map((d) => (
+              <DayColumn key={d} date={d} items={agenda[d] ?? []} today={today} stat={stats[d]} onOpen={onOpen} />
             ))}
           </div>
-          <PendingStrip week={start} onOpen={onOpen} />
-        </>
-      )}
+        )}
+      </div>
+      {narrow ? null : <PendingStrip week={start} onOpen={onOpen} />}
       <div className="flex items-center gap-[18px] text-meta text-muted">
-        <WeekKey />
         <SyncStatus />
       </div>
     </>
@@ -374,32 +395,36 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
 // --- List view: easier to read, modeled on the user's weekly agenda page ---
 
 
-function ListRow({ item, meta, onOpen }: { item: AgendaItem; meta?: string; onOpen: () => void }) {
+function ListRow({ item, when, meta, onOpen }: { item: AgendaItem; when: When; meta?: string; onOpen: () => void }) {
   const toggle = usePlanner((s) => s.toggle);
   const tag = useStore((s) => s.profiles.find((p) => p.id === item.profileId)?.name);
   const multi = item.kind === "routine" && (item.sessionsTarget ?? 1) > 1;
   const partial = multi && (item.sessionsDone ?? 0) > 0 && !item.done;
+  const slipped = item.kind !== "event" && !item.done && when === "past";
   return (
-    <div data-kind={item.kind} className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-line-soft">
+    <div
+      data-kind={item.kind}
+      data-state={item.kind === "event" ? undefined : item.done ? "done" : slipped ? "slipped" : "open"}
+      className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-line-soft"
+    >
       {item.kind === "event" ? (
-        <span aria-hidden="true" className="flex h-4 w-4 shrink-0 justify-center">
-          <span className={`w-[3px] rounded-[2px] ${item.profileId !== null ? "bg-sealed" : "bg-event"}`} />
-        </span>
+        // An event has no box: nothing to tick.
+        <span aria-hidden="true" className="h-4 w-4 shrink-0" />
       ) : (
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
-          aria-label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
-          onClick={() => void toggle(item)}
-          className={`box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-            item.done ? "border border-sealed bg-sealed" : partial ? "border border-sealed bg-sealed/25" : "border-[1.5px] border-check-line hover:border-muted"
-          }`}
-        >
-          {item.done ? <CheckIcon size={9} /> : partial ? <span className="h-[5px] w-[5px] rounded-[1px] bg-sealed" /> : null}
-        </button>
+        <TickBox
+          size={16}
+          done={item.done}
+          partial={partial}
+          checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
+          label={multi ? `${item.title} (${item.sessionsDone ?? 0} of ${item.sessionsTarget} sessions)` : item.title}
+          onToggle={() => void toggle(item)}
+        />
       )}
-      <button type="button" onClick={onOpen} className={`min-w-0 grow truncate text-left text-body ${item.done ? "text-faint line-through" : "text-text"}`}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`min-w-0 grow truncate text-left text-body transition-colors duration-ui ease-ui ${item.done ? "text-muted line-through decoration-muted" : slipped ? "text-muted" : "text-text"}`}
+      >
         {item.title}
       </button>
       {multi ? <span className="shrink-0 font-mono text-[11px] text-muted">{item.sessionsDone ?? 0}/{item.sessionsTarget}</span> : null}
@@ -421,8 +446,9 @@ function QuickAdd({ date, label }: { date: string; label: string }) {
   );
 }
 
-function DayList({ date, items, today, onOpen }: { date: string; items: AgendaItem[]; today: boolean; onOpen: (i: AgendaItem) => void }) {
+function DayList({ date, items, when, onOpen }: { date: string; items: AgendaItem[]; when: When; onOpen: (i: AgendaItem) => void }) {
   const d = fromKey(date);
+  const today = when === "today";
   const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
   const once = items.filter((i) => i.kind !== "routine");
   const repeats = items.filter((i) => i.kind === "routine");
@@ -434,16 +460,16 @@ function DayList({ date, items, today, onOpen }: { date: string; items: AgendaIt
         {today ? <span className="ml-auto text-[11px] font-medium">Today</span> : null}
       </h2>
       {once.map((i) => (
-        <ListRow key={i.key} item={i} onOpen={() => onOpen(i)} />
+        <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
       ))}
       <QuickAdd date={date} label={`Add a to-do on ${weekday}`} />
       {repeats.length ? (
         <div className="mt-2">
-          <span className="flex items-center gap-[6px] px-1 pb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+          <span className="label flex items-center gap-[6px] px-1 pb-1">
             <RepeatGlyph className="h-[10px] w-[10px]" /> Repeat
           </span>
           {repeats.map((i) => (
-            <ListRow key={i.key} item={i} onOpen={() => onOpen(i)} />
+            <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
           ))}
         </div>
       ) : null}
@@ -461,7 +487,7 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
       {/* Two flowing columns: Monday to Thursday, then Friday to Sunday and Pending. */}
       <div className="columns-2 gap-10">
         {days.map((d) => (
-          <DayList key={d} date={d} items={agenda[d] ?? []} today={d === today} onOpen={onOpen} />
+          <DayList key={d} date={d} items={agenda[d] ?? []} when={whenOf(d, today)} onOpen={onOpen} />
         ))}
         <PendingSection
           week={start}
@@ -501,10 +527,10 @@ function MonthCell({ date, items, inMonth, today, stat, onPick }: { date: string
       <span className="flex items-center justify-between">
         <span className="flex items-center gap-[5px]">
           <span className={`font-mono text-[11px] ${isToday ? "font-semibold text-sealed-text" : "text-text-2"}`}>{d.getDate()}</span>
-          {inMonth ? <StreakDot day={stat} /> : null}
+          {inMonth ? <DayDot day={stat} /> : null}
         </span>
         {routines.length ? (
-          <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-[10px] ${date <= today ? "text-muted" : "text-faint"}`}>
+          <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-[10px] text-muted`}>
             <RepeatGlyph className="h-[9px] w-[9px]" />
             {date <= today ? `${routines.filter((r) => r.done).length}/${routines.length}` : routines.length}
           </span>
@@ -513,7 +539,7 @@ function MonthCell({ date, items, inMonth, today, stat, onPick }: { date: string
       {shown.map((i) => (
         <span key={i.key} className="flex min-w-0 items-center gap-[5px]">
           <span className={`h-[10px] w-[3px] shrink-0 rounded-[2px] ${i.profileId !== null ? "bg-sealed" : i.kind === "event" ? "bg-event" : "bg-check-line"}`} />
-          <span className={`truncate text-[11px] leading-tight ${i.done ? "text-faint line-through" : "text-text"}`}>{i.title}</span>
+          <span className={`truncate text-[11px] leading-tight ${i.done ? "text-muted line-through" : "text-text"}`}>{i.title}</span>
         </span>
       ))}
       {rest.length > MONTH_ITEMS ? <span className="text-[10px] text-muted">+{rest.length - MONTH_ITEMS} more</span> : null}
@@ -532,7 +558,7 @@ function MonthView({ month, onPick }: { month: string; onPick: (date: string) =>
     <section aria-label="Month" className="flex min-h-0 grow flex-col gap-[6px]">
       <div className="grid grid-cols-7 gap-[6px] px-1">
         {WEEKDAY_HEADS.map((h) => (
-          <span key={h} className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+          <span key={h} className="label">
             {h}
           </span>
         ))}
