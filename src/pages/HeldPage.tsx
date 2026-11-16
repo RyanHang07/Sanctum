@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatedMark } from "../components/AnimatedMark";
-import { Mesh } from "../components/Mesh";
+import { Aurora } from "../components/Aurora";
 import { useStore } from "../state/store";
 import { play } from "../lib/sound";
 import { minutes } from "../lib/time";
@@ -238,7 +238,7 @@ export function HeldPage({ held }: { held: HeldStats }) {
 
   return (
     <div data-testid="held-page" className="relative h-full w-full overflow-hidden bg-app font-sans text-sealed-on">
-      <Mesh tone="held" />
+      <Aurora tone={held.broken ? "broken" : "held"} />
 
       <div key={run} className="relative flex h-full w-full flex-col items-center gap-6 overflow-y-auto p-10 [&>*]:shrink-0 [&>:first-child]:mt-auto [&>:last-child]:mb-auto">
         <AnimatedMark size={96} rings />
