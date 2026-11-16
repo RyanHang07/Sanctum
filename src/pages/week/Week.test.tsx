@@ -26,6 +26,8 @@ async function setup() {
   await act(() => useStore.getState().loadProfiles());
   await act(() => usePlanner.getState().ensure("2026-09-28", "2026-10-04"));
 }
+/** One of the four views, from the View switch. */
+const view = (name: string) => within(screen.getByRole("group", { name: "View" })).getByRole("button", { name });
 const profileId = (name: string) => useStore.getState().profiles.find((p) => p.name === name)!.id;
 
 /** Types into the open quick-add popover and presses Enter. */
@@ -131,7 +133,7 @@ describe("Week: routines are separate", () => {
   it("creates a routine with weekday chips in the Routines view and shows it on its days", async () => {
     await setup();
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "Routines" }));
+    fireEvent.click(view("Routines"));
     expect(screen.getByText("No routines yet. Add the things you do every day or every week.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /New routine/ }));
     const dialog = screen.getByRole("dialog", { name: "New routine" });
@@ -147,7 +149,7 @@ describe("Week: routines are separate", () => {
     expect(row).toHaveTextContent("Mon Wed Fri");
     expect(row).toHaveTextContent("7:00a");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Week" }));
+    fireEvent.click(view("Week"));
     // Folded to start: a count on the days it runs, and none of the routines themselves.
     expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
     const fold = within(screen.getByRole("region", { name: "Monday, September 28" })).getByRole("button", { name: "Routines, 0 of 1 done" });
@@ -157,8 +159,8 @@ describe("Week: routines are separate", () => {
     fireEvent.click(fold);
     expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).queryByRole("checkbox", { name: "Gym" })).toBeNull();
     fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: /^Routines/ }));
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Week" }));
+    fireEvent.click(view("List"));
+    fireEvent.click(view("Week"));
     const onDays = ["Monday, September 28", "Tuesday, September 29", "Wednesday, September 30"].map(
       (d) => within(screen.getByRole("region", { name: d })).queryByRole("checkbox", { name: "Gym" }) !== null,
     );
@@ -180,7 +182,7 @@ describe("Week: routines are separate", () => {
     await setup();
     await act(async () => void (await usePlanner.getState().saveRoutine({ title: "Weigh-in", daysMask: 127, time: "08:00", durationMin: null, profileId: null, active: true })));
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "Routines" }));
+    fireEvent.click(view("Routines"));
     await act(async () => fireEvent.click(screen.getByRole("switch", { name: "Weigh-in active" })));
     expect(usePlanner.getState().routines[0]!.active).toBe(false);
   });
@@ -191,7 +193,7 @@ describe("Week: routines are separate", () => {
       for (const title of ["Run", "Read", "Stretch"]) await usePlanner.getState().saveRoutine({ title, daysMask: 127, time: null, durationMin: null, profileId: null, active: true });
     });
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "Routines" }));
+    fireEvent.click(view("Routines"));
     const rows = () => screen.getAllByTestId("routine-row");
     const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
     await act(async () => {
@@ -214,7 +216,7 @@ describe("Week: list view and header", () => {
       await usePlanner.getState().saveTodo({ title: "Reply to emails", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null });
     });
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    fireEvent.click(view("List"));
     const thursday = screen.getByRole("region", { name: "Thursday list" });
     const rows = within(thursday).getAllByRole("checkbox").map((c) => [c.getAttribute("aria-label"), c.closest("[data-kind]")!.getAttribute("data-kind")]);
     expect(rows).toEqual([
@@ -237,7 +239,7 @@ describe("Week: list view and header", () => {
       await native.setTodoDone(done.id, true);
     });
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    fireEvent.click(view("List"));
     const pending = await screen.findByRole("region", { name: "Pending" });
     expect(within(pending).getByRole("checkbox", { name: "Old errand" })).toBeInTheDocument();
     expect(within(pending).queryByRole("checkbox", { name: "Finished" })).toBeNull();
@@ -356,10 +358,10 @@ describe("Week: list view and header", () => {
   it("keeps New and the view tabs in the same place across views", async () => {
     await setup();
     render(<WeekPage />);
-    const tabsBefore = screen.getByRole("tablist", { name: "View" });
+    const tabsBefore = screen.getByRole("group", { name: "View" });
     expect(screen.getByRole("button", { name: "New item" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Routines" }));
-    expect(screen.getByRole("tablist", { name: "View" })).toBe(tabsBefore);
+    fireEvent.click(view("Routines"));
+    expect(screen.getByRole("group", { name: "View" })).toBe(tabsBefore);
     expect(screen.getByRole("button", { name: "New routine" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "This week" })).toBeNull();
     // The Week tab reopens on the last view used.
@@ -458,18 +460,6 @@ describe("Home panels", () => {
   });
 });
 
-describe("Week key", () => {
-  it("keeps the key behind one button", async () => {
-    await setup();
-    render(<WeekPage />);
-    expect(screen.queryByRole("list", { name: "Key" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Key" }));
-    expect(within(screen.getByRole("list", { name: "Key" })).getByText("Calendar event")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Hide key" }));
-    expect(screen.queryByRole("list", { name: "Key" })).toBeNull();
-  });
-});
-
 describe("Quick add popover", () => {
   it("fills picks from what you type, lets a click override, and adds a timed focus item", async () => {
     await setup();
@@ -517,7 +507,7 @@ describe("Month view", () => {
     await act(async () => void (await usePlanner.getState().saveRoutine({ title: "Stretch", daysMask: 127, time: null, durationMin: null, profileId: null, active: true })));
     await act(async () => void (await usePlanner.getState().saveTodo({ title: "Pay rent", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null })));
     render(<WeekPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "Month" }));
+    fireEvent.click(view("Month"));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("September 2026");
     const today = screen.getByRole("button", { name: "Tuesday, September 29" });
     expect(within(today).getByTestId("month-routines")).toHaveTextContent("0/1");
@@ -528,7 +518,7 @@ describe("Month view", () => {
     // Future days show how many routines, not progress.
     expect(within(oct1).getByTestId("month-routines")).toHaveTextContent(/^1$/);
     fireEvent.click(oct1);
-    expect(screen.getByRole("tab", { name: "Week" })).toHaveAttribute("aria-selected", "true");
+    expect(view("Week")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
   });
 });
@@ -543,13 +533,13 @@ describe("Streak marks", () => {
     });
     await act(async () => render(<WeekPage />));
     const monday = screen.getByRole("region", { name: "Monday, September 28" });
-    expect(await within(monday).findByTestId("streak-mark")).toHaveTextContent("Broken 2:14p");
+    expect(await within(monday).findByTestId("day-mark")).toHaveTextContent("Broken 2:14p");
     const tuesday = screen.getByRole("region", { name: "Tuesday, September 29" });
-    expect(within(tuesday).getByTestId("streak-mark")).toHaveTextContent("In progress");
-    expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).queryByTestId("streak-mark")).toBeNull();
+    expect(within(tuesday).getByTestId("day-mark")).toHaveTextContent("In progress");
+    expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).queryByTestId("day-mark")).toBeNull();
 
-    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Month" })));
-    const dots = await screen.findAllByTestId("streak-dot");
+    await act(async () => fireEvent.click(view("Month")));
+    const dots = await screen.findAllByTestId("day-dot");
     const status = (d: string) => dots.find((x) => x.closest("button")?.getAttribute("aria-label")?.includes(d))?.getAttribute("data-status");
     expect(status("September 26")).toBe("kept");
     expect(status("September 27")).toBe("missed");

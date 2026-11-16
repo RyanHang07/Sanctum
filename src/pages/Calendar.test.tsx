@@ -95,18 +95,22 @@ describe("Week: calendar events", () => {
     render(<WeekPage />);
     const tuesday = screen.getByRole("region", { name: "Tuesday, September 29" });
     const standup = within(tuesday).getByRole("button", { name: /Team standup/ });
-    expect(standup).toHaveAttribute("data-kind", "event");
+    expect(standup.closest("[data-kind]")).toHaveAttribute("data-kind", "event");
     expect(standup).toHaveTextContent("9:30a");
-    // A bare #focus tag reads as a focus block (cobalt edge), shown without the tag.
+    // An event has no box to tick.
+    expect(within(standup.closest("[data-kind]") as HTMLElement).queryByRole("checkbox")).toBeNull();
+    // A bare #focus tag reads as a focus block, shown without the tag (and without a left-edge accent).
     const wednesday = screen.getByRole("region", { name: "Wednesday, September 30" });
-    expect(within(wednesday).getByRole("button", { name: /^Deep work/ }).querySelector(".bg-sealed")).not.toBeNull();
+    const deep = within(wednesday).getByRole("button", { name: /^Deep work/ });
+    expect(deep).not.toHaveTextContent("#focus");
+    expect(deep.closest("[data-kind]")).toHaveAttribute("data-focus", "true");
     // All-day, two days.
     for (const day of ["Friday, October 2", "Saturday, October 3"]) {
       expect(within(screen.getByRole("region", { name: day })).getByRole("button", { name: /Offsite/ })).toHaveTextContent("all day");
     }
     expect(screen.getByText("Synced with Google Calendar")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "List" }));
     const list = screen.getByRole("region", { name: "Tuesday list" });
     expect(within(list).getByText("Team standup").closest("[data-kind]")).toHaveAttribute("data-kind", "event");
   });
