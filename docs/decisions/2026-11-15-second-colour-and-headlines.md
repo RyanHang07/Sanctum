@@ -164,5 +164,5 @@ Build in this order. Each step ships with Vitest coverage and a CHANGELOG entry,
 - **The aurora is near-still and barely visible while open.** It strengthens and moves a little only while sealed, and pauses when the window is hidden. It's drawn with radial gradients, not blur filters.
 - **Leaving a seal** is a quiet "End early", never a big "Stop". On the partner page, deny is never weaker than approve.
 - **Motion engine: GSAP** (`gsap`, `@gsap/react`; CustomEase and Flip). It replaces `motion` (Framer Motion) so the app has one animation engine.
-  - Spec: the motion spec from this session (its timings live in `src/theme/extra.json` motion tokens: ui 120, enter 180, state 240, glide 400, moment 700, drain 1200, breathe 3200 ms).
+  - Spec: [2026-11-15-motion-spec.md](2026-11-15-motion-spec.md); critique: [2026-11-15-design-critique.md](2026-11-15-design-critique.md) (its timings live in `src/theme/extra.json` motion tokens: ui 120, enter 180, state 240, glide 400, moment 700, drain 1200, breathe 3200 ms).
   - The aurora and simple hovers stay CSS.
