@@ -386,7 +386,7 @@ describe("Home follows the schedule", () => {
     render(<Home />);
     act(() => void checkSchedule());
     const card = screen.getByTestId("suggestion");
-    expect(card).toHaveTextContent("NEXT");
+    expect(card).toHaveTextContent("Next");
     expect(card).toHaveTextContent("Work session: SQL + DSA");
     expect(card).toHaveTextContent("at 10:00 AM");
     expect(card).toHaveTextContent("Deep Work · 60 min");
@@ -408,7 +408,7 @@ describe("Home follows the schedule", () => {
     act(() => void checkSchedule());
     const s = useStore.getState();
     expect([s.selectedProfileId, s.durationMin]).toEqual([profileId("Deep Work"), 60]);
-    expect(screen.getByTestId("suggestion")).toHaveTextContent("NOW");
+    expect(screen.getByTestId("suggestion")).toHaveTextContent("Now");
     const prompt = screen.getByRole("alertdialog", { name: "Deep Work starts now" });
     expect(prompt).toHaveTextContent("Work session: SQL + DSA · 60 min");
     await act(async () => fireEvent.click(within(prompt).getByRole("button", { name: /Enter focus/ })));
@@ -422,6 +422,7 @@ describe("Home follows the schedule", () => {
     render(<Home />);
     act(() => void checkSchedule());
     expect(useStore.getState().durationMin).toBe(45); // 40 min left
+    fireEvent.click(screen.getByRole("button", { name: /^Length / }));
     fireEvent.click(within(screen.getByRole("listbox", { name: "Length" })).getByRole("option", { name: "90 min" }));
     act(() => void checkSchedule());
     expect(useStore.getState().durationMin).toBe(90);

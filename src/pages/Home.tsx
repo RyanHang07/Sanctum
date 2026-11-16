@@ -6,20 +6,25 @@ import { usePlanner } from "../state/planner";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { EVENTS, errorText, native, onNative } from "../lib/native";
+import { errorText, native } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { Button, Kbd } from "../components/Button";
 import { Switch } from "../components/controls";
-import { Wheel } from "../components/Wheel";
+import { Odometer } from "../components/Odometer";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
 import { CounterRow } from "./CounterRow";
-import { Glide, useRolling } from "../lib/motion";
-import { BREAK_TIPS, homeHeadline, pick } from "./headlines";
+import { Glide } from "../lib/motion";
+import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
+import { getMoment, useMotion } from "../lib/useMotion";
+import { useFocusToday, useWeekOverview } from "../state/session";
+import { DayRuler } from "./DayRuler";
+import { FocusPicker } from "./FocusPicker";
+import { BREAK_TIPS, homeLine, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { addDays, blockTimes, canReorder, moveId, msUntilReset, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
-import type { DayStatus, StatsOverview, TaskLink } from "../lib/types";
+import { blockTimes, canReorder, moveId, msUntilReset, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import type { DayStat, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -50,57 +55,83 @@ function useSealPreview(profileId: number | undefined): string[] {
   return names;
 }
 
-const MARK: Record<DayStatus, string> = {
-  kept: "bg-sealed",
-  broken: "bg-broken",
-  missed: "bg-line-input",
-  rest: "border border-dashed border-check-line",
-  today: "border border-sealed",
-  future: "bg-line",
-  none: "bg-line",
-};
+/** A day's cell in the strip: 6 by 12, the decided day states. Kept is the second colour. */
+function DayCell({ d, today, focused, goal, met }: { d: DayStat; today: boolean; focused: number; goal: number; met: boolean }) {
+  const base = "relative box-border block h-3 w-[6px] rounded-[2px]";
+  if (today && (d.status === "today" || d.status === "kept")) {
+    // Today fills with the accent as you focus; at the goal the kept layer crossfades in over it.
+    return (
+      <span data-status={met ? "kept" : "today"} data-today-cell className={`${base} border border-sealed`}>
+        <span
+          className="absolute inset-x-0 bottom-0 h-full origin-bottom rounded-[1px] bg-sealed transition-transform duration-glide ease-glide"
+          style={{ transform: `scaleY(${Math.min(1, goal > 0 ? focused / goal : 0)})` }}
+        />
+        {met ? <span data-cell-kept className="absolute -inset-px rounded-[2px] bg-second ring-1 ring-second-line" /> : null}
+      </span>
+    );
+  }
+  const look: Partial<Record<DayStat["status"], string>> = {
+    kept: "bg-second ring-1 ring-second-line",
+    missed: "border border-muted",
+    broken: "bg-broken",
+    rest: "border border-dashed border-check-line",
+  };
+  return <span data-status={d.status} className={`${base} ${look[d.status] ?? "bg-line opacity-50"}`} />;
+}
+
+/** The days strip's key: shown only while the streak is hovered or focused, beside it, so the chip never moves. */
+function StripKey() {
+  const swatch = "relative box-border block h-[10px] w-[6px] overflow-hidden rounded-[2px]";
+  return (
+    <span
+      data-testid="streak-key"
+      aria-hidden="true"
+      className="pointer-events-none absolute right-[calc(100%+8px)] top-[-1px] flex h-control items-center gap-[9px] whitespace-nowrap rounded-control border border-line bg-panel px-[10px] text-[11px] text-muted opacity-0 transition-[clip-path,opacity] duration-state ease-ui [clip-path:inset(0_0_0_100%)] group-hover:opacity-100 group-hover:delay-150 group-hover:[clip-path:inset(0)] group-focus-visible:opacity-100 group-focus-visible:delay-150 group-focus-visible:[clip-path:inset(0)]"
+    >
+      <span className="flex items-center gap-1">
+        <span className={`${swatch} bg-second ring-1 ring-second-line`} />
+        Kept
+      </span>
+      <span className="flex items-center gap-1">
+        <span className={`${swatch} border border-muted`} />
+        Missed
+      </span>
+      <span className="flex items-center gap-1">
+        <span className={`${swatch} border border-sealed`}>
+          <span className="absolute inset-x-0 bottom-0 h-1/2 bg-sealed" />
+        </span>
+        Today
+      </span>
+    </span>
+  );
+}
 
 /** The streak and the last 7 days (SPEC 4.10). Opens Stats. */
-function StreakChip() {
+function StreakChip({ o, delay }: { o: StatsOverview | null; delay: number }) {
   const navigate = useStore((s) => s.navigate);
-  const session = useStore((s) => s.session);
-  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
-  const [o, setO] = useState<StatsOverview | null>(null);
-  useEffect(() => {
-    let live = true;
-    const today = todayKey(new Date(), dailyResetTime);
-    const load = () =>
-      void native
-        .statsOverview(addDays(today, -6), today)
-        .then((v) => live && setO(v))
-        .catch(() => undefined);
-    load();
-    const off = onNative(EVENTS.held, load);
-    const t = setInterval(load, 60_000);
-    return () => {
-      live = false;
-      clearInterval(t);
-      void off.then((f) => f());
-    };
-    // A session starting or ending changes today.
-  }, [session?.id, dailyResetTime]);
+  const { minutes: focused, goal, met } = useFocusToday();
   const n = o?.currentStreak ?? 0;
+  const days = o?.days ?? [];
+  const kept = days.filter((d, i) => d.status === "kept" || (i === days.length - 1 && met)).length;
+  const label = `${n} day streak, ${kept} of the last ${days.length || 7} days kept${met ? "" : `, today ${minutes(focused)} of ${minutes(goal)}`}. Open Stats`;
   return (
     <button
       type="button"
-      aria-label={`${n} day streak. Open Stats`}
+      data-testid="streak"
+      aria-label={label}
       onClick={() => navigate("stats")}
-      className="flex h-control items-center gap-[10px] rounded-control border border-line bg-panel px-[10px] text-meta text-text transition-colors duration-ui ease-ui hover:border-line-input"
+      className="group relative flex h-control shrink-0 items-center gap-[10px] rounded-control border border-line bg-panel px-[10px] text-meta text-text transition-colors duration-ui ease-ui hover:border-line-input"
     >
-      <span className="font-mono font-medium">{n}</span>
+      <Odometer text={String(n)} delay={delay} className="font-mono font-medium" />
       <span className="text-muted">day streak</span>
       {/* Never miss twice (v0.3.1): yesterday was missed, so today keeps it alive. */}
       {o?.streakAtRisk && o.days.at(-1)?.status === "today" ? <span className="text-text-2">· keep it today</span> : null}
-      <span className="flex gap-[3px]" aria-hidden="true">
-        {(o?.days ?? []).map((d) => (
-          <span key={d.date} data-status={d.status} className={`box-border h-3 w-[6px] rounded-[2px] ${MARK[d.status]}`} />
+      <span className="flex items-center gap-[3px]" aria-hidden="true">
+        {days.map((d, i) => (
+          <DayCell key={d.date} d={d} today={i === days.length - 1} focused={focused} goal={goal} met={met} />
         ))}
       </span>
+      <StripKey />
     </button>
   );
 }
@@ -138,9 +169,9 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
       className={`flex h-11 items-center gap-3 rounded-control border px-3 ${s.state === "now" ? "border-sealed-line bg-sealed-tint" : "border-line-input bg-raised"}`}
     >
       <span
-        className={`rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-medium tracking-[0.06em] ${s.state === "now" ? "bg-sealed text-sealed-on" : "bg-line text-text-2"}`}
+        className={`rounded-[4px] px-[6px] py-[2px] text-[11px] font-medium ${s.state === "now" ? "bg-sealed text-sealed-on" : "bg-line text-text-2"}`}
       >
-        {s.state === "now" ? "NOW" : "NEXT"}
+        {s.state === "now" ? "Now" : "Next"}
       </span>
       <span className="min-w-0 truncate text-body font-medium text-text">{s.item.title}</span>
       <span className="shrink-0 font-mono text-meta text-muted">
@@ -163,7 +194,7 @@ function TaskStrip({ task }: { task: TaskLink }) {
   const clear = () => useStore.getState().setFocusTask(null);
   return (
     <div data-testid="focus-task" className="flex h-11 items-center gap-3 rounded-control border border-sealed-line bg-sealed-tint pl-3 pr-1">
-      <span className="rounded-[4px] bg-sealed px-[6px] py-[2px] font-mono text-[10px] font-medium tracking-[0.06em] text-sealed-on">FOR</span>
+      <span className="rounded-[4px] bg-sealed px-[6px] py-[2px] text-[11px] font-medium text-sealed-on">For</span>
       <span className="min-w-0 truncate text-body font-medium text-text">{task.title}</span>
       <span className="ml-auto shrink-0 text-meta text-text-2">Check it off when the seal holds</span>
       <Button variant="quiet" size="sm" aria-label="Unlink task" className="w-[26px] px-0" onClick={clear}>
@@ -177,38 +208,37 @@ function TaskStrip({ task }: { task: TaskLink }) {
 const sameTask = (a: Pick<TaskLink, "kind" | "id" | "date">, b: Pick<AgendaItem, "kind" | "id" | "date">) =>
   a.kind === b.kind && a.id === b.id && a.date === b.date;
 
-// --- The state card: Open, Sealed, and In event share one shape (decided 2026-09-30) ---
-// A strip on top, then labeled boxes the height of the focus wheels (82px), then the action on
-// the right under a small label. Open has the wheels; Sealed and In event fill the same boxes.
+// --- The state card: Open, Sealed, and In event share one shape (ProtoToday) ---
+// Labeled 52px boxes in a row: Open has the Profile and Length pickers and Enter focus; Sealed
+// fills the same slots with the profile, the time left and End early, so entering crossfades in place.
 
-const BOX = "flex h-[82px] items-center justify-center rounded-panel border border-line-input bg-raised px-3";
-const LABEL = "px-1 text-[11px] font-medium uppercase tracking-[0.06em]";
+const BOX = "flex h-[52px] items-center justify-center rounded-control border border-line-input bg-raised px-3";
+const ROW = "grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] items-end gap-[14px]";
 
-/** A labeled box the size of a wheel, holding a value instead of a picker. */
-function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+/** A labeled box the size of a picker, holding a value instead. */
+function Field({ label, children, className = "", cell }: { label: ReactNode; children: ReactNode; className?: string; cell?: "sealed" | "open" }) {
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
-      <span className={`${LABEL} text-faint`}>{label}</span>
+    <div data-sealed-cell={cell === "sealed" || undefined} className={`flex min-w-0 flex-col gap-[7px] ${className}`}>
+      <span className="label truncate">{label}</span>
       <div className={BOX}>{children}</div>
     </div>
   );
 }
 
-/** The 44px strip on top of the Sealed and In event cards, where Open has its suggestion. */
-function Strip({ tone, children, progress }: { tone: "sealed" | "event"; children: ReactNode; progress: number }) {
-  const bar = tone === "sealed" ? "bg-sealed" : "bg-event";
-  const box = tone === "sealed" ? "border-sealed-line bg-sealed-tint" : "border-event-line bg-event-tint";
+/** A thin track along a card's bottom edge, filled to `progress` (a transform, never a width). */
+function Track({ progress, tone }: { progress: number; tone: "sealed" | "event" | "open" }) {
+  const bar = tone === "sealed" ? "bg-sealed" : tone === "event" ? "bg-event" : "bg-open";
   return (
-    <div className={`relative flex h-11 items-center gap-3 overflow-hidden rounded-control border px-3 ${box}`}>
-      <span className="flex min-w-0 grow items-center gap-3 truncate text-meta text-text-2">{children}</span>
-      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
-        <div className={`h-full transition-[width] duration-enter ease-ui ${bar}`} style={{ width: `${Math.min(100, Math.max(0, progress) * 100)}%` }} />
-      </div>
-    </div>
+    <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
+      <span
+        data-track
+        className={`absolute inset-0 origin-left transition-transform duration-glide ease-glide ${bar}`}
+        style={{ transform: `scaleX(${Math.min(1, Math.max(0, progress))})` }}
+      />
+    </span>
   );
 }
 
-/** One labeled line of the next seal's intent (v0.3.1): the label reads into what you type. */
 /** Where you left off last time on this task or profile, when you wrote it down (v0.3.1). */
 function LeftOffLine() {
   const profileId = useStore(selectedProfile)?.id;
@@ -220,7 +250,7 @@ function LeftOffLine() {
   if (!leftOff) return null;
   return (
     <p data-testid="left-off" className="m-0 truncate border-t border-line-soft pt-3 text-meta text-text-2" title={leftOff.text}>
-      <span className="text-faint">Last time: </span>
+      <span className="text-muted">Last time: </span>
       {leftOff.text}
     </p>
   );
@@ -247,7 +277,7 @@ function FocusPanel() {
   const durationOptions = useMemo(() => durationsMin.map((m) => ({ value: m, label: `${m} min` })), []);
 
   return (
-    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
+    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-[14px] rounded-dialog border border-line bg-panel p-[18px]">
       {task ? <TaskStrip task={task} /> : <SuggestedCard s={suggestion} />}
       {profiles.length === 0 ? (
         <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
@@ -257,32 +287,34 @@ function FocusPanel() {
           </button>
         </div>
       ) : (
-        <div className="flex items-end justify-between gap-6">
-          <div className="flex items-end gap-3">
-            <Wheel label="Profile" options={profileOptions} value={profile?.id ?? null} onChange={pickProfile} className="w-[220px] shrink-0" />
-            <Wheel label="Length" options={durationOptions} value={duration} onChange={pickDuration} className="w-[112px] shrink-0" mono />
-          </div>
-          {/* Labeled like the wheels: the note sits where their labels do, the button matches their boxes. */}
-          <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
+        <div className={ROW}>
+          <FocusPicker label="Profile" options={profileOptions} value={profile?.id ?? null} onChange={pickProfile} />
+          <FocusPicker label="Length" options={durationOptions} value={duration} onChange={pickDuration} mono />
+          <div data-open-cell className="flex min-w-0 flex-col gap-[7px]">
             {profile && closing.length ? (
-              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className={`flex min-w-0 items-center gap-[6px] ${LABEL} text-text-2`}>
+              <span data-testid="focus-note" title={profileNote(profile, distractionCount)} className="label flex min-w-0 items-center gap-[6px]">
                 <LockIcon size={10} className="shrink-0 text-sealed" />
                 <span className="truncate">
-                  {joinNames(closing)} {closing.length === 1 ? "closes" : "close"} when you enter
+                  <span className="text-text-2">{joinNames(closing)}</span> {closing.length === 1 ? "closes" : "close"} when you enter
                 </span>
               </span>
             ) : (
-              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className={`truncate ${LABEL} text-faint`}>
+              <span data-testid="focus-note" title={profile ? profileNote(profile, distractionCount) : undefined} className="label truncate">
                 {profile ? profileNote(profile, distractionCount) : "Focus"}
               </span>
             )}
-            {/* The label sits just above the button's center, so the pair of lines reads as centered. */}
-            <Button variant="primary" size="cta" className="relative w-full" disabled={!profile} onClick={() => void enterFocus()}>
-              <span data-testid="enter-label" className="-translate-y-[10px] leading-none">Enter focus</span>
-              <span className="absolute left-1/2 top-[calc(50%+4px)] -translate-x-1/2 leading-none">
-                <Kbd onFill>Ctrl ↵</Kbd>
+            {/* The fill is its own layer: entering focus, it collapses into the sealed card's seal line. */}
+            <button
+              type="button"
+              disabled={!profile}
+              onClick={() => void enterFocus()}
+              className="relative h-[52px] w-full rounded-control p-0 text-[17px] font-semibold text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+            >
+              <span data-seal-src aria-hidden="true" className="absolute inset-0 rounded-control bg-sealed" />
+              <span data-testid="enter-label" className="relative flex items-center justify-center gap-[10px] leading-none">
+                Enter focus <Kbd onFill>Ctrl ↵</Kbd>
               </span>
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -321,7 +353,7 @@ function ParkField() {
         e.preventDefault();
         void park();
       }}
-      className="flex h-8 items-center gap-2 rounded-control border border-line-input bg-raised pl-3 pr-1 transition-colors duration-ui ease-ui focus-within:border-sealed-line"
+      className="focus-ring-within flex h-8 items-center gap-2 rounded-control border border-line-input bg-raised pl-3 pr-1 transition-colors duration-ui ease-ui focus-within:border-sealed-line"
     >
       <input
         value={text}
@@ -329,7 +361,7 @@ function ParkField() {
         onChange={(e) => setText(e.target.value)}
         placeholder="Park a thought for later"
         aria-label="Park a thought for later"
-        className="min-w-0 flex-1 bg-transparent text-body text-text outline-none placeholder:text-faint"
+        className="focus-ring-off min-w-0 flex-1 border-0 bg-transparent text-body text-text placeholder:text-faint"
       />
       {hotkeyFailed ? (
         <span title={hotkeyFailed} className="shrink-0 whitespace-nowrap text-[11px] text-muted">
@@ -355,6 +387,8 @@ function SessionBar() {
 
   const planned = session?.plannedMinutes ?? duration;
   const remaining = session?.remainingMs ?? planned * 60_000;
+  const elapsedMin = session ? Math.floor(session.elapsedMs / 60_000) : 0;
+  const leftMin = Math.max(0, Math.ceil(remaining / 60_000));
   const progress = session ? session.elapsedMs / (planned * 60_000) : 0;
   const ends = session?.endsAt ?? (sealedAt ?? Date.now()) + planned * 60_000;
   const sealed = session?.sealedCount ?? 0;
@@ -362,42 +396,43 @@ function SessionBar() {
   const name = session?.profileName ?? fallbackProfile;
 
   return (
-    <section data-testid="session-bar" aria-label="Sealed session" className="flex flex-col gap-3 rounded-panel border border-sealed-line bg-panel p-3">
-      <Strip tone="sealed" progress={progress}>
-        <span className="truncate">
-          <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.task ? <span className="font-medium text-text">{session.task.title} · </span> : null}
-          {session?.goal && session.goal !== session.task?.title ? <span className="font-medium text-text">{session.goal} · </span> : null}
-          {name} · {planned} min · ends {clock(ends)}
-          {session?.idle ? " · Idle, the seal extends until you're back" : ""}
-          {session?.broken ? " · Seal broken, the streak resets" : ""}
-        </span>
-      </Strip>
-      <div className="flex items-end justify-between gap-6">
-        <div className="flex items-end gap-3">
-          <Field label="Profile" className="w-[220px] shrink-0">
-            <span className="truncate text-[15px] font-semibold text-text">{name}</span>
-          </Field>
-          <Field label="Time left" className="w-[112px] shrink-0">
-            <span role="timer" aria-label={`${countdown(remaining)} left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
-              {countdown(remaining)}
-            </span>
-          </Field>
-        </div>
-        <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
-          <span className={`truncate ${LABEL} text-text-2`}>
-            {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
+    <section data-testid="session-bar" aria-label="Sealed session" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-sealed-line bg-panel p-[18px]">
+      <p className="m-0 truncate text-meta text-text-2">
+        <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.task ? <span className="font-medium text-text">{session.task.title} · </span> : null}
+        {session?.goal && session.goal !== session.task?.title ? <span className="font-medium text-text">{session.goal} · </span> : null}
+        {name} · {planned} min · ends {clock(ends)} · {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
+        {session?.idle ? " · Idle, the seal extends until you're back" : ""}
+        {session?.broken ? " · Seal broken, the streak resets" : ""}
+      </p>
+      <div className={ROW}>
+        <Field label="Profile" cell="sealed">
+          <span className="truncate text-[15px] font-semibold text-text">{name}</span>
+        </Field>
+        <Field label="Time left" cell="sealed">
+          <span role="timer" aria-label={`${leftMin} min left`} className="flex items-center gap-[0.35em] font-mono text-[15px] font-medium text-sealed-text">
+            <Odometer text={String(leftMin)} direction="down" />
+            <span aria-hidden="true">min</span>
           </span>
-          <div className="flex h-[82px] flex-col gap-[6px]">
-            <Button variant="raised" className="h-auto! w-full flex-1" onClick={() => void native.showCompact()}>
-              Compact<Kbd>Ctrl M</Kbd>
-            </Button>
-            <Button variant="ghost" className="h-auto! w-full flex-1" onClick={openEndEarly}>
+        </Field>
+        <div data-sealed-cell className="flex min-w-0 flex-col gap-[7px]">
+          <span className="label truncate">
+            <span className="font-mono">{elapsedMin}</span> of <span className="font-mono">{planned}</span> min
+          </span>
+          {/* The exit is quiet: ending early is a choice, not the main action. */}
+          <div className="flex h-[52px] items-center gap-2">
+            <Button variant="ghost" onClick={openEndEarly}>
               End early
+            </Button>
+            <Button variant="quiet" onClick={() => void native.showCompact()}>
+              Compact<Kbd>Ctrl M</Kbd>
             </Button>
           </div>
         </div>
       </div>
       {session ? <ParkField /> : null}
+      <Track progress={progress} tone="sealed" />
+      {/* The seal: Enter focus's fill lands here as a line, holds, then shows the track beneath. */}
+      <span data-seal-line aria-hidden="true" className="invisible absolute inset-x-0 bottom-0 z-[2] h-[2px] bg-sealed opacity-0" />
     </section>
   );
 }
@@ -411,22 +446,17 @@ function BreakBar() {
   const progress = 1 - left / (brk.minutes * 60_000);
   const profileName = useStore((s) => s.profiles.find((p) => p.id === brk.profileId)?.name);
   return (
-    <section data-testid="break-bar" aria-label="Break" className="flex flex-col gap-3 rounded-panel border border-line bg-panel p-3">
-      <div className="relative flex h-11 items-center gap-3 overflow-hidden rounded-control border border-line-input bg-raised px-3">
-        <span className="truncate text-meta text-text-2">
-          <span className="font-medium text-text">Break</span> · {pick(BREAK_TIPS, brk.until)} · your Distractions list waits too
-        </span>
-        <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
-          <div className="h-full bg-open transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, progress * 100)}%` }} />
-        </div>
-      </div>
-      <div className="flex items-end justify-between gap-6">
-        <Field label="Break left" className="w-[112px] shrink-0">
-          <span role="timer" aria-label={`${countdown(left)} of break left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
+    <section data-testid="break-bar" aria-label="Break" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-line bg-panel p-[18px]">
+      <p className="m-0 truncate text-meta text-text-2">
+        <span className="font-medium text-text">Break</span> · {pick(BREAK_TIPS, brk.until)} · your Distractions list waits too
+      </p>
+      <div className={ROW}>
+        <Field label="Break left">
+          <span role="timer" aria-label={`${countdown(left)} of break left`} className="font-mono text-[15px] font-medium text-text">
             {countdown(left)}
           </span>
         </Field>
-        <div className="flex w-[280px] min-w-0 shrink flex-col gap-[6px]">
+        <div className="flex min-w-0 flex-col gap-[6px]">
           <Button variant="primary" className="w-full" onClick={() => void useStore.getState().nextBlock(brk)}>
             Next block{profileName ? `: ${profileName}` : ""}
           </Button>
@@ -435,6 +465,7 @@ function BreakBar() {
           </Button>
         </div>
       </div>
+      <Track progress={progress} tone="open" />
     </section>
   );
 }
@@ -453,9 +484,9 @@ function EventBar() {
   const left = Math.max(0, endMs - now);
   const progress = endMs > startMs ? (now - startMs) / (endMs - startMs) : 0;
   return (
-    <section data-testid="event-bar" aria-label="In event" className="flex flex-col gap-3 rounded-panel border border-event-line bg-panel p-3">
-      <Strip tone="event" progress={progress}>
-        <span className="truncate">
+    <section data-testid="event-bar" aria-label="In event" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-event-line bg-panel p-[18px]">
+      <p className="m-0 flex items-center gap-3 text-meta text-text-2">
+        <span className="min-w-0 truncate">
           <span className="font-medium text-event">In event</span> · {e.range} · {e.left} left
         </span>
         {meeting?.htmlLink ? (
@@ -463,31 +494,30 @@ function EventBar() {
             Open in Google
           </button>
         ) : null}
-      </Strip>
-      <div className="flex items-end justify-between gap-6">
-        <div className="flex items-end gap-3">
-          <Field label="Event" className="w-[220px] shrink-0">
-            <span className="truncate text-[15px] font-semibold text-text">{e.title}</span>
-          </Field>
-          <Field label="Time left" className="w-[112px] shrink-0">
-            <span role="timer" aria-label={`${e.left} left`} className="font-mono text-[20px] font-medium tracking-[-0.02em] text-text">
-              {countdown(left)}
-            </span>
-          </Field>
-        </div>
-        <div className="flex w-[280px] min-w-0 shrink flex-col gap-1">
-          <span className={`truncate ${LABEL} text-text-2`}>{queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}</span>
+      </p>
+      <div className={ROW}>
+        <Field label="Event">
+          <span className="truncate text-[15px] font-semibold text-text">{e.title}</span>
+        </Field>
+        <Field label="Time left">
+          <span role="timer" aria-label={`${e.left} left`} className="font-mono text-[15px] font-medium text-text">
+            {countdown(left)}
+          </span>
+        </Field>
+        <div className="flex min-w-0 flex-col gap-[7px]">
+          <span className="label truncate">{queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}</span>
           {queued ? (
-            <Button variant="ghost" size="cta" className="w-full text-[15px]" onClick={() => setQueued(false)}>
+            <Button variant="ghost" className="h-[52px]! w-full text-[15px]" onClick={() => setQueued(false)}>
               Cancel queue
             </Button>
           ) : (
-            <Button variant="tint" size="cta" className="w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
+            <Button variant="tint" className="h-[52px]! w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
               Queue focus at {e.until}
             </Button>
           )}
         </div>
       </div>
+      <Track progress={progress} tone="event" />
     </section>
   );
 }
@@ -538,7 +568,7 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
       onDragEnd={drag.end}
       onDragOver={(e) => drag.overRow(e, t)}
       onDrop={(e) => drag.drop(e, t)}
-      className={`group row-in relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
+      className={`group relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
         current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
       } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
     >
@@ -795,25 +825,22 @@ function TodayPanel({ strip }: { strip: boolean }) {
   );
 }
 
-/** The strip's figure. A mono space is a full character wide, so it's pulled in. */
-const FIGURE = "shrink-0 font-mono text-text [word-spacing:-0.3em]";
-
-/** Focus today against the goal: one line under the list. */
+/** Focus today against the goal: one line under the list, its goal mark in the second colour. */
 function FocusStrip() {
-  const done = useStore((s) => s.focusTodayMin);
-  const live = useStore((s) => s.session);
-  const goal = useStore((s) => s.settings.dailyGoalMin);
-  // Finished sessions from the backend, plus the running one as it ticks.
-  const total = done + (live ? Math.floor(live.elapsedMs / 60_000) : 0);
-  const rolledTotal = useRolling(total);
+  const { minutes: total, goal, met } = useFocusToday();
   return (
-    <div data-testid="focus-strip" className="flex h-10 shrink-0 items-center gap-3 border-t border-line bg-panel-footer px-[14px] text-meta">
+    <div data-testid="focus-strip" className="flex h-10 shrink-0 items-center gap-[14px] border-t border-line bg-panel-footer px-[14px] text-meta">
       <span className="shrink-0 text-muted">Focus today</span>
-      <div className="h-1 w-[120px] shrink-0 overflow-hidden rounded-full bg-line">
-        <div className="h-full bg-sealed transition-[width] duration-enter ease-ui" style={{ width: `${Math.min(100, (total / goal) * 100)}%` }} />
+      <div className="relative h-[5px] grow rounded-full bg-raised">
+        <div
+          className="absolute inset-0 origin-left rounded-full bg-sealed transition-transform duration-glide ease-glide"
+          style={{ transform: `scaleX(${Math.min(1, goal > 0 ? total / goal : 0)})` }}
+        />
+        {met ? <span data-strip-goal-glow className="absolute right-[-3px] top-[-4px] h-[13px] w-2 rounded-[2px] bg-second-tint" /> : null}
+        <div className="absolute right-0 top-[-4px] h-[13px] w-[2px] rounded-[1px] bg-second" />
       </div>
-      <span className={FIGURE}>
-        {minutes(Math.round(rolledTotal))} / {minutes(goal)}
+      <span className="shrink-0 font-mono text-text [word-spacing:-0.3em]">
+        <Odometer text={minutes(total)} /> / {minutes(goal)}
       </span>
     </div>
   );
@@ -850,7 +877,7 @@ function CustomizeMenu() {
       </Button>
       {open ? (
         <div role="menu" aria-label="Customize Home" className="absolute right-0 top-[38px] z-30 flex w-[220px] animate-rise-in flex-col rounded-panel border border-line-input bg-panel p-1 shadow-toast">
-          <span className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Show on Home</span>
+          <span className="label px-2 pb-1 pt-2">Show on Home</span>
           {PANELS.map((p) => (
             <div key={p.id} className="flex h-control items-center justify-between rounded-control px-2 hover:bg-line-soft">
               <span className="text-body text-text">{p.label}</span>
@@ -863,52 +890,137 @@ function CustomizeMenu() {
   );
 }
 
-/** Yesterday was missed and today isn't kept yet: the headline says so. */
-function useStreakAtRisk() {
-  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
-  const [atRisk, setAtRisk] = useState(false);
-  useEffect(() => {
-    let live = true;
-    const today = todayKey(new Date(), dailyResetTime);
-    const load = () =>
-      void native.statsOverview(addDays(today, -6), today).then(
-        (o) => live && setAtRisk(o.streakAtRisk && o.days.at(-1)?.status === "today"),
-        () => undefined,
+/** A rect relative to another element's box. */
+function relRect(el: Element, to: Element) {
+  const r = el.getBoundingClientRect();
+  const o = to.getBoundingClientRect();
+  return { left: r.left - o.left, top: r.top - o.top, width: r.width, height: r.height };
+}
+
+/**
+ * Entering focus (motion spec §3): driven by state, not the click, so Ctrl Enter, the tray and a
+ * scheduled start all play it. The store's subscription runs inside set(), before React swaps the
+ * open card for the sealed one, so it can measure the Enter focus fill. A session resumed at launch
+ * never had an open card, so it plays nothing.
+ */
+function useEnterFocusMoment(root: React.RefObject<HTMLDivElement | null>, run: ReturnType<typeof useMotion>["run"]) {
+  const appState = useStore((s) => s.appState);
+  const from = useRef<ReturnType<typeof relRect> | null>(null);
+  useEffect(
+    () =>
+      useStore.subscribe((s, p) => {
+        if (p.appState !== "sealed" && s.appState === "sealed" && root.current) {
+          const src = root.current.querySelector("[data-seal-src]");
+          from.current = src ? relRect(src, root.current) : null;
+        }
+      }),
+    [root],
+  );
+  useGSAP(
+    () => {
+      const b = from.current;
+      from.current = null;
+      if (appState !== "sealed") {
+        // Leaving mid-moment: finish it first, so nothing is left half-way.
+        getMoment("enter-focus")?.progress(1);
+        return;
+      }
+      const line = root.current?.querySelector("[data-seal-line]");
+      if (!b || !line || !root.current) return;
+      const r = relRect(line, root.current);
+      run(() =>
+        gsap
+          .timeline({ id: "enter-focus" })
+          .addLabel("seal", 0)
+          // The button's fill collapses into the thin seal line along the card's bottom edge.
+          .fromTo(
+            line,
+            { autoAlpha: 1, transformOrigin: "0 0", x: b.left - r.left, y: b.top - r.top, scaleX: b.width / Math.max(1, r.width), scaleY: b.height / Math.max(1, r.height) },
+            { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: 0.38, ease: EASE.settle },
+            "seal",
+          )
+          .from("[data-sealed-cell]", { opacity: 0, duration: DUR.state, ease: EASE.ui, stagger: 0.04, clearProps: "opacity" }, 0.08)
+          .fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: EASE.ui, clearProps: "opacity" }, 0.1)
+          .addLabel("line", 0.38)
+          // It holds, then fades to show the real track and fill beneath.
+          .to(line, { autoAlpha: 0, duration: 0.4, ease: EASE.ui, clearProps: "transform,opacity,visibility" }, "line+=0.2"),
       );
-    load();
-    const off = onNative(EVENTS.held, load);
-    return () => {
-      live = false;
-      void off.then((f) => f());
-    };
-  }, [dailyResetTime]);
-  return atRisk;
+    },
+    { scope: root, dependencies: [appState] },
+  );
+}
+
+/**
+ * Goal reached (motion spec §4): the day is kept. Only when the goal is met while Today is on
+ * screen; mounting with the goal already met plays nothing, since a late celebration is stale.
+ * Ruler, then the goal tick, then the day turns kept, then the streak (its odometer waits).
+ */
+function useGoalMoment(root: React.RefObject<HTMLDivElement | null>, run: ReturnType<typeof useMotion>["run"], met: boolean) {
+  const wasMet = useRef(met);
+  const [justKept, setJustKept] = useState(false);
+  useGSAP(
+    () => {
+      const kept = met && !wasMet.current;
+      wasMet.current = met;
+      if (!kept || !root.current) return;
+      setJustKept(true);
+      const has = (sel: string) => root.current!.querySelector(sel) !== null;
+      run(() => {
+        const tl = gsap.timeline({ id: "goal", defaults: { ease: EASE.drift }, onComplete: () => setJustKept(false) });
+        tl.addLabel("flare", 0.3);
+        if (has("[data-goal-glow]")) {
+          tl.fromTo("[data-goal-glow]", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, "flare").to("[data-goal-glow]", { opacity: 0.55, duration: DUR.drain, clearProps: "opacity" }, ">");
+        }
+        if (has("[data-goal-suffix]")) {
+          tl.fromTo("[data-goal-suffix]", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: DUR.state, ease: EASE.ui, clearProps: "clipPath" }, "flare");
+        }
+        tl.fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: EASE.ui, clearProps: "opacity" }, 0.4).addLabel("kept", 0.55);
+        if (has("[data-today-cell] [data-cell-kept]")) {
+          tl.fromTo("[data-today-cell] [data-cell-kept]", { autoAlpha: 0 }, { autoAlpha: 1, duration: DUR.moment, clearProps: "opacity,visibility" }, "kept");
+        }
+        if (has("[data-strip-goal-glow]")) {
+          tl.fromTo("[data-strip-goal-glow]", { opacity: 0 }, { opacity: 1, duration: DUR.drain, clearProps: "opacity" }, "kept");
+        }
+        return tl;
+      });
+    },
+    { scope: root, dependencies: [met] },
+  );
+  return justKept;
 }
 
 export function Home() {
+  const root = useRef<HTMLDivElement>(null);
+  const { run } = useMotion(root);
   const brk = useStore((s) => s.brk);
   const appState = useStore((s) => s.appState);
   const hidden = useStore((s) => s.settings.homeLayout.hidden);
   const meeting = useStore((s) => s.meeting);
   const finishing = useStore((s) => s.session !== null && s.session.remainingMs < 5 * 60_000);
-  const goalMet = useStore((s) => s.focusTodayMin >= s.settings.dailyGoalMin);
-  const atRisk = useStreakAtRisk();
-  const [a, b] = homeHeadline(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT, new Date(), { finishing, goalMet, atRisk });
+  const { minutes: focused, goal, met } = useFocusToday();
+  const overview = useWeekOverview();
+  // Yesterday was missed and today isn't kept yet: the headline says so.
+  const atRisk = !!overview?.streakAtRisk && overview.days.at(-1)?.status === "today";
+  const headline = homeLine(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT, new Date(), { finishing, goalMet: met, atRisk });
   const show = (p: HomePanel) => !hidden.includes(p);
   const open = appState === "open";
+  useEnterFocusMoment(root, run);
+  const justKept = useGoalMoment(root, run, met);
 
   return (
-    <div className="flex h-full flex-col gap-5 px-8 pb-7 pt-6">
-      <div className="flex h-control items-center justify-between">
-        <span className={`text-body transition-colors duration-700 ease-ui ${open ? "text-muted" : "text-text"}`}>{formatDate(new Date())}</span>
-        {/* Sealed or in an event, the tools step aside and come back when the state returns to Open. */}
+    <div ref={root} className="flex h-full flex-col gap-[22px] px-8 pb-[22px] pt-[26px]">
+      <div className="flex min-h-control flex-wrap items-center gap-2 text-meta">
+        <span className={`min-w-[160px] flex-1 text-body transition-colors duration-drain ease-ui ${open ? "text-muted" : "text-text"}`}>{formatDate(new Date())}</span>
+        {/* The streak stays while sealed, so the day can turn kept on screen. */}
+        {show("streak") ? <StreakChip o={overview} delay={justKept ? 0.95 : 0} /> : null}
+        {/* Sealed or in an event, search and Customize step aside and come back when the state returns to Open. */}
         <div
           data-testid="home-tools"
+          data-tools
           inert={!open}
           aria-hidden={!open || undefined}
-          className={`flex items-center gap-2 transition-[opacity,transform,visibility] duration-500 ease-ui ${open ? "visible opacity-100" : "invisible -translate-y-[6px] opacity-0"}`}
+          className={`flex items-center gap-2 transition-[opacity,visibility] ease-ui ${open ? "visible opacity-100 duration-ui" : "invisible opacity-0 duration-ui"}`}
         >
-          {show("streak") ? <StreakChip /> : null}
           <button
             type="button"
             onClick={useStore.getState().openCommand}
@@ -916,22 +1028,25 @@ export function Home() {
           >
             <SearchIcon />
             <span className="grow text-left">Search or command</span>
-            <span className="font-mono text-[11px] text-faint">Ctrl K</span>
+            <span className="font-mono text-[11px]">Ctrl K</span>
           </button>
           <CustomizeMenu />
         </div>
       </div>
 
-      <h1 className="headline m-0 text-moment">
-        {a} <em>{b}</em>
-      </h1>
+      <header className="flex flex-col gap-4">
+        <h1 data-headline className="headline m-0 text-moment">
+          {headline}
+        </h1>
+        <DayRuler minutes={focused} goal={goal} />
+      </header>
 
       {appState === "open" && (brk ? <BreakBar /> : <FocusPanel />)}
       {appState === "sealed" && <SessionBar />}
       {appState === "event" && <EventBar />}
 
       {show("today") ? (
-        <div className="flex min-h-0 grow flex-col">
+        <div className="flex min-h-[220px] grow flex-col">
           <TodayPanel strip={show("progress")} />
         </div>
       ) : null}

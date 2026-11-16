@@ -63,6 +63,16 @@ Checked in the browser preview on 2026-10-30 (screens and flows, with the mock b
 - [x] **Theme with Sanctum closed:** they keep the last theme after a browser restart, even before Sanctum is running.
 - [x] **Installer files:** the installed extension folder includes `theme.js` (it was nearly left out; a test now guards it).
 
+## Today (v0.4.0 redesign)
+
+jsdom has no layout, so these need the real app on Windows:
+
+- [ ] **Entering focus:** press Enter focus; the button's fill shrinks into a thin line along the bottom of the sealed card (not elsewhere on the page), holds, then fades to show the progress track. Try it with the window narrow enough that the card's three boxes wrap to two rows.
+- [ ] **Live minutes:** seal for a few minutes with Today open; the needle and fill glide once a minute and the figure rolls, smoothly on an integrated GPU. Passing 30, 60 or 90 minutes lights that tick briefly. Minimize to the tray and come back: the needle is in place with nothing replaying.
+- [ ] **Goal reached:** set the goal just above today's minutes (Setup › General) and seal; at the goal, the goal tick gains its field and "· kept", today's cell in the streak turns kept, and the streak counts up. Check it reads in Aura, Night Owl, Cobalt2 Light and Sanctum Dark.
+- [ ] **Days strip key:** hovering the streak shows Kept, Missed, Today beside it after a short pause without moving the chip; tabbing to it shows the same.
+- [ ] **Windows "Show animations" off:** all of the above change at once, with no motion.
+
 ## Themes (in the installed app)
 
 - [x] **Every theme everywhere:** all 13 look right in every window: main, tray panel, compact timer, the blocked-app overlay, the held page, the boot splash, and dialogs.
