@@ -105,11 +105,10 @@ About 16 agent runs. Wave 1 is the biggest and runs eight at once, so usage limi
 ## Progress
 
 ### Wave 0: done 2026-11-15
-F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass and `tsc -b` is clean. CHANGELOG.md has the v0.4.0 (in progress) entry. Lead clean-ups done: SPEC.md headline rule, `@fontsource/instrument-serif` removed, ResizeObserver test stub.
+F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass and `tsc -b` is clean. CHANGELOG.md has the v0.4.0 (in progress) entry. Lead clean-ups done: SPEC.md headline rule, `@fontsource/instrument-serif` removed, ResizeObserver test stub, open-source notices regenerated (gsap and Schibsted Grotesk in, motion and Instrument Serif out).
 
 **Not done yet**
 - **Checkpoint A screenshots** in Aura, Night Owl, Cobalt2 Light and Sanctum Dark. Blocked on Node not being on PATH for the app's preview after the machine's home folder was partly wiped.
-- **Open-source notices:** `npm run notices` (needs cargo, now reinstalled) so the partner site lists gsap instead of motion.
 - **Hardware checks** for the aurora (WebView2, WKWebView, frame time, battery): see docs/manual-testing.md.
 
 **Hand-off to Wave 1** (requests from the Wave 0 agents, by owner)
@@ -133,7 +132,6 @@ F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass
   - Whatever covers the app can pass `paused` to `StateBackdrop`.
 - **S8 Small surfaces:**
   - The partner site's notices and LegalPage credit Schibsted Grotesk (SIL OFL), not Instrument Serif.
-  - Rerun `npm run notices`.
 - **Lead:**
   - Retire the unused `payoff` colour token.
   - Optionally add the `loop` class to the logo's `.mark-breathe`.
