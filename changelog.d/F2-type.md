@@ -1,4 +1,0 @@
-- **Headlines are one plain sentence.** Every headline is set in Schibsted Grotesk, bold, in one colour, with no italic payoff and no question: "Your word is the plan.", "Head down, the noise can wait.", "Design review until 10:39 AM.". All of them come from `src/pages/headlines.ts`, and the extension's sealed page uses the same lines.
-- **Pause mode states, it doesn't ask.** "Still want youtube.com?" becomes "youtube.com can wait five seconds." on the extension's page.
-- **Schibsted Grotesk is bundled** in the app and the extension (Latin only), so headlines render the same offline. Instrument Serif is no longer loaded anywhere.
-- **Labels are sentence case.** A shared `.label` style (Geist 500, 12px, muted) replaces all-caps labels as each screen moves to it. The headline and label rules are updated in design/README.md and CLAUDE.md.

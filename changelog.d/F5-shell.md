@@ -1,5 +1,0 @@
-- **The sidebar shows where you are, and moves with you.** The active row's background is one indicator that glides to the screen you pick (the Ctrl shortcuts too), in the sidebar and the rail alike, and the active icon takes the theme's second colour. With Windows' animations off, it jumps.
-- **Screens swap without a fade.** The content changes almost at once, with a short opacity ramp and nothing rising from below. Changing state (open, sealed, an event) no longer blurs and lifts the page; the backdrop says it.
-- **One focus ring everywhere.** Keyboard focus draws the same accent ring on every button, link, tab and switch, and text fields get an accent border with a softer ring, in every theme. An old `outline-none` can no longer hide where focus is.
-- **Segmented controls say what they are.** The shared `Segmented` control is a tablist with arrow keys only when it switches panels, and a pressed-button group when it filters. Fields share one box with the 3:1 input edge.
-- **Command bar groups read in sentence case.** "Go to", "Focus" and the rest use the shared label style instead of small capitals.
