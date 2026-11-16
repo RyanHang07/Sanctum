@@ -64,3 +64,87 @@ One interactive prototype with shared state:
 ## Not decided yet
 - Whether the second colour needs its own theme slot (see Colour roles).
 - Light-theme glow strength. The prototypes use a lower opacity on light themes.
+
+## Since the first draft (2026-11-15, later)
+- The days strip's key (Kept, Missed, Today) appears only while the streak is hovered or focused. Week has no key, because the page is the key.
+- Stats: no "best day" mark and no tick-scale legend note. The hover detail has a fixed spot at the end of the legend row.
+- The screen keeps a soft moving background: an "aurora" of three blurred lights in the accent and the second colour, veiled toward the page colour. It is stronger while sealed and still under reduced motion. This replaces the open-state mesh's fixed colours.
+- The held mesh is redrawn from the theme: accent, second colour and a blend, instead of the fixed held-1..4 tones. A broken seal drains the accent to grey.
+- Motion: GSAP is the candidate for the app's choreographed moments (live minutes, goal reached, held build). It is free, plugins included, since April 2025. Not added yet.
+
+## Design gaps found while mocking every page
+Found in the current app by the page reviews. Each is fixed as its screen is built.
+
+**Contrast and colour roles**
+- **The tray's sealed timer is unreadable in Aura and Night Owl.** It is drawn in `text-sealed-on`, a dark colour, on a dark panel (TrayPanel.tsx).
+- **Held page roles are off.**
+  - Its text and its "Enter again" button use `sealed-on`, which is near-black in Aura over a dark mesh.
+  - The held colours stay dark tones even on light themes.
+- **`text-faint` holds real text in many places,** around 3:1 in Aura:
+  - setup group headers
+  - note dates and "Edited"
+  - "Returning in"
+  - the tray and popup foot lines
+  
+  Use `muted` for any text that must be read.
+- **Some themes have no real accent and second-colour pair.**
+  - Flexoki Light and OpenCode Light use the same colour for both.
+  - In Orng and Lucent Orng, the near-white accent and orange event colour look swapped.
+  - Catppuccin Frappe Light and Macchiato Light are dark copies listed as dark themes.
+  
+  Answering the open question, these are the themes that need a `second` slot.
+
+**Old headline and label rules still in the code**
+- **Italic payoffs remain:**
+  - `<Headline>`
+  - HeldPage ("Sanctum *held.*")
+  - Intercept cards, WelcomeCard and ParkCard
+  - the journal's locked and setup headlines
+  - the editor's italic button (Instrument Serif)
+  - the extension's `h1 em` and `headline()`
+  - the partner site's two-sentence headlines
+- **Questions in headlines:** "What should a page ask?" (journal setup) and "Still want youtube.com?" (Pause mode).
+- **Uppercase labels:** setup group headers, the journal day strip's weekday letters, "Link works for", "Show in Sanctum", and the held and intercept eyebrows.
+- **The extension doesn't bundle Schibsted Grotesk.**
+- **Odd copy:**
+  - "1 sessions" (journal fact)
+  - "Held, but the downtime broke it" (broken seal)
+  - "Held. Nice." (compact timer), which is casual against the serious voice
+
+**Layout and behaviour**
+- **Intercept window is too tight.** With a plan it is 480×320, and the card (about 310px) clips its shadow. A long "back to" name truncates at 128px.
+- **Check-in dialog:**
+  - It overflows a 720px-high window (top 120 + max 640).
+  - Its sparklines show no goal.
+  - Scale and yes/no rows have no history.
+- **The close dialog, while sealed,** doesn't say when quitting becomes possible.
+- **A broken seal looks the same as a kept one** on the held page: the same mesh, build and rings.
+- **The journal day strip has no kept or missed states,** unlike Today and Week.
+- **The Appearance list doesn't scroll the chosen theme into view,** and there are 40 dark themes.
+- **Profiles have no blocklist of their own.** Seals summarise the shared Distractions list. The profile list and the open profile never show together.
+- **The extension popup can't show progress,** because its rules have an end time but no start.
+- **Left-border accent cards remain:** the blocked page's plan card, the Intercept plan box, and Week's routine and event edges.
+- **Design references are stale:** MiniTimer.dc.html describes an old multi-stop fill, and popup.css has stale colour comments.
+
+## Rollout plan
+Build in this order. Each step ships with Vitest coverage and a CHANGELOG entry, with hardware or live checks added to docs/manual-testing.md.
+1. **Tokens.**
+   - A `second` palette slot that defaults to `event`, with explicit values for the themes listed above.
+   - `second-text`, `second-tint` and `second-line` derived like `sealed-*`, passing the 4.5:1 test in themes.test.ts.
+   - The extension gets the same keys.
+2. **Type.**
+   - Schibsted Grotesk joins the bundled fonts (app and extension).
+   - `<Headline>` becomes one sentence.
+   - headlines.ts and blocked.js `headline()` move from statement plus payoff to single lines.
+   - The design/README.md and CLAUDE.md headline rule is updated.
+   - Instrument Serif is removed where it was a payoff.
+3. **Contrast fixes:** sealed-on roles on the held page and tray, and faint text moved to muted.
+4. **Today:** the ruler, the days strip with its hover key, and live minutes. The motion is built with GSAP if approved, otherwise with CSS.
+5. **Week, Stats and Trackers**, as prototyped.
+6. **Aurora backdrop and theme-derived held mesh** (Mesh.tsx).
+7. **The rest, from the canvas mocks:**
+   - Notes, Journal, Setup and Onboarding
+   - Held, Intercept, Check-in and the close dialog
+   - Tray, compact timer, extension and the partner site
+   
+   Each page's gaps above are fixed as it's built.
