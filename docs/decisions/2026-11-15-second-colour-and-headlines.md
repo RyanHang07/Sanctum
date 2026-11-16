@@ -4,6 +4,8 @@
 **Status:** Designing (prototypes on the design canvas; no app code yet)
 **Canvas:** "Sanctum Gate Light Screens" (private Design artifact)
 
+> **Superseded 2026-11-16:** for a clean look there is no glow and no aurora anywhere. Kept days and the met goal use crisp solid marks in the second colour (a solid dot or cell with a `second-line` ring, and a solid `second-tint` field behind the met goal tick). Read every "glow" below in that light.
+
 ## Why
 
 The app read as one note: the accent (`sealed`) did everything and the rest was grey. The headline payoff (Instrument Serif italic, one accented phrase) is a common tell of AI-made interfaces. The theme picker already shows each theme's second colour beside its accent: the `event` colour.

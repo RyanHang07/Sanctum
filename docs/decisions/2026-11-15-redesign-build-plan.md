@@ -107,6 +107,8 @@ About 16 agent runs. Wave 1 is the biggest and runs eight at once, so usage limi
 ### 2026-11-16: the aurora is removed
 You asked for a clean look: the WebGL aurora (F4) added friction. `Aurora.tsx`, `lib/aurora.ts`, their tests and the aurora CSS are deleted. Every screen sits on the flat `bg-app`. No screen agent should add a gradient, glow or moving backdrop. Wave 1 runs **two agents at a time** instead of eight.
 
+Also decided 2026-11-16: kept days and the met goal use crisp solid marks, not a soft glow.
+
 ### Wave 0: done 2026-11-15
 F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass and `tsc -b` is clean. CHANGELOG.md has the v0.4.0 (in progress) entry. Lead clean-ups done: SPEC.md headline rule, `@fontsource/instrument-serif` removed, ResizeObserver test stub, open-source notices regenerated (gsap and Schibsted Grotesk in, motion and Instrument Serif out).
 
