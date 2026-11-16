@@ -134,7 +134,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
         {step === "lock" ? (
           <>
             <div className="flex flex-col gap-1">
-              <h2 className="m-0 text-[16px] font-semibold">Lock the journal?</h2>
+              <h2 className="headline m-0 text-[18px]">{HEADLINE.journalLock}</h2>
               <span className="text-meta text-muted">It locks again when you leave the Journal, hide Sanctum, or step away for 5 minutes. It keeps people at this PC out; the pages aren't encrypted on disk.</span>
             </div>
             <div role="radiogroup" aria-label="Lock" className="flex flex-col gap-2">
