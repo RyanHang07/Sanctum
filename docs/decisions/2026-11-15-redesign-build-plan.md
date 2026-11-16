@@ -1,7 +1,7 @@
 # Build plan: the second-colour redesign, built by a team of agents
 
 **Date:** 2026-11-15
-**Status:** Awaiting approval. Nothing here is built until you give the go-ahead.
+**Status:** Approved 2026-11-15 (worktree per agent; version v0.4.0; Catppuccin per the theme-pair review: Latte replaces the two "Light" copies). **Wave 0 is built and merged** into `feature/redesign` and `dev` (see "Progress" at the end). Checkpoint A screenshots are still to take; Wave 1 has not started.
 
 **What it builds:** everything decided in these documents:
 - [2026-11-15-second-colour-and-headlines.md](2026-11-15-second-colour-and-headlines.md)
@@ -101,3 +101,39 @@ About 16 agent runs. Wave 1 is the biggest and runs eight at once, so usage limi
 2. **Version:** call this v0.4.0? It's a visual overhaul.
 3. **Catppuccin Frappe Light and Macchiato Light:** rename them, or rebuild them as real light themes? The theme-pair review's recommendation comes before Wave 0.
 4. **Checkpoints:** are the two above enough, or do you want a look after each screen?
+
+## Progress
+
+### Wave 0: done 2026-11-15
+F1 tokens, F2 type, F3 motion, F4 aurora and F5 shell are merged. 592 tests pass and `tsc -b` is clean. CHANGELOG.md has the v0.4.0 (in progress) entry. Lead clean-ups done: SPEC.md headline rule, `@fontsource/instrument-serif` removed, ResizeObserver test stub.
+
+**Not done yet**
+- **Checkpoint A screenshots** in Aura, Night Owl, Cobalt2 Light and Sanctum Dark. Blocked on Node not being on PATH for the app's preview after the machine's home folder was partly wiped.
+- **Open-source notices:** `npm run notices` (needs cargo, now reinstalled) so the partner site lists gsap instead of motion.
+- **Hardware checks** for the aurora (WebView2, WKWebView, frame time, battery): see docs/manual-testing.md.
+
+**Hand-off to Wave 1** (requests from the Wave 0 agents, by owner)
+- **All screen agents:**
+  - Delete `outline-none` in your files; the global ring now shows anyway. Where a wrapper draws focus, use `focus-ring-off` plus `focus-ring-within`.
+  - Swap `text-[11px] font-medium uppercase tracking-[0.06em] text-faint` for `label`.
+  - Move segmented controls to `Segmented` in `src/components/controls.tsx`.
+  - Stop using `.page-in` / `.row-in`; the lead then deletes those keyframes in styles.css.
+- **S1 Today:** `Home.tsx` uses `homeLine(...)` instead of `homeHeadline` and `<em>`.
+- **S2–S4:** Stats, Week and Trackers tablists have no tabpanels, so they move to `Segmented`. Trackers also has radius drift (6 and 8).
+- **S5 Journal:**
+  - `HEADLINE.journalLocked`, `HEADLINE.journalSetup` and `HEADLINE.journalPrompts` (this replaces the question).
+  - The weekday letters are no longer uppercase.
+  - `NoteToolbar.tsx`: drop `font-serif` on the italic button.
+- **S6 Onboarding:** `<Headline title={ONBOARDING.…}>` at each step. Two titles still read as two sentences until this lands.
+- **S7 Moments:**
+  - HeldPage uses `HEADLINE.held` and `HEADLINE.broken`, and drops the `<em>` and the uppercase eyebrow.
+  - HeldPage text and buttons move from `sealed-on` to `text`/`muted`, because the aurora sits over `bg-app` (contrast in light themes and in Aura).
+  - Intercept uses `HEADLINE.stays`, `pauseHeadline` (which replaces "Still want…?"), `HEADLINE.waits`, `welcome()` and `PARK_LINES`.
+  - BreakSealDialog uses `HEADLINE.partnerDenied` and `partnerExpired`. QuietPauseDialog uses `HEADLINE.quietPause`.
+  - Whatever covers the app can pass `paused` to `StateBackdrop`.
+- **S8 Small surfaces:**
+  - The partner site's notices and LegalPage credit Schibsted Grotesk (SIL OFL), not Instrument Serif.
+  - Rerun `npm run notices`.
+- **Lead:**
+  - Retire the unused `payoff` colour token.
+  - Optionally add the `loop` class to the logo's `.mark-breathe`.

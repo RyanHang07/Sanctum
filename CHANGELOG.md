@@ -1,6 +1,29 @@
 # Changelog
 
-## v0.3.4 (in progress)
+## v0.4.0 (in progress)
+
+**The redesign, Wave 0: foundations.** The screens themselves move over in Wave 1; until then they pick up the new colours, type, motion and backdrop through the shared parts below.
+
+- **Every theme has a second colour.** A new `second` slot (with `second-text`, `second-tint` and `second-line`) carries decoration only: kept marks, the goal tick, the aurora's tips. It defaults to the theme's event colour; the 23 themes where that pair failed get a hand-picked colour from the theme's own palette (Nord's frost, Tokyonight's blue, Sanctum Light's amber).
+- **Orng and Lucent Orng look like themselves.** Orange is now the accent and the theme's cyan the second colour, instead of a near-white accent with an orange decoration. Their broken colour is redder, so a broken seal no longer looks sealed.
+- **Catppuccin Latte replaces two mislabelled themes.** Catppuccin Frappe Light and Macchiato Light were copies of the dark flavours. A saved choice of either opens Latte.
+- **Muted text and input edges read in every theme.** Muted text reaches 4.5:1 on every surface it sits on (Cobalt2 Light and Night Owl fell short on raised cards, the sidebar and the accent tint), and input borders reach 3:1. The theme test now checks all of this for every theme.
+- **Headlines are one plain sentence.** Every headline is set in Schibsted Grotesk, bold, in one colour, with no italic payoff and no question: "Your word is the plan.", "Head down, the noise can wait.", "Design review until 10:39 AM.". All of them come from `src/pages/headlines.ts`, and the extension's sealed page uses the same lines.
+- **Pause mode states, it doesn't ask.** "Still want youtube.com?" becomes "youtube.com can wait five seconds." on the extension's page.
+- **Schibsted Grotesk is bundled** in the app and the extension (Latin only), so headlines render the same offline. Instrument Serif is no longer loaded anywhere.
+- **Labels are sentence case.** A shared `.label` style (Geist 500, 12px, muted) replaces all-caps labels as each screen moves to it. The headline and label rules are updated in design/README.md and CLAUDE.md.
+- **One animation engine.** Motion now runs on GSAP instead of Framer Motion. Durations and curves come from the same tokens as the CSS (now with state, glide, moment, drain and breathe durations and the glide, settle, seat, exit and drift eases), so a tween and a transition with the same name move alike. Rows still glide when a list reorders, and totals still roll, with no change to the screens.
+- **Numbers roll like a counter.** A shared odometer turns only the digits that changed, rightmost first, and rolls the whole figure over when its shape changes ("59m" to "1h"). Every moment jumps to its end under Windows' "reduce motion" and while the window is hidden, so nothing plays to an empty screen.
+- **The backdrop is a northern lights.** Behind every screen, a bright wavy band glows in the theme's accent and rays rise from it, fading into the second colour at their tips, veiled toward the page. It is drawn by one WebGL shader and recoloured the moment the theme changes. It is barely there while open, brighter and livelier while sealed, fullest on the held page, and drained to grey on a broken seal. The light sits at the top of the window by default; a bottom placement is there for testing.
+- **It costs nothing when it can't be seen.** The light stops while the window is minimized or in the tray, holds a still frame under Windows' "reduce motion", and on a laptop running on battery it holds still while open and moves at half the frame rate while sealed. Where the web view has no WebGL, a still gradient in the same colours stands in. The keyhole's breathe now pauses with the window too.
+- **The held page uses the same light,** from the theme instead of the fixed held colours, and a broken seal opens on the held light before it drains to grey.
+- **The sidebar shows where you are, and moves with you.** The active row's background is one indicator that glides to the screen you pick (the Ctrl shortcuts too), in the sidebar and the rail alike, and the active icon takes the theme's second colour. With Windows' animations off, it jumps.
+- **Screens swap without a fade.** The content changes almost at once, with a short opacity ramp and nothing rising from below. Changing state (open, sealed, an event) no longer blurs and lifts the page; the backdrop says it.
+- **One focus ring everywhere.** Keyboard focus draws the same accent ring on every button, link, tab and switch, and text fields get an accent border with a softer ring, in every theme. An old `outline-none` can no longer hide where focus is.
+- **Segmented controls say what they are.** The shared `Segmented` control is a tablist with arrow keys only when it switches panels, and a pressed-button group when it filters. Fields share one box with the 3:1 input edge.
+- **Command bar groups read in sentence case.** "Go to", "Focus" and the rest use the shared label style instead of small capitals.
+
+**Also in this release**
 
 - **The extension's toolbar icon shows the mark again.** Theming it painted every pixel one colour, which left a blank square in your accent (seen in Comet). Now the tile takes the accent and the torii stays readable on it.
 - **The extension's mark follows your theme.** The popup and the blocked page draw the mark inline, so the keyhole takes your theme's accent (Aura's coral, not always cobalt).
