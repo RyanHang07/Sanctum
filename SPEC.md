@@ -376,7 +376,8 @@ The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed sessi
 Radius 6 controls, 8 panels, 12 dialogs. 32px controls, 38px list rows (was 34; roomier, 2026-10-29), 1px borders, shadows only on dialogs. The UI is monochrome; color only ever means a state.
 
 ### Type
-- **Moments only** (Home headline, sealed dialogs, held dialog, onboarding step titles): Geist 700, letter-spacing -0.03em, bold statement + Instrument Serif italic payoff in `#8C96AB` at 1.12em
+- **Moments only** (Home headline, sealed dialogs, held dialog, onboarding step titles): one plain sentence in Schibsted Grotesk 700, letter-spacing -0.03em, one weight and one colour (`text`), no italic payoff and no question (was Geist bold statement + Instrument Serif italic payoff; changed 2026-11-15, see `docs/decisions/2026-11-15-second-colour-and-headlines.md`)
+- **Labels:** sentence case, never all caps (the shared `.label` style)
 - **Page titles:** Geist 600, 20px. **Body:** 13px. **Meta:** 12px
 - **UI:** Geist 400/500/600
 - **Numbers and timers:** Geist Mono (300 for big timers)
