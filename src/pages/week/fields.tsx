@@ -16,12 +16,12 @@ export const TIME_OPTIONS: string[] = Array.from({ length: 96 }, (_, i) => {
 export const LENGTH_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240];
 
 const selectClass =
-  "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-7 text-body text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
+  "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-7 text-body text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">{label}</span>
+      <span className="label">{label}</span>
       <span className="relative flex items-center">
         {children}
         <ChevronIcon size={10} className="pointer-events-none absolute right-[10px] text-muted" />
@@ -85,7 +85,7 @@ export function DaysField({ mask, onChange }: { mask: number; onChange: (m: numb
   ];
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Repeats on</span>
+      <span className="label">Repeats on</span>
       <div className="flex items-center gap-[6px]" role="group" aria-label="Days">
         {WEEKDAYS.map((d) => {
           const on = hasDay(mask, d.bit);
@@ -133,7 +133,7 @@ export function TitleInput({ value, onChange, onSubmit, placeholder, autoFocus =
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-      className="h-10 w-full rounded-control border border-line-input bg-raised px-3 text-[15px] font-medium text-text outline-none transition-colors duration-ui ease-ui placeholder:font-normal placeholder:text-faint hover:border-check-line focus:border-sealed"
+      className="h-10 w-full rounded-control border border-line-input bg-raised px-3 text-[15px] font-medium text-text transition-colors duration-ui ease-ui placeholder:font-normal placeholder:text-faint hover:border-check-line focus:border-sealed"
     />
   );
 }
