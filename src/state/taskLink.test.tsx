@@ -52,6 +52,7 @@ describe("a session for a task (v0.1)", () => {
     expect(held.task?.title).toBe("Write the essay");
     render(<HeldPage held={held} />);
     const page = within(screen.getByTestId("held-page"));
+    fireEvent.click(page.getByRole("button", { name: "Add a note" }));
     await act(async () => fireEvent.click(page.getByRole("button", { name: "Mark Write the essay done" })));
     expect(page.getByTestId("held-task")).toHaveTextContent("Write the essay is done");
     expect((await native.listTodos(todayKey(), todayKey())).find((t) => t.id === todo.id)?.done).toBe(true);

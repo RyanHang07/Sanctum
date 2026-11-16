@@ -342,6 +342,18 @@ fn hide_intercept(app: &AppHandle) {
     }
 }
 
+/// The intercept window's size in logical pixels, per kind. The centre cards are 420px wide in a
+/// 520px window (50px each side), tall enough with a plan for the seal ruler and the card's
+/// 0 12px 32px shadow, so the shadow is never clipped (redesign, Intercept.dc.html).
+pub(crate) fn intercept_size(kind: &str, plan: bool) -> (f64, f64) {
+    match kind {
+        "title" => (380.0, if plan { 108.0 } else { 84.0 }),
+        "welcome" => (400.0, 118.0),
+        "park" => (400.0, 132.0),
+        _ => (520.0, if plan { 360.0 } else { 330.0 }),
+    }
+}
+
 fn show_intercept(app: &AppHandle, payload: &Intercept) {
     let Some(w) = app.get_webview_window("intercept") else { return };
     let Ok(Some(monitor)) = w.primary_monitor() else { return };
@@ -349,12 +361,8 @@ fn show_intercept(app: &AppHandle, payload: &Intercept) {
     let area = monitor.work_area();
     let px = |v: f64| (v * scale).round() as i32;
     let corner = matches!(payload.kind, "title" | "welcome" | "park");
-    let (width, height) = match payload.kind {
-        "title" => (px(380.0), px(if payload.plan.is_some() { 108.0 } else { 84.0 })),
-        "welcome" => (px(400.0), px(118.0)),
-        "park" => (px(400.0), px(132.0)),
-        _ => (px(480.0), px(if payload.plan.is_some() { 320.0 } else { 290.0 })),
-    };
+    let (lw, lh) = intercept_size(payload.kind, payload.plan.is_some());
+    let (width, height) = (px(lw), px(lh));
     let (x, y) = if corner {
         // Corner nudge, bottom-right above the taskbar.
         (area.position.x + area.size.width as i32 - width - px(16.0), area.position.y + area.size.height as i32 - height - px(16.0))
@@ -979,4 +987,22 @@ fn complete(app: &AppHandle) {
         std::thread::sleep(Duration::from_millis(1600));
     }
     crate::show_main_window(app);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::intercept_size;
+
+    #[test]
+    fn intercept_window_fits_the_card_and_its_shadow() {
+        // 520x360 with a plan (was 480x320): the 420px card keeps 50px each side.
+        assert_eq!(intercept_size("app", true), (520.0, 360.0));
+        assert_eq!(intercept_size("allowlist", false), (520.0, 330.0));
+        assert_eq!(intercept_size("quiet", false), (520.0, 330.0));
+        assert_eq!(intercept_size("pause", false), (520.0, 330.0));
+        // Corner cards keep their sizes.
+        assert_eq!(intercept_size("title", true), (380.0, 108.0));
+        assert_eq!(intercept_size("welcome", false), (400.0, 118.0));
+        assert_eq!(intercept_size("park", false), (400.0, 132.0));
+    }
 }

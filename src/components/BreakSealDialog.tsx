@@ -5,6 +5,7 @@ import { CheckIcon, XIcon } from "./icons";
 import { errorText, native } from "../lib/native";
 import { countdown } from "../lib/time";
 import type { LadderView } from "../lib/types";
+import { HEADLINE } from "../pages/headlines";
 import { useStore } from "../state/store";
 
 // Break the seal (SPEC 4.5, design/screens/Unlock.dc.html): the ladder, one level at a time.
@@ -17,7 +18,7 @@ type StepState = "todo" | "now" | "done" | "ok" | "no";
 
 function Badge({ n, state }: { n: number; state: StepState }) {
   const cls = {
-    todo: "border border-line-input text-faint",
+    todo: "border border-line-input text-muted",
     now: "border border-sealed-line bg-sealed-tint text-text",
     done: "bg-line text-text-2",
     ok: "border border-event-line bg-event-tint text-event",
@@ -46,7 +47,7 @@ function Steps({ v }: { v: LadderView }) {
       {rows.map(([label, state, meta], i) => (
         <li key={label} className="flex items-center gap-[10px]">
           <Badge n={i + 1} state={state} />
-          <span className={`grow text-body ${state === "done" ? "text-muted" : state === "todo" ? "text-faint" : "text-text"}`}>{label}</span>
+          <span className={`grow text-body ${state === "done" ? "text-muted" : state === "todo" ? "text-muted" : "text-text"}`}>{label}</span>
           <span className="text-meta text-muted">{meta}</span>
         </li>
       ))}
@@ -111,7 +112,7 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
   const close = useStore((s) => s.closeEndEarly);
   if (v.emergencyNextAt) {
     // Once a day: it comes back at midnight.
-    return <span className="text-meta text-faint">Emergency unlock back at midnight</span>;
+    return <span className="text-meta text-muted">Emergency unlock back at midnight</span>;
   }
   if (!open) {
     return (
@@ -138,7 +139,7 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
         value={why}
         onChange={(e) => setWhy(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && void go()}
-        className="h-[28px] min-w-0 grow rounded-control border border-line-input bg-raised px-2 text-meta text-text outline-none placeholder:text-faint focus:border-broken"
+        className="h-[28px] min-w-0 grow rounded-control border border-line-input bg-raised px-2 text-meta text-text placeholder:text-muted focus:border-broken"
       />
       <Button variant="ghost" size="sm" disabled={!why.trim()} onClick={() => void go()}>
         Use it
@@ -215,9 +216,9 @@ export function BreakSealDialog() {
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
           placeholder="What changed, and why it can't wait."
-          className="resize-none rounded-control border border-line-input bg-raised p-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+          className="resize-none rounded-control border border-line-input bg-raised p-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
         />
-        <span className={`self-end font-mono text-[11px] ${n >= MIN_REASON ? "text-sealed-text" : "text-faint"}`}>
+        <span className={`self-end font-mono text-[11px] ${n >= MIN_REASON ? "text-sealed-text" : "text-muted"}`}>
           {Math.min(n, MIN_REASON)} / {MIN_REASON}
         </span>
       </>
@@ -271,7 +272,7 @@ export function BreakSealDialog() {
           onDrop={(e) => e.preventDefault()}
           rows={5}
           spellCheck={false}
-          className="resize-none rounded-control border border-line-input bg-raised p-3 text-body text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus:border-sealed"
+          className="resize-none rounded-control border border-line-input bg-raised p-3 text-body text-text transition-colors duration-ui ease-ui hover:border-check-line"
         />
       </>
     );
@@ -320,9 +321,7 @@ export function BreakSealDialog() {
       <>
         {refused ? (
           <>
-            <h2 className="headline m-0 text-[22px]">
-              {v.outcome === "denied" ? `${v.partner ?? "Your partner"} said no.` : "The request expired."} <em>The seal stands.</em>
-            </h2>
+            <h2 className="headline m-0 text-[22px]">{v.outcome === "denied" ? HEADLINE.partnerDenied(v.partner ?? "Your partner") : HEADLINE.partnerExpired}</h2>
             {v.note ? <Quote>{v.note}</Quote> : null}
           </>
         ) : (
