@@ -10,8 +10,9 @@ import { Row, Section } from "./parts";
 // Setup > Connections (design/screens/Setup.dc.html): Google Calendar sign-in and the
 // calendars Sanctum reads (SPEC 4.3).
 
-function SyncDot({ tone }: { tone: "event" | "broken" | "open" }) {
-  const bg = tone === "event" ? "bg-event" : tone === "broken" ? "bg-broken" : "bg-faint";
+function SyncDot({ tone }: { tone: "connected" | "broken" | "open" }) {
+  // Connected is a neutral dot (connection state is not the second colour); not connected is a hollow ring.
+  const bg = tone === "connected" ? "bg-muted" : tone === "broken" ? "bg-broken" : "border border-line-input";
   return <span aria-hidden="true" className={`h-[6px] w-[6px] shrink-0 rounded-full ${bg}`} />;
 }
 
@@ -46,7 +47,7 @@ function GoogleRow() {
   } else if (status.connected) {
     action = (
       <span className="flex shrink-0 items-center gap-[6px] text-meta text-muted">
-        <SyncDot tone={status.error ? "broken" : "event"} />
+        <SyncDot tone={status.error ? "broken" : "connected"} />
         Two-way sync
       </span>
     );
@@ -70,7 +71,7 @@ function CalendarList() {
   if (!calendars.length) return null;
   return (
     <div className="border-b border-line-soft py-1">
-      <span className="block px-[14px] pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Show in Sanctum</span>
+      <span className="block px-[14px] pb-1 pt-2 label">Show in Sanctum</span>
       {calendars.map((c) => (
         <div key={c.id} className="flex h-9 items-center gap-[10px] px-[14px]">
           <span className="min-w-0 grow truncate text-body text-text">

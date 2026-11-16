@@ -7,8 +7,9 @@ import { Row, Section } from "./parts";
 // Setup > Browser extension (4b): which browsers have the extension, and how to load it.
 // Sites and title keywords seal inside the browser only through the extension.
 
-function Dot({ tone }: { tone: "open" | "event" | "broken" }) {
-  const bg = tone === "event" ? "bg-event" : tone === "broken" ? "bg-broken" : "bg-faint";
+function Dot({ tone }: { tone: "open" | "connected" | "broken" }) {
+  // Connected is a neutral dot (connection state is not the second colour); not connected is a hollow ring.
+  const bg = tone === "connected" ? "bg-muted" : tone === "broken" ? "bg-broken" : "border border-line-input";
   return <span aria-hidden="true" className={`h-[6px] w-[6px] shrink-0 rounded-full ${bg}`} />;
 }
 
@@ -21,7 +22,7 @@ export function browserHint(b: BrowserInfo): string {
 }
 
 function BrowserRow({ b }: { b: BrowserInfo }) {
-  const tone = b.missing ? "broken" : b.connected && b.incognito !== false ? "event" : b.connected ? "broken" : "open";
+  const tone = b.missing ? "broken" : b.connected && b.incognito !== false ? "connected" : b.connected ? "broken" : "open";
   return (
     <Row label={b.name} hint={browserHint(b)}>
       <span className="flex shrink-0 items-center gap-[6px] text-meta text-muted">
@@ -50,7 +51,7 @@ function Steps({ status }: { status: BrowserStatus }) {
       <ol className="m-0 flex list-none flex-col gap-[6px] p-0">
         {steps.map((s, i) => (
           <li key={s} className="flex gap-2 text-meta text-text-2">
-            <span className="w-3 shrink-0 font-mono text-faint">{i + 1}</span>
+            <span className="w-3 shrink-0 font-mono text-muted">{i + 1}</span>
             {s}
           </li>
         ))}

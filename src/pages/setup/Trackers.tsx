@@ -8,6 +8,7 @@ import { daysLabel, EVERY_DAY, hasDay, longTime, WEEKDAYS } from "../../lib/plan
 import { KIND_LABEL, TEMPLATES, trackerMeta } from "../../lib/trackers";
 import type { Checkin, Tracker, TrackerDisplay, TrackerDraft, TrackerKind } from "../../lib/types";
 import { useTrackers } from "../../state/trackers";
+import { useTheme } from "../../state/theme";
 
 // Setup > Trackers (design/screens/Setup.dc.html, SPEC 4.13): custom trackers, the check-ins
 // that ask for them, and whether a missed check-in shows at startup.
@@ -180,6 +181,8 @@ const BLANK: Checkin = { id: 0, name: "", time: "08:00", daysMask: EVERY_DAY, tr
 function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }) {
   const { trackers, saveCheckin, deleteCheckin } = useTrackers();
   const [c, setC] = useState(start);
+  // The time picker's native popup follows the theme: light themes get a light one.
+  const scheme = useTheme((s) => s.theme.scheme);
   const save = async () => {
     if (await saveCheckin(c)) onDone();
   };
@@ -191,7 +194,7 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
           <input aria-label="Check-in name" autoFocus value={c.name} placeholder="Morning weigh-in" onChange={(e) => setC({ ...c, name: e.target.value })} className={field} />
         </Labeled>
         <Labeled label="Time">
-          <input aria-label="Time" type="time" value={c.time} onChange={(e) => setC({ ...c, time: e.target.value })} className={`${field} w-[112px] font-mono [color-scheme:dark]`} />
+          <input aria-label="Time" type="time" value={c.time} onChange={(e) => setC({ ...c, time: e.target.value })} style={{ colorScheme: scheme }} className={`${field} w-[112px] font-mono`} />
         </Labeled>
       </div>
       <Days mask={c.daysMask} onChange={(daysMask) => setC({ ...c, daysMask })} />

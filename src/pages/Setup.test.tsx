@@ -134,7 +134,7 @@ describe("Profile detail", () => {
     await act(() => useStore.getState().loadDistractions());
     await openDeepWork();
     const seals = within(screen.getByRole("region", { name: "Seals" }));
-    expect(seals.getByText("1 apps · 1 sites · 0 keywords")).toBeInTheDocument();
+    expect(seals.getByText("1 app · 1 site · 0 keywords")).toBeInTheDocument();
     expect(seals.getByText("Discord, youtube.com")).toBeInTheDocument();
     await act(async () => fireEvent.click(seals.getByRole("button", { name: "Edit distractions" })));
     expect(useStore.getState().setupTab).toBe("distractions");
