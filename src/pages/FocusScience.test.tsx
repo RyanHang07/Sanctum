@@ -95,6 +95,7 @@ describe("parking a thought", () => {
     await act(async () => mockControls.fastForward(60 * 60_000));
     await act(() => usePlanner.getState().reload());
     render(<HeldPage held={useStore.getState().held!} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     const parked = within(screen.getByTestId("held-parked"));
     await act(async () => fireEvent.click(parked.getAllByRole("button", { name: "Tomorrow" })[0]!));
     await act(async () => fireEvent.click(parked.getByRole("button", { name: "Delete Look up the lab hours" })));
@@ -126,6 +127,7 @@ describe("how it went", () => {
     await act(async () => mockControls.fastForward(60 * 60_000));
     const held = useStore.getState().held!;
     render(<HeldPage held={held} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     const wrap = within(screen.getByTestId("held-wrap"));
     fireEvent.click(wrap.getByRole("radio", { name: "Partly" }));
     fireEvent.click(wrap.getByRole("radio", { name: "4" }));
@@ -142,6 +144,7 @@ describe("how it went", () => {
     await act(() => useStore.getState().enterFocus());
     await act(async () => mockControls.fastForward(60 * 60_000));
     render(<HeldPage held={{ ...useStore.getState().held!, goal: "Chapter 7" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     expect(screen.getByTestId("held-wrap")).toHaveTextContent("Did Chapter 7 get done?");
   });
 });
@@ -176,7 +179,9 @@ describe("pause mode", () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval"] });
     const answer = vi.fn();
     render(<PauseCard p={{ kind: "pause", label: "Discord", attempts: 0, profileName: "", elapsedMs: 0, remainingMs: 5000, backTo: null, keyword: null, endsAt: Date.now() + 5000 }} onAnswer={answer} />);
-    expect(screen.getByRole("alertdialog", { name: "Still want Discord?" })).toHaveTextContent("Go on unlocks in 5s");
+    // A statement, never "Still want Discord?" (headlines.ts PAUSE).
+    expect(screen.getByRole("alertdialog", { name: /Discord/ })).toHaveTextContent("Go on unlocks in 5s");
+    expect(screen.getByRole("heading")).not.toHaveTextContent("?");
     expect(screen.getByRole("button", { name: "Go on" })).toBeDisabled();
     fireEvent.keyDown(window, { key: "Enter" });
     expect(answer).toHaveBeenLastCalledWith(false);
@@ -195,6 +200,7 @@ describe("a break after a seal", () => {
     await act(async () => mockControls.fastForward(60 * 60_000));
     const held = useStore.getState().held!;
     const { unmount } = render(<HeldPage held={held} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     await act(async () => fireEvent.click(within(screen.getByTestId("held-break")).getByRole("button", { name: "10 min" })));
     unmount();
     expect(useStore.getState().held).toBeNull();
