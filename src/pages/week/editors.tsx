@@ -33,7 +33,7 @@ function useWritableCalendars() {
 
 const SANCTUM = "sanctum";
 
-const fieldClass = "h-control rounded-control border border-line-input bg-raised px-[10px] text-body text-text outline-none [color-scheme:dark] focus:border-sealed";
+const fieldClass = "h-control rounded-control border border-line-input bg-raised px-[10px] text-body text-text [color-scheme:dark] focus:border-sealed";
 
 /**
  * The date, or (Pending) no day yet: parked on this week or next. `week` is the Monday it's
@@ -45,7 +45,7 @@ function DateField({ value, onChange, week, onWeek }: { value: string; onChange:
   return (
     <div className="flex flex-col gap-1">
       <span className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Date</span>
+        <span className="label">Date</span>
         {onWeek ? (
           <label className="flex cursor-pointer items-center gap-[6px] text-[11px] text-muted hover:text-text-2">
             <input type="checkbox" checked={week != null} onChange={(e) => onWeek(e.target.checked ? (value >= nextWeek ? nextWeek : thisWeek) : null)} className="accent-sealed" />
@@ -185,7 +185,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
 
   return (
     <Dialog label={initial ? "Edit routine" : "New routine"} onClose={onClose} width={460} top={96}>
-      <div className="flex flex-col gap-4 border-l-2 border-sealed-line px-[18px] pb-4 pt-[18px]">
+      <div className="flex flex-col gap-4 px-[18px] pb-4 pt-[18px]">
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-panel border border-sealed-line bg-sealed-tint text-sealed-text">
             <RepeatGlyph />
@@ -210,15 +210,15 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
         {counter ? (
           <div className="grid grid-cols-3 gap-3">
             <label className="flex min-w-0 flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Daily goal</span>
+              <span className="label">Daily goal</span>
               <input aria-label="Daily goal" inputMode="decimal" placeholder="150" value={goal} onChange={(e) => setGoal(e.target.value)} className={`${fieldClass} font-mono`} />
             </label>
             <label className="flex min-w-0 flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Unit</span>
+              <span className="label">Unit</span>
               <input aria-label="Unit" placeholder="g" value={unit} onChange={(e) => setUnit(e.target.value)} className={fieldClass} />
             </label>
             <label className="flex min-w-0 flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Notes</span>
+              <span className="label">Notes</span>
               <select aria-label="Notes" value={noteMode} onChange={(e) => setNoteMode(e.target.value as NoteMode)} className={`${fieldClass} cursor-pointer`}>
                 <option value="optional">Optional</option>
                 <option value="required">Required</option>
@@ -235,7 +235,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
         )}
         {!counter ? (
           <label className="flex max-w-[180px] min-w-0 flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Sessions per day</span>
+            <span className="label">Sessions per day</span>
             <input
               aria-label="Sessions per day"
               type="number"
@@ -326,7 +326,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
 
   return (
     <Dialog label={heading} onClose={onClose} width={440} top={120}>
-      <div className="flex flex-col gap-4 border-l-2 border-event-line px-[18px] pb-4 pt-[18px]">
+      <div className="flex flex-col gap-4 px-[18px] pb-4 pt-[18px]">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{heading}</h1>
           <span className="truncate text-meta text-muted">
@@ -364,7 +364,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
               {fromKey(initial.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               {initial.time ? ` · ${longTime(initial.time)}` : " · All day"}
             </span>
-            <span className="text-meta text-faint">This calendar is read-only.</span>
+            <span className="text-meta text-muted">This calendar is read-only.</span>
           </div>
         ) : (
           <>
@@ -372,7 +372,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
             <div className="grid grid-cols-2 gap-3">
               {all ? (
                 <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Date</span>
+                  <span className="label">Date</span>
                   <span className="flex h-control items-center text-meta text-muted">Repeats as set in Google</span>
                 </div>
               ) : (
