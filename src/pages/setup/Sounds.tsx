@@ -1,10 +1,27 @@
-import { Switch } from "../../components/controls";
+import { Segmented, Switch } from "../../components/controls";
 import { Row, Section } from "./parts";
-import { CUES, preview, STYLES } from "../../lib/sound";
+import { CUES, preview, STYLES, type Style } from "../../lib/sound";
 import { useStore } from "../../state/store";
 
 // Setup › General › Sounds (decided 2026-09-30): on or off, the volume, and a style per cue,
-// auditioned right here. Picking a style plays it.
+// auditioned right here. Picking a style plays it. Each cue's styles are the shared segmented
+// control (a pressed-button group), like every other switch between a few options.
+
+const PLAY = (
+  <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" className="fill-current">
+    <path d="M1 0.5v7l6-3.5z" />
+  </svg>
+);
+
+const OPTIONS = STYLES.map((s) => ({
+  value: s.id,
+  label: (
+    <span className="flex items-center gap-[5px]">
+      {PLAY}
+      {s.label}
+    </span>
+  ),
+}));
 
 export function SoundsSection() {
   const settings = useStore((s) => s.settings);
@@ -26,31 +43,15 @@ export function SoundsSection() {
       </Row>
       {CUES.map((c) => (
         <Row key={c.id} label={c.label} hint={c.hint}>
-          <div role="radiogroup" aria-label={`${c.label} sound`} className="flex rounded-control border border-line-input p-[2px]">
-            {STYLES.map((s) => {
-              const on = settings.soundStyles[c.id] === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => {
-                    setSoundStyle(c.id, s.id);
-                    preview(c.id, s.id);
-                  }}
-                  className={`flex h-[24px] items-center gap-[5px] rounded-[4px] px-[9px] text-meta transition-colors duration-ui ease-ui ${
-                    on ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-                  }`}
-                >
-                  <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" className="fill-current">
-                    <path d="M1 0.5v7l6-3.5z" />
-                  </svg>
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
+          <Segmented<Style>
+            label={`${c.label} sound`}
+            options={OPTIONS}
+            value={settings.soundStyles[c.id]}
+            onChange={(id) => {
+              setSoundStyle(c.id, id);
+              preview(c.id, id);
+            }}
+          />
         </Row>
       ))}
     </Section>

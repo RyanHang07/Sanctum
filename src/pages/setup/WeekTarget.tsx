@@ -52,7 +52,7 @@ export function WeekTargetRow() {
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
         aria-label="Week's focus target, in hours"
-        className="h-control w-[72px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-body text-text outline-none focus:border-sealed-line"
+        className="h-control w-[72px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-body text-text focus:border-sealed-line"
       />
       <span className="text-meta text-muted">hours</span>
     </Row>

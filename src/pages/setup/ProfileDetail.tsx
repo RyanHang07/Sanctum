@@ -12,6 +12,9 @@ import type { InstalledApp, Profile, Rule } from "../../lib/types";
 
 const isApp = (r: Rule) => r.kind === "launch_app";
 
+/** "1 keyword", "6 sites". */
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 /** Where to read an app rule's icon: its saved shortcut, else the installed app with that exe. */
 const appPath = (r: Rule, apps: InstalledApp[] | null) => r.path ?? apps?.find((a) => a.exe === r.value)?.launch ?? null;
 
@@ -53,7 +56,7 @@ function RulePanel({
     if (draft.trim() && (await onSubmit(draft))) setDraft("");
   };
   const iconButton =
-    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100";
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-text opacity-0 transition-[opacity,background-color] duration-ui ease-ui hover:bg-line-soft focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100";
   return (
     <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-panel border border-line bg-panel">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-[14px]">
@@ -64,13 +67,13 @@ function RulePanel({
         </Button>
       </div>
       <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
-        {rules.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-faint">{empty}</p> : null}
+        {rules.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-muted">{empty}</p> : null}
         {rules.map((r) => (
           <div key={r.id} className="flex shrink-0 flex-col">
-            <div className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
+            <div className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-raised focus-within:bg-raised">
               <RuleIcon rule={r} apps={apps} />
               <span className="min-w-0 truncate text-body text-text">{ruleLabel(r)}</span>
-              <span className="min-w-0 grow truncate font-mono text-[11px] text-faint">
+              <span className="min-w-0 grow truncate font-mono text-[11px] text-muted">
                 {ruleMeta(r)}
                 {notInstalled(r, apps) ? " · not installed" : ""}
               </span>
@@ -82,16 +85,16 @@ function RulePanel({
         ))}
       </div>
       <div className="flex h-[38px] shrink-0 items-center gap-[10px] border-t border-line px-[14px]">
-        <PlusIcon className="text-faint" />
+        <PlusIcon className="text-muted" />
         <input
           aria-label={placeholder}
           placeholder={placeholder}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
-          className="h-9 min-w-0 grow border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
+          className="h-9 min-w-0 grow border-none bg-transparent text-body text-text placeholder:text-muted"
         />
-        <span className="font-mono text-[11px] text-faint">↵</span>
+        <span className="font-mono text-[11px] text-muted">↵</span>
       </div>
     </section>
   );
@@ -114,7 +117,7 @@ function NameField({ profile }: { profile: Profile }) {
         onChange={(e) => setName(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="h-9 w-[260px] rounded-control border border-line-input bg-raised pl-[56px] pr-3 text-body font-medium text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus:border-sealed"
+        className="h-9 w-[260px] rounded-control border border-line-input bg-raised pl-[56px] pr-3 text-body font-medium text-text transition-colors duration-ui ease-ui hover:border-check-line focus:border-sealed"
       />
     </label>
   );
@@ -161,7 +164,7 @@ function PlanField({ profile }: { profile: Profile }) {
         onChange={(e) => setPlan(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="h-9 w-full rounded-control border border-line-input bg-raised pl-[132px] pr-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+        className="h-9 w-full rounded-control border border-line-input bg-raised pl-[132px] pr-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
       />
     </label>
   );
@@ -204,7 +207,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
         >
           Setup
         </button>
-        <ChevronIcon size={12} className="-rotate-90 text-faint" />
+        <ChevronIcon size={12} className="-rotate-90 text-muted" />
         <h1 className="page-title m-0 min-w-0 truncate">{profile.name}</h1>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="raised" onClick={() => void testLaunch()} disabled={launching || opens.length === 0}>
@@ -224,7 +227,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
             aria-label="Default duration"
             value={profile.defaultMinutes}
             onChange={(e) => void updateProfile(profile.id, { defaultMinutes: Number(e.target.value) })}
-            className="h-9 w-[124px] cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[38px] pr-[30px] font-mono text-body text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed"
+            className="h-9 w-[124px] cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[38px] pr-[30px] font-mono text-body text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed"
           >
             {durationsMin.map((m) => (
               <option key={m} value={m}>
@@ -254,10 +257,10 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
             Every profile seals your Distractions list. Apps this profile opens are never closed.
           </p>
           <span className="font-mono text-meta text-text-2">
-            {count("app")} apps · {count("site")} sites · {count("keyword")} keywords
+            {plural(count("app"), "app")} · {plural(count("site"), "site")} · {plural(count("keyword"), "keyword")}
           </span>
           {distractions.length ? (
-            <span className="truncate text-meta text-faint">{distractions.slice(0, 6).map(distractionLabel).join(", ")}</span>
+            <span className="truncate text-meta text-muted">{distractions.slice(0, 6).map(distractionLabel).join(", ")}</span>
           ) : null}
           <Button variant="ghost" size="sm" className="self-start" onClick={() => openSetup("distractions")}>
             Edit distractions

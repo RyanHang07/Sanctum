@@ -97,7 +97,7 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
                   {when(b.modifiedAt)}
                   {b.name.includes("before restore") ? " · before a restore" : ""}
                 </span>
-                <span className="shrink-0 font-mono text-[11px] text-faint">{size(b.bytes)}</span>
+                <span className="shrink-0 font-mono text-[11px] text-muted">{size(b.bytes)}</span>
                 {confirm === b.path ? null : (
                   <Button variant="quiet" size="sm" aria-label={`Restore ${b.name}`} disabled={sealed || busy !== null} onClick={() => setConfirm(b.path)}>
                     {sealed ? "Waits for the seal" : "Restore"}

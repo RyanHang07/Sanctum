@@ -62,7 +62,7 @@ function ProfilesSection() {
               <span className="ml-auto font-mono text-meta text-muted">{p.defaultMinutes} min</span>
               <ChevronRightIcon
                 size={10}
-                className="self-center text-faint opacity-0 transition-opacity duration-ui ease-ui group-hover:opacity-100"
+                className="self-center text-muted opacity-0 transition-opacity duration-ui ease-ui group-hover:opacity-100"
               />
             </span>
             {p.workTypes.length ? (
@@ -120,6 +120,14 @@ export function RestDays({ mask, onChange }: { mask: number; onChange: (mask: nu
   );
 }
 
+/**
+ * The goal tick from Today's ruler (DayRuler), beside the goal it sets: a crisp solid mark in the
+ * second colour, the one place this tab uses it. No glow: here the goal is a setting, not met.
+ */
+export function GoalTick() {
+  return <span aria-hidden="true" data-goal-tick className="h-4 w-[2px] shrink-0 rounded-[1px] bg-second" />;
+}
+
 function PreferencesSection() {
   const settings = useStore((s) => s.settings);
   const { setOnLogin, setCloseAction, setCompactOnFocus, setDailyGoal, setDailyResetTime, setRestDays, openOnboarding } = useStore();
@@ -132,7 +140,10 @@ function PreferencesSection() {
     <>
     <Section title="Goal and streak">
       <Row label="Daily focus goal" hint="A day keeps the streak when you reach it and no seal breaks">
-        <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
+        <span className="flex shrink-0 items-center gap-2">
+          <GoalTick />
+          <MiniSelect label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} onChange={setDailyGoal} />
+        </span>
       </Row>
       <Row label="Day resets at" hint="Routines and your day roll over at this time. Late nights count as the day you started.">
         <input
@@ -142,7 +153,7 @@ function PreferencesSection() {
           onChange={(e) => setResetDraft(e.target.value)}
           onBlur={commitReset}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          className="h-[26px] shrink-0 cursor-pointer rounded-control border border-line-input bg-panel px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line hover:bg-raised focus:border-sealed focus:bg-panel [color-scheme:inherit] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+          className="h-[26px] shrink-0 cursor-pointer rounded-control border border-line-input bg-panel px-2 font-mono text-[11px] text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-raised focus:border-sealed focus:bg-panel [color-scheme:inherit] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
         />
       </Row>
       <Row label="Rest days" hint="Planned days off never break the streak">
@@ -227,7 +238,7 @@ function SetupNav({ tab, onChange }: { tab: SetupTab; onChange: (t: SetupTab) =>
           group = t.group;
           return (
             <div key={t.id} className="flex flex-col">
-              {header ? <span className={`px-[10px] pb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint ${t.id === TABS[0]!.id ? "" : "pt-4"}`}>{header}</span> : null}
+              {header ? <span className={`px-[10px] pb-1 label ${t.id === TABS[0]!.id ? "" : "pt-4"}`}>{header}</span> : null}
               <button
                 role="tab"
                 aria-selected={tab === t.id}
@@ -263,7 +274,7 @@ export function Setup() {
       </div>
       <div className="flex min-h-0 grow gap-6">
         <SetupNav tab={current.id} onChange={setTab} />
-        <div key={current.id} role="tabpanel" aria-label={current.label} className="page-in flex min-h-0 min-w-0 grow flex-col gap-4 overflow-y-auto pr-1">
+        <div key={current.id} role="tabpanel" aria-label={current.label} className="flex min-h-0 min-w-0 grow flex-col gap-4 overflow-y-auto pr-1">
           <div className="flex shrink-0 flex-col gap-[2px]">
             <h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{current.label}</h2>
             <p className="m-0 text-body text-muted">{current.blurb}</p>

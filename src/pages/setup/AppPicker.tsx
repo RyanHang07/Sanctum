@@ -21,7 +21,7 @@ function AppRow({ app, added, onPick }: { app: InstalledApp; added: boolean; onP
           <CheckIcon size={10} /> Added
         </span>
       ) : (
-        <span className="font-mono text-[11px] text-faint">{app.exe}</span>
+        <span className="font-mono text-[11px] text-muted">{app.exe}</span>
       )}
     </button>
   );
@@ -30,7 +30,7 @@ function AppRow({ app, added, onPick }: { app: InstalledApp; added: boolean; onP
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col">
-      <span className="px-[10px] pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">{label}</span>
+      <span className="px-[10px] pb-1 pt-2 label">{label}</span>
       {children}
     </div>
   );
@@ -90,7 +90,7 @@ export function AppPicker({
               const first = [...running, ...rest][0];
               if (e.key === "Enter" && first && !added.has(first.exe)) onPick(first);
             }}
-            className="h-control w-full rounded-control border border-line-input bg-raised pl-8 pr-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+            className="h-control w-full rounded-control border border-line-input bg-raised pl-8 pr-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
           />
         </label>
       </div>
@@ -112,7 +112,7 @@ export function AppPicker({
         <Button variant="ghost" size="sm" onClick={() => void rescan()} disabled={refreshing}>
           {refreshing ? "Scanning" : "Rescan"}
         </Button>
-        <span className="text-meta text-faint">{apps ? `${apps.length} apps` : ""}</span>
+        <span className="text-meta text-muted">{apps ? `${apps.length} apps` : ""}</span>
         <Button variant="primary" className="ml-auto" onClick={onClose}>
           Done
         </Button>

@@ -4,6 +4,8 @@ import { useStore } from "../../state/store";
 import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { useTheme } from "../../state/theme";
+import { ONBOARDING } from "../headlines";
+import { finish, moment, setReducedMotion } from "../../test/motion";
 
 const initial = useStore.getState();
 
@@ -77,7 +79,7 @@ describe("Onboarding", () => {
     expect(await screen.findByRole("region", { name: "Browser extension" })).toBeInTheDocument();
     await next();
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("You're set. Stay in it.");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(ONBOARDING.done);
     expect(screen.getByText(/Discord, YouTube, Instagram, reddit.com, shorts/)).toBeInTheDocument();
     await next();
 
@@ -94,5 +96,53 @@ describe("Onboarding", () => {
     expect(useStore.getState().onboarding).toBe(false);
     expect(useStore.getState().profiles).toHaveLength(3);
     expect(useStore.getState().distractions.length).toBe(flags.length);
+  });
+
+  it("titles every step with one sentence from ONBOARDING", async () => {
+    await act(() => useStore.getState().loadSettings());
+    render(<Onboarding />);
+    const want = [
+      ONBOARDING.welcome,
+      ONBOARDING.profile("Interview Prep"),
+      ONBOARDING.distractions,
+      ONBOARDING.goal,
+      ONBOARDING.look,
+      ONBOARDING.calendar,
+      ONBOARDING.browser,
+      ONBOARDING.done,
+    ];
+    for (const [i, title] of want.entries()) {
+      const h = screen.getByRole("heading", { level: 1 });
+      expect(h.textContent).toBe(title);
+      expect(h.querySelector("em")).toBeNull();
+      if (i < want.length - 1) await next();
+    }
+  });
+
+  it("switches profiles with the shared segmented tabs, each tied to the work panel", async () => {
+    render(<Onboarding />);
+    await next();
+    const tabs = within(screen.getByRole("tablist", { name: "Profiles" })).getAllByRole("tab");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", tabs[0]!.id);
+    fireEvent.keyDown(tabs[0]!, { key: "ArrowRight" });
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(ONBOARDING.profile(tabs[1]!.textContent!));
+    expect(screen.getByRole("tab", { name: tabs[1]!.textContent! })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("settles each new step in, and shows it at once under reduced motion", async () => {
+    render(<Onboarding />);
+    const body = document.querySelector<HTMLElement>("[data-step-body]")!;
+    await next();
+    expect(body.style.opacity).toBe("1");
+
+    setReducedMotion(false);
+    await next();
+    const tl = moment("onboarding-step")!;
+    expect(tl).toBeDefined();
+    tl.progress(0.01);
+    expect(Number(body.style.opacity)).toBeLessThan(1);
+    finish(tl);
+    expect(body.style.opacity).toBe("1");
   });
 });
