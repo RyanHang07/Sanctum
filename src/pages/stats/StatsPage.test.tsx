@@ -30,39 +30,127 @@ function seed() {
   );
 }
 
+/** A summary tile's value, as screen readers hear it (the odometer's plain text). */
+const tile = (summary: HTMLElement, label: string) => summary.querySelector(`[data-stat="${label}"] .sr-only`)?.textContent;
+
 describe("Stats", () => {
   it("shows the streak, the week against the goal, and what tempted you", async () => {
     seed();
     render(<StatsPage />);
     const summary = await screen.findByTestId("stats-summary");
     // Broken two days ago; yesterday kept. Today is in progress.
-    expect(summary).toHaveTextContent("1Current streak");
-    expect(summary).toHaveTextContent("2Longest streak");
+    expect(tile(summary, "Current streak")).toBe("1");
+    expect(tile(summary, "Longest streak")).toBe("2");
+    expect(within(summary).getByText(/^Seals? broken$/)).toBeInTheDocument();
+    expect(within(summary).getByRole("img", { name: /focused.*, on a \d+ hour scale$/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Stats");
     expect(screen.getByRole("button", { name: "Next week" })).toBeDisabled();
 
     const tempted = within(screen.getByRole("region", { name: "What tempted you" }));
     expect(tempted.getByText("Discord")).toBeInTheDocument();
     expect(tempted.getByText("Site")).toBeInTheDocument();
+  });
+
+  it("draws the week as Focused bars on a ruler, with kept marks and the dashed target", async () => {
+    seed();
+    render(<StatsPage />);
+    await screen.findByTestId("stats-summary");
+    const region = screen.getByRole("region", { name: "Focus by day" });
+    const chart = within(region);
+    const days = region.querySelectorAll("[data-day]");
+    expect(days).toHaveLength(7);
+    // Kept days, and only they, carry the second-colour mark.
+    const kept = region.querySelectorAll('[data-bar][data-status="kept"]');
+    expect(region.querySelectorAll("[data-bar] [data-kept-mark]")).toHaveLength(kept.length);
+    for (const m of region.querySelectorAll("[data-bar] [data-kept-mark]")) expect(m).toHaveClass("bg-second");
+    for (const b of kept) expect(b).toHaveClass("bg-sealed");
+    // The target: a dashed second-colour line named for the daily goal.
+    expect(chart.getByTestId("stats-target")).toHaveClass("border-dashed", "border-second");
+    expect(chart.getByText("2h a day")).toHaveClass("text-second-text");
+    // The axis: hour ticks in the second colour, quarter hours in the line colour.
+    const axis = chart.getByTestId("stats-axis");
+    for (const t of axis.querySelectorAll('[data-tick="major"]')) expect(t).toHaveClass("bg-second");
+    for (const t of axis.querySelectorAll('[data-tick="minor"]')) expect(t).toHaveClass("bg-line");
+    // The legend says "Focused" and "Missed", never "Goal missed", and there is no best-day mark.
+    expect(chart.getByText("Focused")).toBeInTheDocument();
+    expect(chart.getByText("Missed", { selector: "span.flex" })).toBeInTheDocument();
+    expect(chart.queryByText(/goal missed|best/i)).toBeNull();
+  });
+
+  it("shows a day's details in one fixed spot on hover and on keyboard focus", async () => {
+    seed();
+    render(<StatsPage />);
+    await screen.findByTestId("stats-summary");
+    const chart = within(screen.getByRole("region", { name: "Focus by day" }));
+    const hover = screen.getByTestId("stats-hover");
+    expect(hover).toHaveAttribute("aria-live", "polite");
+    expect(hover).toHaveTextContent("Hover or focus a day for details");
+
+    const todayBar = chart.getByRole("button", { name: /^Today:/ });
+    fireEvent.focus(todayBar);
+    expect(hover).toHaveTextContent(/^Today: .* so far$/);
+    fireEvent.blur(todayBar);
+    expect(hover).toHaveTextContent("Hover or focus a day for details");
 
     const today = todayKey();
-    const bars = within(screen.getByRole("region", { name: "Focus by day" }));
-    expect(bars.getAllByRole("img")).toHaveLength(7);
     if (weekStart(today) <= addDays(today, -1)) {
-      fireEvent.mouseEnter(bars.getAllByRole("img").find((b) => b.getAttribute("aria-label")?.includes("kept, 3h"))!);
-      expect(screen.getByTestId("stats-hover")).toHaveTextContent("kept, 3h focused");
+      const yesterday = chart.getByRole("button", { name: /kept, 3h focused/ });
+      fireEvent.mouseEnter(yesterday);
+      expect(hover).toHaveTextContent("kept, 3h focused");
+      // The bar under the pointer is outlined.
+      expect(yesterday.querySelector("[data-bar]")).toHaveClass("outline-muted");
+      fireEvent.mouseLeave(yesterday);
+      expect(hover).toHaveTextContent("Hover or focus a day for details");
     }
+  });
+
+  it("opens a day in the Day tab", async () => {
+    seed();
+    render(<StatsPage />);
+    await screen.findByTestId("stats-summary");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /^Today:/ })));
+    expect(screen.getByRole("tab", { name: "Day" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("switches tabs as a tablist with a panel, and the range as a pressed-button group", async () => {
+    seed();
+    render(<StatsPage />);
+    await screen.findByTestId("stats-summary");
+    const overview = screen.getByRole("tab", { name: "Overview" });
+    expect(overview).toHaveAttribute("aria-selected", "true");
+    const panel = screen.getByRole("tabpanel");
+    expect(panel).toHaveAttribute("id", overview.getAttribute("aria-controls"));
+    expect(panel).toHaveAccessibleName("Overview");
+    expect(panel.className).not.toMatch(/page-in/);
+    // Arrow keys move between tabs.
+    await act(async () => fireEvent.keyDown(overview, { key: "ArrowRight" }));
+    expect(screen.getByRole("tab", { name: "Sessions" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Sessions");
+    // The Sessions range filter is a pressed-button group, not tabs.
+    expect(screen.getByRole("group", { name: "Range" })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(screen.getByRole("tab", { name: "Sessions" }), { key: "Home" }));
+    await screen.findByTestId("stats-summary");
+    const range = within(screen.getByRole("group", { name: "Range" }));
+    expect(range.getByRole("button", { name: "Week" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("switches to the month heatmap and back through the months", async () => {
     seed();
     render(<StatsPage />);
     await screen.findByTestId("stats-summary");
-    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Month" })));
-    const heat = within(await screen.findByRole("region", { name: "Focus heatmap" }));
-    expect(heat.getAllByRole("gridcell").length % 7).toBe(0);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Month" })));
+    const region = await screen.findByRole("region", { name: "Focus heatmap" });
+    const heat = within(region);
+    expect(region.querySelectorAll("[data-day]").length % 7).toBe(0);
     // Early in a month, the broken day is in the previous one.
     if (addDays(todayKey(), -2).slice(0, 7) === todayKey().slice(0, 7)) expect(heat.getByLabelText(/seal broken/)).toBeInTheDocument();
+    // Kept days get the second-colour dot; the target line is the week's alone.
+    for (const d of region.querySelectorAll('[data-testid="day-dot"]')) expect(d).toHaveAttribute("data-status", "kept");
+    expect(heat.queryByTestId("stats-target")).toBeNull();
+    // Days in the month are buttons with their details, on focus as on hover.
+    const todayCell = heat.getByRole("button", { name: /^Today:/ });
+    fireEvent.focus(todayCell);
+    expect(screen.getByTestId("stats-hover")).toHaveTextContent(/^Today:/);
     expect(screen.getByRole("button", { name: "Next month" })).toBeDisabled();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Previous month" })));
     expect(screen.getByRole("button", { name: "Next month" })).toBeEnabled();

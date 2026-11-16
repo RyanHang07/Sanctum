@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { MiniSelect } from "../../components/controls";
+import { MiniSelect, Segmented } from "../../components/controls";
 import { errorText, native } from "../../lib/native";
 import { addDays, todayKey } from "../../lib/planner";
 import type { ActivityView, Category, Usage } from "../../lib/types";
 import { useStore } from "../../state/store";
-import { appLabel, CATEGORY, duration, Segmented } from "./parts";
+import { appLabel, CATEGORY, duration } from "./parts";
 
 // Stats › Activity (v0.3, decided 2026-10-29): where the time went by app and by site, for
 // today, 7 days, or 30 (as far back as activity is kept). One click sets an app's or site's
@@ -12,9 +12,9 @@ import { appLabel, CATEGORY, duration, Segmented } from "./parts";
 
 type Span = "today" | "week" | "month";
 const SPANS = [
-  { id: "today", label: "Today" },
-  { id: "week", label: "7 days" },
-  { id: "month", label: "30 days" },
+  { value: "today", label: "Today" },
+  { value: "week", label: "7 days" },
+  { value: "month", label: "30 days" },
 ] as const;
 const CATS: Category[] = ["productive", "neutral", "distracting"];
 
