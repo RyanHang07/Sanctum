@@ -166,3 +166,20 @@ Build in this order. Each step ships with Vitest coverage and a CHANGELOG entry,
 - **Motion engine: GSAP** (`gsap`, `@gsap/react`; CustomEase and Flip). It replaces `motion` (Framer Motion) so the app has one animation engine.
   - Spec: [2026-11-15-motion-spec.md](2026-11-15-motion-spec.md); critique: [2026-11-15-design-critique.md](2026-11-15-design-critique.md) (its timings live in `src/theme/extra.json` motion tokens: ui 120, enter 180, state 240, glide 400, moment 700, drain 1200, breathe 3200 ms).
   - The aurora and simple hovers stay CSS.
+
+## Audit follow-ups (2026-11-15, night)
+- **The aurora is a real northern-lights effect, like ryanhang.io.**
+  - It's a WebGL fragment shader on one canvas: rays rise from a bright wavy band, which glows in the accent, and fade into the second colour at their tips.
+  - Top and bottom placements are both prototyped for testing.
+  - It's very gentle while open, brighter and livelier while sealed, fullest on the held page, and drained on a broken seal.
+  - It pauses when hidden, is still under reduced motion, and falls back to a CSS gradient without WebGL.
+- **Theme pairs:** each theme's second colour is reviewed against its accent and tested on Today, Stats and the compact timer. Failing themes get a hand-picked second colour. Results are pending.
+- **Windows grow to fit:**
+  - The block overlay is 520×360 (from 480×320).
+  - The check-in dialog's body scrolls inside the dialog on short windows.
+- **In scope for the redesign:**
+  - The journal's day strip shows kept and missed days.
+  - The close dialog says when quitting opens while sealed.
+  - The extension bundles Schibsted Grotesk.
+  - The partner site follows the person's Sanctum theme.
+- **Order:** keep designing on the canvas until every page is approved, then build.
