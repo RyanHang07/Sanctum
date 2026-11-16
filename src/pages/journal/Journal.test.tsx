@@ -1,15 +1,16 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
-import { JournalPage } from "./JournalPage";
+import { JournalPage, sessionsLabel } from "./JournalPage";
+import { HEADLINE } from "../headlines";
 import { useJournal } from "../../state/journal";
 import { useStore } from "../../state/store";
 import { useNotes } from "../../state/notes";
 import { usePlanner } from "../../state/planner";
 import { useTrackers } from "../../state/trackers";
 import { isTabLocked } from "../../state/appState";
-import { mockJournal, resetMockBackend } from "../../lib/mockBackend";
+import { mockControls, mockJournal, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
-import { todayKey } from "../../lib/planner";
+import { addDays, todayKey } from "../../lib/planner";
 import { PROMPTS, promptDoc, promptsFor, writtenText } from "../../lib/journalPrompts";
 
 const initial = { store: useStore.getState(), journal: useJournal.getState(), notes: useNotes.getState(), planner: usePlanner.getState(), trackers: useTrackers.getState() };
@@ -117,6 +118,54 @@ describe("journal page (v0.2)", () => {
     render(<JournalPage />);
     expect(await screen.findByLabelText(/^Journal, /)).toHaveTextContent("What went well?");
     expect(await native.journalWritten("2000-01-01", "2100-01-01")).toEqual([]);
+  });
+
+  it("says the setup and locked headlines from headlines.ts, and themes are a segmented tablist", async () => {
+    const page = render(<JournalPage />);
+    const setup = within(await screen.findByRole("region", { name: "Journal setup" }));
+    expect(setup.getByRole("heading", { level: 1 })).toHaveTextContent(HEADLINE.journalSetup);
+    fireEvent.click(setup.getByRole("button", { name: "Set it up" }));
+    expect(setup.getByRole("heading", { level: 2 })).toHaveTextContent(HEADLINE.journalPrompts);
+    const themes = setup.getByRole("tablist", { name: "Themes" });
+    const tabs = within(themes).getAllByRole("tab");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(tabs[1]!);
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(setup.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", tabs[1]!.id);
+    page.unmount();
+
+    mockJournal.lock = "pin";
+    mockJournal.pin = "4821";
+    await act(() => useJournal.getState().saveSetup({ done: true, prompts: [], perDay: 0 }));
+    render(<JournalPage />);
+    expect(await screen.findByRole("heading", { name: HEADLINE.journalLocked })).toBeInTheDocument();
+  });
+
+  it("marks kept and missed days in the strip, with a neutral dot where a page was written", async () => {
+    const t = todayKey();
+    mockControls.statsDays({ [addDays(t, -3)]: { focusMin: 130 }, [addDays(t, -2)]: { focusMin: 10 }, [addDays(t, -1)]: { focusMin: 125 } });
+    mockJournal.days.set(addDays(t, -1), { date: addDays(t, -1), doc: null, body: "Wrote", updatedAt: Date.now() });
+    await act(() => useJournal.getState().saveSetup({ done: true, prompts: [], perDay: 0 }));
+    render(<JournalPage />);
+    const strip = await screen.findByRole("tablist", { name: "Days" });
+    const day = (k: string) => strip.querySelector<HTMLElement>(`[data-day="${k}"]`)!;
+    await waitFor(() => expect(day(addDays(t, -3)).querySelector("[data-testid='day-dot']")).toHaveAttribute("data-status", "kept"));
+    expect(day(addDays(t, -2)).querySelector("[data-testid='day-dot']")).toHaveAttribute("data-status", "missed");
+    expect(day(addDays(t, -2))).toHaveAccessibleName(/: missed$/);
+    expect(day(addDays(t, -1))).toHaveAccessibleName(/: kept, page written$/);
+    expect(day(addDays(t, -1)).querySelector("[data-testid='written-dot']")).not.toBeNull();
+    expect(day(addDays(t, -3)).querySelector("[data-testid='written-dot']")).toBeNull();
+    // Before any history, a day has no mark.
+    expect(day(addDays(t, -10)).querySelector("[data-testid='day-dot']")).toBeNull();
+    // Weekday letters are sentence-cased text, not forced to capitals.
+    expect(strip.querySelector(".uppercase")).toBeNull();
+  });
+
+  it("counts one session as one", () => {
+    expect(sessionsLabel(1, false)).toBe("session");
+    expect(sessionsLabel(0, false)).toBe("sessions");
+    expect(sessionsLabel(3, true)).toBe("sessions · a seal broke");
+    expect(sessionsLabel(1, true)).toBe("session · a seal broke");
   });
 
   it("takes a one-tap mood into the Mood tracker", async () => {

@@ -12,11 +12,14 @@ import { errorText, native } from "../../lib/native";
 import { addDays, dayBounds, fromKey, todayKey } from "../../lib/planner";
 import { minutes } from "../../lib/time";
 import { promptDoc, promptsFor, writtenText } from "../../lib/journalPrompts";
-import type { DayStat, JournalDay } from "../../lib/types";
+import type { DayStat, DayStatus, JournalDay } from "../../lib/types";
 import type { DocNode } from "../../lib/noteDoc";
+import { HEADLINE } from "../headlines";
+import { DayDot, dayMarkLabel } from "../week/marks";
 import { JournalSetup } from "./JournalSetup";
 
-// The journal (v0.2): one page per day. A strip of days to move between (dots where you wrote),
+// The journal (v0.2): one page per day. A strip of days to move between (v0.4: each day's kept or
+// missed mark, as in Week, and a neutral dot where you wrote),
 // the day's card (focus, sessions, tasks, counters, mood), then the page: the notes editor,
 // starting from the day's prompts. Local only; locked when you leave, hide Sanctum, or idle.
 
@@ -59,9 +62,7 @@ function Locked() {
       <span className="flex h-11 w-11 items-center justify-center rounded-panel border border-sealed-line bg-sealed-tint text-sealed">
         <LockIcon size={18} />
       </span>
-      <h2 className="headline m-0 text-[22px]">
-        The journal is <em>locked.</em>
-      </h2>
+      <h2 className="headline m-0 text-[22px]">{HEADLINE.journalLocked}</h2>
       {hello ? (
         <Button variant="primary" onClick={() => void unlockHello().then(setError)}>
           Unlock with Windows Hello
@@ -86,7 +87,7 @@ function Locked() {
             placeholder="PIN"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-            className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-center font-mono text-body tracking-[0.3em] text-text outline-none focus:border-sealed"
+            className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-center font-mono text-body tracking-[0.3em] text-text"
           />
           <Button variant="primary" disabled={pin.length < 4}>
             Unlock
@@ -105,34 +106,75 @@ function DayStrip({ date, onPick }: { date: string; onPick: (d: string) => void 
   const end = date > today ? date : today;
   const days = useMemo(() => Array.from({ length: STRIP }, (_, i) => addDays(end, i - STRIP + 1)), [end]);
   const [written, setWritten] = useState<string[]>([]);
+  const [stats, setStats] = useState<DayStat[]>([]);
   useEffect(() => {
-    void native.journalWritten(days[0]!, days[days.length - 1]!).then(setWritten).catch(() => setWritten([]));
+    const [from, to] = [days[0]!, days[days.length - 1]!];
+    void native.journalWritten(from, to).then(setWritten).catch(() => setWritten([]));
+    void native
+      .statsOverview(from, to)
+      .then((o) => setStats(o.days))
+      .catch(() => setStats([]));
   }, [days, date]);
   return (
-    <div role="tablist" aria-label="Days" className="flex shrink-0 gap-1 overflow-x-auto">
-      {days.map((d) => {
-        const on = d === date;
-        const dt = fromKey(d);
-        return (
-          <button
-            key={d}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            aria-label={long(d)}
-            onClick={() => onPick(d)}
-            className={`flex w-10 shrink-0 flex-col items-center gap-[2px] rounded-control py-[6px] transition-colors duration-ui ease-ui ${
-              on ? "bg-sealed-tint text-text" : d === today ? "text-text hover:bg-line-soft" : "text-muted hover:bg-line-soft"
-            }`}
-          >
-            <span className="text-[10px] uppercase tracking-[0.06em]">{dt.toLocaleDateString("en-US", { weekday: "narrow" })}</span>
-            <span className={`font-mono text-[13px] ${on ? "text-sealed-text" : ""}`}>{dt.getDate()}</span>
-            <span aria-hidden="true" className={`h-1 w-1 rounded-full ${written.includes(d) ? "bg-sealed" : "bg-transparent"}`} />
-          </button>
-        );
-      })}
+    // The key (Kept, Missed, Today) shows beside the strip only while it's hovered or a day has
+    // keyboard focus, revealed with a clip so nothing shifts (Journal.dc.html). Reduced motion:
+    // the global rule in styles.css makes the reveal instant.
+    <div className="group/strip flex w-fit max-w-full shrink-0 items-center gap-3">
+      <div role="tablist" aria-label="Days" className="flex min-w-0 gap-1 overflow-x-auto">
+        {days.map((d) => {
+          const on = d === date;
+          const dt = fromKey(d);
+          const stat = stats.find((s) => s.date === d);
+          const wrote = written.includes(d);
+          const said = [dayMarkLabel(stat)?.toLowerCase(), wrote ? "page written" : null].filter(Boolean).join(", ");
+          return (
+            <button
+              key={d}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              aria-label={said ? `${long(d)}: ${said}` : long(d)}
+              title={said ? said[0]!.toUpperCase() + said.slice(1) : undefined}
+              data-day={d}
+              onClick={() => onPick(d)}
+              className={`flex w-10 shrink-0 flex-col items-center gap-[2px] rounded-control py-[6px] transition-colors duration-ui ease-ui ${on ? "bg-sealed-tint" : "hover:bg-line-soft"}`}
+            >
+              <span className={`text-[10px] ${on || d === today ? "text-text" : "text-muted"}`}>{dt.toLocaleDateString("en-US", { weekday: "narrow" })}</span>
+              <span className={`font-mono text-[13px] ${on ? "text-sealed-text" : "text-text-2"}`}>{dt.getDate()}</span>
+              {/* The day's state (the same marks as Week), then a neutral dot for a written page. */}
+              <span aria-hidden="true" className="flex h-[7px] items-center gap-[3px]">
+                <DayDot day={stat} />
+                {wrote ? <span data-testid="written-dot" className="h-1 w-1 rounded-full bg-muted" /> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none flex h-8 shrink-0 items-center gap-[10px] whitespace-nowrap rounded-control border border-line bg-panel px-[10px] text-[11px] text-muted opacity-0 transition-[clip-path,opacity] duration-enter ease-ui [clip-path:inset(0_100%_0_0)] group-hover/strip:opacity-100 group-hover/strip:delay-150 group-hover/strip:[clip-path:inset(0)] group-has-[:focus-visible]/strip:opacity-100 group-has-[:focus-visible]/strip:[clip-path:inset(0)]"
+      >
+        {LEGEND.map(([status, word]) => (
+          <span key={status} className="flex items-center gap-[5px]">
+            <DayDot day={{ ...KEY_DAY, status }} />
+            {word}
+          </span>
+        ))}
+      </span>
     </div>
   );
+}
+
+const KEY_DAY: DayStat = { date: "", status: "kept", focusMin: 0, sessions: 0, attempts: 0, brokenAt: null, productiveMin: 0, distractingMin: 0 };
+const LEGEND: readonly [DayStatus, string][] = [
+  ["kept", "Kept"],
+  ["missed", "Missed"],
+  ["today", "Today"],
+];
+
+/** "1 session", "3 sessions", with a note when a seal broke that day. */
+export function sessionsLabel(n: number, broke: boolean): string {
+  return `${n === 1 ? "session" : "sessions"}${broke ? " · a seal broke" : ""}`;
 }
 
 const MOODS = [
@@ -182,7 +224,7 @@ function DayCard({ date }: { date: string }) {
   return (
     <section aria-label="The day" className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 rounded-panel border border-line bg-panel px-5 py-3">
       {fact(minutes(stat?.focusMin ?? 0), "in focus")}
-      {fact(String(stat?.sessions ?? 0), stat?.brokenAt ? "sessions · a seal broke" : "sessions")}
+      {fact(String(stat?.sessions ?? 0), sessionsLabel(stat?.sessions ?? 0, !!stat?.brokenAt))}
       {fact(`${tasks.filter((t) => t.done).length}/${tasks.length}`, "done")}
       {counters.map((r) => {
         const unit = trackers.find((t) => t.id === r.trackerId)?.unit;

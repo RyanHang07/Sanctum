@@ -93,7 +93,7 @@ export function ShareMenu({ n }: { n: Note }) {
             <>
               <span className="text-meta text-muted">Anyone with this link can read the note until {until(live.expiresAt)}. Edits show up there as you type.</span>
               <div className="flex gap-2">
-                <input aria-label="Share link" readOnly value={live.url} onFocus={(e) => e.currentTarget.select()} className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-2 font-mono text-[11px] text-text-2 outline-none" />
+                <input aria-label="Share link" readOnly value={live.url} onFocus={(e) => e.currentTarget.select()} className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-2 font-mono text-[11px] text-text-2" />
                 <Button
                   variant="primary"
                   onClick={() =>
@@ -116,7 +116,7 @@ export function ShareMenu({ n }: { n: Note }) {
               <span className="text-meta text-muted">
                 Encrypted end to end: the key is only in the link, so not even Sanctum's server can read it. Images go without their hidden data (like location).
               </span>
-              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">Link works for</span>
+              <span className="label">Link works for</span>
               <div className="grid grid-cols-3 gap-2" role="group" aria-label="Link works for">
                 {DURATIONS.map((d) => (
                   <Button key={d.hours} variant="ghost" disabled={busy || !cloud} onClick={() => void run(() => share(n.id, d.hours))}>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Dialog } from "../../components/controls";
-import { PlusIcon, SearchIcon, XIcon } from "../../components/icons";
+import { PlusIcon, SearchIcon } from "../../components/icons";
+import { ToolIcon } from "../../components/editor/toolIcons";
 import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { GUTTER, NoteEditor } from "../../components/editor/NoteEditor";
 import { docOf } from "../../lib/noteDoc";
@@ -46,12 +47,12 @@ function NoteRow({ n, active, onOpen }: { n: Note; active: boolean; onOpen: () =
     >
       <span className="flex items-center gap-[6px]">
         {n.pinned ? (
-          <span className="text-sealed-text" aria-label="Pinned">
+          <span className="flex text-text-2" aria-label="Pinned">
             <PinGlyph on />
           </span>
         ) : null}
         <span className={`min-w-0 grow truncate text-body font-medium ${n.title.trim() || n.body.trim() ? "text-text" : "text-muted"}`}>{noteTitle(n)}</span>
-        <span className="shrink-0 font-mono text-[11px] text-faint">{edited(n.updatedAt)}</span>
+        <span className="shrink-0 font-mono text-[11px] text-muted">{edited(n.updatedAt)}</span>
       </span>
       <span className="truncate text-meta text-muted">{notePreview(n) || "No more text"}</span>
     </button>
@@ -69,6 +70,8 @@ function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }
     <article aria-label={noteTitle(n)} className="flex min-h-0 grow flex-col gap-3">
       {/* Lined up with the note's text, past the gutter where blocks' drag handle sits. */}
       <div className="flex items-center gap-2" style={{ paddingLeft: GUTTER }}>
+        {/* The ring sits on this wrapper, so the borderless title shows focus without a box of its own. */}
+        <span className="focus-ring-within flex min-w-0 grow rounded-control">
         <input
           aria-label="Title"
           value={n.title}
@@ -81,9 +84,12 @@ function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }
               focusBody();
             }
           }}
-          className="min-w-0 grow bg-transparent text-[20px] font-semibold tracking-[-0.02em] text-text outline-none placeholder:text-faint"
+          className="focus-ring-off min-w-0 grow bg-transparent font-headline text-[21px] font-bold tracking-[-0.02em] text-text placeholder:text-muted"
         />
-        <span className="shrink-0 text-meta text-faint">Edited {edited(n.updatedAt)}</span>
+        </span>
+        <span className="shrink-0 text-meta text-muted">
+          Edited <span className="font-mono">{edited(n.updatedAt)}</span>
+        </span>
         <ShareMenu n={n} />
         <button
           type="button"
@@ -91,7 +97,7 @@ function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }
           aria-label={n.pinned ? "Unpin" : "Pin to top"}
           title={n.pinned ? "Unpin" : "Pin to top"}
           onClick={() => void pin(n.id, !n.pinned)}
-          className={`flex h-7 w-7 items-center justify-center rounded-control transition-colors duration-ui ease-ui hover:bg-raised ${n.pinned ? "text-sealed-text" : "text-muted hover:text-text"}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-control transition-colors duration-ui ease-ui ${n.pinned ? "bg-raised text-text" : "text-muted hover:bg-raised hover:text-text"}`}
         >
           <PinGlyph on={n.pinned} />
         </button>
@@ -102,7 +108,7 @@ function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }
           onClick={onRequestDelete}
           className="flex h-7 w-7 items-center justify-center rounded-control text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text"
         >
-          <XIcon size={12} />
+          <ToolIcon name="trash" size={13} />
         </button>
       </div>
       <div className="min-h-0 grow overflow-y-auto pr-1">
@@ -164,14 +170,14 @@ export function NotesPage() {
       ) : (
         <div className="flex min-h-0 grow gap-4">
           <aside aria-label="All notes" className="flex w-[260px] shrink-0 flex-col gap-2">
-            <label className="flex h-control shrink-0 items-center gap-2 rounded-control border border-line bg-panel px-[10px] text-muted focus-within:border-sealed">
+            <label className="focus-ring-within flex h-control shrink-0 items-center gap-2 rounded-control border border-line-input bg-panel px-[10px] text-muted">
               <SearchIcon size={12} />
               <input
                 aria-label="Search notes"
                 placeholder="Search notes"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="min-w-0 grow bg-transparent text-body text-text outline-none placeholder:text-faint"
+                className="focus-ring-off min-w-0 grow bg-transparent text-body text-text placeholder:text-muted"
               />
             </label>
             <nav className="flex min-h-0 grow flex-col gap-px overflow-y-auto">

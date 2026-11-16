@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/Button";
-import { Dialog } from "../../components/controls";
+import { Dialog, Segmented, TabPanel } from "../../components/controls";
+import { HEADLINE } from "../headlines";
 import { useJournal } from "../../state/journal";
 import { PRESETS, THEMES, type JournalSetup as Setup } from "../../lib/journalPrompts";
 import type { JournalLock } from "../../lib/types";
@@ -11,6 +12,7 @@ import type { JournalLock } from "../../lib/types";
 // dialog to change prompts or the lock.
 
 type Step = "welcome" | "prompts" | "lock";
+const THEME_TABS = "journal-themes";
 const PER_DAY = [
   { value: 0, label: "All of them" },
   { value: 1, label: "1 a day" },
@@ -57,9 +59,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
       <div className={`flex flex-col gap-4 overflow-y-auto px-6 pb-5 pt-6 ${first ? "min-h-0" : "max-h-[calc(100vh-170px)]"}`}>
         {step === "welcome" ? (
           <>
-            <h1 className="headline m-0 text-[24px]">
-              A page a day. <em>Yours alone.</em>
-            </h1>
+            <h1 className="headline m-0 text-[24px]">{HEADLINE.journalSetup}</h1>
             <p className="m-0 text-body leading-relaxed text-text-2">
               One page for each day, with what the day held at the top: focus, tasks, counters, and how you felt. It stays on this PC, is never shared or synced, and you can write in it while sealed.
             </p>
@@ -70,7 +70,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
         {step === "prompts" ? (
           <>
             <div className="flex flex-col gap-1">
-              <h2 className="m-0 text-[16px] font-semibold">What should a page ask?</h2>
+              <h2 className="headline m-0 text-[18px]">{HEADLINE.journalPrompts}</h2>
               <span className="text-meta text-muted">Pick any number. Each day draws from your picks, so it doesn't read the same every day. Or pick none for a blank page.</span>
             </div>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Quick picks">
@@ -90,22 +90,26 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
                 );
               })}
             </div>
-            <div role="tablist" aria-label="Themes" className="flex flex-wrap gap-1 border-b border-line">
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={t.id === theme}
-                  onClick={() => setTheme(t.id)}
-                  className={`-mb-px border-b-2 px-3 py-2 text-meta transition-colors duration-ui ease-ui ${t.id === theme ? "border-sealed text-text" : "border-transparent text-muted hover:text-text-2"}`}
-                >
-                  {t.label}
-                  {t.prompts.some((x) => picked.includes(x.id)) ? <span className="ml-[6px] font-mono text-[10px] text-sealed-text">{t.prompts.filter((x) => picked.includes(x.id)).length}</span> : null}
-                </button>
-              ))}
-            </div>
-            <div role="tabpanel" aria-label={shown.label} className="flex flex-col gap-1">
+            <Segmented
+              label="Themes"
+              panels={THEME_TABS}
+              value={theme}
+              onChange={setTheme}
+              className="flex-wrap self-start"
+              options={THEMES.map((t) => {
+                const n = t.prompts.filter((x) => picked.includes(x.id)).length;
+                return {
+                  value: t.id,
+                  label: (
+                    <>
+                      {t.label}
+                      {n ? <span className="ml-[6px] font-mono text-[10px] text-sealed-text">{n}</span> : null}
+                    </>
+                  ),
+                };
+              })}
+            />
+            <TabPanel base={THEME_TABS} value={shown.id} className="flex flex-col gap-1 rounded-control">
               <span className="text-meta text-muted">{shown.blurb}</span>
               {shown.prompts.map((x) => (
                 <label key={x.id} className="flex cursor-pointer items-start gap-[10px] rounded-control px-2 py-[6px] hover:bg-line-soft">
@@ -113,7 +117,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
                   <span className="text-body text-text">{x.text}</span>
                 </label>
               ))}
-            </div>
+            </TabPanel>
             <label className="flex items-center justify-between gap-3 text-body">
               <span className="text-text-2">Each day shows</span>
               <select aria-label="Prompts a day" value={perDay} onChange={(e) => setPerDay(Number(e.target.value))} className="h-control cursor-pointer rounded-control border border-line-input bg-raised px-2 text-body text-text">
@@ -160,15 +164,15 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
             </div>
             {kind === "pin" ? (
               <div className="grid grid-cols-2 gap-3">
-                <input aria-label="New PIN" type="password" inputMode="numeric" autoComplete="new-password" placeholder={lock?.lock === "pin" ? "New PIN (or leave)" : "PIN"} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} className="h-control rounded-control border border-line-input bg-raised px-2 font-mono text-body text-text outline-none focus:border-sealed" />
-                <input aria-label="PIN again" type="password" inputMode="numeric" autoComplete="new-password" placeholder="Again" value={again} onChange={(e) => setAgain(e.target.value.replace(/\D/g, "").slice(0, 8))} className="h-control rounded-control border border-line-input bg-raised px-2 font-mono text-body text-text outline-none focus:border-sealed" />
+                <input aria-label="New PIN" type="password" inputMode="numeric" autoComplete="new-password" placeholder={lock?.lock === "pin" ? "New PIN (or leave)" : "PIN"} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} className="h-control rounded-control border border-line-input bg-raised px-2 font-mono text-body text-text" />
+                <input aria-label="PIN again" type="password" inputMode="numeric" autoComplete="new-password" placeholder="Again" value={again} onChange={(e) => setAgain(e.target.value.replace(/\D/g, "").slice(0, 8))} className="h-control rounded-control border border-line-input bg-raised px-2 font-mono text-body text-text" />
               </div>
             ) : null}
           </>
         ) : null}
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
-        {first ? <span className="text-meta text-faint">{step === "welcome" ? "1" : step === "prompts" ? "2" : "3"} of 3</span> : null}
+        {first ? <span className="text-meta text-muted">{step === "welcome" ? "1" : step === "prompts" ? "2" : "3"} of 3</span> : null}
         <span className="grow" />
         {step === "prompts" && first ? (
           <Button variant="ghost" onClick={() => setStep("welcome")}>

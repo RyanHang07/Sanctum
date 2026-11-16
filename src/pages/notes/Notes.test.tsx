@@ -134,6 +134,26 @@ describe("Notes page", () => {
     expect(tools.getByRole("button", { name: "Bold" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("draws the block tools as line icons, not text glyphs (v0.4)", async () => {
+    render(<NotesPage />);
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    const tools = within(screen.getByRole("toolbar", { name: "Note tools" }));
+    for (const name of ["Bulleted list", "Checklist", "Table", "Image", "Callout"]) {
+      const b = tools.getByRole("button", { name });
+      expect(b.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+      expect(b.textContent).toBe("");
+    }
+    // The table's own tools appear inside a table, also as icons.
+    await act(async () => fireEvent.click(tools.getByRole("button", { name: "Table" })));
+    for (const name of ["Add row above", "Add row below", "Delete row", "Add column before", "Add column after", "Delete column", "Delete table"]) {
+      const b = tools.getByRole("button", { name });
+      expect(b.querySelector("svg")).not.toBeNull();
+      expect(b.textContent).toBe("");
+    }
+    // Italic is the UI face, not a serif.
+    expect(tools.getByRole("button", { name: "Italic" }).querySelector(".font-serif")).toBeNull();
+  });
+
   it("takes images: stored by Sanctum, referenced in the note, shown from the store", async () => {
     render(<NotesPage />);
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
