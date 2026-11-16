@@ -5,6 +5,9 @@ import { useTheme } from "./theme";
 
 // The site's frame (v0.2): a top bar (Docs, Changelog, Partners, Download, light/dark) over
 // every page, and a footer with the legal links. On a phone the links fold into a menu.
+// Redesign (v0.4, S8): when the page follows a Sanctum theme (site/theme.ts), the light/dark
+// switch steps aside and the footer says which theme it is, with its accent and second colour.
+// The partner pages (narrow) keep the footer to Privacy and GitHub: one decision per page.
 
 const LINKS = [
   { href: "/docs", label: "Docs" },
@@ -22,8 +25,7 @@ export function Mark({ size }: { size: number }) {
   );
 }
 
-function ThemeToggle() {
-  const { dark, toggle } = useTheme();
+function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => void }) {
   return (
     <button type="button" className="icon-button" aria-label={dark ? "Use the light theme" : "Use the dark theme"} title={dark ? "Light" : "Dark"} onClick={toggle}>
       {dark ? (
@@ -42,6 +44,7 @@ function ThemeToggle() {
 
 export function Shell({ children, wide = true }: { children: ReactNode; wide?: boolean }) {
   const path = usePath();
+  const { dark, toggle, app } = useTheme();
   const [menu, setMenu] = useState(false);
   useEffect(() => setMenu(false), [path]);
   const here = (href: string) => path === href || path.startsWith(`${href}/`) || (href === "/partner" && /^\/(approve|invite)\//.test(path));
@@ -64,7 +67,7 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
             </a>
           </nav>
           <span className="grow" />
-          <ThemeToggle />
+          {app ? null : <ThemeToggle dark={dark} toggle={toggle} />}
           <a className="button primary site-download" href={DOWNLOAD}>
             Download
           </a>
@@ -82,13 +85,21 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
             <Mark size={16} />
             <span>Sanctum</span>
           </span>
-          <span className="faint">Free and open source, MIT.</span>
+          <span className="muted">Free and open source, MIT.</span>
           <span className="grow" />
-          <A href="/docs">Docs</A>
-          <A href="/changelog">Changelog</A>
+          {wide ? (
+            <>
+              <A href="/docs">Docs</A>
+              <A href="/changelog">Changelog</A>
+            </>
+          ) : null}
           <A href="/privacy">Privacy</A>
-          <A href="/terms">Terms</A>
-          <A href="/legal">Legal</A>
+          {wide ? (
+            <>
+              <A href="/terms">Terms</A>
+              <A href="/legal">Legal</A>
+            </>
+          ) : null}
           <a href={REPO}>GitHub</a>
         </div>
       </footer>

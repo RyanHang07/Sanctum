@@ -94,9 +94,10 @@ describe("Pending cascades in with the screens' rise-in", () => {
     const tl = moment("pending-cascade")!;
     expect(tl).toBeDefined();
     seek(tl, 0);
-    const first = getByTestId("pending-tab").querySelector("[data-testid='pending-tab'] > div:last-child > *")!;
+    const first = getByTestId("pending-tab").querySelector("[data-pending-list] > *")!;
+    expect(first).not.toBeNull();
     expect(Number(gsap.getProperty(first, "opacity"))).toBe(0);
-    expect(tl.duration()).toBeGreaterThan(0.24); // the stagger lengthens it past one rise-in
+    expect(tl.duration()).toBeCloseTo(0.24); // one rise-in; more rows add 40ms each
     seek(tl, tl.duration());
     expect(Number(gsap.getProperty(first, "opacity"))).toBe(1);
   });

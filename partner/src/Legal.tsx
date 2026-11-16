@@ -24,9 +24,7 @@ const Mail = () => <a href={`mailto:${CONTACT}`}>{CONTACT}</a>;
 export function Privacy() {
   return (
     <>
-      <h1 className="headline">
-        Privacy <em>policy.</em>
-      </h1>
+      <h1 className="headline">Privacy policy.</h1>
       <p className="small">Last updated {UPDATED}</p>
       <p className="muted">
         Sanctum is a Windows app made by {OPERATOR}, with this site ({SITE.replace("https://", "")}) and an optional account. This policy says what each
@@ -142,9 +140,7 @@ export function Privacy() {
 export function Terms() {
   return (
     <>
-      <h1 className="headline">
-        Terms of <em>service.</em>
-      </h1>
+      <h1 className="headline">Terms of service.</h1>
       <p className="small">Last updated {UPDATED}</p>
       <p className="muted">
         These terms cover the Sanctum app, its browser extension, the optional account, and this site, all made by {OPERATOR}. Using them means you

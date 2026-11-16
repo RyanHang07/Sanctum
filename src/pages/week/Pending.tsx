@@ -174,7 +174,7 @@ export function PendingTab() {
     <div {...park.props} data-testid="pending-tab" className={`flex min-h-0 shrink-0 flex-col border-t border-line ${park.over ? "bg-sealed-tint" : ""} ${open ? "max-h-[55%]" : ""}`}>
       <Toggle open={open} count={items.length} onClick={() => setOpen(!open)} label={open ? "Hide pending" : "Show pending"} />
       {open ? (
-        <div ref={list} className="flex min-h-0 flex-col overflow-y-auto px-[6px] pb-[6px]">
+        <div ref={list} data-pending-list className="flex min-h-0 flex-col overflow-y-auto px-[6px] pb-[6px]">
           {items.map((t) => (
             <PendingRow key={t.id} t={t} week={week} />
           ))}
