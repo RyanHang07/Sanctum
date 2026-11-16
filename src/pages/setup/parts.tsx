@@ -38,7 +38,7 @@ export function AppListField({ label, saved, placeholder, onSave }: { label: str
       onChange={(e) => setValue(e.target.value)}
       onBlur={() => value !== saved && onSave(value)}
       onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-      className="h-[26px] w-[200px] shrink-0 rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+      className="h-[26px] w-[200px] shrink-0 rounded-control border border-line-input bg-transparent px-2 font-mono text-[11px] text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
     />
   );
 }

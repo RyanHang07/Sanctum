@@ -14,7 +14,7 @@ import type { QuietConfig } from "../../lib/types";
 // schedule, outside focus sessions. Soft: a 15-minute pause with a reason, and streaks don't move.
 
 const selectClass =
-  "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-7 text-body text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed disabled:cursor-not-allowed disabled:opacity-50";
+  "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-7 text-body text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed disabled:cursor-not-allowed disabled:opacity-50";
 
 export function TimeSelect({
   label,
@@ -29,7 +29,7 @@ export function TimeSelect({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+      <span className="label">
         {label}
       </span>
       <span className="relative flex items-center">
@@ -133,7 +133,7 @@ export function QuietHoursSection() {
           className={`flex flex-col gap-3 transition-opacity duration-ui ease-ui ${c.enabled ? "" : "opacity-50"}`}
         >
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            <span className="label">
               Starts on
             </span>
             <div role="group" aria-label="Quiet days" className="flex gap-1">
@@ -183,7 +183,7 @@ export function QuietHoursSection() {
           {status}
         </div>
         {locked ? (
-          <p className="m-0 text-[11px] text-faint">
+          <p className="m-0 text-[11px] text-muted">
             The schedule can change after this window ends.
           </p>
         ) : null}

@@ -118,12 +118,12 @@ export function ActivityRulesSection() {
   return (
     <Section title="Activity rules" action={<span className="font-mono text-meta text-muted">{rules?.length ?? ""}</span>}>
       <div className="flex max-h-[176px] flex-col overflow-y-auto py-1" role="list" aria-label="Activity rules">
-        {rules?.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-faint">Everything counts as neutral.</p> : null}
+        {rules?.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-muted">Everything counts as neutral.</p> : null}
         {rules?.map((r) => (
           <div key={r.id} role="listitem" className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">
             <KindIcon kind={r.matchKind} />
             <span className="min-w-0 grow truncate text-body text-text">{r.pattern}</span>
-            {r.source === "catalog" ? <span className="text-[11px] text-faint">default</span> : null}
+            {r.source === "catalog" ? <span className="text-[11px] text-muted">default</span> : null}
             <MiniSelect
               label={`Category for ${r.pattern}`}
               value={r.category}
@@ -142,14 +142,14 @@ export function ActivityRulesSection() {
         ))}
       </div>
       <div className="flex h-[38px] items-center gap-[10px] border-t border-line px-[14px]">
-        <PlusIcon className="shrink-0 text-faint" />
+        <PlusIcon className="shrink-0 text-muted" />
         <input
           aria-label="Add an activity rule"
           placeholder="App, site, or title keyword"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          className="h-9 min-w-0 grow border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
+          className="h-9 min-w-0 grow border-none bg-transparent text-body text-text placeholder:text-muted"
         />
         <MiniSelect label="Category for new rule" value={category} options={CATEGORY_OPTIONS} onChange={setCategory} />
       </div>
