@@ -93,8 +93,9 @@ describe("design tokens", () => {
 
   it("defines one shared motion scale for hover and enter transitions", () => {
     const ext = tailwindConfig.theme.extend;
-    expect(ext.transitionDuration).toEqual({ ui: "120ms", enter: "180ms" });
-    expect(ext.transitionTimingFunction.ui).toMatch(/^cubic-bezier/);
+    expect(ext.transitionDuration).toEqual({ ui: "120ms", enter: "180ms", state: "240ms", glide: "400ms", moment: "700ms", drain: "1200ms", breathe: "3200ms" });
+    for (const ease of Object.values(ext.transitionTimingFunction)) expect(ease).toMatch(/^cubic-bezier/);
+    expect(Object.keys(ext.transitionTimingFunction)).toEqual(["ui", "glide", "settle", "seat", "exit", "drift"]);
     expect(Object.keys(ext.animation)).toEqual(["fade-in", "rise-in"]);
   });
 
