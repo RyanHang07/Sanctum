@@ -73,6 +73,18 @@ jsdom has no layout, so these need the real app on Windows:
 - [ ] **Days strip key:** hovering the streak shows Kept, Missed, Today beside it after a short pause without moving the chip; tabbing to it shows the same.
 - [ ] **Windows "Show animations" off:** all of the above change at once, with no motion.
 
+## Tray, compact timer, extension and partner site (v0.4.0 redesign)
+
+Check each in Aura, Night Owl, Cobalt2 Light and Sanctum Dark:
+
+- [ ] **Tray, sealed:** click the tray icon during a seal. The time left is readable in the accent's text colour (it was near-black in Aura and Night Owl). The bar below fills in the accent with neutral ticks every 5 minutes and taller ones each quarter hour; the last tick sits at the right end, not past it. The keyhole breathes.
+- [ ] **Tray, open:** the pill shows a hollow dot. The foot line ("Next check-in …"), the Ctrl M hint and done items are readable. Tab to the add field: the focus ring wraps the whole row.
+- [ ] **Compact timer:** Ctrl M during a seal. The fill and ring move a step each minute, smoothly. Text reads on both sides of the fill's edge, and the line under the name isn't faded. Let a short seal end: the ring closes, the edge turns the second colour (no glow), and it reads "Held. N of N minutes.". End one early through the ladder: "Seal broken." with no second-colour edge.
+- [ ] **Windows "Show animations" off:** the tray fill and the compact timer change at once.
+- [ ] **Extension, loaded unpacked:** load `extension/` from this branch on the extensions page (reload it if it's already loaded). The popup, sealed and open, matches the tray: accent time left, a small accent tick before "until …", "Nothing is sealed." in Schibsted Grotesk, hollow dots, and a readable connection line. Tab to Open Sanctum: the accent ring shows.
+- [ ] **Extension, sealed page:** visit a sealed site. The plan is a plain raised panel, the time left is accent text, and the headline is Schibsted Grotesk (check DevTools › Computed › Rendered fonts says Schibsted Grotesk, from the extension, offline too). Tab into Park: the field shows the accent ring. With Pause mode on, the five ticks go out one per second, the next in the accent, and Go on unlocks at zero.
+- [ ] **Partner site, live (needs your go-ahead to deploy first):** after deploying `partner/`, open `/approve/<id>?theme=aura` and `?theme=cobalt2-light` on a phone. The page is in that theme with the matching mark, there's no light/dark switch, and the footer reads "Matches your Sanctum theme, …" with two dots. "Deny, keep the seal" is the filled button and comes first, also for Tab. Without `?theme=` the switch is back. The links in emails won't carry the theme until the notify function and the app send it (see the S8 report).
+
 ## Themes (in the installed app)
 
 - [x] **Every theme everywhere:** all 13 look right in every window: main, tray panel, compact timer, the blocked-app overlay, the held page, the boot splash, and dialogs.

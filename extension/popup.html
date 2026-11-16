@@ -8,24 +8,24 @@
     <script type="module" src="theme.js"></script>
   </head>
   <body>
-    <!-- The toolbar popup: the seal at a glance (Tray.dc.html, in the browser). -->
+    <!-- The toolbar popup: the seal at a glance (design/gate-canvas/project/ExtPopup.dc.html). -->
     <main class="popup">
       <header class="head">
-        <svg class="mark" width="16" height="16" viewBox="0 0 26 26" aria-hidden="true"><path class="torii" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z"/><rect class="torii" x="4.4" y="10.8" width="17.2" height="2.4"/><rect class="torii" x="6" y="7.4" width="3.2" height="16.6"/><rect class="torii" x="16.8" y="7.4" width="3.2" height="16.6"/><circle class="key" cx="13" cy="16.8" r="2.6"/><path class="key" d="M12 17.97L11.1 24H14.9L14 17.97Z"/></svg>
+        <svg class="mark" width="16" height="16" viewBox="0 0 26 26" aria-hidden="true"><path class="torii" d="M1.2 5.2Q13 3.3 24.8 5.2L24.4 8.6Q13 6.8 1.6 8.6Z"/><rect class="torii" x="4.4" y="10.8" width="17.2" height="2.4"/><rect class="torii" x="6" y="7.4" width="3.2" height="16.6"/><rect class="torii" x="16.8" y="7.4" width="3.2" height="16.6"/><g class="keyhole"><circle class="key" cx="13" cy="16.8" r="2.6"/><path class="key" d="M12 17.97L11.1 24H14.9L14 17.97Z"/></g></svg>
         <span class="name">Sanctum</span>
         <span class="pill" id="pill"><span class="dot"></span><span id="state">Open</span></span>
       </header>
       <section class="body" id="sealed" hidden>
         <div class="timer-row">
-          <span class="timer mono" id="timer">0:00</span>
-          <span class="muted" id="until"></span>
+          <span class="timer mono" id="timer" role="timer">0:00</span>
+          <span class="until"><span class="end-tick" aria-hidden="true"></span><span id="until"></span></span>
         </div>
-        <span class="muted" id="profile"></span>
+        <span class="text-2" id="profile"></span>
         <span class="small" id="summary"></span>
       </section>
       <section class="body" id="open" hidden>
-        <span>Nothing is sealed.</span>
-        <span class="muted">Start focus in Sanctum and the sites you flagged are blocked here.</span>
+        <h1 class="title">Nothing is sealed.</h1>
+        <span class="text-2">Start focus in Sanctum and the sites you flagged are blocked here.</span>
       </section>
       <footer class="foot">
         <span class="conn"><span class="dot" id="conn-dot"></span><span id="conn">Checking…</span></span>
