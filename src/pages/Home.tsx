@@ -23,7 +23,7 @@ import { FocusPicker } from "./FocusPicker";
 import { BREAK_TIPS, homeLine, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { clock, countdown, joinNames, minutes } from "../lib/time";
-import { blockTimes, canReorder, moveId, msUntilReset, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { blockTimes, canReorder, moveId, msUntilReset, nextUp, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStat, StatsOverview, TaskLink } from "../lib/types";
 
 function formatDate(d: Date) {
@@ -820,35 +820,45 @@ function TodayPanel({ strip }: { strip: boolean }) {
           </div>
         </div>
       )}
-      {strip && !collapsed ? <FocusStrip /> : null}
+      {strip && !collapsed ? <NextUpStrip /> : null}
     </section>
   );
 }
 
-/** Focus today against the goal: one line under the list, its goal mark in the second colour. */
-function FocusStrip() {
-  const { minutes: total, goal, met } = useFocusToday();
+/**
+ * Next up (decided 2026-11-16): the ruler above measures the day, so the foot of the list looks
+ * ahead instead. The next timed routine, item or event today, with a live countdown, leaving out
+ * the block the focus card already suggests.
+ */
+function NextUpStrip() {
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const suggestion = useStore((s) => s.suggestion);
+  const now = useNow(15_000);
+  const today = todayKey(new Date(now), dailyResetTime);
+  const agenda = useAgenda([today]);
+  const next = nextUp(agenda[today] ?? [], now, suggestion?.state === "next" ? suggestion.item.key : null);
   return (
-    <div data-testid="focus-strip" className="flex h-10 shrink-0 items-center gap-[14px] border-t border-line bg-panel-footer px-[14px] text-meta">
-      <span className="shrink-0 text-muted">Focus today</span>
-      <div className="relative h-[5px] grow rounded-full bg-raised">
-        <div
-          className="absolute inset-0 origin-left rounded-full bg-sealed transition-transform duration-glide ease-glide"
-          style={{ transform: `scaleX(${Math.min(1, goal > 0 ? total / goal : 0)})` }}
-        />
-        {met ? <span data-strip-goal-glow className="absolute right-[-3px] top-[-4px] h-[13px] w-2 rounded-[2px] bg-second-tint" /> : null}
-        <div className="absolute right-0 top-[-4px] h-[13px] w-[2px] rounded-[1px] bg-second" />
-      </div>
-      <span className="shrink-0 font-mono text-text [word-spacing:-0.3em]">
-        <Odometer text={minutes(total)} /> / {minutes(goal)}
-      </span>
+    <div data-testid="next-strip" className="flex h-10 shrink-0 items-center gap-[10px] border-t border-line bg-panel-footer px-[14px] text-meta">
+      {next ? (
+        <>
+          <span aria-hidden="true" className="h-[7px] w-[7px] shrink-0 rounded-full bg-sealed" />
+          <span className="shrink-0 text-muted">Next up</span>
+          <span className="min-w-0 truncate font-medium text-text">{next.item.title}</span>
+          <span className="shrink-0 font-mono text-muted">at {clock(next.startsAt)}</span>
+          <span className="ml-auto shrink-0 text-muted">
+            in <Odometer text={minutes(Math.max(1, Math.ceil((next.startsAt - now) / 60_000)))} direction="down" className="font-mono font-medium text-sealed-text" />
+          </span>
+        </>
+      ) : (
+        <span className="text-muted">Nothing else on the clock today.</span>
+      )}
     </div>
   );
 }
 
 const PANELS: { id: HomePanel; label: string }[] = [
   { id: "today", label: "Today list" },
-  { id: "progress", label: "Focus today" },
+  { id: "progress", label: "Next up" },
   { id: "streak", label: "Streak" },
   { id: "hint", label: "Empty schedule hint" },
 ];

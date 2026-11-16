@@ -207,3 +207,16 @@ describe("month grid", () => {
     expect(monthGrid("2026-08-01").length).toBe(42);
   });
 });
+
+describe("nextUp", () => {
+  const item = (key: string, time: string | null, done = false) =>
+    ({ key, kind: "todo", id: 0, title: key, date: "2026-11-16", time, durationMin: 30, profileId: null, done, order: 0 }) as const;
+  const at = (hhmm: string) => new Date(`2026-11-16T${hhmm}:00`).getTime();
+  it("finds the next timed, unfinished thing, skipping the suggested block", async () => {
+    const { nextUp } = await import("./planner");
+    const items = [item("a", "09:00"), item("b", "13:00", true), item("c", "14:00"), item("d", "15:00"), item("e", null)];
+    expect(nextUp(items, at("12:00"))?.item.key).toBe("c");
+    expect(nextUp(items, at("12:00"), "c")?.item.key).toBe("d");
+    expect(nextUp(items, at("16:00"))).toBeNull();
+  });
+});

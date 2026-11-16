@@ -250,6 +250,21 @@ export function snapMinutes(minutes: number): number {
 
 const DEFAULT_BLOCK_MIN = 60;
 
+/**
+ * The next timed thing on the agenda that hasn't started or been done: any routine, item or event,
+ * not only focus blocks. `skipKey` leaves out what the focus card already shows.
+ */
+export function nextUp(items: readonly AgendaItem[], now: number, skipKey?: string | null): { item: AgendaItem; startsAt: number } | null {
+  let best: { item: AgendaItem; startsAt: number } | null = null;
+  for (const item of items) {
+    if (item.done || item.key === skipKey) continue;
+    const t = blockTimes(item);
+    if (!t || t.startsAt <= now) continue;
+    if (!best || t.startsAt < best.startsAt) best = { item, startsAt: t.startsAt };
+  }
+  return best;
+}
+
 export function blockTimes(item: AgendaItem): { startsAt: number; endsAt: number } | null {
   if (!item.time) return null;
   const startsAt = fromKey(item.date).getTime() + minutesOf(item.time) * 60_000;

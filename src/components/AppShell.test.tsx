@@ -24,7 +24,7 @@ async function renderShell() {
 }
 
 describe("moving between screens (motion spec §8)", () => {
-  it("swaps the content with a short opacity ramp and no transform", async () => {
+  it("the new screen rises in: a short fade up from 6px", async () => {
     setReducedMotion(false);
     const page = await renderShell();
     expect(moment("page-swap")).toBeUndefined(); // the first screen just appears
@@ -33,11 +33,11 @@ describe("moving between screens (motion spec §8)", () => {
     const tl = moment("page-swap")!;
     expect(tl).toBeDefined();
     seek(tl, 0);
-    expect(Number(gsap.getProperty(page, "opacity"))).toBeCloseTo(0.6);
-    expect(gsap.getProperty(page, "y")).toBe(0);
+    expect(Number(gsap.getProperty(page, "opacity"))).toBe(0);
+    expect(gsap.getProperty(page, "y")).toBe(6);
     seek(tl, tl.duration());
     expect(Number(gsap.getProperty(page, "opacity"))).toBe(1);
-    expect(tl.duration()).toBeLessThanOrEqual(0.12);
+    expect(tl.duration()).toBeLessThanOrEqual(0.3);
   });
 
   it("swaps at once under reduced motion", async () => {
@@ -82,5 +82,22 @@ describe("focus ring (design critique finding 6)", () => {
     for (const f of ["AppShell", "Sidebar", "CommandBar", "Toast", "Button", "controls", "icons"]) {
       expect(readFileSync(`src/components/${f}.tsx`, "utf8"), f).not.toContain("outline-none");
     }
+  });
+});
+
+describe("Pending cascades in with the screens' rise-in", () => {
+  it("opening it rises each row in, 40ms apart", async () => {
+    setReducedMotion(false);
+    const { PendingTab } = await import("../pages/week/Pending");
+    const { getByRole, getByTestId } = render(<PendingTab />);
+    act(() => getByRole("button", { name: "Show pending" }).click());
+    const tl = moment("pending-cascade")!;
+    expect(tl).toBeDefined();
+    seek(tl, 0);
+    const first = getByTestId("pending-tab").querySelector("[data-testid='pending-tab'] > div:last-child > *")!;
+    expect(Number(gsap.getProperty(first, "opacity"))).toBe(0);
+    expect(tl.duration()).toBeGreaterThan(0.24); // the stagger lengthens it past one rise-in
+    seek(tl, tl.duration());
+    expect(Number(gsap.getProperty(first, "opacity"))).toBe(1);
   });
 });

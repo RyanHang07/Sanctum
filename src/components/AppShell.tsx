@@ -26,7 +26,7 @@ import { Setup } from "../pages/Setup";
 import { StatsPage } from "../pages/stats/StatsPage";
 import { WeekPage } from "../pages/week/WeekPage";
 import { TABS, type TabId } from "../state/appState";
-import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
+import { gsap, RISE_FROM, RISE_TO, useGSAP } from "../lib/gsap";
 import { useMotion } from "../lib/useMotion";
 import { useStore } from "../state/store";
 import { native } from "../lib/native";
@@ -103,9 +103,9 @@ function useShortcuts() {
 }
 
 /**
- * Moving between screens (motion spec §8): the content swaps almost at once, opacity 0.6 to 1
- * over `ui`, with no transform and no page-wide fade-and-rise. The sidebar indicator carries the
- * movement. A state change (open, sealed, event) does not touch the page.
+ * Moving between screens (restored 2026-11-16): the new screen rises in, a short fade up from
+ * 6px (RISE_FROM / RISE_TO), the same motion Pending's rows cascade with. A state change (open,
+ * sealed, event) does not touch the page.
  * Under reduced motion the swap is instant (useMotion jumps the timeline to its end).
  */
 function usePageSwap(tab: TabId) {
@@ -119,7 +119,7 @@ function usePageSwap(tab: TabId) {
         return;
       }
       if (!ref.current) return;
-      run(() => gsap.timeline({ id: "page-swap" }).fromTo(ref.current, { opacity: 0.6 }, { opacity: 1, duration: DUR.ui, ease: EASE.ui }));
+      run(() => gsap.timeline({ id: "page-swap" }).fromTo(ref.current, RISE_FROM, RISE_TO));
     },
     { scope: ref, dependencies: [tab] },
   );
