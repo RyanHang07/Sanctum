@@ -32,13 +32,6 @@
   :root {
     color-scheme: dark;
   }
-  /* The extra veil over the sealed and event mesh, on light themes only (components/Mesh.tsx). */
-  .mesh-light-veil {
-    display: none;
-  }
-  [data-scheme="light"] .mesh-light-veil {
-    display: block;
-  }
   /* Switching themes swaps every colour at once, not through each control's colour fade. */
   .theme-switching,
   .theme-switching *,
@@ -116,38 +109,34 @@
   }
 }
 
-/* Sanctum held page (design/screens/HeldPage.dc.html): mesh blobs, torii build, staggered rise. */
-@keyframes held-blob-a { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(180px, 90px) scale(1.2); } 66% { transform: translate(60px, -60px) scale(0.9); } 100% { transform: translate(0, 0) scale(1); } }
-@keyframes held-blob-b { 0% { transform: translate(0, 0) scale(1.1); } 50% { transform: translate(-220px, 40px) scale(0.85); } 100% { transform: translate(0, 0) scale(1.1); } }
-@keyframes held-blob-c { 0% { transform: translate(0, 0); } 50% { transform: translate(120px, -140px) scale(1.15); } 100% { transform: translate(0, 0); } }
-@keyframes held-blob-d { 0% { transform: translate(0, 0) scale(0.9); } 50% { transform: translate(-100px, -80px) scale(1.2); } 100% { transform: translate(0, 0) scale(0.9); } }
+/* The aurora (components/Aurora.tsx, lib/aurora.ts): a WebGL canvas drawn from the theme. Where
+   WebGL is missing, this gradient stands in: a band of the accent with the second colour above it,
+   veiled toward the page. It does not move. Its strength is the inline opacity, eased like the shader. */
+.aurora { --aurora-band: var(--s-sealed); --aurora-tip: var(--s-second); }
+.aurora[data-tone="event"] { --aurora-band: var(--s-event); }
+.aurora[data-tone="broken"] { --aurora-band: var(--s-muted); --aurora-tip: color-mix(in srgb, var(--s-second) 35%, var(--s-muted)); }
+.aurora-fallback {
+  background:
+    radial-gradient(ellipse 70% 22% at 38% 30%, color-mix(in srgb, var(--aurora-band) 85%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 26% at 70% 34%, color-mix(in srgb, var(--aurora-band) 60%, transparent), transparent 72%),
+    radial-gradient(ellipse 80% 30% at 50% 12%, color-mix(in srgb, var(--aurora-tip) 55%, transparent), transparent 75%);
+  transition: opacity 1200ms cubic-bezier(0.37, 0, 0.63, 1);
+}
+.aurora[data-placement="bottom"] .aurora-fallback { transform: scaleY(-1); }
+
+/* One switch pauses every CSS loop while the window is hidden (motion spec 9): anything marked
+   .loop, and the keyhole breathe. The aurora's own loop stops in JS (useWindowShown). */
+html[data-window-hidden] .loop,
+html[data-window-hidden] .mark-breathe { animation-play-state: paused; }
+
+/* Sanctum held page (design/screens/HeldPage.dc.html): torii build, staggered rise. */
 @keyframes held-leg { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes held-beam { from { opacity: 0; transform: translateY(-4px) scaleX(0.6); } to { opacity: 1; transform: none; } }
 @keyframes held-nuki { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes held-key { 0% { opacity: 0; transform: translateY(-5px) scale(0.7); } 60% { opacity: 1; transform: translateY(0.6px) scale(1.04); } 100% { opacity: 1; transform: none; } }
 @keyframes held-ring { from { opacity: 0.55; transform: scale(0.4); } to { opacity: 0; transform: scale(2.6); } }
-@keyframes mark-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.84); } }
-@keyframes splash-word { from { opacity: 0; letter-spacing: 0.3em; } to { opacity: 1; letter-spacing: -0.01em; } }
-@keyframes splash-out { to { opacity: 0; visibility: hidden; } }
 @keyframes held-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-.held-blob-a { animation: held-blob-a 14s ease-in-out infinite; }
-.held-blob-b { animation: held-blob-b 17s ease-in-out infinite; }
-.held-blob-c { animation: held-blob-c 19s ease-in-out infinite; }
-.held-blob-d { animation: held-blob-d 15s ease-in-out infinite; }
-/* The sealed and event themes: the same mesh, three times slower, frozen while the window is out
-   of sight. Switching states cross-fades the backdrops (STATE_FADE_MS). */
-.mesh-ambient .held-blob-a { animation-duration: 42s; }
-.mesh-ambient .held-blob-b { animation-duration: 51s; }
-.mesh-ambient .held-blob-c { animation-duration: 57s; }
-.mesh-ambient .held-blob-d { animation-duration: 45s; }
-@keyframes state-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
-.state-backdrop { opacity: 0; transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1); }
-.state-backdrop-on { opacity: 1; animation: state-backdrop-in 700ms cubic-bezier(0.4, 0, 0.2, 1); }
-.mesh[data-paused] > * { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) {
-  .mesh > * { animation: none !important; }
-}
 .held-leg { transform-box: fill-box; transform-origin: bottom; animation: held-leg 0.5s cubic-bezier(0.3, 0.8, 0.2, 1) both; }
 .held-leg-2 { animation-delay: 0.08s; }
 .held-beam { transform-box: fill-box; transform-origin: center; animation: held-beam 0.5s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
