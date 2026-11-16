@@ -13,7 +13,7 @@ import { useTrackers } from "../../state/trackers";
 // that ask for them, and whether a missed check-in shows at startup.
 
 const field =
-  "h-[30px] min-w-0 rounded-control border border-line-input bg-raised px-[10px] text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed";
+  "h-[30px] min-w-0 rounded-control border border-line-input bg-raised px-[10px] text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line";
 
 const KINDS = (Object.keys(KIND_LABEL) as TrackerKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }));
 const DISPLAYS: { value: TrackerDisplay; label: string }[] = [
@@ -25,7 +25,7 @@ const DISPLAYS: { value: TrackerDisplay; label: string }[] = [
 function Labeled({ label, children, grow = false }: { label: string; children: React.ReactNode; grow?: boolean }) {
   return (
     <label className={`flex flex-col gap-1 ${grow ? "min-w-0 grow" : "shrink-0"}`}>
-      <span className="text-[11px] text-muted">{label}</span>
+      <span className="label">{label}</span>
       {children}
     </label>
   );
@@ -139,7 +139,7 @@ function TrackersSection() {
             </span>
             {t.goal !== null ? <span className="font-mono text-meta text-muted">goal {t.goal}</span> : null}
             <span className="text-meta text-muted">{trackerMeta(t)}</span>
-            <ChevronRightIcon size={11} className="text-faint" />
+            <ChevronRightIcon size={11} className="text-muted" />
           </button>
           {editing === t.id ? <TrackerEditor start={{ ...t }} used={used(t.id)} onDone={() => setEditing(null)} /> : null}
         </div>
@@ -196,7 +196,7 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
       </div>
       <Days mask={c.daysMask} onChange={(daysMask) => setC({ ...c, daysMask })} />
       <div className="flex flex-col gap-[6px]">
-        <span className="text-[11px] text-muted">Asks for</span>
+        <span className="label">Asks for</span>
         <div className="flex flex-wrap gap-[6px]">
           {trackers.map((t) => {
             const on = c.trackerIds.includes(t.id);
@@ -211,14 +211,14 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
                   on ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2 hover:border-check-line"
                 }`}
               >
-                <span className={`flex h-3 w-3 items-center justify-center rounded-[3px] ${on ? "bg-sealed text-sealed-on" : "border-[1.5px] border-check-line"}`}>
+                <span className={`flex h-3 w-3 items-center justify-center rounded-[4px] ${on ? "bg-sealed text-sealed-on" : "border-[1.5px] border-line-input"}`}>
                   {on ? <CheckIcon size={8} /> : null}
                 </span>
                 {t.name}
               </button>
             );
           })}
-          {!trackers.length ? <span className="text-meta text-faint">Make a tracker first, or use the goal review on its own.</span> : null}
+          {!trackers.length ? <span className="text-meta text-muted">Make a tracker first, or use the goal review on its own.</span> : null}
         </div>
       </div>
       <div className="flex items-center gap-[10px]">
@@ -312,7 +312,7 @@ export function TrackersTab() {
     <div className="flex max-w-[640px] flex-col gap-4">
       <TrackersSection />
       <CheckinsSection />
-      <p className="m-0 text-meta text-faint">Check-ins wait while you’re sealed and appear when the seal ends. Tracker data stays on this PC.</p>
+      <p className="m-0 text-meta text-muted">Check-ins wait while you’re sealed and appear when the seal ends. Tracker data stays on this PC.</p>
     </div>
   );
 }

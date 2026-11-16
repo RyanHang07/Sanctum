@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Kbd } from "./Button";
 import { XIcon } from "./icons";
 import { play } from "../lib/sound";
@@ -6,11 +6,13 @@ import { useTrackers } from "../state/trackers";
 import { usePlanner } from "../state/planner";
 import { useStore } from "../state/store";
 import { addDays, agendaFor, longTime, todayKey, type AgendaItem } from "../lib/planner";
-import { entriesOf, formatChange, formatValue, num, shortDate, sparkline, stepFor } from "../lib/trackers";
+import { entriesOf, formatChange, formatValue, num, shortDate, stepFor } from "../lib/trackers";
+import { goalSpark } from "../pages/trackers/chart";
 import type { NewEntry, Tracker, TrackerEntry } from "../lib/types";
 
-// Scheduled check-in and Log entry (design/screens/Checkin.dc.html, SPEC 4.13). A centered
-// dialog over the current screen; Rust keeps the window on top until it's answered.
+// Scheduled check-in and Log entry (gate-canvas Checkin.dc.html, SPEC 4.13). A centered dialog
+// over the current screen; Rust keeps the window on top until it's answered. The header and the
+// footer stay put while the questions scroll inside, so it fits the 720px minimum window.
 
 type Draft = { value: number | null; text: string };
 
@@ -31,7 +33,8 @@ function Stepper({ t, value, step, onChange }: { t: Tracker; value: number | nul
       <button type="button" aria-label={`Decrease ${t.name}`} onClick={() => nudge(-step)} className={side}>
         −
       </button>
-      <label className="flex w-[84px] items-baseline justify-center gap-1">
+      {/* The field opts out of its own ring; its box draws it, inset so the stepper's edge doesn't clip it. */}
+      <label className="focus-ring-within flex h-8 w-[84px] items-center justify-center gap-1 [outline-offset:-2px]!">
         <input
           aria-label={t.name}
           inputMode="decimal"
@@ -42,7 +45,7 @@ function Stepper({ t, value, step, onChange }: { t: Tracker; value: number | nul
             const v = e.target.value.trim() === "" ? null : Number(e.target.value);
             if (v === null || Number.isFinite(v)) onChange(v);
           }}
-          className="w-[52px] bg-transparent text-right font-mono text-[15px] font-medium text-text outline-none placeholder:text-faint"
+          className="focus-ring-off w-[52px] bg-transparent text-right font-mono text-[15px] font-medium text-text placeholder:text-muted"
         />
         {t.unit ? <span className="font-mono text-[11px] text-muted">{t.unit}</span> : null}
       </label>
@@ -53,25 +56,71 @@ function Stepper({ t, value, step, onChange }: { t: Tracker; value: number | nul
   );
 }
 
-function Choice({ label, on, onClick, wide = false }: { label: string; on: boolean; onClick: () => void; wide?: boolean }) {
+/**
+ * One answer from a few (Yes or No, 1 to 10): a radio group with one tab stop, where the arrows
+ * move the answer. Picking the chosen one again clears it, so a question can be left blank.
+ */
+function Choices({ label, options, value, onChange, wide = false }: { label: string; options: readonly { label: string; value: number }[]; value: number | null; onChange: (v: number | null) => void; wide?: boolean }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const at = Math.max(0, options.findIndex((o) => o.value === value));
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const n = options.length;
+    const next =
+      e.key === "ArrowRight" || e.key === "ArrowDown" ? (i + 1) % n : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (i - 1 + n) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    onChange(options[next]!.value);
+    refs.current[next]?.focus();
+  };
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`h-7 rounded-control border font-mono text-meta transition-colors duration-ui ease-ui ${wide ? "px-3" : "w-7"} ${
-        on ? "border-sealed bg-sealed text-sealed-on" : "border-line-input text-text-2 hover:border-check-line hover:text-text"
-      }`}
-    >
-      {label}
-    </button>
+    <div role="radiogroup" aria-label={label} className={`flex shrink-0 ${wide ? "gap-1" : "justify-between"}`}>
+      {options.map((o, i) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            ref={(el) => void (refs.current[i] = el)}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={i === at ? 0 : -1}
+            onClick={() => onChange(on ? null : o.value)}
+            onKeyDown={(e) => onKey(e, i)}
+            className={`h-7 rounded-control border font-mono text-meta transition-colors duration-ui ease-ui ${wide ? "px-3" : "w-7"} ${
+              on ? "border-sealed bg-sealed font-semibold text-sealed-on" : "border-line-input text-text-2 hover:border-check-line hover:text-text"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const YES_NO = [
+  { label: "Yes", value: 1 },
+  { label: "No", value: 0 },
+] as const;
+const ONE_TO_TEN = Array.from({ length: 10 }, (_, i) => ({ label: String(i + 1), value: i + 1 }));
+
+/** The last week as a 72 x 24 line, with the goal dashed in the second colour. */
+function Spark({ vals, goal }: { vals: number[]; goal: number | null }) {
+  const s = goalSpark(vals, goal);
+  if (!s) return null;
+  return (
+    <svg width="72" height="24" viewBox="0 0 72 24" aria-hidden="true" className="shrink-0 overflow-visible">
+      {s.goalY !== null ? <line data-spark-goal x1={0} x2={72} y1={s.goalY} y2={s.goalY} className="stroke-second" strokeWidth={1} strokeDasharray="3 3" /> : null}
+      <polyline points={s.points} fill="none" className="stroke-sealed" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={s.last.x} cy={s.last.y} r={2} className="fill-sealed" />
+    </svg>
   );
 }
 
 function TrackerRow({ t, history, draft, onChange }: { t: Tracker; history: TrackerEntry[]; draft: Draft; onChange: (d: Draft) => void }) {
   const last = history[history.length - 1] ?? null;
   const vals = history.slice(-7).map((e) => e.value ?? 0);
-  const spark = t.kind === "number" || t.kind === "scale" ? sparkline(draft.value !== null ? [...vals, draft.value] : vals) : "";
+  const charted = t.kind === "number" || t.kind === "scale";
   const note =
     !last ? "First entry" : t.kind === "number" && draft.value !== null ? `${formatChange(t, draft.value - (last.value ?? 0))} ${since(last.loggedAt)}` : `Last: ${formatValue(t, last)}`;
   const stacked = t.kind === "scale" || t.kind === "text";
@@ -82,26 +131,11 @@ function TrackerRow({ t, history, draft, onChange }: { t: Tracker; history: Trac
           <span className="text-body font-medium">{t.name}</span>
           <span className="truncate text-meta text-muted">{note}</span>
         </div>
-        {spark ? (
-          <svg width="72" height="24" viewBox="0 0 72 24" aria-hidden="true" className="shrink-0">
-            <polyline points={spark} fill="none" className="stroke-sealed" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-          </svg>
-        ) : null}
+        {charted ? <Spark vals={draft.value !== null ? [...vals, draft.value] : vals} goal={t.goal} /> : null}
       </div>
       {t.kind === "number" ? <Stepper t={t} value={draft.value} step={stepFor(last?.value ?? null)} onChange={(value) => onChange({ ...draft, value })} /> : null}
-      {t.kind === "bool" ? (
-        <div role="group" aria-label={t.name} className="flex shrink-0 gap-1">
-          <Choice wide label="Yes" on={draft.value === 1} onClick={() => onChange({ ...draft, value: draft.value === 1 ? null : 1 })} />
-          <Choice wide label="No" on={draft.value === 0} onClick={() => onChange({ ...draft, value: draft.value === 0 ? null : 0 })} />
-        </div>
-      ) : null}
-      {t.kind === "scale" ? (
-        <div role="group" aria-label={t.name} className="flex justify-between">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <Choice key={n} label={String(n)} on={draft.value === n} onClick={() => onChange({ ...draft, value: draft.value === n ? null : n })} />
-          ))}
-        </div>
-      ) : null}
+      {t.kind === "bool" ? <Choices wide label={t.name} options={YES_NO} value={draft.value} onChange={(value) => onChange({ ...draft, value })} /> : null}
+      {t.kind === "scale" ? <Choices label={`${t.name}, 1 to 10`} options={ONE_TO_TEN} value={draft.value} onChange={(value) => onChange({ ...draft, value })} /> : null}
       {t.kind === "text" ? (
         <textarea
           aria-label={t.name}
@@ -110,7 +144,7 @@ function TrackerRow({ t, history, draft, onChange }: { t: Tracker; history: Trac
           maxLength={2000}
           placeholder="Write a few lines"
           onChange={(e) => onChange({ ...draft, text: e.target.value })}
-          className="resize-none rounded-control border border-line-input bg-raised px-3 py-2 text-body leading-normal text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+          className="resize-none rounded-control border border-line-input bg-raised px-3 py-2 text-body leading-normal text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
         />
       ) : null}
     </div>
@@ -134,7 +168,7 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
   return (
     <section aria-label="Goal review" className="flex flex-col gap-3 border-t border-line px-[18px] py-3">
       <div className="flex flex-col gap-[6px]">
-        <span className="text-meta text-muted">{open.length ? "Still open today" : moved.length ? "Everything open moved to tomorrow" : "Nothing left open today"}</span>
+        <span className="label">{open.length ? "Still open today" : moved.length ? "Everything open moved to tomorrow" : "Nothing left open today"}</span>
         {open.map((i) => (
           <div key={i.key} className="flex h-7 items-center gap-2">
             <button
@@ -143,7 +177,7 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
               aria-checked={false}
               aria-label={`Done: ${i.title}${i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? ` (${(i.sessionsDone ?? 0) + 1} of ${i.sessionsTarget})` : ""}`}
               onClick={() => void toggle(i)}
-              className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-check-line hover:border-sealed"
+              className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-line-input transition-colors duration-ui ease-ui hover:border-sealed"
             />
             <span className="min-w-0 grow truncate text-body">{i.title}</span>
             {i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? <span className="shrink-0 font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
@@ -156,7 +190,7 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
         ))}
       </div>
       <div className="flex flex-col gap-[6px]">
-        <span className="text-meta text-muted">Tomorrow’s top 3</span>
+        <span className="label">Tomorrow’s top 3</span>
         {top.map((v, n) => (
           <input
             key={n}
@@ -164,7 +198,7 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
             value={v}
             placeholder={`${n + 1}.`}
             onChange={(e) => setTop(top.map((x, k) => (k === n ? e.target.value : x)))}
-            className="h-8 rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none transition-colors duration-ui ease-ui placeholder:text-faint hover:border-check-line focus:border-sealed"
+            className="h-8 rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
           />
         ))}
       </div>
@@ -180,6 +214,8 @@ export function CheckinDialog() {
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [top, setTop] = useState(["", "", ""]);
   const [busy, setBusy] = useState(false);
+  // Once the questions scroll, a hairline under the header marks where they go.
+  const [scrolled, setScrolled] = useState(false);
 
   const scheduled = prompt?.kind === "scheduled" ? prompt : null;
   const trackers = useMemo(
@@ -198,6 +234,7 @@ export function CheckinDialog() {
     }
     setDrafts(next);
     setTop(["", "", ""]);
+    setScrolled(false);
     // Only when a new prompt opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt]);
@@ -240,9 +277,6 @@ export function CheckinDialog() {
 
   if (!prompt) return null;
   const title = scheduled ? scheduled.checkin.name : "Log entry";
-  const meta = scheduled
-    ? `${scheduled.due.missed ? "Missed check-in" : "Scheduled check-in"} · ${longTime(scheduled.checkin.time)}`
-    : "Fill in what you have; blanks are left out";
 
   return (
     <div className="fixed inset-0 z-40 animate-fade-in bg-scrim">
@@ -250,12 +284,21 @@ export function CheckinDialog() {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="absolute left-1/2 top-[120px] flex max-h-[calc(100%-160px)] w-[440px] -translate-x-1/2 animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog"
+        className="absolute left-1/2 top-14 flex max-h-[calc(100%-112px)] w-[480px] max-w-[calc(100%-32px)] -translate-x-1/2 animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog"
       >
-        <div className="flex items-start justify-between pb-3 pl-[18px] pr-4 pt-4">
+        <div data-checkin-head className={`flex shrink-0 items-start justify-between border-b pb-3 pl-[18px] pr-4 pt-4 ${scrolled ? "border-line" : "border-transparent"}`}>
           <div className="flex flex-col gap-1">
-            <span className="text-meta text-muted">{meta}</span>
-            <h1 className="m-0 text-[18px] font-semibold tracking-[-0.02em]">{title}</h1>
+            <h1 className="m-0 font-headline text-[18px] font-bold tracking-[-0.02em] text-text">{title}</h1>
+            <span className="text-meta text-muted">
+              {scheduled ? (
+                <>
+                  {scheduled.due.missed ? "Missed, scheduled for " : "Scheduled for "}
+                  <span className="font-mono">{longTime(scheduled.checkin.time)}</span>
+                </>
+              ) : (
+                "Fill in what you have; blanks are left out"
+              )}
+            </span>
           </div>
           <button
             type="button"
@@ -266,7 +309,13 @@ export function CheckinDialog() {
             <XIcon size={14} />
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto">
+        <div
+          role="region"
+          aria-label="Check-in questions"
+          tabIndex={0}
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 1)}
+          className="-mt-px min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
           {trackers.map((t) =>
             drafts[t.id] ? (
               <TrackerRow key={t.id} t={t} history={entriesOf(entries, t.id)} draft={drafts[t.id]!} onChange={(d) => setDrafts({ ...drafts, [t.id]: d })} />
@@ -275,7 +324,7 @@ export function CheckinDialog() {
           {!trackers.length && !review ? <p className="m-0 border-t border-line px-[18px] py-4 text-body text-muted">No trackers yet. Make one in Setup › Trackers.</p> : null}
           {review ? <GoalReview top={top} setTop={setTop} /> : null}
         </div>
-        <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
+        <div className="flex shrink-0 items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
           {scheduled ? (
             <>
               <Button variant="quiet" onClick={() => void answer("skipped")}>
