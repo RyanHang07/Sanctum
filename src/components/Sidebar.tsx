@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import pkg from "../../package.json";
 import { Mark } from "./Mark";
 import { AnimatedMark } from "./AnimatedMark";
@@ -6,6 +6,8 @@ import { JournalIcon, LockIcon, NotesIcon, PanelIcon, SetupIcon, StatsIcon, Toda
 import { TABS, type AppState, type TabId, isTabLocked } from "../state/appState";
 import { useStore } from "../state/store";
 import { NARROW, useMedia } from "../lib/useMedia";
+import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
+import { useMotion } from "../lib/useMotion";
 
 const TAB_ICONS: Record<TabId, ReactNode> = {
   today: <TodayIcon />,
@@ -71,14 +73,98 @@ function CollapseButton({ collapsed, onClick, className = "" }: { collapsed: boo
 }
 
 /**
+ * The nav rows, with one active indicator that glides between them (motion spec §8). The
+ * indicator draws the active row's background; the active icon takes the second colour
+ * (decided). Under reduced motion or a hidden window it jumps. It reads the active row's
+ * offsetTop, so the same code serves the 220px sidebar and the 60px rail.
+ */
+function NavList({ collapsed }: { collapsed: boolean }) {
+  const appState = useStore((s) => s.appState);
+  const activeTab = useStore((s) => s.activeTab);
+  const navigate = useStore((s) => s.navigate);
+  const root = useRef<HTMLDivElement>(null);
+  const indicator = useRef<HTMLSpanElement>(null);
+  const placed = useRef(false);
+  const { live } = useMotion(root);
+  const activeIndex = TABS.findIndex((t) => t.id === activeTab);
+
+  useGSAP(
+    () => {
+      const el = indicator.current;
+      const item = root.current?.querySelectorAll<HTMLElement>("[data-nav-item]")[activeIndex];
+      if (!el || !item) return;
+      const y = item.offsetTop; // read once per navigation
+      // One transform tween per navigation; a new one takes over mid-glide (overwrite).
+      // The first placement, and every move under reduced motion, lands without a glide.
+      if (live && placed.current) gsap.to(el, { y, duration: DUR.state, ease: EASE.ui, overwrite: true });
+      else gsap.set(el, { y, overwrite: true });
+      placed.current = true;
+    },
+    { scope: root, dependencies: [activeIndex, live, collapsed] },
+  );
+
+  return (
+    <div ref={root} className="relative flex flex-col gap-[2px]">
+      <span
+        ref={indicator}
+        aria-hidden="true"
+        data-nav-indicator=""
+        hidden={activeIndex < 0}
+        className="pointer-events-none absolute inset-x-0 top-0 h-control rounded-control bg-raised"
+      />
+      {TABS.map((t) => {
+        const on = t.id === activeTab;
+        const locked = isTabLocked(appState, t.id);
+        const tone = on
+          ? "text-text font-medium"
+          : locked
+            ? "text-locked cursor-not-allowed"
+            : "text-muted hover:bg-line-soft hover:text-text-2";
+        const tip = locked ? `${t.label} is locked while you're sealed` : `${t.label} (${t.key})`;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            data-nav-item={t.id}
+            aria-current={on ? "page" : undefined}
+            aria-disabled={locked || undefined}
+            aria-label={collapsed ? t.label : undefined}
+            title={collapsed ? tip : undefined}
+            onClick={() => navigate(t.id)}
+            className={`relative flex h-control items-center gap-[10px] rounded-control text-left text-body transition-colors duration-ui ease-ui ${
+              collapsed ? "justify-center" : "px-[10px]"
+            } ${tone}`}
+          >
+            <span
+              data-nav-icon=""
+              className={`flex w-4 shrink-0 justify-center transition-colors duration-ui ease-ui ${on ? "text-second" : ""}`}
+            >
+              {TAB_ICONS[t.id]}
+            </span>
+            {collapsed ? (
+              locked ? (
+                <LockIcon size={9} className="absolute bottom-[5px] right-[7px]" />
+              ) : null
+            ) : (
+              <>
+                <span className="grow whitespace-nowrap">{t.label}</span>
+                {locked ? <LockIcon /> : <span className="font-mono text-[11px] text-faint">{t.key}</span>}
+              </>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * App sidebar (design/screens/Sidebar.dc.html). Collapses to an icon rail (Ctrl B); the
  * choice is remembered. Collapsed, labels move into tooltips and the pill becomes its dot.
  */
 export function Sidebar({ pillMeta }: { pillMeta?: string }) {
   const appState = useStore((s) => s.appState);
   const sealed = appState === "sealed";
-  const activeTab = useStore((s) => s.activeTab);
-  const navigate = useStore((s) => s.navigate);
   // A narrow window (a vertical monitor) folds it to the rail whatever the setting says.
   const narrow = useMedia(NARROW);
   const collapsed = useStore((s) => s.settings.sidebarCollapsed) || narrow;
@@ -107,44 +193,7 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
 
       <StatePill state={appState} meta={pillMeta} compact={collapsed} />
 
-      <div className="flex flex-col gap-[2px]">
-        {TABS.map((t) => {
-          const on = t.id === activeTab;
-          const locked = isTabLocked(appState, t.id);
-          const tone = on
-            ? "bg-raised text-text font-medium"
-            : locked
-              ? "text-locked cursor-not-allowed"
-              : "text-muted hover:bg-line-soft hover:text-text-2";
-          const tip = locked ? `${t.label} is locked while you're sealed` : `${t.label} (${t.key})`;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              aria-current={on ? "page" : undefined}
-              aria-disabled={locked || undefined}
-              aria-label={collapsed ? t.label : undefined}
-              title={collapsed ? tip : undefined}
-              onClick={() => navigate(t.id)}
-              className={`relative flex h-control items-center gap-[10px] rounded-control text-left text-body transition-colors duration-ui ease-ui ${
-                collapsed ? "justify-center" : "px-[10px]"
-              } ${tone}`}
-            >
-              <span className="flex w-4 shrink-0 justify-center">{TAB_ICONS[t.id]}</span>
-              {collapsed ? (
-                locked ? (
-                  <LockIcon size={9} className="absolute bottom-[5px] right-[7px]" />
-                ) : null
-              ) : (
-                <>
-                  <span className="grow whitespace-nowrap">{t.label}</span>
-                  {locked ? <LockIcon /> : <span className="font-mono text-[11px] text-faint">{t.key}</span>}
-                </>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <NavList collapsed={collapsed} />
 
       <div className="grow" />
 

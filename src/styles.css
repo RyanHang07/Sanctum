@@ -272,3 +272,31 @@
   background-size: 50% 100%; background-repeat: no-repeat;
   animation: goal-shine 900ms cubic-bezier(0.2, 0, 0, 1) both;
 }
+
+/* ---- Focus ring (redesign F5, 2026-11-15; design critique finding 6) --------------------------
+   One keyboard focus style for every control, in the accent token, so it reads on light and dark
+   themes alike (sealed passes 3:1 against app and panel in every theme).
+   - Controls: a 2px accent outline, 2px off the edge.
+   - Text fields (input, select, textarea): an accent border plus a 2px accent outline at 40%.
+   - `.focus-ring` adds the ring to anything else focusable; `.focus-ring-within` draws it on a
+     container whose field opts out with `.focus-ring-off` (the command bar's search row).
+   Deliberately outside any @layer: unlayered CSS beats Tailwind's utilities, so an old
+   `outline-none` can no longer remove keyboard focus. Mouse clicks on buttons never show it. */
+:where(a[href], button, summary, [tabindex]:not([tabindex="-1"]), [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"], [role="menuitem"], [role="option"], .focus-ring):not(.ProseMirror, .note-doc, .focus-ring-off):focus-visible,
+.focus-ring-within:has(:focus-visible) {
+  outline: 2px solid theme(colors.sealed.DEFAULT);
+  outline-offset: 2px;
+}
+:where(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):not(.focus-ring-off):focus-visible {
+  border-color: theme(colors.sealed.DEFAULT);
+  outline: 2px solid theme(colors.sealed.DEFAULT / 40%);
+  outline-offset: 0;
+}
+:where(input[type="checkbox"], input[type="radio"], input[type="range"]):not(.focus-ring-off):focus-visible {
+  outline: 2px solid theme(colors.sealed.DEFAULT);
+  outline-offset: 2px;
+}
+.focus-ring-off:focus-visible {
+  outline: none;
+}
+/* ---- end focus ring ---- */

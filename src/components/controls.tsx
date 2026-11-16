@@ -20,6 +20,102 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
+/**
+ * A text field's box: the `line-input` border (3:1 in every theme), radius 6 like every control.
+ * Keyboard focus comes from the one focus-ring rule in styles.css; never strip the outline.
+ */
+export const inputClass = (extra = "") =>
+  `h-control rounded-control border border-line-input bg-transparent px-[10px] text-body text-text placeholder:text-faint transition-colors duration-ui ease-ui hover:border-check-line ${extra}`;
+
+export interface SegmentOption<T extends string> {
+  value: T;
+  label: ReactNode;
+  title?: string;
+}
+
+/** Ids that tie a segmented tab to its panel: `${base}-tab-${value}` and `${base}-panel-${value}`. */
+export const tabId = (base: string, value: string) => `${base}-tab-${value}`;
+export const panelId = (base: string, value: string) => `${base}-panel-${value}`;
+
+/**
+ * Segmented control (design critique finding 10). One look, two meanings:
+ * - with `panels` (an id base), it switches what a panel shows: a `tablist` of `tab`s, each
+ *   `aria-controls` its `<TabPanel>`. Arrow keys, Home and End move and select (one tab stop).
+ * - without, it is a filter or a mode: an `aria-pressed` button group.
+ */
+export function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  panels,
+  className = "",
+}: {
+  label: string;
+  options: readonly SegmentOption<T>[];
+  value: T;
+  onChange: (v: T) => void;
+  panels?: string;
+  className?: string;
+}) {
+  const tabs = panels !== undefined;
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!tabs) return;
+    const i = options.findIndex((o) => o.value === value);
+    const last = options.length - 1;
+    const next =
+      e.key === "ArrowRight" ? (i >= last ? 0 : i + 1) : e.key === "ArrowLeft" ? (i <= 0 ? last : i - 1) : e.key === "Home" ? 0 : e.key === "End" ? last : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    const v = options[next]!.value;
+    onChange(v);
+    e.currentTarget.querySelector<HTMLElement>(`#${CSS.escape(tabId(panels, v))}`)?.focus();
+  };
+  return (
+    <div
+      role={tabs ? "tablist" : "group"}
+      aria-label={label}
+      onKeyDown={onKey}
+      className={`inline-flex shrink-0 gap-[2px] rounded-control border border-line-input p-[2px] ${className}`}
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            title={o.title}
+            onClick={() => onChange(o.value)}
+            {...(tabs
+              ? {
+                  role: "tab",
+                  id: tabId(panels, o.value),
+                  "aria-selected": on,
+                  "aria-controls": panelId(panels, o.value),
+                  tabIndex: on ? 0 : -1,
+                }
+              : { "aria-pressed": on })}
+            className={`h-[24px] rounded-control px-[10px] text-meta transition-colors duration-ui ease-ui ${
+              on ? "bg-raised font-medium text-text" : "text-muted hover:bg-line-soft hover:text-text-2"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The panel a `Segmented` tab controls. Render only the selected one. */
+export function TabPanel({ base, value, className = "", children }: { base: string; value: string; className?: string; children: ReactNode }) {
+  return (
+    <div role="tabpanel" id={panelId(base, value)} aria-labelledby={tabId(base, value)} tabIndex={0} className={className}>
+      {children}
+    </div>
+  );
+}
+
 /** Compact select used in Setup rows (26px, 12px text). */
 export function MiniSelect<T extends string | number>({
   value,
@@ -41,7 +137,7 @@ export function MiniSelect<T extends string | number>({
           const hit = options.find((o) => String(o.value) === e.target.value);
           if (hit) onChange(hit.value);
         }}
-        className="h-[26px] cursor-pointer appearance-none rounded-control border border-line-input bg-transparent pl-2 pr-6 text-meta text-text outline-none transition-colors duration-ui ease-ui hover:border-check-line hover:bg-raised focus-visible:border-sealed"
+        className="h-[26px] cursor-pointer appearance-none rounded-control border border-line-input bg-transparent pl-2 pr-6 text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-raised"
       >
         {options.map((o) => (
           <option key={String(o.value)} value={String(o.value)}>
