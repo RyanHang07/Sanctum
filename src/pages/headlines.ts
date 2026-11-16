@@ -263,6 +263,6 @@ export function brokeLine(b: Broke): { line: string; fix: { label: string; tab: 
     case "extension":
       return { line: `A browser ran without the extension ${at}.`, fix: brokeFix(b.kind) };
     default:
-      return { line: `Sanctum was closed ${at}. Protection reopens it within seconds.`, fix: brokeFix(b.kind) };
+      return { line: `Sanctum was closed ${at}. With Protection on, it reopens itself.`, fix: brokeFix(b.kind) };
   }
 }
