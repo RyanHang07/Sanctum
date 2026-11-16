@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
-import { Dialog, MiniSelect } from "../../components/controls";
+import { Dialog, MiniSelect, Segmented } from "../../components/controls";
 import { errorText, native, type SessionQuery } from "../../lib/native";
 import { addDays, addMonths, todayKey } from "../../lib/planner";
 import { clock, minutes } from "../../lib/time";
 import type { SessionDetail, SessionOutcome, SessionRow } from "../../lib/types";
 import { useStore } from "../../state/store";
-import { appLabel, OUTCOME, Segmented } from "./parts";
+import { appLabel, OUTCOME } from "./parts";
 
 // Stats › Sessions (v0.3, decided 2026-10-29): every finished session, kept for good. Filter
 // by range, outcome, and profile; open one for its details; save the list as CSV.
 
 type Span = "week" | "month" | "all";
 const SPANS = [
-  { id: "week", label: "7 days" },
-  { id: "month", label: "30 days" },
-  { id: "all", label: "All time" },
+  { value: "week", label: "7 days" },
+  { value: "month", label: "30 days" },
+  { value: "all", label: "All time" },
 ] as const;
 
 const dayLabel = (t: number) => new Date(t).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -245,7 +245,7 @@ export function SessionsTab({ onOpenDay }: { onOpenDay: (key: string) => void })
                 </span>
                 <span className="w-[92px] shrink-0 text-right font-mono text-meta">
                   {minutes(r.focusMin)}
-                  <span className="text-faint"> / {minutes(r.plannedMin)}</span>
+                  <span className="text-muted"> / {minutes(r.plannedMin)}</span>
                 </span>
                 <span className="w-[48px] shrink-0 text-right font-mono text-meta text-muted">{r.attempts ? `×${r.attempts}` : ""}</span>
                 <span className="flex w-[104px] shrink-0 justify-end">

@@ -245,7 +245,7 @@ describe("the week, reviewed", () => {
     render(<Home />);
     expect(screen.getByTestId("focus-strip")).not.toHaveTextContent("week");
     render(<StatsPage />);
-    expect(await within(await screen.findByTestId("stats-summary")).findByText("Focused of 10h")).toBeInTheDocument();
+    expect(await within(await screen.findByTestId("stats-summary")).findByText(/^focused of 10h\. /)).toBeInTheDocument();
     render(<WeekTargetRow />);
     const input = await screen.findByLabelText("Week's focus target, in hours");
     fireEvent.change(input, { target: { value: "8" } });

@@ -115,7 +115,7 @@ export function DayTab({ date, onDate }: { date: string; onDate: (key: string) =
                 />
               ))}
             </div>
-            <div className="relative h-4 text-[10px] text-faint" aria-hidden="true">
+            <div className="relative h-4 text-[10px] text-muted" aria-hidden="true">
               {hours
                 .filter((_, i) => i % step === 0)
                 .map((h) => (
