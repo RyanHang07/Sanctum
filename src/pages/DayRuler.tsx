@@ -27,12 +27,10 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
   const { live, run } = useMotion(root);
   const span = rulerSpan(minutes, goal);
   const met = minutes >= goal;
-  const left = Math.max(0, goal - minutes);
   const share = (m: number) => Math.max(0, Math.min(1, m / span));
   const flip = share(minutes) > FLIP_AT;
-  // "1h 18m left" rides between the needle and the goal while there's room, then joins the figure.
-  const leftMid = !met && left >= 25;
-  const leftInline = !met && left > 0 && left < 25;
+  // No "time left" figure (removed 2026-11-16): the gap to the goal tick says it. Screen readers
+  // still hear it in the ruler's label.
 
   useGSAP(
     () => {
@@ -41,7 +39,6 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
       const step = was !== null && minutes === was + 1; // a real tick, not a load, resume or day change
       const animate = live && step;
       const at = share(minutes) * 100;
-      const mid = share((minutes + goal) / 2) * 100;
       const vars = { duration: DUR.glide, ease: EASE.glide };
       // A jump drops any glide still under way, so it can't carry the needle back afterwards.
       const move = (sel: string, to: gsap.TweenVars) => {
@@ -53,7 +50,6 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
       };
       move("[data-needle],[data-needle-label]", { xPercent: at });
       move("[data-fill]", { scaleX: at / 100 });
-      move("[data-left-mid]", { xPercent: mid });
       const crossed = was === null ? null : majorCrossed(was, minutes, goal);
       if (animate && crossed !== null) {
         run(() =>
@@ -64,7 +60,7 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
         );
       }
     },
-    { scope: root, dependencies: [minutes, goal, span, live, leftMid] },
+    { scope: root, dependencies: [minutes, goal, span, live] },
   );
 
   const labels = [0, 60, 120, 180, 240, 300, 360, 420, 480].filter((m) => m <= span);
@@ -75,20 +71,8 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
         <div className={`absolute left-0 top-0 flex items-baseline gap-2 whitespace-nowrap transition-transform duration-state ease-ui ${flip ? "-translate-x-full" : ""}`}>
           <Odometer text={fmt(minutes)} className="font-mono text-[30px] font-medium tracking-[-0.03em] text-text" />
           <span className="text-meta text-muted">focused</span>
-          {leftInline ? (
-            <span className="text-meta text-text-2">
-              · <Odometer text={fmt(left)} direction="down" className="font-mono font-medium text-text" /> left
-            </span>
-          ) : null}
         </div>
       </div>
-      {leftMid ? (
-        <div data-left-mid className="pointer-events-none absolute left-0 top-[38px] h-0 w-full">
-          <div className="absolute left-0 top-0 -translate-x-1/2 whitespace-nowrap text-meta text-text-2">
-            <Odometer text={fmt(left)} direction="down" className="font-mono font-medium text-text" /> left
-          </div>
-        </div>
-      ) : null}
       {goal <= span ? (
         <div className={`absolute top-[34px] translate-x-2 whitespace-nowrap text-meta text-second-text ${met ? "font-semibold" : ""}`} style={{ left: `${share(goal) * 100}%` }}>
           Goal <span className="font-mono">{fmt(goal)}</span>

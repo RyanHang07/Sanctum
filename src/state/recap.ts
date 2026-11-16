@@ -6,9 +6,13 @@ import { useStore } from "./store";
 
 // The weekly recap (v0.3, decided 2026-10-29): once a week, the first time you open Sanctum
 // (Monday or later), last week in a few lines. Never a system notification; closing it (or
-// opening Stats from it) means it's seen until next week.
+// opening Stats from it) means it's seen until next week. Off by default (decided 2026-11-16):
+// Setup › General › "Weekly recap" turns the card on. With it off, the week is still marked
+// seen and the partner's weekly summary still goes out; only the card stays away.
 
 const SEEN = "recap_seen_week";
+/** "1" shows the weekly recap card; anything else (unset included) keeps it off. */
+export const RECAP_SETTING = "weekly_recap";
 
 export interface RecapStore {
   recap: Recap | null;
@@ -26,7 +30,9 @@ export const useRecap = create<RecapStore>()((set) => ({
     const recap = await native.statsRecap().catch(() => null);
     // Nothing happened last week: nothing to say, and no reason to ask again this week.
     if (!recap) return void native.setSetting(SEEN, week).catch(() => undefined);
-    set({ recap });
+    const on = (await native.getSetting(RECAP_SETTING).catch(() => null)) === "1";
+    if (on) set({ recap });
+    else void native.setSetting(SEEN, week).catch(() => undefined);
     // The partner's weekly summary goes out now, once a week, if you turned it on (v0.3.1).
     void native.reviewRecapShown().catch(() => undefined);
   },

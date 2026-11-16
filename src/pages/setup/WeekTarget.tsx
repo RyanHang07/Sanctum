@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Row } from "./parts";
 import { Button } from "../../components/Button";
+import { Switch } from "../../components/controls";
 import { errorText, native } from "../../lib/native";
+import { RECAP_SETTING } from "../../state/recap";
 import { minutes } from "../../lib/time";
 import { useStore } from "../../state/store";
 import type { WeekTarget } from "../../lib/types";
@@ -55,6 +57,24 @@ export function WeekTargetRow() {
         className="h-control w-[72px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-body text-text focus:border-sealed-line"
       />
       <span className="text-meta text-muted">hours</span>
+    </Row>
+  );
+}
+
+/** The weekly recap card: last week in a few lines, the first time you open Sanctum each week. Off by default. */
+export function WeeklyRecapRow() {
+  const [on, setOn] = useState(false);
+  useEffect(() => void native.getSetting(RECAP_SETTING).then((v) => setOn(v === "1"), () => setOn(false)), []);
+  return (
+    <Row label="Weekly recap" hint="Last week in a few lines, the first time you open Sanctum each week">
+      <Switch
+        label="Weekly recap"
+        checked={on}
+        onChange={(v) => {
+          setOn(v);
+          void native.setSetting(RECAP_SETTING, v ? "1" : "0");
+        }}
+      />
     </Row>
   );
 }
