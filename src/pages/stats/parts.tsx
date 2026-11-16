@@ -1,7 +1,7 @@
 import type { Category, SessionOutcome } from "../../lib/types";
 
-// Shared by the Stats tabs (v0.3): the category colours (as Overview's "Where time went"),
-// outcome words, and a small segmented switch.
+// Shared by the Stats tabs (v0.3): the category colours (as Overview's "Where time went") and
+// outcome words. Segmented switches come from components/controls (v0.4).
 
 export const CATEGORY: Record<Category, { label: string; dot: string }> = {
   productive: { label: "Productive", dot: "bg-sealed" },
@@ -25,23 +25,3 @@ export function duration(seconds: number): string {
 
 /** A sealed app or site's name for people: "discord.exe" → "discord". */
 export const appLabel = (key: string) => key.replace(/\.exe$/i, "");
-
-export function Segmented<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (v: T) => void }) {
-  return (
-    <div role="tablist" aria-label={label} className="flex rounded-control border border-line-input p-[2px]">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          role="tab"
-          aria-selected={value === o.id}
-          onClick={() => onChange(o.id)}
-          className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
-            value === o.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}

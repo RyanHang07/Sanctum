@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Suggestions } from "./Suggestions";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon } from "../../components/icons";
+import { Segmented, TabPanel, type SegmentOption } from "../../components/controls";
+import { Odometer } from "../../components/Odometer";
 import { Section } from "../setup/parts";
+import { DayDot } from "../week/marks";
 import { EVENTS, native, onNative, WEEK_TARGET_EVENT } from "../../lib/native";
 import { useInstalledApps } from "../../lib/installedApps";
 import { useStore } from "../../state/store";
@@ -13,32 +16,20 @@ import type { DayStat, StatsOverview, PauseSummary, WeekTarget } from "../../lib
 import { SessionsTab } from "./SessionsTab";
 import { ActivityTab } from "./ActivityTab";
 import { DayTab } from "./DayTab";
+import { DAY_NOTE, DayChart, FocusRuler, KeptMark } from "./Ruler";
 
 // Stats (SPEC 4.9, 4.10): the streak, focus by day against the goal, what tempted you, and
-// where the time went. No design screen; built from Month.dc.html (summary row, heatmap,
-// legend) and Tracking.dc.html (panels, range toggle).
+// where the time went.
 // v0.3 (decided 2026-10-29): tabs. Overview is the page as it was; Sessions, Activity, and Day
 // go deeper (SessionsTab, ActivityTab, DayTab).
+// v0.4 (redesign, ProtoStats.dc.html): the Ruler direction. Bars are "Focused" in the accent, a
+// kept day carries a second-colour mark, the daily goal is a dashed second-colour line, and a day's
+// details show in one fixed spot on hover or keyboard focus. No best-day mark (decided).
 
-function RangeSwitch({ range, onChange }: { range: StatsRange; onChange: (r: StatsRange) => void }) {
-  return (
-    <div role="tablist" aria-label="Range" className="flex rounded-control border border-line-input p-[2px]">
-      {(["week", "month"] as const).map((r) => (
-        <button
-          key={r}
-          role="tab"
-          aria-selected={range === r}
-          onClick={() => onChange(r)}
-          className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
-            range === r ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-          }`}
-        >
-          {r === "week" ? "Week" : "Month"}
-        </button>
-      ))}
-    </div>
-  );
-}
+const RANGES: readonly SegmentOption<StatsRange>[] = [
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+];
 
 function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSummary | null; targetMin: number | null }) {
   const cells: [string, string][] = [
@@ -46,83 +37,107 @@ function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSumm
     [String(o.longestStreak), "Longest streak"],
     [String(o.kept), "Days kept"],
     [String(o.broken), o.broken === 1 ? "Seal broken" : "Seals broken"],
-    // This week's target (v0.3.1) lives here, not on Home: the main screens stay quiet.
-    [minutes(o.focusMin), targetMin === null ? "Focused" : `Focused of ${minutes(targetMin)}`],
   ];
-  // Pause mode (v0.3.1): how often "Still want it?" turned you back.
+  // Pause mode (v0.3.1): how often a pause turned you back.
   if (paused?.paused) cells.push([`${paused.turnedBack} of ${paused.paused}`, "Pauses turned back"]);
+  // This week's target (v0.3.1) lives here, not on Home: the main screens stay quiet.
+  const note =
+    targetMin === null ? "focused" : `focused of ${minutes(targetMin)}. ${o.focusMin >= targetMin ? "Target met." : `${minutes(targetMin - o.focusMin)} to go.`}`;
   return (
-    <div data-testid="stats-summary" className={`grid shrink-0 ${cells.length > 5 ? "grid-cols-6" : "grid-cols-5"} overflow-hidden rounded-panel border border-line bg-panel`}>
+    <div
+      data-testid="stats-summary"
+      className="grid shrink-0 overflow-hidden rounded-panel border border-line bg-panel"
+      style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(96px, 1fr)) minmax(240px, 2fr)` }}
+    >
       {cells.map(([v, k], i) => (
-        <div key={k} className={`flex flex-col gap-[2px] px-[14px] py-3 ${i < cells.length - 1 ? "border-r border-line" : ""}`}>
-          <span className="font-mono text-[18px] font-medium">{v}</span>
+        <div key={k} data-stat={k} className={`flex flex-col justify-center gap-[6px] px-[18px] py-4 ${i ? "border-l border-line" : ""}`}>
+          <span className="flex h-6 items-center font-mono text-[24px] font-medium leading-none tracking-[-0.02em]">
+            <Odometer text={v} />
+          </span>
           <span className="text-meta text-muted">{k}</span>
         </div>
       ))}
+      <div data-stat="Focused" className="flex flex-col gap-2 border-l border-line px-[18px] py-4">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 items-center font-mono text-[24px] font-medium leading-none tracking-[-0.02em]">
+            <Odometer text={minutes(o.focusMin)} />
+          </span>
+          <span className="text-meta text-muted">{note}</span>
+        </div>
+        <FocusRuler totalMin={o.focusMin} targetMin={targetMin} />
+      </div>
     </div>
   );
 }
 
-const STATUS_LABEL: Partial<Record<DayStat["status"], string>> = {
-  broken: "Broken",
-  missed: "Missed",
-  rest: "Rest",
-  today: "Today",
-};
-
-function cellClass(d: DayStat, goal: number, inMonth: boolean): string {
-  if (!inMonth) return "border-transparent bg-transparent";
+function cellClass(d: DayStat, goal: number): string {
   switch (d.status) {
     case "kept":
       return `border-transparent ${["", "bg-heat-1", "bg-heat-2", "bg-heat-3"][shade(d.focusMin, goal)]}`;
     case "broken":
       return "border-broken bg-broken-tint";
     case "missed":
-      return "border-line-input bg-panel";
+      return "border-line-input bg-raised";
     case "rest":
-      return "border-dashed border-check-line bg-transparent";
+      return "border-dashed border-muted bg-transparent";
     case "today":
-      return "border-sealed bg-panel";
+      return "border-sealed bg-sealed-tint";
     default:
       return "border-line-soft bg-panel-footer";
   }
 }
 
-function Heatmap({ o, month, onHover }: { o: StatsOverview; month: string; onHover: (d: DayStat | null) => void }) {
+function Heatmap({
+  o,
+  month,
+  active,
+  onActive,
+  onOpen,
+}: {
+  o: StatsOverview;
+  month: string;
+  active: string | null;
+  onActive: (date: string | null) => void;
+  onOpen: (date: string) => void;
+}) {
   const inMonth = (k: string) => fromKey(k).getMonth() === fromKey(month).getMonth();
   return (
     <div className="flex min-h-0 grow flex-col gap-1">
-      <div className="grid grid-cols-7 gap-1 px-[2px]">
+      <div aria-hidden="true" className="grid grid-cols-7 gap-1 px-[2px]">
         {WEEKDAYS.map((w) => (
-          <span key={w.name} className="pl-[6px] text-[11px] text-faint">
+          <span key={w.name} className="pl-[6px] text-meta text-muted">
             {w.name}
           </span>
         ))}
       </div>
-      <div className="grid min-h-0 grow grid-cols-7 gap-1" style={{ gridTemplateRows: `repeat(${o.days.length / 7}, minmax(0, 1fr))` }}>
+      <div data-testid="stats-heatmap" className="grid min-h-0 grow grid-cols-7 gap-1" style={{ gridTemplateRows: `repeat(${o.days.length / 7}, minmax(0, 1fr))` }}>
         {o.days.map((d) => {
-          const shown = inMonth(d.date);
-          const dim = !shown || d.status === "future" || d.status === "none";
-          const label = shown ? STATUS_LABEL[d.status] : undefined;
+          // Days from the months either side keep the grid square but stay empty.
+          if (!inMonth(d.date)) return <span key={d.date} aria-hidden="true" data-day={d.date} />;
+          const quiet = d.status === "future" || d.status === "none";
+          const note = d.status === "kept" ? null : DAY_NOTE[d.status];
           return (
-            <div
+            <button
               key={d.date}
-              role="gridcell"
-              aria-label={shown ? dayDetail(d.date, d, o.goalMin) : undefined}
-              onMouseEnter={() => shown && onHover(d)}
-              onMouseLeave={() => onHover(null)}
-              className={`flex min-h-0 flex-col justify-between rounded-control border px-2 py-[6px] ${cellClass(d, o.goalMin, shown)}`}
+              type="button"
+              data-day={d.date}
+              aria-label={dayDetail(d.date, d, o.goalMin)}
+              onMouseEnter={() => onActive(d.date)}
+              onMouseLeave={() => onActive(null)}
+              onFocus={() => onActive(d.date)}
+              onBlur={() => onActive(null)}
+              onClick={() => d.status !== "future" && onOpen(d.date)}
+              className={`flex min-h-0 flex-col justify-between rounded-control border px-2 py-[6px] text-left outline outline-1 outline-offset-2 transition-[outline-color] duration-ui ease-ui ${cellClass(d, o.goalMin)} ${
+                active === d.date ? "outline-muted" : "outline-transparent"
+              } ${d.status === "future" ? "cursor-default" : ""}`}
             >
-              <span className="flex w-full justify-between">
-                <span className={`font-mono text-[11px] ${dim ? "text-check-line" : "text-text"}`}>{fromKey(d.date).getDate()}</span>
-                {label ? (
-                  <span className={`text-[10px] ${d.status === "broken" || d.status === "missed" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>
-                    {label}
-                  </span>
-                ) : null}
+              <span className="flex w-full items-center justify-between">
+                <span className={`font-mono text-[11px] ${quiet ? "text-muted" : "text-text"}`}>{fromKey(d.date).getDate()}</span>
+                {d.status === "kept" ? <DayDot day={d} /> : null}
+                {note ? <span className={`text-[10px] ${d.status === "broken" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>{note}</span> : null}
               </span>
-              {shown && d.focusMin > 0 ? <span className="font-mono text-[11px] text-text-2">{minutes(d.focusMin)}</span> : null}
-            </div>
+              {d.focusMin > 0 ? <span className="font-mono text-[11px] text-text-2">{minutes(d.focusMin)}</span> : null}
+            </button>
           );
         })}
       </div>
@@ -130,95 +145,48 @@ function Heatmap({ o, month, onHover }: { o: StatsOverview; month: string; onHov
   );
 }
 
-function barClass(d: DayStat): string {
-  switch (d.status) {
-    case "kept":
-      return "bg-sealed";
-    case "today":
-      return "border border-sealed bg-sealed-tint";
-    case "broken":
-      return "border border-broken bg-broken-tint";
-    case "rest":
-      return "border border-dashed border-check-line";
-    default:
-      return "bg-line-input";
-  }
-}
-
-function WeekBars({ o, onHover }: { o: StatsOverview; onHover: (d: DayStat | null) => void }) {
-  const top = Math.max(o.goalMin * 1.5, ...o.days.map((d) => d.focusMin));
-  const goalPct = (o.goalMin / top) * 100;
+/** One swatch and its word. */
+function Key({ swatch, children }: { swatch: React.ReactNode; children: string }) {
   return (
-    <div className="flex min-h-0 grow flex-col gap-2">
-      <div className="relative flex min-h-0 grow items-end gap-3 border-b border-line px-1">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 border-t border-dashed border-check-line" style={{ bottom: `${goalPct}%` }}>
-          <span className="absolute -top-[18px] right-0 font-mono text-[10px] text-faint">goal {minutes(o.goalMin)}</span>
-        </div>
-        {o.days.map((d) => (
-          <div
-            key={d.date}
-            role="img"
-            aria-label={dayDetail(d.date, d, o.goalMin)}
-            onMouseEnter={() => onHover(d)}
-            onMouseLeave={() => onHover(null)}
-            className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-          >
-            {d.status === "future" ? null : (
-              <div
-                className={`w-full max-w-[44px] rounded-t-[4px] ${barClass(d)}`}
-                style={{ height: `${Math.max(d.status === "rest" && !d.focusMin ? 100 : 0, (d.focusMin / top) * 100, 1.5)}%`, opacity: d.status === "rest" && !d.focusMin ? 0.5 : 1 }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-3 px-1">
-        {o.days.map((d) => {
-          const label = STATUS_LABEL[d.status];
-          return (
-            <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center gap-[2px]">
-              <span className="flex items-baseline gap-1">
-                <span className="text-meta text-text-2">{fromKey(d.date).toLocaleDateString("en-US", { weekday: "short" })}</span>
-                {label ? (
-                  <span className={`text-[10px] ${d.status === "broken" || d.status === "missed" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>
-                    {label}
-                  </span>
-                ) : null}
-              </span>
-              <span className="font-mono text-[11px] text-muted">{d.status === "future" ? "" : minutes(d.focusMin)}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <span className="flex items-center gap-[6px]">
+      {swatch}
+      {children}
+    </span>
   );
 }
 
-function Legend({ hover, o }: { hover: DayStat | null; o: StatsOverview }) {
-  const swatch = "h-3 w-3 rounded-[3px]";
+/**
+ * What the marks mean, and in one fixed spot at the end of the row, the details of the day under
+ * the pointer or keyboard focus (read out politely as it changes).
+ */
+function Legend({ o, active, month }: { o: StatsOverview; active: DayStat | null; month: boolean }) {
+  const box = "box-border h-[10px] w-[10px] rounded-[2px]";
+  const has = (s: DayStat["status"]) => o.days.some((d) => d.status === s);
   return (
-    // Wraps on a narrow window instead of cutting the day's details short.
-    <div className="flex min-h-5 shrink-0 flex-wrap items-center gap-x-[18px] gap-y-1 whitespace-nowrap text-meta text-muted">
-      <span className="flex items-center gap-[6px]">
-        <span className={`${swatch} bg-heat-1`} />
-        <span className={`${swatch} bg-heat-2`} />
-        <span className={`${swatch} bg-heat-3`} />
-        Kept
-      </span>
-      <span className="flex items-center gap-[6px]">
-        <span className={`${swatch} border border-line-input bg-panel`} />
-        Goal missed
-      </span>
-      <span className="flex items-center gap-[6px]">
-        <span className={`${swatch} border border-broken bg-broken-tint`} />
-        Seal broken
-      </span>
-      <span className="flex items-center gap-[6px]">
-        <span className={`${swatch} border border-dashed border-check-line`} />
-        Rest day
-      </span>
-      <span data-testid="stats-hover" className="ml-auto text-text-2">
-        {hover ? dayDetail(hover.date, hover, o.goalMin) : "Hover a day for details"}
+    <div className="flex min-h-5 shrink-0 flex-wrap items-center gap-x-[18px] gap-y-1 whitespace-nowrap border-t border-line pt-3 text-meta text-muted">
+      <Key
+        swatch={
+          month ? (
+            <span className="flex gap-[3px]">
+              <span className={`${box} bg-heat-1`} />
+              <span className={`${box} bg-heat-2`} />
+              <span className={`${box} bg-heat-3`} />
+            </span>
+          ) : (
+            <span className={`${box} bg-sealed`} />
+          )
+        }
+      >
+        Focused
+      </Key>
+      <Key swatch={month ? <span className="h-[7px] w-[7px] rounded-full bg-second" /> : <KeptMark className="block w-[10px]" />}>Kept</Key>
+      <Key swatch={<span className={`${box} border border-line-input bg-raised`} />}>Missed</Key>
+      <Key swatch={<span className={`${box} border-[1.5px] border-sealed bg-sealed-tint`} />}>Today</Key>
+      {has("broken") ? <Key swatch={<span className={`${box} border border-broken bg-broken-tint`} />}>Broken</Key> : null}
+      {has("rest") ? <Key swatch={<span className={`${box} border border-dashed border-muted`} />}>Rest day</Key> : null}
+      {month ? null : <Key swatch={<span className="w-[14px] border-t-2 border-dashed border-second" />}>Target</Key>}
+      <span data-testid="stats-hover" aria-live="polite" className="ml-auto min-w-0 shrink truncate text-right text-text-2">
+        {active ? dayDetail(active.date, active, o.goalMin) : "Hover or focus a day for details"}
       </span>
     </div>
   );
@@ -228,20 +196,20 @@ function TemptedPanel({ o }: { o: StatsOverview }) {
   const apps = useInstalledApps();
   const top = Math.max(1, ...o.tempted.map((t) => t.count));
   return (
-    <Section title="What tempted you" action={<span className="font-mono text-meta text-muted">{o.attempts} attempts</span>}>
+    <Section title="What tempted you" action={<span className="font-mono text-meta text-muted">{o.attempts === 1 ? "1 attempt" : `${o.attempts} attempts`}</span>}>
       {o.tempted.length === 0 ? (
         <p className="m-0 px-[14px] py-3 text-meta text-muted">Nothing tried to get in.</p>
       ) : (
         <div className="flex flex-col py-1">
           {o.tempted.map((t) => (
-            <div key={`${t.what}-${t.kind}`} className="flex flex-col gap-1 px-[14px] py-[6px]">
+            <div key={`${t.what}-${t.kind}`} className="flex flex-col gap-[6px] px-[14px] py-[6px]">
               <span className="flex items-baseline gap-2">
-                <span className="min-w-0 truncate text-body text-text">{temptedLabel(t.what, apps)}</span>
-                <span className="text-[11px] text-faint">{TEMPTED_KIND[t.kind] ?? t.kind}</span>
+                <span className="min-w-0 truncate text-body font-medium text-text">{temptedLabel(t.what, apps)}</span>
+                <span className="text-[11px] text-muted">{TEMPTED_KIND[t.kind] ?? t.kind}</span>
                 <span className="ml-auto font-mono text-meta text-text-2">{t.count}</span>
               </span>
-              <span className="h-1 overflow-hidden rounded-full bg-line">
-                <span className="block h-full rounded-full bg-sealed-line" style={{ width: `${(t.count / top) * 100}%` }} />
+              <span className="h-1 overflow-hidden rounded-[2px] bg-raised">
+                <span className="block h-full rounded-[2px] bg-muted" style={{ width: `${(t.count / top) * 100}%` }} />
               </span>
             </div>
           ))}
@@ -271,7 +239,7 @@ function TimePanel({ o }: { o: StatsOverview }) {
               <span className={`h-[6px] w-[6px] rounded-full ${p.color}`} />
               <span className="text-text-2">{p.label}</span>
               <span className="ml-auto font-mono text-text">{minutes(p.min)}</span>
-              <span className="w-9 text-right font-mono text-faint">{total ? `${Math.round((p.min / total) * 100)}%` : "–"}</span>
+              <span className="w-9 text-right font-mono text-muted">{total ? `${Math.round((p.min / total) * 100)}%` : "–"}</span>
             </span>
           ))}
         </div>
@@ -282,11 +250,11 @@ function TimePanel({ o }: { o: StatsOverview }) {
 }
 
 export type StatsTab = "overview" | "sessions" | "activity" | "day";
-const TABS: { id: StatsTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "sessions", label: "Sessions" },
-  { id: "activity", label: "Activity" },
-  { id: "day", label: "Day" },
+const TABS: readonly SegmentOption<StatsTab>[] = [
+  { value: "overview", label: "Overview" },
+  { value: "sessions", label: "Sessions" },
+  { value: "activity", label: "Activity" },
+  { value: "day", label: "Day" },
 ];
 
 export function StatsPage() {
@@ -296,31 +264,18 @@ export function StatsPage() {
   const [dayKey, setDayKey] = useState(() => todayKey(new Date(), dailyResetTime));
   const openDay = (key: string) => (setDayKey(key), setTab("day"));
   return (
-    <div className="flex h-full flex-col gap-[14px] px-7 pb-6 pt-5">
+    <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
       <div className="flex h-control shrink-0 items-center justify-between gap-3">
         <h1 className="page-title m-0 whitespace-nowrap">Stats</h1>
-        <div role="tablist" aria-label="Stats" className="flex rounded-control border border-line-input p-[2px]">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`h-[26px] rounded-[4px] px-[10px] text-meta transition-colors duration-ui ease-ui ${
-                tab === t.id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Segmented label="Stats" options={TABS} value={tab} onChange={setTab} panels="stats" />
       </div>
-      <div key={tab} className="page-in flex min-h-0 grow flex-col gap-[14px]">
+      {/* The tab's panel swaps in place: no fade or rise (motion spec §8). */}
+      <TabPanel key={tab} base="stats" value={tab} className="flex min-h-0 grow flex-col gap-4">
         {tab === "overview" ? <Overview onOpenDay={openDay} /> : null}
         {tab === "sessions" ? <SessionsTab onOpenDay={openDay} /> : null}
         {tab === "activity" ? <ActivityTab /> : null}
         {tab === "day" ? <DayTab date={dayKey} onDate={setDayKey} /> : null}
-      </div>
+      </TabPanel>
     </div>
   );
 }
@@ -332,7 +287,7 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   const [anchor, setAnchor] = useState(() => todayKey(new Date(), dailyResetTime));
   const [o, setO] = useState<StatsOverview | null>(null);
   const [paused, setPaused] = useState<PauseSummary | null>(null);
-  const [hover, setHover] = useState<DayStat | null>(null);
+  const [active, setActive] = useState<string | null>(null);
   const { from, to } = rangeOf(range, anchor);
   const [target, setTarget] = useState<WeekTarget | null>(null);
   useEffect(() => {
@@ -361,11 +316,12 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   }, [load]);
 
   const unit = range === "week" ? "week" : "month";
+  const activeDay = (o && active && o.days.find((d) => d.date === active)) || null;
   return (
     <>
       <div className="flex h-control items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="whitespace-nowrap text-body text-muted">{rangeTitle(range, anchor)}</span>
+          <span className="whitespace-nowrap text-body text-text-2">{rangeTitle(range, anchor)}</span>
           <div className="flex items-center gap-1">
             <Button variant="quiet" aria-label={`Previous ${unit}`} className="w-control px-0" onClick={() => setAnchor(shiftRange(range, anchor, -1))}>
               <ChevronRightIcon size={12} className="rotate-180" />
@@ -384,10 +340,13 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
             </Button>
           </div>
         </div>
-        <RangeSwitch
-          range={range}
+        <Segmented
+          label="Range"
+          options={RANGES}
+          value={range}
           onChange={(r) => {
             setRange(r);
+            setActive(null);
             if (current) setAnchor(today);
           }}
         />
@@ -397,14 +356,16 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
         <>
           <Summary o={o} paused={paused} targetMin={range === "week" && target?.week === from ? target.targetMin : null} />
           <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_280px] gap-4">
-            <section aria-label={range === "week" ? "Focus by day" : "Focus heatmap"} className="flex min-h-0 flex-col gap-3 rounded-panel border border-line bg-panel p-[14px]">
-              {range === "week" ? <WeekBars o={o} onHover={setHover} /> : <Heatmap o={o} month={anchor} onHover={setHover} />}
-              <Legend hover={hover} o={o} />
-              {hover ? null : (
-                <button type="button" className="self-start text-meta text-sealed-text hover:text-sealed-text-hover" onClick={() => onOpenDay(today)}>
-                  See today's timeline →
-                </button>
+            <section
+              aria-label={range === "week" ? "Focus by day" : "Focus heatmap"}
+              className="flex min-h-0 flex-col gap-[14px] rounded-panel border border-line bg-panel pb-[18px] pl-[14px] pr-[22px] pt-[22px]"
+            >
+              {range === "week" ? (
+                <DayChart o={o} active={active} onActive={setActive} onOpen={onOpenDay} />
+              ) : (
+                <Heatmap o={o} month={anchor} active={active} onActive={setActive} onOpen={onOpenDay} />
               )}
+              <Legend o={o} active={activeDay} month={range === "month"} />
             </section>
             <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
               <Suggestions />
