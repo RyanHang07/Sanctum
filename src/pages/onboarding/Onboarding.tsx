@@ -29,12 +29,14 @@ const IDLE = [1, 3, 5, 10];
 
 type Picks = Record<string, string[]>;
 
-function Headline({ lead, payoff, sub }: { lead: string; payoff: string; sub: string }) {
+/** A step title: one plain sentence (`title`, from ONBOARDING in ../headlines). `lead` and
+ *  `payoff` are the old two-part form, kept until each step passes `title`; they're joined into
+ *  one run of text with no italic. */
+export function Headline({ title, lead, payoff, sub }: { title?: string; lead?: string; payoff?: string; sub: string }) {
+  const text = title ?? [lead, payoff].filter(Boolean).join(" ");
   return (
     <div className="flex flex-col gap-[6px]">
-      <h1 className="headline m-0 text-[26px]">
-        {lead} <em>{payoff}</em>
-      </h1>
+      <h1 className="headline m-0 text-[26px]">{text}</h1>
       <p className="m-0 text-body text-muted">{sub}</p>
     </div>
   );

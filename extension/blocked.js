@@ -25,7 +25,8 @@ const $ = (id) => document.getElementById(id);
 // A few lines each, so the page doesn't read the same every time. Held still for one visit.
 const SEALED_LINES = ["Scrolling is how mid happens.", "It’ll still be there when you’re done.", "Nothing in there is urgent.", "You came out of habit, not need.", "Close it. Go back."];
 const ENDING_LINES = ["Under ten minutes. Hold.", "Almost out. Don’t spend it here.", "You’re nearly done. Finish."];
-const PAUSE_LINES = ["Take a breath.", "Decide on purpose.", "It can wait five seconds.", "Your call. Make it a real one."];
+/** Pause mode's headline; the same lines as PAUSE in src/pages/headlines.ts. */
+const PAUSE_LINES = ["{site} can wait five seconds.", "Decide on {site} on purpose.", "Take a breath before {site}.", "{site} is your call, so make it a real one."];
 const seed = [...`${site}:${Math.floor(shownAt / 60_000)}`].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 const line = (list) => list[seed % list.length];
 document.title = `${keyword ? `“${keyword}”` : site || "Sealed"} · Sanctum`;
@@ -37,16 +38,16 @@ const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", min
 
 let state = null;
 
-function headline(lead, payoff) {
-  const h = document.querySelector("h1");
-  h.replaceChildren(`${lead} `, Object.assign(document.createElement("em"), { textContent: payoff }));
+/** One plain sentence (design/README.md headline rule): no italic payoff, no question. */
+function headline(text) {
+  document.querySelector("h1").textContent = text;
 }
 
-/** "Still want youtube.com?": Not now goes back; Go on opens it after five seconds, for 15 minutes. */
+/** "youtube.com can wait five seconds.": Not now goes back; Go on opens it after five seconds, for 15 minutes. */
 function renderPause() {
   const left = Math.max(0, PAUSE_WAIT_S - Math.floor((Date.now() - shownAt) / 1000));
   $("chip").hidden = true;
-  headline(`Still want ${site || "this site"}?`, line(PAUSE_LINES));
+  headline(line(PAUSE_LINES).replaceAll("{site}", site || "This site"));
   $("body").textContent = left ? `Go on unlocks in ${left}s, for 15 minutes if you still want it.` : "It's yours for 15 minutes if you still want it.";
   $("back").textContent = "Not now";
   $("open").textContent = "Go on";
@@ -65,12 +66,12 @@ function render() {
   if (!rules?.sealed) {
     // The seal is over: offer the site back.
     $("chip").hidden = true;
-    headline("You're open", "again.");
+    headline("You’re open again.");
     $("body").textContent = site ? `${site} opens normally now.` : "Sites open normally now.";
     $("back").textContent = site ? `Open ${site}` : "Go back";
     return;
   }
-  headline(keyword ? `Pages about “${keyword}”` : `${site || "This site"} stays`, keyword ? "stay sealed." : "sealed.");
+  headline(keyword ? `Pages about “${keyword}” stay sealed.` : `${site || "This site"} stays sealed.`);
   $("back").textContent = backLabel ? `Back to ${backLabel}` : "Close this tab";
   const body = $("body");
   if (rules.endsAt) {

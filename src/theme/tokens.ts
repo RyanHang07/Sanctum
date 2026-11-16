@@ -32,7 +32,7 @@ const px = (n: number) => `${n}px`;
 export const fontStacks = {
   sans: [`"${tokens.font.sans} Variable"`, `"${tokens.font.sans}"`, "system-ui", "sans-serif"],
   mono: [`"${tokens.font.mono} Variable"`, `"${tokens.font.mono}"`, "ui-monospace", "monospace"],
-  serif: [`"${tokens.font.serif}"`, "Georgia", "serif"],
+  headline: [`"${tokens.font.headline} Variable"`, `"${tokens.font.headline}"`, `"${tokens.font.sans} Variable"`, "system-ui", "sans-serif"],
 };
 
 export const theme = {

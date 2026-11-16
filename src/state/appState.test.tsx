@@ -4,7 +4,7 @@ import { useStore } from "./store";
 import { Sidebar } from "../components/Sidebar";
 import { CloseDialog } from "../components/CloseDialog";
 import { Toast } from "../components/Toast";
-import { EVENT_PAYOFFS, OPEN, SEALED, homeHeadline } from "../pages/headlines";
+import { OPEN, SEALED, homeLine } from "../pages/headlines";
 import { native } from "../lib/native";
 
 const initial = useStore.getState();
@@ -38,12 +38,9 @@ describe("state machine", () => {
 
   it("has a headline for each state, from that state's lines", () => {
     const at = new Date(2026, 9, 1, 14, 0);
-    const lines = (l: readonly (readonly [string, string])[]) => l.map((x) => x.join(" "));
-    expect([...lines(OPEN), "Half the day is left. Use it."]).toContain(homeHeadline("open", undefined, at).join(" "));
-    expect(lines(SEALED)).toContain(homeHeadline("sealed", undefined, at).join(" "));
-    const [lead, payoff] = homeHeadline("event", { title: "Mock interview", until: "3:00" }, at);
-    expect(lead).toBe("Mock interview until 3:00.");
-    expect(EVENT_PAYOFFS).toContain(payoff);
+    expect([...OPEN, "Half the day is left to use."]).toContain(homeLine("open", undefined, at));
+    expect(SEALED).toContain(homeLine("sealed", undefined, at));
+    expect(homeLine("event", { title: "Mock interview", until: "3:00" }, at)).toBe("Mock interview until 3:00.");
   });
 });
 

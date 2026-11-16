@@ -1,5 +1,5 @@
 /* Sanctum design tokens v2 (dark first) */
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&family=Schibsted+Grotesk:wght@700&display=swap");
 
 :root {
   --app: #0B0D12;
@@ -45,7 +45,7 @@
 
   --font-sans: "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
-  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-headline: "Schibsted Grotesk", "Geist", system-ui, sans-serif;
 
   --radius-control: 6px;
   --radius-panel: 8px;
@@ -55,7 +55,9 @@
   --sidebar-w: 220px;
 }
 
-/* Moments only: Home headline, sealed dialogs, held dialog, onboarding titles */
-.headline { font-family: var(--font-sans); font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
-.headline em { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; color: var(--payoff); }
+/* Moments only: Home headline, sealed dialogs, held dialog, onboarding titles. One plain sentence:
+   one weight, one colour, no italic payoff. */
+.headline { font-family: var(--font-headline); font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+/* Labels are sentence case, never all caps. */
+.label { font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--muted); }
 .page-title { font-family: var(--font-sans); font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }

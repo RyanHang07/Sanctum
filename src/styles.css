@@ -4,8 +4,16 @@
 /* Fonts are bundled so the app renders the same offline (SPEC 4.0.3). */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
-@import "@fontsource/instrument-serif/400.css";
-@import "@fontsource/instrument-serif/400-italic.css";
+
+/* Headlines: Schibsted Grotesk, Latin only (the extension bundles the same file). */
+@font-face {
+  font-family: "Schibsted Grotesk Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url("@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 @layer base {
   html,
@@ -81,19 +89,25 @@
   }
 }
 
-/* Moments only (Home headline, sealed dialogs, held dialog, onboarding titles). Mirrors design/tokens.css. */
+/* Moments only (Home headline, sealed dialogs, held dialog, onboarding titles). Mirrors design/tokens.css.
+   A headline is one plain sentence in Schibsted Grotesk: one weight, one colour, no italic payoff. */
 @layer components {
   .headline {
-    @apply font-sans font-bold text-text;
+    @apply font-headline font-bold text-text;
     letter-spacing: -0.03em;
     line-height: 1.15;
   }
+  /* Old markup still wraps a second phrase in <em>: it reads as the same sentence, not a payoff. */
   .headline em {
-    @apply font-serif text-payoff;
-    font-style: italic;
-    font-weight: 400;
-    font-size: 1.12em;
-    letter-spacing: -0.01em;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+  /* Field and group labels: sentence case, never all caps, readable (muted, not faint). */
+  .label {
+    @apply font-sans text-meta font-medium text-muted;
+    text-transform: none;
+    letter-spacing: normal;
   }
   .page-title {
     @apply font-sans text-page-title text-text;
