@@ -5,7 +5,8 @@ import type { DayStat, DayStatus } from "../lib/types";
 // Streak marks under each day in Week (Week.dc.html) and a dot in Month (SPEC 4.10).
 
 const STYLE: Partial<Record<DayStatus, { label: string; dot: string; box: string }>> = {
-  kept: { label: "Kept", dot: "bg-sealed", box: "border-sealed-line bg-sealed-tint" },
+  // Kept is the second colour everywhere (decision log 2026-11-15); in progress stays the accent.
+  kept: { label: "Kept", dot: "bg-second", box: "border-second-line bg-second-tint" },
   broken: { label: "Broken", dot: "bg-broken", box: "border-broken-line bg-broken-tint" },
   missed: { label: "Missed", dot: "bg-check-line", box: "border-line-input" },
   rest: { label: "Rest day", dot: "bg-muted", box: "border-line-input" },

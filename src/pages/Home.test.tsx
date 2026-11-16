@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { useStore } from "../state/store";
 import { connectNativeEvents } from "../state/events";
@@ -34,6 +34,9 @@ beforeEach(() => {
   disconnect = connectNativeEvents();
 });
 afterEach(() => disconnect());
+
+/** A focus picker's trigger, by its label. */
+const picker = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name} `) });
 
 /** A drag from one row onto another, landing in its top half (jsdom rows have no height). */
 function drag(from: HTMLElement, to: HTMLElement) {
@@ -115,12 +118,13 @@ describe("Home counters (v0.1.4)", () => {
     expect(counter).toHaveTextContent("Add a note.");
     fireEvent.change(note, { target: { value: "eggs" } });
     await act(async () => fireEvent.submit(amount.closest("form")!));
-    expect(counter).toHaveTextContent("60 / 150 g");
+    const total = () => within(counter).getByRole("button", { name: /Show today's entries|Hide today's entries/ }).getAttribute("aria-label");
+    expect(total()).toContain("60 of 150 g");
     expect(counter).not.toHaveAttribute("data-done");
     fireEvent.change(amount, { target: { value: "95" } });
     fireEvent.change(note, { target: { value: "chicken" } });
     await act(async () => fireEvent.submit(amount.closest("form")!));
-    expect(counter).toHaveTextContent("155 / 150 g");
+    expect(total()).toContain("155 of 150 g");
     expect(counter).toHaveAttribute("data-done", "true");
     expect(usePlanner.getState().checks).toContainEqual(expect.objectContaining({ routineId: routine!.id, date: day }));
     // The entries, with notes, are in the tracker.
@@ -129,7 +133,7 @@ describe("Home counters (v0.1.4)", () => {
     // Removing one drops below the goal and unchecks it.
     fireEvent.click(within(counter).getByRole("button", { name: /Show today's entries/ }));
     await act(async () => fireEvent.click(within(counter).getByRole("button", { name: "Remove 95 g" })));
-    expect(counter).toHaveTextContent("60 / 150 g");
+    expect(total()).toContain("60 of 150 g");
     expect(usePlanner.getState().checks).not.toContainEqual(expect.objectContaining({ routineId: routine!.id, date: day }));
   });
 });
@@ -141,7 +145,7 @@ describe("Home Pending tab (v0.1)", () => {
     render(<Home />);
     const tab = within(screen.getByTestId("day-column")).getByTestId("pending-tab");
     const toggle = within(tab).getByRole("button", { name: "Show pending" });
-    expect(toggle).toHaveClass("text-faint");
+    expect(toggle).toHaveClass("text-muted");
     fireEvent.click(toggle);
     const add = within(tab).getByRole("textbox", { name: "Add to pending" });
     fireEvent.change(add, { target: { value: "Renew passport" } });
@@ -169,9 +173,12 @@ describe("Home streak chip", () => {
     const t = todayKey();
     mockControls.statsDays({ [addDays(t, -2)]: { focusMin: 130 }, [addDays(t, -1)]: { focusMin: 125 } });
     render(<Home />);
-    const chip = await screen.findByRole("button", { name: "2 day streak. Open Stats" });
+    const chip = await screen.findByRole("button", { name: "2 day streak, 2 of the last 7 days kept, today 0m of 2h. Open Stats" });
     expect(chip.querySelectorAll("[data-status]")).toHaveLength(7);
     expect(chip.querySelectorAll('[data-status="kept"]')).toHaveLength(2);
+    // Kept is the second colour; today is the accent, filling as you focus.
+    expect(chip.querySelector('[data-status="kept"]')).toHaveClass("bg-second");
+    expect(chip.querySelector("[data-today-cell]")).toHaveClass("border-sealed");
     fireEvent.click(chip);
     expect(useStore.getState().activeTab).toBe("stats");
   });
@@ -182,32 +189,37 @@ describe("Home", () => {
     await withSampleProfiles();
     render(<Home />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeLine("open"));
-    const options = (name: string) => within(screen.getByRole("listbox", { name })).getAllByRole("option");
+    const options = (name: string) => {
+      fireEvent.click(picker(name));
+      const list = within(screen.getByRole("listbox", { name })).getAllByRole("option");
+      fireEvent.keyDown(screen.getByRole("listbox", { name }), { key: "Escape" });
+      return list;
+    };
     expect(options("Length").map((o) => o.textContent)).toEqual(["15 min", "30 min", "45 min", "60 min", "75 min", "90 min", "105 min", "120 min"]);
     expect(options("Profile").map((o) => o.textContent)).toEqual(["Interview Prep", "Deep Work", "Study", "Light Work"]);
-    expect(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { selected: true })).toHaveTextContent("Interview Prep");
+    expect(picker("Profile")).toHaveTextContent("Interview Prep");
     expect(screen.getByTestId("focus-row")).toHaveTextContent(`Opens LeetCode, NeetCode, VS Code, Excalidraw, Notion · seals ${useStore.getState().distractions.length}`);
     // A calm, normal-size button with the note above it.
     expect(screen.getByRole("button", { name: /Enter focus/ })).not.toContainElement(screen.getByTestId("focus-note"));
-    // As tall as the wheel boxes beside it.
-    expect(screen.getByRole("button", { name: /Enter focus/ }).className).toContain("h-[82px]");
+    // As tall as the pickers beside it.
+    expect(screen.getByRole("button", { name: /Enter focus/ }).className).toContain("h-[52px]");
     expect(screen.getByRole("button", { name: /Enter focus/ })).toBeEnabled();
   });
 
   it("switching profile applies its default duration", async () => {
     await withSampleProfiles();
     render(<Home />);
+    fireEvent.click(picker("Profile"));
     fireEvent.click(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { name: "Deep Work" }));
-    expect(within(screen.getByRole("listbox", { name: "Length" })).getByRole("option", { selected: true })).toHaveTextContent("90 min");
-    // Arrow keys step the wheel.
-    fireEvent.keyDown(screen.getByRole("listbox", { name: "Length" }), { key: "ArrowDown" });
-    expect(useStore.getState().durationMin).toBe(105);
+    expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
+    expect(picker("Length")).toHaveTextContent("90 min");
+    expect(useStore.getState().durationMin).toBe(90);
   });
 
   it("has an empty state with Enter focus disabled when there are no profiles", async () => {
     await act(() => useStore.getState().loadProfiles());
     render(<Home />);
-    expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Profile/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Enter focus/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Create one in Setup" }));
     expect(useStore.getState().activeTab).toBe("setup");
@@ -217,7 +229,9 @@ describe("Home", () => {
     await withSampleProfiles();
     render(<Home />);
     // Mock backend: Discord is running and flagged.
-    expect(await screen.findByText("Discord closes when you enter")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("focus-note")).toHaveTextContent("Discord closes when you enter"));
+    // A label: sentence case, readable.
+    expect(screen.getByTestId("focus-note")).toHaveClass("label");
   });
 
   it("Enter focus seals with a real session and runs the timer", async () => {
@@ -230,11 +244,11 @@ describe("Home", () => {
     expect(s.appState).toBe("sealed");
     expect(s.session?.plannedMinutes).toBe(60);
     const bar = screen.getByTestId("session-bar");
-    expect(within(bar).getByRole("timer")).toHaveTextContent("60:00");
+    expect(within(bar).getByRole("timer")).toHaveAccessibleName("60 min left");
     expect(bar).toHaveTextContent("Sealed · Interview Prep · 60 min");
     expect(bar).toHaveTextContent("0 attempts blocked");
     await act(async () => mockControls.fastForward(18 * 60_000 + 500));
-    expect(within(bar).getByRole("timer")).toHaveTextContent("42:00");
+    expect(within(bar).getByRole("timer")).toHaveAccessibleName("42 min left");
     act(() => mockControls.block("Discord"));
     expect(bar).toHaveTextContent("1 attempt blocked");
   });
@@ -267,7 +281,7 @@ describe("Home", () => {
     expect(screen.getByTestId("session-bar")).toHaveTextContent("Sealed · Interview Prep · 60 min");
   });
 
-  it("steps the streak, search, and Customize aside while sealed or in an event, and brings them back when open", () => {
+  it("steps search and Customize aside while sealed or in an event, keeps the streak, and brings them back when open", () => {
     render(<Home />);
     const tools = screen.getByTestId("home-tools");
     expect(tools).not.toHaveAttribute("aria-hidden");
@@ -275,6 +289,7 @@ describe("Home", () => {
       act(() => useStore.getState().setAppState(state));
       expect(tools).toHaveAttribute("aria-hidden", "true");
       expect(tools).toHaveClass("opacity-0");
+      expect(screen.getByTestId("streak")).toBeVisible();
     }
     act(() => useStore.getState().setAppState("open"));
     expect(tools).not.toHaveAttribute("aria-hidden");
@@ -300,12 +315,11 @@ describe("Home", () => {
     expect(screen.getByTestId("suggestion")).toBeInTheDocument();
   });
 
-  it("centers the Enter focus label with the shortcut under it", async () => {
+  it("draws the Enter focus fill as its own layer, the source of the seal line", async () => {
     await withSampleProfiles();
     render(<Home />);
     const button = screen.getByRole("button", { name: /Enter focus/ });
-    // Only the label takes part in centering; the shortcut is positioned under it.
-    expect(button.firstElementChild).toBe(screen.getByTestId("enter-label"));
-    expect(button.lastElementChild!.className).toContain("absolute");
+    expect(button.querySelector("[data-seal-src]")).toHaveClass("bg-sealed");
+    expect(screen.getByTestId("enter-label")).toHaveTextContent("Enter focus Ctrl ↵");
   });
 });
