@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -28,6 +29,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Agent worktrees live under .claude/worktrees; their copies of the tests are not ours to run.
+    exclude: [...configDefaults.exclude, ".claude/**"],
     // The site's components (partner/) are tested here too: one React for both.
     alias: [{ find: /^react(\/.*)?$/, replacement: `${process.cwd()}/node_modules/react$1` }, { find: /^react-dom(\/.*)?$/, replacement: `${process.cwd()}/node_modules/react-dom$1` }],
   },
