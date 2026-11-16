@@ -22,3 +22,11 @@ window.matchMedia ??= ((query: string) => ({
   removeListener: () => undefined,
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia;
+
+// jsdom has no ResizeObserver. Rulers and charts (motion spec §11.1) measure their width with
+// one; in tests it never fires, so they keep the width they read at mount.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver;
