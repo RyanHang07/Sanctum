@@ -59,7 +59,7 @@ export function ActivitySection() {
   const settings = useStore((s) => s.settings);
   const set = useStore((s) => s.setActivitySetting);
   return (
-    <Section title="Activity" action={<span className="text-[11px] text-muted">Stays on this PC</span>}>
+    <Section title="Tracking" action={<span className="text-[11px] text-muted">Stays on this PC</span>}>
       <TodaySummary />
       <Row label="Idle after" hint="Idle pauses the seal and doesn't count as focus">
         <MiniSelect label="Idle after" value={settings.idleThresholdMin} options={IDLE} onChange={(v) => set("idleThresholdMin", v)} />
@@ -116,8 +116,8 @@ export function ActivityRulesSection() {
   };
 
   return (
-    <Section title="Activity rules" action={<span className="font-mono text-meta text-muted">{rules?.length ?? ""}</span>}>
-      <div className="flex max-h-[176px] flex-col overflow-y-auto py-1" role="list" aria-label="Activity rules">
+    <Section title="Activity rules" className="flex flex-col" action={<span className="font-mono text-meta text-muted">{rules?.length ?? ""}</span>}>
+      <div className="flex h-0 min-h-[176px] grow flex-col overflow-y-auto py-1" role="list" aria-label="Activity rules">
         {rules?.length === 0 ? <p className="m-0 px-[14px] py-2 text-meta text-muted">Everything counts as neutral.</p> : null}
         {rules?.map((r) => (
           <div key={r.id} role="listitem" className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft">

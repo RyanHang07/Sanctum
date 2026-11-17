@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Dialog } from "../../components/controls";
-import { PlusIcon, SearchIcon } from "../../components/icons";
+import { PanelIcon, PlusIcon, SearchIcon } from "../../components/icons";
+import { native } from "../../lib/native";
 import { ToolIcon } from "../../components/editor/toolIcons";
 import { noteTitle, notePreview, useNotes } from "../../state/notes";
 import { GUTTER, NoteEditor } from "../../components/editor/NoteEditor";
@@ -130,6 +131,13 @@ export function NotesPage() {
   const [query, setQuery] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<Note | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // The list folds away for focus (decided 2026-11-16); the choice is remembered.
+  const [listHidden, setListHidden] = useState(false);
+  useEffect(() => void native.getSetting("notes_list_hidden").then((v) => setListHidden(v === "1"), () => undefined), []);
+  const toggleList = () => {
+    setListHidden(!listHidden);
+    void native.setSetting("notes_list_hidden", listHidden ? "0" : "1").catch(() => undefined);
+  };
   useEffect(() => {
     void load();
     return () => void flush();
@@ -154,7 +162,14 @@ export function NotesPage() {
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
       <div className="flex h-control shrink-0 items-center justify-between">
-        <h1 className="page-title m-0">Notes</h1>
+        <div className="flex items-center gap-2">
+          {notes.length ? (
+            <Button variant="quiet" size="sm" aria-label={listHidden ? "Show notes list" : "Hide notes list"} aria-expanded={!listHidden} aria-controls="notes-list" className="w-[26px] px-0" onClick={toggleList}>
+              <PanelIcon className={listHidden ? "" : "rotate-180"} />
+            </Button>
+          ) : null}
+          <h1 className="page-title m-0">Notes</h1>
+        </div>
         <Button variant="primary" onClick={() => void create()}>
           <PlusIcon size={13} /> New note
         </Button>
@@ -168,8 +183,13 @@ export function NotesPage() {
           </Button>
         </div>
       ) : (
-        <div className="flex min-h-0 grow gap-4">
-          <aside aria-label="All notes" className="flex w-[260px] shrink-0 flex-col gap-2">
+        <div className="flex min-h-0 grow">
+          <aside
+            id="notes-list"
+            aria-label="All notes"
+            inert={listHidden}
+            className={`flex shrink-0 flex-col gap-2 overflow-hidden [&>*]:w-[260px] transition-[width,margin,opacity] duration-state ease-glide motion-reduce:transition-none ${listHidden ? "mr-0 w-0 opacity-0" : "mr-4 w-[260px] opacity-100"}`}
+          >
             <label className="focus-ring-within flex h-control shrink-0 items-center gap-2 rounded-control border border-line-input bg-panel px-[10px] text-muted">
               <SearchIcon size={12} />
               <input

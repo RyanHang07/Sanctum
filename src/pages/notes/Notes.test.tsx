@@ -196,3 +196,19 @@ describe("Notes page", () => {
     await waitFor(async () => expect((await native.listNotes()).map((n) => n.id)).not.toContain(a.id));
   });
 });
+
+describe("the notes list folds away for focus", () => {
+  it("hides and shows the list, and remembers it", async () => {
+    const { render, screen, fireEvent, waitFor, act } = await import("@testing-library/react");
+    const { NotesPage } = await import("./NotesPage");
+    const { useNotes } = await import("../../state/notes");
+    const { native } = await import("../../lib/native");
+    await act(async () => void (await useNotes.getState().create()));
+    render(<NotesPage />);
+    const hide = await screen.findByRole("button", { name: "Hide notes list" });
+    expect(screen.getByRole("complementary", { name: "All notes" })).not.toHaveAttribute("inert");
+    fireEvent.click(hide);
+    expect(screen.getByRole("button", { name: "Show notes list" })).toHaveAttribute("aria-expanded", "false");
+    await waitFor(async () => expect(await native.getSetting("notes_list_hidden")).toBe("1"));
+  });
+});
