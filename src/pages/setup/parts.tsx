@@ -2,9 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 
 // Building blocks for Setup sections (design/screens/Setup.dc.html).
 
-export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function Section({ title, action, children, className = "" }: { title: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section aria-label={title} className="overflow-hidden rounded-panel border border-line bg-panel">
+    <section aria-label={title} className={`overflow-hidden rounded-panel border border-line bg-panel ${className}`}>
       <div className="flex h-10 items-center justify-between border-b border-line px-[14px]">
         <h2 className="m-0 text-body font-semibold">{title}</h2>
         {action}

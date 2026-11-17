@@ -134,6 +134,25 @@ fn parse_hex(hex: &str) -> Option<[u8; 3]> {
     Some([r, g, b])
 }
 
+/// The window and taskbar icon (decided 2026-11-16): its keyhole follows the theme's accent too.
+const WINDOW_ICON: &[u8] = include_bytes!("../icons/128x128.png");
+
+/// The app icon with its cobalt keyhole painted in `accent` (None: the original). The torii is
+/// untouched, and so is every pixel's alpha, so the edges stay smooth.
+pub fn themed_window_icon(accent: Option<[u8; 3]>) -> Option<(Vec<u8>, u32, u32)> {
+    let decoded = image::load_from_memory(WINDOW_ICON).ok()?.to_rgba8();
+    let (w, h) = decoded.dimensions();
+    let mut out = decoded.into_raw();
+    if let Some(rgb) = accent {
+        for px in out.chunks_exact_mut(4) {
+            if px[3] > 0 && is_keyhole(px[0] as i32, px[1] as i32, px[2] as i32) {
+                px[..3].copy_from_slice(&rgb);
+            }
+        }
+    }
+    Some((out, w, h))
+}
+
 /// Sets the tray keyhole accent color (hex). Call when the app theme changes.
 pub fn set_theme(app: &AppHandle, accent: Option<String>) {
     let next = accent.as_deref().and_then(parse_hex);
@@ -141,6 +160,10 @@ pub fn set_theme(app: &AppHandle, accent: Option<String>) {
         let mut cur = ACCENT.lock().unwrap();
         if *cur == next { return; }
         *cur = next;
+    }
+    // The main window's icon (title bar, taskbar, Alt+Tab) follows as well.
+    if let (Some(win), Some((rgba, w, h))) = (app.get_webview_window("main"), themed_window_icon(next)) {
+        let _ = win.set_icon(Image::new_owned(rgba, w, h));
     }
     // Rebuild immediately for non-sealed state; the pulse thread also picks it up.
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
@@ -324,6 +347,24 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_icon_keyhole_takes_the_accent_and_the_torii_stays() {
+        let (orig, w, h) = themed_window_icon(None).unwrap();
+        let (red, w2, h2) = themed_window_icon(Some([0xFF, 0x67, 0x67])).unwrap();
+        assert_eq!((w, h), (w2, h2));
+        let mut keyhole = 0;
+        for (a, b) in orig.chunks_exact(4).zip(red.chunks_exact(4)) {
+            assert_eq!(a[3], b[3], "alpha never changes");
+            if a[3] > 0 && is_keyhole(a[0] as i32, a[1] as i32, a[2] as i32) {
+                keyhole += 1;
+                assert_eq!(&b[..3], &[0xFF, 0x67, 0x67]);
+            } else {
+                assert_eq!(a, b, "the torii and the background stay as they are");
+            }
+        }
+        assert!(keyhole > 20, "the 128px icon has a keyhole to recolour");
+    }
 
     #[test]
     fn a_light_taskbar_gets_the_dark_ink_mark_with_the_keyhole_kept() {

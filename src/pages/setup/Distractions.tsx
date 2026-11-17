@@ -185,8 +185,11 @@ export function DistractionsTab() {
     if (draft.trim() && (await flag({ kind: "auto", value: draft }))) setDraft("");
   };
 
+  // Narrow panes stack the columns (decided 2026-11-16): side by side, the lists squeezed site
+  // names to a letter. The switch follows the pane's own width, not the window's.
   return (
-    <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] items-start gap-4">
+    <div className="@container min-h-0">
+    <div data-testid="distractions-grid" className="grid grid-cols-1 items-start gap-4 @[720px]:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex min-w-0 flex-col gap-4">
         {sealed ? (
           <p className="m-0 flex items-center gap-2 text-meta text-muted">
@@ -227,7 +230,7 @@ export function DistractionsTab() {
           );
         })}
       </div>
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <QuietHoursSection />
         <PauseModeSection />
         <Suggestions refreshKey={distractions.length} />
@@ -240,6 +243,7 @@ export function DistractionsTab() {
           onPick={(a) => void flag({ kind: "app", value: a.exe, label: a.name, path: a.launch })}
         />
       ) : null}
+    </div>
     </div>
   );
 }

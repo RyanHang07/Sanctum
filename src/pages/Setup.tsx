@@ -293,7 +293,8 @@ export function Setup() {
           ) : null}
           {current.id === "trackers" ? <TrackersTab /> : null}
           {current.id === "tracking" ? (
-            <div className={narrow}>
+            // Two boxes of one height (decided 2026-11-16): the rules list scrolls inside its box.
+            <div className="grid max-w-[640px] auto-rows-fr gap-4">
               <ActivitySection />
               <ActivityRulesSection />
             </div>
