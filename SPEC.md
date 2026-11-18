@@ -1,6 +1,8 @@
-# Sanctum: Focus Hub + Distraction Blocker (Spec v0.9)
+# Sanctum: Focus Hub + Distraction Blocker (Spec v0.10)
 
 > App name: **Sanctum**. A protected inner room for focused work. This file is the source of truth for Claude Code. Build milestone by milestone, and ask before deviating from decisions marked **Decided**.
+>
+> Brought up to date with the app as built at **v0.4.0** (2026-11-18). Decided items that the v0.4.0 redesign and stability work changed carry "(changed 2026-11-17)"; the older text is struck through or noted beside it.
 
 ## 1. Overview
 
@@ -28,6 +30,8 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 | Desktop shell | Tauri v2 |
 | Frontend | React + TypeScript + Vite + Tailwind |
 | Frontend state | Zustand |
+| Motion | GSAP 3 (imported only through `src/lib/gsap.ts`) for moments and glides; CSS transitions for small UI changes. Respects reduced motion (built v0.4.0) |
+| Notes editor | Tiptap (block notes) |
 | Frontend tests | Vitest |
 | Native backend | Rust |
 | Local DB | SQLite via `rusqlite` (raw activity data never leaves the machine) |
@@ -73,33 +77,41 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 ## 4. Features
 
 ### 4.0 App shell, Home, and states (**Decided**, overrides older screen notes below)
-- **Shell:** left sidebar (220px, collapsible to a 60px icon rail with Ctrl B, remembered; **Decided** 2026-09-29) with the mark, a state pill, and four tabs: **Today** (Home), **Week**, **Trackers**, **Setup**. Each tab has a shortcut (Ctrl 1, 2, 3, Ctrl ,). A command bar opens with Ctrl K. **Now (2026-09-30):** Today, Week, Stats, Trackers, **Notes**, Setup (Ctrl 1 to 5, Ctrl ,). Notes are titled plain-text notes, local only, and stay open while sealed (Decided). Each screen does one job: Home is start focus plus one Today list (calendar events inline, no Schedule panel); Setup is a section list, one section at a time
+- **Shell:** left sidebar (220px, collapsible to a 60px icon rail with Ctrl B, remembered; **Decided** 2026-09-29) with the mark, a state pill, and four tabs: **Today** (Home), **Week**, **Trackers**, **Setup**. Each tab has a shortcut (Ctrl 1, 2, 3, Ctrl ,). A command bar opens with Ctrl K. **Now (2026-09-30):** Today, Week, Stats, Trackers, **Notes**, Setup (Ctrl 1 to 5, Ctrl ,). Notes are titled plain-text notes, local only, and stay open while sealed (Decided). Each screen does one job: Home is start focus plus one Today list (calendar events inline, no Schedule panel); Setup is a section list, one section at a time. **Now (v0.4.0):** Today, Week, Stats, Trackers, Notes, **Journal** (Ctrl 1 to 6), Setup (Ctrl ,); notes are block documents
+- **Setup's structure (changed 2026-11-17; was one list with a General section):** four groups by what they're for, in one column that is the same width in every section:
+  - **Focus:** Profiles, Distractions, Goals (daily goal, day reset time, rest days, weekly target, weekly recap)
+  - **Protection:** App Guard (formerly "Protection" / "Sanctum stays open"), Browser Extension, Partner
+  - **Tracking:** Trackers, Activity, Calendar
+  - **App:** Appearance, Sound and Alerts (sounds, Do not disturb), Behavior (start with Windows, on login, close button, compact on focus, About), Your Data (export, backup, restore), ending in a **Danger Zone** with Start over and Delete account
+  - A profile opens inside Setup's column with a way back, Profiles still selected
 - **Home = Today.** Daily goals and focus are one screen:
   - Day-only task list: add (Enter), check off, repeating daily items reset each morning. Tasks can carry a profile tag and a time
-  - Focus row on one line: **Profile** dropdown, **Duration** dropdown (15 min to 2 h in 15-minute steps; 15 is the minimum. Was 30/60/90/120, changed 2026-10-01), a one-line note of what opens/seals, and **Enter focus** (Ctrl Enter)
-  - Right column: today's schedule from Google Calendar and today's focus progress + next check-in
+  - Focus row on one line: **Profile** dropdown, **Duration** dropdown (15 min to 2 h in 15-minute steps; 15 is the minimum. Was 30/60/90/120, changed 2026-10-01), a one-line note of what opens/seals, and **Enter focus** (Ctrl Enter). **Now:** labeled keyboard pickers, **Profile** and **Length**, beside Enter focus (changed 2026-11-17)
+  - ~~Right column: today's schedule from Google Calendar and today's focus progress + next check-in~~ **Now (changed 2026-11-17):** the focused minutes run along a ruler under the headline, with the daily goal as one tall tick in the second color. Reaching the goal is marked quietly (no sound, glow or confetti). **Next up**, under the Today list, shows the next timed item with a live countdown
+  - **The Today card's top slot (changed 2026-11-17):** Open, Sealed and In event share one fixed-height strip so the controls below never move. Open shows the next focus block, the linked task, or the empty-schedule hint (with nothing scheduled, one short line for the day; once the goal is kept, a break or another block). Sealed and In event show only what the cells below don't (when the seal ends, apps sealed, attempts blocked; the event's time range)
+  - **Park is no longer a field on the sealed card (changed 2026-11-17).** Ctrl Alt P still parks a thought while sealed (4.10b)
   - The Week tab holds everything beyond today
 - **App states** (single source of truth in the store, shown in the sidebar pill and a 2px top rule):
   - **Open** (gray): nothing running, all tabs reachable
   - **Sealed** (blue): focus session running. Home swaps the focus row for a session bar (timer, progress, sealed count, End early). The current task is highlighted as "Now". Week, Trackers, and Setup are **locked**; clicking one shows a toast: "Week is locked while you're sealed. End focus to open it." Tasks on Home can still be checked off
   - **In event** (teal): a Google Calendar event is happening now. Home shows the event bar (time left, Open notes, Queue focus at end). Enter focus is held until the event ends unless queued
-- Home headline changes by state: Open "Keep your promises. *Or stay mid.*", Sealed "You're sealed in. *Finish what you started.*", In event "<Event> until <time>. *Be all the way there.*"
+- ~~Home headline changes by state: Open "Keep your promises. *Or stay mid.*", Sealed "You're sealed in. *Finish what you started.*", In event "<Event> until <time>. *Be all the way there.*"~~ **(changed 2026-11-17; the headline rule was decided 2026-11-15)** The headline is one plain sentence per state (no italic payoff), picked from a few lines seeded by the day so it holds still; every string lives in `src/pages/headlines.ts` (e.g. Open "Your word is the plan.", Sealed "Nothing else matters right now."). The day's fact goes in plain text under it, never in the headline
 - Check-ins, the held screen, and sealed-app intercepts appear as dialogs over the current screen, never as separate pages
 
 ### 4.0.1 Tray, close behavior, and compact timer (**Decided**)
-- **System tray icon** (Tauri `tray-icon` feature). The icon is the Arch mark; a small blue dot appears on it while sealed
+- **System tray icon** (Tauri `tray-icon` feature). The icon is the torii keyhole mark (it was the Arch mark before the torii keyhole was chosen); while sealed, only the keyhole breathes. The window and taskbar icon's keyhole follows the theme's accent
   - Left click toggles a **tray panel**: a small frameless window (340px wide) anchored above the tray. Shows the state pill, the timer + progress and Compact / Open Sanctum when sealed, or the Profile + Duration dropdowns and Enter focus when open, the next 3 tasks for today (checkable), an add-task row, and the next check-in. Footer: Break the seal (sealed) or Quit Sanctum (open). Hides on blur
   - Right click opens a native menu: Open Sanctum, Enter focus / Compact timer, Quit
 - **Close button:** intercept the window close request
   - First time: show the Close dialog with two choices, **Minimize to tray** (keeps blocking, check-ins, and calendar sync running) or **Quit Sanctum**, plus "Don't ask again" (on by default)
-  - The saved choice lives in Setup > Window > Close button and can be changed there
+  - The saved choice lives in Setup › Behavior › Close button (was Setup > Window) and can be changed there
   - While sealed, Quit is disabled in the dialog and the tray; close always goes to the tray. Quitting while sealed is only possible through the break-the-seal ladder
 - **Compact focus mode** (toggle with Ctrl M, the Compact button on Home, or the tray panel):
   - Hides the main window and shows a separate small frameless, always-on-top, draggable window (300x58, radius 12). Position is remembered. Double-click or the expand button returns to the full window
   - Contents: progress ring, profile name, minutes left + end time, and the countdown in Geist Mono
-  - **Fill shows progress:** the timer background fills left to right with solid cobalt `#2F5BFF` up to p (0 to 1) over the dark panel. The countdown, label, and progress ring are **white** so they read on both the filled and unfilled parts. Border `#1F3482`
-  - At 100% it shows "Held." then opens the Session held dialog in the main window
-  - Setup > Window > "Go compact when focus starts" (off by default)
+  - **Fill shows progress:** ~~the timer background fills left to right with solid cobalt `#2F5BFF` up to p (0 to 1) over the dark panel. The countdown, label, and progress ring are **white** so they read on both the filled and unfilled parts. Border `#1F3482`~~ **(changed 2026-11-17)** the theme's sealed color fills left to right up to p (0 to 1). The content is drawn twice and clipped at the fill's edge: `text` and `text-2` over the panel, the on-sealed color over the fill, so it reads in every theme. No glow: at the end the ring closes in the on-sealed color and the frame's edge turns the second color
+  - At 100% it shows "Held." then opens the Session held page in the main window
+  - Setup › Behavior › "Go compact when focus starts" (off by default; was Setup > Window)
 
 ### 4.0.2 Sanctum held page, logo motion, sound (**Decided**)
 - **Sanctum held** is a full-page takeover of the main window (not a dialog): animated **mesh gradient** background (WebGL/canvas mesh gradient lib, Stripe-style) with a subtle grain, the logo draw animation, "Sanctum *held.*", session stats, and Replay / Done (Esc) / Enter again (Enter). It **stays until dismissed**. Gradient colors follow the chosen accent palette
