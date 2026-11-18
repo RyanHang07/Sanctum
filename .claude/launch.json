@@ -22,6 +22,20 @@
       "port": 5174
     },
     {
+      "name": "partner-view",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "partner",
+        "--config",
+        "partner/vite.config.ts",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "port": 5180
+    },
+    {
       "name": "extension",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

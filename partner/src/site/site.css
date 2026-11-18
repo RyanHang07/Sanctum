@@ -644,3 +644,28 @@ a.more:hover {
   visibility: hidden;
   font-weight: 500;
 }
+
+/* The GitHub star button beside Download (2026-11-18): ghost, with the count after a hairline. */
+.site-stars {
+  gap: 6px;
+}
+.site-stars-count {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line-input);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+/* Narrow: the icon and the count only, so Download keeps its room. */
+@media (max-width: 420px) {
+  .site-stars > span:not(.site-stars-count) {
+    display: none;
+  }
+}
+/* Very narrow phones: the bar keeps the theme switch, Download and the menu; GitHub is in the menu. */
+@media (max-width: 360px) {
+  .site-bar a.button.site-stars {
+    display: none;
+  }
+}

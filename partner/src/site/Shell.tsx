@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { A, usePath } from "./nav";
-import { DOWNLOAD, REPO } from "./releases";
+import { DOWNLOAD, REPO, starCount, useStars } from "./releases";
 import { useTheme } from "./theme";
 import { useGrow, useSlidingIndicator, useSwap } from "./motion";
 
@@ -94,6 +94,7 @@ export function Shell({ children, wide = true, page = "" }: { children: ReactNod
           </nav>
           <span className="grow" />
           {app ? null : <ThemeToggle dark={dark} toggle={toggle} />}
+          <Stars />
           <a className="button primary site-download" href={DOWNLOAD}>
             Download
           </a>
@@ -132,5 +133,27 @@ export function Shell({ children, wide = true, page = "" }: { children: ReactNod
         </div>
       </footer>
     </div>
+  );
+}
+
+/** Star on GitHub, with the repo's count once it loads (2026-11-18). */
+function Stars() {
+  const stars = useStars();
+  return (
+    <a
+      className="button ghost site-stars"
+      href={REPO}
+      aria-label={stars === null ? "Star Sanctum on GitHub" : `Star Sanctum on GitHub, ${stars} ${stars === 1 ? "star" : "stars"}`}
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+        <path d="M8 1.75l1.9 3.85 4.25.62-3.08 3 .73 4.23L8 11.45l-3.8 2 .73-4.23-3.08-3 4.25-.62z" />
+      </svg>
+      <span>Star</span>
+      {stars === null ? null : (
+        <span className="site-stars-count" data-testid="star-count">
+          {starCount(stars)}
+        </span>
+      )}
+    </a>
   );
 }
