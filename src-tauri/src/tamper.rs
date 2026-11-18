@@ -8,7 +8,8 @@
 //! - A browser's extension was connected when the seal started and the browser keeps running
 //!   without it for 90 seconds (browser.rs). Closing the browser is fine.
 
-use crate::{engine, session, Shared};
+use crate::engine::{self, Locked};
+use crate::{session, Shared};
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -48,8 +49,8 @@ pub(crate) fn uptime_ms() -> u64 {
 pub fn on_seal(app: &AppHandle, sealed: bool) {
     let shared = app.state::<Shared>();
     let t = &shared.tamper;
-    *t.sample.lock().unwrap() = None;
-    *t.guard_down_since.lock().unwrap() = None;
+    *t.sample.locked() = None;
+    *t.guard_down_since.locked() = None;
     let guard = sealed && crate::guard::service_running();
     t.guard_at_seal.store(guard, Ordering::Relaxed);
 }
@@ -59,7 +60,7 @@ pub fn check(app: &AppHandle, n: u64) {
     let shared = app.state::<Shared>();
     let t = &shared.tamper;
     let now = (session::now_ms(), uptime_ms());
-    let prev = t.sample.lock().unwrap().replace(now);
+    let prev = t.sample.locked().replace(now);
     if let Some(prev) = prev {
         let jump = clock_jump(prev, now);
         if jump.abs() > JUMP_LIMIT_MS {
@@ -68,7 +69,7 @@ pub fn check(app: &AppHandle, n: u64) {
         }
     }
     if n % 5 == 0 && t.guard_at_seal.load(Ordering::Relaxed) {
-        let mut down = t.guard_down_since.lock().unwrap();
+        let mut down = t.guard_down_since.locked();
         if crate::guard::service_running() {
             *down = None;
         } else if down.get_or_insert_with(Instant::now).elapsed() >= GUARD_GRACE {
@@ -104,10 +105,8 @@ pub fn break_seal(app: &AppHandle, kind: &'static str, detail: String) {
         (active.id, active.profile_name.clone())
     };
     let now = session::now_ms();
-    if let Ok(conn) = shared.db.lock() {
-        let _ = session::mark_broken(&conn, id, now);
-        let _ = conn.execute("INSERT INTO tamper_events (session_id, ts, kind) VALUES (?1, ?2, ?3)", rusqlite::params![id, now, kind]);
-    }
+    // One transaction (2026-11-17): broken and its cause land together.
+    let _ = session::write_twice("tamper", || session::log_tamper(&shared.db.locked(), id, kind, now));
     crate::cloud::notify(app, "session_broken", format!("{profile}: {detail}"));
     engine::emit_view(app);
     let _ = app.emit(EV_TAMPER, Tampered { kind, detail });

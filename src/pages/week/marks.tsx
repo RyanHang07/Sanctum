@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { DayStat, DayStatus } from "../../lib/types";
+import { WeekIcon } from "../../components/icons";
 
 // Week's own marks (ProtoWeek.dc.html, without the glow: the app is flat since 2026-11-16).
-// Day states: kept is a solid second-colour dot (decoration, never an action), today is the
+// Day states: kept is a solid second-color dot (decoration, never an action), today is the
 // accent, missed is a hollow ring, future has no mark. Ticked boxes stay the accent.
 
 /** When a day sits relative to today: past items can slip, future ones are only planned. */
@@ -81,49 +82,15 @@ export function Fold({ open, children, className = "" }: { open: boolean; childr
   );
 }
 
-/** A checkbox's box: the accent when ticked, and the check draws itself (motion spec §10.1). */
-export function TickBox({
-  done,
-  partial = false,
-  size = 14,
-  label,
-  checked,
-  onToggle,
-}: {
-  done: boolean;
-  partial?: boolean;
-  size?: 14 | 16;
-  label: string;
-  checked: boolean | "mixed";
-  onToggle: () => void;
-}) {
+/**
+ * A calendar event's mark (decided 2026-11-16): a small calendar glyph in the slot where a task
+ * has its checkbox, in neutral muted. Events no longer carry a color of their own, so the event
+ * color stays the In event state's, and the second color stays the kept mark's.
+ */
+export function EventMark({ size = 14 }: { size?: 14 | 16 }) {
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onToggle}
-      className={`box-border flex shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${size === 16 ? "h-4 w-4" : "mt-px h-[14px] w-[14px]"} ${
-        done ? "border border-sealed bg-sealed" : partial ? "border border-sealed bg-sealed/25" : "border-[1.5px] border-check-line hover:border-muted"
-      }`}
-    >
-      {partial && !done ? (
-        <span className="h-[5px] w-[5px] rounded-[1px] bg-sealed" />
-      ) : (
-        <svg viewBox="0 0 12 12" fill="none" aria-hidden="true" className={size === 16 ? "h-[10px] w-[10px]" : "h-[9px] w-[9px]"}>
-          <path
-            data-check={done ? "on" : "off"}
-            d="M2.5 6.3l2.4 2.4L9.6 3.8"
-            pathLength={1}
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`[stroke-dasharray:1] transition-[stroke-dashoffset] duration-enter ease-ui ${done ? "[stroke-dashoffset:0]" : "[stroke-dashoffset:1]"}`}
-          />
-        </svg>
-      )}
-    </button>
+    <span role="img" aria-label="Calendar event" data-event-mark className={`flex shrink-0 items-center justify-center text-muted ${size === 16 ? "h-4 w-4" : "mt-px h-[14px] w-[14px]"}`}>
+      <WeekIcon size={size} />
+    </span>
   );
 }

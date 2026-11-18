@@ -48,18 +48,27 @@ export const minutesOf = (hhmm: string) => {
   return h! * 60 + m!;
 };
 
-/** The planner's "today": before the reset time (default 4:00), it's still yesterday. */
-export function todayKey(now: Date = new Date(), resetTime = "04:00"): string {
-  const shifted = new Date(now.getTime() - minutesOf(resetTime) * 60_000);
-  return toKey(shifted);
+/** The local wall-clock moment `resetTime` on the calendar day `key` (setHours, so DST days stay right). */
+function resetOn(key: string, resetTime: string): Date {
+  const d = fromKey(key);
+  const [h, m] = resetTime.split(":").map(Number);
+  d.setHours(h ?? 4, m ?? 0, 0, 0);
+  return d;
 }
 
-/** The planner day `key` as [start, end) in ms: 4:00 AM to 4:00 AM, like `todayKey`. */
+/**
+ * The planner's "today": before the reset time (default 4:00), it's still yesterday. Wall-clock
+ * time, not a fixed shift in ms, so the day rolls over at the reset on daylight-saving days too
+ * (and agrees with `dayBounds` and `msUntilReset`).
+ */
+export function todayKey(now: Date = new Date(), resetTime = "04:00"): string {
+  const key = toKey(now);
+  return now.getTime() < resetOn(key, resetTime).getTime() ? addDays(key, -1) : key;
+}
+
+/** The planner day `key` as [start, end) in ms: 4:00 AM to 4:00 AM local, like `todayKey`. */
 export function dayBounds(key: string, resetTime = "04:00"): [number, number] {
-  const start = fromKey(key).getTime() + minutesOf(resetTime) * 60_000;
-  const d = fromKey(key);
-  d.setDate(d.getDate() + 1);
-  return [start, d.getTime() + minutesOf(resetTime) * 60_000];
+  return [resetOn(key, resetTime).getTime(), resetOn(addDays(key, 1), resetTime).getTime()];
 }
 
 /** Milliseconds until the next planner-day reset at `resetTime` (local). */

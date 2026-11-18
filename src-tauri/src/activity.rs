@@ -5,6 +5,7 @@
 
 use crate::classify::{self, Classifier};
 use crate::session::now_ms;
+use crate::engine::Locked;
 use crate::{blocker, db, profiles, winutil, Shared};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -160,6 +161,21 @@ pub fn prune(conn: &Connection, now: i64, days: i64) -> rusqlite::Result<usize> 
     Ok(a + b)
 }
 
+/// Days blocked attempts, tamper events, and unlock attempts are kept (2026-11-17, the user's
+/// call). Sessions themselves, with their attempt counts, are kept for good.
+pub const HISTORY_DAYS: i64 = 90;
+
+/// Deletes those rows once they're older than HISTORY_DAYS, never a running seal's.
+pub fn prune_history(conn: &Connection, now: i64) -> rusqlite::Result<usize> {
+    let cutoff = now - HISTORY_DAYS * 24 * 3_600_000;
+    let open = "(SELECT id FROM sessions WHERE ended_at IS NULL)";
+    let mut n = 0;
+    for (table, ts) in [("blocked_attempts", "ts"), ("tamper_events", "ts"), ("unlock_attempts", "created_at")] {
+        n += conn.execute(&format!("DELETE FROM {table} WHERE {ts} < ?1 AND (session_id IS NULL OR session_id NOT IN {open})"), [cutoff])?;
+    }
+    Ok(n)
+}
+
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Summary {
@@ -202,7 +218,7 @@ impl State {
         State { tracker: Mutex::new(Tracker::default()), dirty: AtomicBool::new(true) }
     }
     pub fn idle_since(&self) -> Option<i64> {
-        self.tracker.lock().unwrap().idle_since
+        self.tracker.locked().idle_since
     }
     pub fn mark_dirty(&self) {
         self.dirty.store(true, Ordering::Relaxed);
@@ -234,43 +250,47 @@ pub fn spawn(app: AppHandle) {
             let mut loaded_for: Option<Option<i64>> = None;
             let mut n: u64 = 0;
             loop {
-                let shared = app.state::<Shared>();
-                let session = shared.engine.session_ids();
-                let profile_id = session.and_then(|s| s.1);
-                let reload = shared.activity.dirty.swap(false, Ordering::Relaxed) || loaded_for != Some(profile_id) || n % 30 == 0;
-                if reload {
-                    if let Ok(conn) = shared.db.lock() {
+                crate::engine::guarded("sanctum-activity", || {
+                    let shared = app.state::<Shared>();
+                    let session = shared.engine.session_ids();
+                    let profile_id = session.and_then(|s| s.1);
+                    let reload = shared.activity.dirty.swap(false, Ordering::Relaxed) || loaded_for != Some(profile_id) || n % 30 == 0;
+                    if reload {
+                        let conn = shared.db.locked();
                         cfg = load_config(&conn);
                         classifier = load_classifier(&conn, profile_id);
+                        // The first pass is at startup, then every half hour.
                         if n % 1800 == 0 {
                             let _ = prune(&conn, now_ms(), cfg.retention_days);
+                            let _ = prune_history(&conn, now_ms());
                         }
+                        drop(conn);
+                        loaded_for = Some(profile_id);
                     }
-                    loaded_for = Some(profile_id);
-                }
 
-                let fg = winutil::foreground().and_then(|f| {
-                    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
-                    let pid = sysinfo::Pid::from_u32(f.pid);
-                    sys.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, ProcessRefreshKind::nothing());
-                    let exe = sys.process(pid)?.name().to_string_lossy().to_lowercase();
-                    // The extension knows the tab's real domain; titles only hint at it (4b).
-                    let title = match shared.browser.active_domain(&exe) {
-                        Some(domain) if !f.title.to_lowercase().contains(&domain) => format!("{} — {domain}", f.title),
-                        _ => f.title,
+                    let fg = winutil::foreground().and_then(|f| {
+                        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
+                        let pid = sysinfo::Pid::from_u32(f.pid);
+                        sys.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, ProcessRefreshKind::nothing());
+                        let exe = sys.process(pid)?.name().to_string_lossy().to_lowercase();
+                        // The extension knows the tab's real domain; titles only hint at it (4b).
+                        let title = match shared.browser.active_domain(&exe) {
+                            Some(domain) if !f.title.to_lowercase().contains(&domain) => format!("{} — {domain}", f.title),
+                            _ => f.title,
+                        };
+                        Some(Sample { exe, title })
+                    });
+                    let idle_ms = winutil::idle_ms();
+                    let event = {
+                        let conn = shared.db.locked();
+                        let mut t = shared.activity.tracker.locked();
+                        let reading = Reading { now: now_ms(), idle_ms, fg, session_id: session.map(|s| s.0) };
+                        t.step(&conn, reading, &cfg, &classifier).ok().flatten()
                     };
-                    Some(Sample { exe, title })
+                    if let Some(e) = event {
+                        crate::engine::on_idle_event(&app, &e, cfg.idle_threshold_ms);
+                    }
                 });
-                let idle_ms = winutil::idle_ms();
-                let event = {
-                    let conn = shared.db.lock().unwrap();
-                    let mut t = shared.activity.tracker.lock().unwrap();
-                    let reading = Reading { now: now_ms(), idle_ms, fg, session_id: session.map(|s| s.0) };
-                    t.step(&conn, reading, &cfg, &classifier).ok().flatten()
-                };
-                if let Some(e) = event {
-                    crate::engine::on_idle_event(&app, &e, cfg.idle_threshold_ms);
-                }
                 n += 1;
                 std::thread::sleep(Duration::from_millis(SAMPLE_MS as u64));
             }
@@ -407,6 +427,45 @@ mod tests {
         conn.execute("INSERT INTO activity (ts, exe, duration_s) VALUES (?1, 'a.exe', 5), (?2, 'b.exe', 5)", params![0, 40 * day]).unwrap();
         assert_eq!(prune(&conn, 41 * day, 30).unwrap(), 1);
         assert_eq!(rows(&conn).len(), 1);
+    }
+
+    #[test]
+    fn history_goes_after_90_days_except_a_running_seals() {
+        let conn = fresh();
+        let day = 24 * 3_600_000;
+        // Session 7 is still running (no end); session 20 ended long ago.
+        conn.execute("INSERT INTO sessions (id, started_at, planned_minutes, ended_at, outcome) VALUES (20, 0, 60, 1, 'completed')", []).unwrap();
+        conn.execute_batch(&format!(
+            "INSERT INTO blocked_attempts (session_id, ts, exe, kind) VALUES (20, 0, 'old.exe', 'app'), (7, 0, 'running.exe', 'app'), (20, {d}, 'recent.exe', 'app');
+             INSERT INTO tamper_events (session_id, ts, kind) VALUES (20, 0, 'killed'), (NULL, 0, 'killed'), (7, 0, 'clock'), (20, {d}, 'guard');
+             INSERT INTO unlock_attempts (session_id, level_reached, created_at) VALUES (20, 1, 0), (7, 2, 0), (20, 3, {d});",
+            d = 95 * day
+        ))
+        .unwrap();
+        assert_eq!(prune_history(&conn, 100 * day).unwrap(), 4);
+        let left = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, String>(0)).unwrap();
+        assert_eq!(left("SELECT group_concat(exe, ',') FROM (SELECT exe FROM blocked_attempts ORDER BY id)"), "running.exe,recent.exe");
+        assert_eq!(left("SELECT group_concat(kind, ',') FROM (SELECT kind FROM tamper_events ORDER BY id)"), "clock,guard");
+        assert_eq!(left("SELECT group_concat(level_reached, ',') FROM (SELECT level_reached FROM unlock_attempts ORDER BY id)"), "2,3");
+        // The session keeps its count.
+        assert_eq!(conn.query_row("SELECT COUNT(*) FROM sessions WHERE id = 20", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    }
+
+    /// After Start over or Restore, the ids the tracker held point at someone else's rows.
+    #[test]
+    fn a_reset_tracker_never_touches_rows_in_the_new_data() {
+        let (c, k) = (cfg(), classifier());
+        let old = fresh();
+        let mut t = Tracker::default();
+        t.step(&old, at(0, 0, fg("code.exe", "a"), None), &c, &k).unwrap();
+        // The new database has an unrelated row with the same id.
+        let new = fresh();
+        new.execute("INSERT INTO activity (ts, exe, title, duration_s, category) VALUES (5, 'notes.exe', 'b', 60, 'neutral')", []).unwrap();
+        t = Tracker::default();
+        t.step(&new, at(2 * S, 0, fg("code.exe", "a"), None), &c, &k).unwrap();
+        let r = rows(&new);
+        assert_eq!(r[0], ("notes.exe".into(), "b".into(), 60, "neutral".into()), "left alone");
+        assert_eq!(r.len(), 2);
     }
 }
 

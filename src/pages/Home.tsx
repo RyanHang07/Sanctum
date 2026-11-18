@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckIcon, ChevronIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from "../components/icons";
+import { ChevronIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from "../components/icons";
 import { durationsMin } from "../theme/tokens";
 import { selectedProfile, useStore, type HomePanel } from "../state/store";
 import { usePlanner } from "../state/planner";
 import { useAgenda } from "../state/calendar";
 import { meetingLabels } from "../lib/calendar";
 import { useNow } from "../lib/useNow";
-import { errorText, native } from "../lib/native";
+import { native } from "../lib/native";
 import { profileNote } from "../lib/rules";
-import { Button, Kbd } from "../components/Button";
-import { Switch } from "../components/controls";
+import { BUTTON_SIZES, Button, Kbd } from "../components/Button";
+import { Check, HIT, Switch } from "../components/controls";
 import { Odometer } from "../components/Odometer";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
+import { EventMark } from "./week/marks";
 import { CounterRow } from "./CounterRow";
 import { Glide } from "../lib/motion";
 import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
@@ -20,11 +21,17 @@ import { getMoment, useMotion } from "../lib/useMotion";
 import { useFocusToday, useWeekOverview } from "../state/session";
 import { DayRuler } from "./DayRuler";
 import { FocusPicker } from "./FocusPicker";
-import { BREAK_TIPS, homeLine, pick } from "./headlines";
+import { BREAK_TIPS, homeLine, OPEN_DONE, OPEN_IDLE, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
-import { clock, countdown, joinNames, minutes } from "../lib/time";
+import { countdown, joinNames, minutes } from "../lib/time";
 import { blockTimes, canReorder, moveId, msUntilReset, nextUp, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStat, StatsOverview, TaskLink } from "../lib/types";
+
+/** A moment as the Today list writes its times: "2:30p" (one format across Today). */
+function at(t: number | Date): string {
+  const d = new Date(t);
+  return shortTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+}
 
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -38,11 +45,19 @@ function useSealPreview(profileId: number | undefined): string[] {
   useEffect(() => {
     if (profileId === undefined) return setNames([]);
     let live = true;
-    const load = () =>
+    // One read at a time: the poll and the window's focus can't stack slow reads.
+    let reading = false;
+    const load = () => {
+      if (reading) return;
+      reading = true;
       void native
         .previewSeal(profileId)
         .then((n) => live && setNames(n))
-        .catch(() => live && setNames([]));
+        .catch(() => live && setNames([]))
+        .finally(() => {
+          reading = false;
+        });
+    };
     load();
     const t = setInterval(load, 4000);
     window.addEventListener("focus", load);
@@ -55,7 +70,7 @@ function useSealPreview(profileId: number | undefined): string[] {
   return names;
 }
 
-/** A day's cell in the strip: 6 by 12, the decided day states. Kept is the second colour. */
+/** A day's cell in the strip: 6 by 12, the decided day states. Kept is the second color. */
 function DayCell({ d, today, focused, goal, met }: { d: DayStat; today: boolean; focused: number; goal: number; met: boolean }) {
   const base = "relative box-border block h-3 w-[6px] rounded-[2px]";
   if (today && (d.status === "today" || d.status === "kept")) {
@@ -86,7 +101,7 @@ function StripKey() {
     <span
       data-testid="streak-key"
       aria-hidden="true"
-      className="pointer-events-none absolute right-[calc(100%+8px)] top-[-1px] flex h-control items-center gap-[9px] whitespace-nowrap rounded-control border border-line bg-panel px-[10px] text-[11px] text-muted opacity-0 transition-[clip-path,opacity] duration-state ease-ui [clip-path:inset(0_0_0_100%)] group-hover:opacity-100 group-hover:delay-150 group-hover:[clip-path:inset(0)] group-focus-visible:opacity-100 group-focus-visible:delay-150 group-focus-visible:[clip-path:inset(0)]"
+      className="pointer-events-none absolute right-[calc(100%+8px)] top-[-1px] flex h-control items-center gap-[9px] whitespace-nowrap rounded-control border border-line bg-panel px-[10px] text-micro text-muted opacity-0 transition-[clip-path,opacity] duration-state ease-ui [clip-path:inset(0_0_0_100%)] group-hover:opacity-100 group-hover:delay-150 group-hover:[clip-path:inset(0)] group-focus-visible:opacity-100 group-focus-visible:delay-150 group-focus-visible:[clip-path:inset(0)]"
     >
       <span className="flex items-center gap-1">
         <span className={`${swatch} bg-second ring-1 ring-second-line`} />
@@ -138,6 +153,11 @@ function StreakChip({ o, delay }: { o: StatsOverview | null; delay: number }) {
 
 // --- Focus panel (SPEC 4.12: suggested card + two snap wheels + a large Enter) ---
 
+/** The card's top slot (2026-11-17): one 44px strip in every state, so the row below never moves
+ *  as the card changes state. Open shows what's next, Sealed and In event what the cells don't. */
+export const SLOT = "flex h-11 shrink-0 items-center gap-3 rounded-control border pl-3 pr-1";
+const CHIP = "shrink-0 rounded-[4px] px-[6px] py-[2px] text-micro font-medium";
+
 function SuggestedCard({ s }: { s: Suggestion | null }) {
   const profiles = useStore((st) => st.profiles);
   const selected = useStore((st) => st.selectedProfileId);
@@ -145,12 +165,28 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
   const navigate = useStore((st) => st.navigate);
   const hintHidden = useStore((st) => st.settings.homeLayout.hidden.includes("hint"));
   const setHidden = useStore((st) => st.setHomeHidden);
+  const kept = useStore((st) => st.focusTodayMin >= st.settings.dailyGoalMin);
+  const reset = useStore((st) => st.settings.dailyResetTime);
   if (!s) {
+    const day = todayKey(new Date(), reset);
+    // Goal kept: a word for it, and leave to rest or keep going (one line a day).
+    if (kept)
+      return (
+        <div data-testid="suggestion" data-kind="done" className={`${SLOT} border-line-input bg-raised`}>
+          <span className={`${CHIP} bg-second-tint text-second-text`}>Kept</span>
+          <span className="min-w-0 truncate text-body text-text-2">{pick(OPEN_DONE, day)}</span>
+        </div>
+      );
     // Dismissable; Customize brings it back. A real block always shows.
-    if (hintHidden) return null;
+    if (hintHidden)
+      return (
+        <div data-testid="suggestion" data-kind="idle" className={`${SLOT} border-line-input`}>
+          <span className="min-w-0 truncate text-body text-muted">{pick(OPEN_IDLE, day)}</span>
+        </div>
+      );
     return (
-      <div data-testid="suggestion" className="flex h-11 items-center gap-3 rounded-control border border-dashed border-line-input pl-3 pr-1">
-        <span className="grow text-meta text-muted">No focus block on your schedule. Link a routine or an item to a profile and it shows up here.</span>
+      <div data-testid="suggestion" data-kind="hint" className={`${SLOT} border-dashed border-line-input`}>
+        <span className="grow truncate text-meta text-muted">No focus block on your schedule. Link a routine or an item to a profile.</span>
         <Button variant="quiet" size="sm" onClick={() => navigate("week")}>
           Open Week
         </Button>
@@ -164,24 +200,17 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
   const applied = selected === s.profileId && duration === s.minutes;
   const use = () => useStore.setState({ selectedProfileId: s.profileId, durationMin: s.minutes, focusOverrideKey: null });
   return (
-    <div
-      data-testid="suggestion"
-      className={`flex h-11 items-center gap-3 rounded-control border px-3 ${s.state === "now" ? "border-sealed-line bg-sealed-tint" : "border-line-input bg-raised"}`}
-    >
-      <span
-        className={`rounded-[4px] px-[6px] py-[2px] text-[11px] font-medium ${s.state === "now" ? "bg-sealed text-sealed-on" : "bg-line text-text-2"}`}
-      >
-        {s.state === "now" ? "Now" : "Next"}
-      </span>
-      <span className="min-w-0 truncate text-body font-medium text-text">{s.item.title}</span>
-      <span className="shrink-0 font-mono text-meta text-muted">
-        {s.state === "now" ? `${clock(s.startsAt)} to ${clock(s.endsAt)}` : `at ${clock(s.startsAt)}`}
-      </span>
+    <div data-testid="suggestion" data-kind={s.state} className={`${SLOT} ${s.state === "now" ? "border-sealed bg-sealed-tint" : "border-line-input bg-raised"}`}>
+      <span className={`${CHIP} ${s.state === "now" ? "bg-sealed text-sealed-on" : "bg-line text-text-2"}`}>{s.state === "now" ? "Now" : "Next"}</span>
+      <span title={s.item.title} className="min-w-0 truncate text-body font-medium text-text">{s.item.title}</span>
+      <span className="shrink-0 font-mono text-meta text-muted">{s.state === "now" ? `${at(s.startsAt)} to ${at(s.endsAt)}` : `at ${at(s.startsAt)}`}</span>
       <span className="ml-auto shrink-0 truncate text-meta text-text-2">
         {profile?.name ?? "Unknown profile"} · {s.minutes} min
       </span>
-      {applied ? null : (
-        <Button variant="tint" size="sm" onClick={use}>
+      {applied ? (
+        <span className="w-2" />
+      ) : (
+        <Button variant="tint" size="sm" className="border-sealed!" aria-label={`Use ${profile?.name ?? "this profile"}, ${s.minutes} min`} onClick={use}>
           Use
         </Button>
       )}
@@ -193,8 +222,8 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
 function TaskStrip({ task }: { task: TaskLink }) {
   const clear = () => useStore.getState().setFocusTask(null);
   return (
-    <div data-testid="focus-task" className="flex h-11 items-center gap-3 rounded-control border border-sealed-line bg-sealed-tint pl-3 pr-1">
-      <span className="rounded-[4px] bg-sealed px-[6px] py-[2px] text-[11px] font-medium text-sealed-on">For</span>
+    <div data-testid="focus-task" className={`${SLOT} border-sealed-line bg-sealed-tint`}>
+      <span className={`${CHIP} bg-sealed text-sealed-on`}>For</span>
       <span className="min-w-0 truncate text-body font-medium text-text">{task.title}</span>
       <span className="ml-auto shrink-0 text-meta text-text-2">Check it off when the seal holds</span>
       <Button variant="quiet" size="sm" aria-label="Unlink task" className="w-[26px] px-0" onClick={clear}>
@@ -212,7 +241,7 @@ const sameTask = (a: Pick<TaskLink, "kind" | "id" | "date">, b: Pick<AgendaItem,
 // Labeled 52px boxes in a row: Open has the Profile and Length pickers and Enter focus; Sealed
 // fills the same slots with the profile, the time left and End early, so entering crossfades in place.
 
-const BOX = "flex h-[52px] items-center justify-center rounded-control border border-line-input bg-raised px-3";
+const BOX = "flex h-cta items-center justify-center rounded-control border border-line-input bg-raised px-3";
 const ROW = "grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] items-end gap-[14px]";
 
 /** A labeled box the size of a picker, holding a value instead. */
@@ -277,7 +306,7 @@ function FocusPanel() {
   const durationOptions = useMemo(() => durationsMin.map((m) => ({ value: m, label: `${m} min` })), []);
 
   return (
-    <section data-testid="focus-row" aria-label="Focus" className="flex flex-col gap-[14px] rounded-dialog border border-line bg-panel p-[18px]">
+    <section data-testid="focus-row" aria-label="Focus" className="flex shrink-0 flex-col gap-[14px] rounded-dialog border border-line bg-panel p-[18px]">
       {task ? <TaskStrip task={task} /> : <SuggestedCard s={suggestion} />}
       {profiles.length === 0 ? (
         <div className="flex h-[120px] items-center justify-center gap-2 rounded-control border border-dashed border-line-input text-body text-muted">
@@ -308,7 +337,7 @@ function FocusPanel() {
               type="button"
               disabled={!profile}
               onClick={() => void enterFocus()}
-              className="relative h-[52px] w-full rounded-control p-0 text-[17px] font-semibold text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+              className={`relative w-full rounded-control ${BUTTON_SIZES.cta} text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100`}
             >
               <span data-seal-src aria-hidden="true" className="absolute inset-0 rounded-control bg-sealed" />
               <span data-testid="enter-label" className="relative flex items-center justify-center gap-[10px] leading-none">
@@ -320,60 +349,6 @@ function FocusPanel() {
       )}
       {profiles.length ? <LeftOffLine /> : null}
     </section>
-  );
-}
-
-/** Park a thought for later (v0.3.1): it becomes a task for today, out of your head and off
- *  the screen. Ctrl Alt P does the same from any app while sealed. */
-function ParkField() {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  // Ctrl Alt P is registered as the seal starts; if another app holds it, say so here.
-  const [hotkeyFailed, setHotkeyFailed] = useState<string | null>(null);
-  useEffect(() => void native.focusParkHotkey().then(setHotkeyFailed, () => undefined), []);
-  const park = async () => {
-    const t = text.trim();
-    if (!t || busy) return;
-    setBusy(true);
-    try {
-      await native.focusPark(t);
-      setText("");
-      void usePlanner.getState().reload();
-      useStore.getState().showNotice({ lead: "Parked.", rest: "It's on today's list for after the seal." });
-    } catch (e) {
-      useStore.getState().showNotice({ lead: errorText(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <form
-      data-testid="park"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void park();
-      }}
-      className="focus-ring-within flex h-8 items-center gap-2 rounded-control border border-line-input bg-raised pl-3 pr-1 transition-colors duration-ui ease-ui focus-within:border-sealed-line"
-    >
-      <input
-        value={text}
-        maxLength={200}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Park a thought for later"
-        aria-label="Park a thought for later"
-        className="focus-ring-off min-w-0 flex-1 border-0 bg-transparent text-body text-text placeholder:text-faint"
-      />
-      {hotkeyFailed ? (
-        <span title={hotkeyFailed} className="shrink-0 whitespace-nowrap text-[11px] text-muted">
-          Ctrl Alt P is taken by another app
-        </span>
-      ) : (
-        <Kbd>Ctrl Alt P</Kbd>
-      )}
-      <Button type="submit" variant="quiet" size="sm" disabled={!text.trim() || busy}>
-        Park
-      </Button>
-    </form>
   );
 }
 
@@ -396,14 +371,20 @@ function SessionBar() {
   const name = session?.profileName ?? fallbackProfile;
 
   return (
-    <section data-testid="session-bar" aria-label="Sealed session" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-sealed-line bg-panel p-[18px]">
-      <p className="m-0 truncate text-meta text-text-2">
-        <span className="font-medium text-sealed-text">{session?.idle ? "Paused" : "Sealed"}</span> · {session?.task ? <span className="font-medium text-text">{session.task.title} · </span> : null}
-        {session?.goal && session.goal !== session.task?.title ? <span className="font-medium text-text">{session.goal} · </span> : null}
-        {name} · {planned} min · ends {clock(ends)} · {sealed} {sealed === 1 ? "app" : "apps"} sealed · {attempts} {attempts === 1 ? "attempt" : "attempts"} blocked
-        {session?.idle ? " · Idle, the seal extends until you're back" : ""}
-        {session?.broken ? " · Seal broken, the streak resets" : ""}
-      </p>
+    <section data-testid="session-bar" aria-label="Sealed session" className="relative flex shrink-0 flex-col gap-[14px] overflow-hidden rounded-dialog border border-sealed-line bg-sealed-tint p-[18px]">
+      {/* The same top slot as Open (2026-11-17), with only what the cells below don't show. */}
+      <div data-testid="sealed-slot" className={`${SLOT} border-sealed-line bg-panel`}>
+        <span className={`${CHIP} bg-sealed text-sealed-on`}>{session?.idle ? "Paused" : "Sealed"}</span>
+        {session?.task ? <span title={session.task.title} className="min-w-0 truncate text-body font-medium text-text">{session.task.title}</span> : null}
+        {session?.goal && session.goal !== session.task?.title ? <span title={session.goal} className="min-w-0 truncate text-body font-medium text-text">{session.goal}</span> : null}
+        <span className="ml-auto shrink-0 truncate pr-2 text-meta text-text-2">
+          {session?.broken
+            ? "Seal broken, the streak resets"
+            : session?.idle
+              ? "Idle, the seal extends until you're back"
+              : `Ends ${at(ends)} · ${sealed} ${sealed === 1 ? "app" : "apps"} sealed · ${attempts} ${attempts === 1 ? "attempt" : "attempts"} blocked`}
+        </span>
+      </div>
       <div className={ROW}>
         <Field label="Profile" cell="sealed">
           <span className="truncate text-[15px] font-semibold text-text">{name}</span>
@@ -418,18 +399,18 @@ function SessionBar() {
           <span className="label truncate">
             <span className="font-mono">{elapsedMin}</span> of <span className="font-mono">{planned}</span> min
           </span>
-          {/* The exit is quiet: ending early is a choice, not the main action. */}
-          <div className="flex h-[52px] items-center gap-2">
-            <Button variant="ghost" onClick={openEndEarly}>
+          {/* Two boxes the size of the fields beside them (decided 2026-11-16). The exit stays
+              quiet: neutral text, no accent; ending early is a choice, not the main action. */}
+          <div className="grid h-cta grid-cols-2 gap-2">
+            <Button size="cell" onClick={openEndEarly} className="w-full text-text-2!">
               End early
             </Button>
-            <Button variant="quiet" onClick={() => void native.showCompact()}>
+            <Button size="cell" onClick={() => void native.showCompact()} className="w-full text-text-2!">
               Compact<Kbd>Ctrl M</Kbd>
             </Button>
           </div>
         </div>
       </div>
-      {session ? <ParkField /> : null}
       <Track progress={progress} tone="sealed" />
       {/* The seal: Enter focus's fill lands here as a line, holds, then shows the track beneath. */}
       <span data-seal-line aria-hidden="true" className="invisible absolute inset-x-0 bottom-0 z-[2] h-[2px] bg-sealed opacity-0" />
@@ -447,7 +428,7 @@ function BreakBar() {
   const profileName = useStore((s) => s.profiles.find((p) => p.id === brk.profileId)?.name);
   return (
     <section data-testid="break-bar" aria-label="Break" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-line bg-panel p-[18px]">
-      <p className="m-0 truncate text-meta text-text-2">
+      <p className="m-0 h-[18px] shrink-0 truncate text-meta leading-[18px] text-text-2">
         <span className="font-medium text-text">Break</span> · {pick(BREAK_TIPS, brk.until)} · your Distractions list waits too
       </p>
       <div className={ROW}>
@@ -482,37 +463,47 @@ function EventBar() {
   const e = meeting ? meetingLabels(meeting, now) : SAMPLE_EVENT;
   const { startMs, endMs } = meeting ?? sample;
   const left = Math.max(0, endMs - now);
+  // Whole minutes, like the sealed timer (M6).
+  const leftMin = Math.ceil(left / 60_000);
+  const range = `${at(startMs)} to ${at(endMs)}`;
+  const until = at(endMs);
   const progress = endMs > startMs ? (now - startMs) / (endMs - startMs) : 0;
   return (
-    <section data-testid="event-bar" aria-label="In event" className="relative flex flex-col gap-[14px] overflow-hidden rounded-dialog border border-event-line bg-panel p-[18px]">
-      <p className="m-0 flex items-center gap-3 text-meta text-text-2">
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-event">In event</span> · {e.range} · {e.left} left
+    <section data-testid="event-bar" aria-label="In event" className="relative flex shrink-0 flex-col gap-[14px] overflow-hidden rounded-dialog border border-event-line bg-panel p-[18px]">
+      {/* The same top slot as Open (2026-11-17); the time left is in the cell below. */}
+      {/* The chip is tinted with plain text (H2): white on the event fill was 2.3:1. The event color
+          is the dot; text on event-tint passes 4.5:1 in every theme (5.5:1 at the least). */}
+      <div data-testid="event-slot" className={`${SLOT} border-event-line bg-panel`}>
+        <span data-event-chip className={`${CHIP} inline-flex items-center gap-[5px] bg-event-tint text-text`}>
+          <span aria-hidden="true" className="h-[6px] w-[6px] rounded-full bg-event" />
+          In event
         </span>
+        <span title={range} className="min-w-0 truncate font-mono text-meta text-text-2">{range}</span>
         {meeting?.htmlLink ? (
-          <button type="button" onClick={() => void native.gcalOpen(meeting.htmlLink!)} className="ml-auto shrink-0 text-sealed-text transition-colors duration-ui ease-ui hover:text-sealed-text-hover">
+          <Button variant="quiet" size="sm" className="ml-auto" onClick={() => void native.gcalOpen(meeting.htmlLink!)}>
             Open in Google
-          </button>
+          </Button>
         ) : null}
-      </p>
+      </div>
       <div className={ROW}>
         <Field label="Event">
-          <span className="truncate text-[15px] font-semibold text-text">{e.title}</span>
+          <span title={e.title} className="truncate text-[15px] font-semibold text-text">{e.title}</span>
         </Field>
         <Field label="Time left">
-          <span role="timer" aria-label={`${e.left} left`} className="font-mono text-[15px] font-medium text-text">
-            {countdown(left)}
+          <span role="timer" aria-label={`${leftMin} min left`} className="flex items-center gap-[0.35em] font-mono text-[15px] font-medium text-text">
+            <Odometer text={String(leftMin)} direction="down" />
+            <span aria-hidden="true">min</span>
           </span>
         </Field>
         <div className="flex min-w-0 flex-col gap-[7px]">
           <span className="label truncate">{queued && profile ? `${profile.name} starts when it ends` : "Focus unlocks when it ends"}</span>
           {queued ? (
-            <Button variant="ghost" className="h-[52px]! w-full text-[15px]" onClick={() => setQueued(false)}>
+            <Button variant="ghost" size="cell" className="w-full" onClick={() => setQueued(false)}>
               Cancel queue
             </Button>
           ) : (
-            <Button variant="tint" className="h-[52px]! w-full text-[15px]" disabled={!profile} onClick={() => setQueued(true)}>
-              Queue focus at {e.until}
+            <Button variant="tint" size="cell" className="w-full" disabled={!profile} onClick={() => setQueued(true)}>
+              Queue focus at {until}
             </Button>
           )}
         </div>
@@ -568,7 +559,7 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
       onDragEnd={drag.end}
       onDragOver={(e) => drag.overRow(e, t)}
       onDrop={(e) => drag.drop(e, t)}
-      className={`group relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft ${
+      className={`group relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-raised ${
         current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
       } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
     >
@@ -579,24 +570,19 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
         const label = multi ? `${t.title} (${t.sessionsDone ?? 0} of ${t.sessionsTarget} sessions)` : t.title;
         return (
           <>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={multi ? (t.done ? true : partial ? "mixed" : false) : t.done}
-              aria-label={label}
-              onClick={() => void toggle(t)}
-              className={`check-pop box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] p-0 text-sealed-on transition-colors duration-ui ease-ui ${
-                t.done ? "border border-sealed bg-sealed hover:brightness-110" : partial ? "border border-sealed bg-sealed/25 hover:bg-sealed/35" : "border-[1.5px] border-check-line bg-transparent hover:border-muted"
-              }`}
-            >
-              {t.done ? <CheckIcon /> : partial ? <span className="h-[6px] w-[6px] rounded-[2px] bg-sealed" /> : null}
-            </button>
-            <span className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-faint line-through" : "text-text"}`}>{t.title}</span>
-            {multi ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] font-mono text-[11px] text-muted">{t.sessionsDone ?? 0}/{t.sessionsTarget}</span> : null}
+            <Check
+              checked={multi ? (t.done ? true : partial ? "mixed" : false) : t.done}
+              done={t.done}
+              partial={partial}
+              label={label}
+              onToggle={() => void toggle(t)}
+            />
+            <span title={t.title} className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-muted line-through" : "text-text"}`}>{t.title}</span>
+            {multi ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] font-mono text-micro text-muted">{t.sessionsDone ?? 0}/{t.sessionsTarget}</span> : null}
           </>
         );
       })()}
-      {current ? <span className="text-[11px] font-medium text-sealed-text">Now</span> : null}
+      {current ? <span className="text-micro font-medium text-sealed-text">Now</span> : null}
       {canLink && !t.done ? (
         // Links the next session to this task (and its profile). Shown on hover, kept while linked.
         <button
@@ -604,29 +590,30 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
           aria-pressed={linked}
           aria-label={linked ? `Unlink ${t.title}` : `Focus on ${t.title}`}
           onClick={() => useStore.getState().setFocusTask(linked ? null : { kind: t.kind as TaskLink["kind"], id: t.id, date: t.date, title: t.title, profileId: t.profileId })}
-          className={`flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-[11px] font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
+          className={`${HIT} flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-micro font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
             linked ? "bg-sealed text-sealed-on" : "border border-line-input text-text-2 opacity-0 hover:text-text group-hover:opacity-100"
           }`}
         >
           {linked ? "For focus" : "Focus"}
         </button>
       ) : null}
-      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
+      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-micro text-text-2">{tag}</span> : null}
       {/* No time, no time column: the tag sits at the far right. */}
-      {t.time ? <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{shortTime(t.time)}</span> : null}
+      {t.time ? <span className="w-[46px] shrink-0 text-right font-mono text-micro text-muted">{shortTime(t.time)}</span> : null}
     </div>
   );
 }
 
-function EventRow({ t, now }: { t: AgendaItem; now: number }) {
+function EventRow({ t, now, tag }: { t: AgendaItem; now: number; tag?: string }) {
   const times = blockTimes(t);
   const past = times ? times.endsAt <= now : false;
   return (
     <div data-kind="event" className="flex h-row shrink-0 items-center gap-[10px] border-l-2 border-l-transparent px-[14px]">
-      <span aria-hidden="true" className={`ml-[6px] mr-[5px] h-4 w-[3px] shrink-0 rounded-[2px] ${past ? "bg-line-input" : t.profileId !== null ? "bg-sealed" : "bg-event"}`} />
-      <span className={`min-w-0 grow truncate text-body ${past ? "text-faint" : "text-text-2"}`}>{t.title}</span>
-      <span className="shrink-0 text-[11px] text-faint">Calendar</span>
-      <span className="w-[46px] shrink-0 text-right font-mono text-[11px] text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
+      <EventMark size={16} />
+      <span title={t.title} className={`min-w-0 grow truncate text-body ${past ? "text-muted" : "text-text-2"}`}>{t.title}</span>
+      {tag ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] text-micro text-text-2">{tag}</span> : null}
+      <span title={t.event?.calendarName ?? "Calendar"} className="max-w-[120px] shrink-0 truncate text-micro text-muted">{t.event?.calendarName ?? "Calendar"}</span>
+      <span className="w-[46px] shrink-0 text-right font-mono text-micro text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
     </div>
   );
 }
@@ -757,7 +744,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const row = (t: AgendaItem, drag: DragKit) => (
     <Glide key={t.key}>
       {t.kind === "event" ? (
-        <EventRow t={t} now={now} />
+        <EventRow t={t} now={now} tag={profiles.find((p) => p.id === t.profileId)?.name} />
       ) : (
         <TaskRow
         t={t}
@@ -783,7 +770,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
               aria-expanded={!collapsed}
               aria-label={collapsed ? "Show Today" : "Collapse Today"}
               onClick={() => toggleCollapsed("today")}
-              className="-ml-1 flex h-6 w-6 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2"
+              className="-ml-1 flex h-6 w-6 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-raised hover:text-text-2"
             >
               <ChevronIcon size={10} className={`transition-transform duration-ui ease-ui ${collapsed ? "-rotate-90" : ""}`} />
             </button>
@@ -796,7 +783,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
       {collapsed ? null : (
         <div className="grid min-h-0 grow grid-cols-2">
           <div data-testid="routines-column" className="flex min-h-0 flex-col overflow-y-auto py-1">
-            {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">No routines today.</p> : null}
+            {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-muted">No routines today.</p> : null}
             {counters.map((t) => (
               <Glide key={t.key}>
                 <CounterRow item={t} routine={counterOf(t)!} />
@@ -810,10 +797,10 @@ function TodayPanel({ strip }: { strip: boolean }) {
               label="Add a task for today"
               placeholder="Add a task for today"
               prefix={<PlusIcon className="shrink-0 text-faint" />}
-              className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-line-soft"
+              className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-raised"
             />
             <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
-              {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-faint">Nothing else planned today.</p> : null}
+              {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-muted">Nothing else planned today.</p> : null}
               {day.map((t) => row(t, dayDrag))}
             </div>
             <PendingTab />
@@ -841,10 +828,10 @@ function NextUpStrip() {
     <div data-testid="next-strip" className="flex h-10 shrink-0 items-center gap-[10px] border-t border-line bg-panel-footer px-[14px] text-meta">
       {next ? (
         <>
-          <span aria-hidden="true" className="h-[7px] w-[7px] shrink-0 rounded-full bg-sealed" />
+          {next.item.kind === "event" ? <EventMark /> : <span aria-hidden="true" className="h-[7px] w-[7px] shrink-0 rounded-full bg-sealed" />}
           <span className="shrink-0 text-muted">Next up</span>
-          <span className="min-w-0 truncate font-medium text-text">{next.item.title}</span>
-          <span className="shrink-0 font-mono text-muted">at {clock(next.startsAt)}</span>
+          <span title={next.item.title} className="min-w-0 truncate font-medium text-text">{next.item.title}</span>
+          <span className="shrink-0 font-mono text-muted">at {at(next.startsAt)}</span>
           <span className="ml-auto shrink-0 text-muted">
             in <Odometer text={minutes(Math.max(1, Math.ceil((next.startsAt - now) / 60_000)))} direction="down" className="font-mono font-medium text-sealed-text" />
           </span>
@@ -889,7 +876,7 @@ function CustomizeMenu() {
         <div role="menu" aria-label="Customize Home" className="absolute right-0 top-[38px] z-30 flex w-[220px] animate-rise-in flex-col rounded-panel border border-line-input bg-panel p-1 shadow-toast">
           <span className="label px-2 pb-1 pt-2">Show on Home</span>
           {PANELS.map((p) => (
-            <div key={p.id} className="flex h-control items-center justify-between rounded-control px-2 hover:bg-line-soft">
+            <div key={p.id} className="flex h-control items-center justify-between rounded-control px-2 hover:bg-raised">
               <span className="text-body text-text">{p.label}</span>
               <Switch label={`Show ${p.label}`} checked={!hidden.includes(p.id)} onChange={(v) => setHidden(p.id, !v)} />
             </div>
@@ -900,28 +887,32 @@ function CustomizeMenu() {
   );
 }
 
-/** A rect relative to another element's box. */
-function relRect(el: Element, to: Element) {
-  const r = el.getBoundingClientRect();
-  const o = to.getBoundingClientRect();
-  return { left: r.left - o.left, top: r.top - o.top, width: r.width, height: r.height };
-}
-
 /**
- * Entering focus (motion spec §3): driven by state, not the click, so Ctrl Enter, the tray and a
- * scheduled start all play it. The store's subscription runs inside set(), before React swaps the
- * open card for the sealed one, so it can measure the Enter focus fill. A session resumed at launch
- * never had an open card, so it plays nothing.
+ * Entering focus (motion spec §3; "draw the line", 2026-11-17): driven by state, not the click, so
+ * Ctrl Enter, the tray and a scheduled start all play it. Nothing travels across the card:
+ *   1. the Enter focus fill fades where it was,
+ *   2. the card's border and fill warm from Open's to Sealed's,
+ *   3. the seal line draws along the bottom edge, left to right,
+ *   4. the top slot, then the cells, fade in place, and the headline settles,
+ *   5. the line holds a beat, then fades to the real track beneath.
+ * The store's subscription runs inside set(), before React swaps the cards, so it can measure the
+ * open card. A session resumed at launch never had an open card, so it plays nothing.
  */
 function useEnterFocusMoment(root: React.RefObject<HTMLDivElement | null>, run: ReturnType<typeof useMotion>["run"]) {
   const appState = useStore((s) => s.appState);
-  const from = useRef<ReturnType<typeof relRect> | null>(null);
+  const from = useRef<{ fill: DOMRect | null; border: string; background: string } | null>(null);
   useEffect(
     () =>
       useStore.subscribe((s, p) => {
         if (p.appState !== "sealed" && s.appState === "sealed" && root.current) {
-          const src = root.current.querySelector("[data-seal-src]");
-          from.current = src ? relRect(src, root.current) : null;
+          const card = root.current.querySelector<HTMLElement>("[data-testid=focus-row]");
+          if (!card) return;
+          const css = getComputedStyle(card);
+          from.current = {
+            fill: root.current.querySelector("[data-seal-src]")?.getBoundingClientRect() ?? null,
+            border: css.borderColor,
+            background: css.backgroundColor,
+          };
         }
       }),
     [root],
@@ -936,25 +927,32 @@ function useEnterFocusMoment(root: React.RefObject<HTMLDivElement | null>, run: 
         return;
       }
       const line = root.current?.querySelector("[data-seal-line]");
-      if (!b || !line || !root.current) return;
-      const r = relRect(line, root.current);
-      run(() =>
-        gsap
-          .timeline({ id: "enter-focus" })
-          .addLabel("seal", 0)
-          // The button's fill collapses into the thin seal line along the card's bottom edge.
-          .fromTo(
-            line,
-            { autoAlpha: 1, transformOrigin: "0 0", x: b.left - r.left, y: b.top - r.top, scaleX: b.width / Math.max(1, r.width), scaleY: b.height / Math.max(1, r.height) },
-            { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: 0.38, ease: EASE.settle },
-            "seal",
-          )
-          .from("[data-sealed-cell]", { opacity: 0, duration: DUR.state, ease: EASE.ui, stagger: 0.04, clearProps: "opacity" }, 0.08)
-          .fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: EASE.ui, clearProps: "opacity" }, 0.1)
-          .addLabel("line", 0.38)
-          // It holds, then fades to show the real track and fill beneath.
-          .to(line, { autoAlpha: 0, duration: 0.4, ease: EASE.ui, clearProps: "transform,opacity,visibility" }, "line+=0.2"),
-      );
+      const card = root.current?.querySelector("[data-testid=session-bar]");
+      if (!b || !line || !card || !root.current) return;
+      // Step 1 needs the old fill on screen for a moment: a stand-in where it was.
+      let ghost: HTMLElement | null = null;
+      if (b.fill) {
+        ghost = document.createElement("div");
+        ghost.setAttribute("aria-hidden", "true");
+        ghost.className = "pointer-events-none fixed z-[3] rounded-control bg-sealed";
+        Object.assign(ghost.style, { left: `${b.fill.left}px`, top: `${b.fill.top}px`, width: `${b.fill.width}px`, height: `${b.fill.height}px` });
+        root.current.appendChild(ghost);
+      }
+      const drop = () => ghost?.remove();
+      run(() => {
+        const tl = gsap.timeline({ id: "enter-focus", onComplete: drop, onInterrupt: drop }).addLabel("seal", 0);
+        if (ghost) tl.to(ghost, { opacity: 0, duration: 0.15, ease: EASE.ui }, "seal");
+        return (
+          tl
+            .from(card, { borderColor: b.border, backgroundColor: b.background, duration: DUR.state, ease: EASE.ui, clearProps: "borderColor,backgroundColor" }, "seal")
+            .fromTo(line, { autoAlpha: 1, transformOrigin: "0 50%", scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: EASE.glide }, "seal+=0.05")
+            .from("[data-testid=sealed-slot] > *", { opacity: 0, duration: DUR.state, ease: EASE.ui, stagger: 0.04, clearProps: "opacity" }, 0.08)
+            .from("[data-sealed-cell]", { opacity: 0, duration: DUR.state, ease: EASE.ui, stagger: 0.04, clearProps: "opacity" }, 0.14)
+            .fromTo("[data-headline]", { opacity: 0.4 }, { opacity: 1, duration: DUR.state, ease: EASE.ui, clearProps: "opacity" }, 0.1)
+            .addLabel("line", 0.45)
+            .to(line, { autoAlpha: 0, duration: 0.4, ease: EASE.ui, clearProps: "transform,opacity,visibility" }, "line+=0.2")
+        );
+      });
     },
     { scope: root, dependencies: [appState] },
   );
@@ -1014,6 +1012,7 @@ export function Home() {
   const headline = homeLine(appState, meeting ? meetingLabels(meeting, Date.now()) : SAMPLE_EVENT, new Date(), { finishing, goalMet: met, atRisk });
   const show = (p: HomePanel) => !hidden.includes(p);
   const open = appState === "open";
+  const sealed = appState === "sealed";
   useEnterFocusMoment(root, run);
   const justKept = useGoalMoment(root, run, met);
 
@@ -1021,16 +1020,16 @@ export function Home() {
     <div ref={root} className="flex h-full flex-col gap-[22px] px-8 pb-[22px] pt-[26px]">
       <div className="flex min-h-control flex-wrap items-center gap-2 text-meta">
         <span className={`min-w-[160px] flex-1 text-body transition-colors duration-drain ease-ui ${open ? "text-muted" : "text-text"}`}>{formatDate(new Date())}</span>
-        {/* The streak stays while sealed, so the day can turn kept on screen. */}
-        {show("streak") ? <StreakChip o={overview} delay={justKept ? 0.95 : 0} /> : null}
-        {/* Sealed or in an event, search and Customize step aside and come back when the state returns to Open. */}
+        {/* Sealed, the streak, search and Customize step aside (decided 2026-11-16) and come back
+            when the seal ends, the streak already counting it. An event keeps them. */}
         <div
           data-testid="home-tools"
           data-tools
-          inert={!open}
-          aria-hidden={!open || undefined}
-          className={`flex items-center gap-2 transition-[opacity,visibility] ease-ui ${open ? "visible opacity-100 duration-ui" : "invisible opacity-0 duration-ui"}`}
+          inert={sealed}
+          aria-hidden={sealed || undefined}
+          className={`flex items-center gap-2 transition-[opacity,visibility] ease-ui ${sealed ? "invisible opacity-0 duration-ui" : "visible opacity-100 duration-ui"}`}
         >
+          {show("streak") ? <StreakChip o={overview} delay={justKept ? 0.95 : 0} /> : null}
           <button
             type="button"
             onClick={useStore.getState().openCommand}
@@ -1038,7 +1037,7 @@ export function Home() {
           >
             <SearchIcon />
             <span className="grow text-left">Search or command</span>
-            <span className="font-mono text-[11px]">Ctrl K</span>
+            <span className="font-mono text-micro">Ctrl K</span>
           </button>
           <CustomizeMenu />
         </div>

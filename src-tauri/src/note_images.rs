@@ -3,6 +3,7 @@
 //! loads `http://noteimg.localhost/12` (`noteimg://localhost/12` off Windows). Same image
 //! pasted twice is stored once. Images no note uses any more are cleared after a day.
 
+use crate::engine::Locked;
 use crate::{session::now_ms, Shared};
 use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -49,7 +50,7 @@ pub fn sweep(conn: &Connection, now: i64) -> rusqlite::Result<usize> {
 #[tauri::command]
 pub fn save_note_image(shared: State<Shared>, data: String, mime: String) -> Result<i64, String> {
     let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|_| "That image couldn't be read.".to_string())?;
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     save(&conn, &mime, &bytes, now_ms())
 }
 
@@ -58,7 +59,7 @@ pub fn serve<R: tauri::Runtime>(app: &tauri::AppHandle<R>, request: &http::Reque
     let not_found = || http::Response::builder().status(404).body(Cow::Borrowed(&[][..])).unwrap();
     let Some(id) = request.uri().path().trim_start_matches('/').parse::<i64>().ok() else { return not_found() };
     let Some(shared) = app.try_state::<Shared>() else { return not_found() };
-    let found = shared.db.lock().ok().and_then(|c| get(&c, id).ok().flatten());
+    let found = Some(shared.db.locked()).and_then(|c| get(&c, id).ok().flatten());
     match found {
         Some((mime, bytes)) => http::Response::builder()
             .header("Content-Type", mime)

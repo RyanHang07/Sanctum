@@ -8,9 +8,9 @@ import type { DayStat, StatsOverview } from "../../lib/types";
 import { barPct, chartAxis, chartHours, focusScale } from "./scale";
 
 // Stats' Ruler direction (ProtoStats.dc.html, without its glow: the app is flat since 2026-11-16).
-// Bars are focused minutes in the accent; a kept day gets a short second-colour mark on its cap,
-// like Week's kept dot. The axis is a thin tick scale (hours in the second colour, quarter hours in
-// the line colour) and the daily goal is a dashed second-colour line. No best-day mark (decided).
+// Bars are focused minutes in the accent; a kept day gets a short second-color mark on its cap,
+// like Week's kept dot. The axis is a thin tick scale (hours in the second color, quarter hours in
+// the line color) and the daily goal is a dashed second-color line. No best-day mark (decided).
 
 /** The word under a day's name, when its state isn't plain from the bar. */
 export const DAY_NOTE: Partial<Record<DayStat["status"], string>> = {
@@ -36,10 +36,6 @@ function barClass(d: DayStat): string {
   }
 }
 
-/** A kept day's mark: a short second-colour cap on its bar. */
-export function KeptMark({ className = "" }: { className?: string }) {
-  return <span aria-hidden="true" data-kept-mark className={`pointer-events-none h-[3px] rounded-[2px] bg-second ${className}`} />;
-}
 
 /**
  * The week as bars on a ruler. Each day is a button: hover or keyboard focus shows its details in
@@ -69,33 +65,22 @@ export function DayChart({
   const heights = o.days.map((d) => barPct(d, topH));
 
   // What the bars showed last time, by column, to glide from.
-  const last = useRef<{ heights: number[]; kept: string[]; dates: string } | null>(null);
+  const last = useRef<{ heights: number[] } | null>(null);
   const dates = o.days.map((d) => d.date).join(",");
   const keyOf = `${dates}|${heights.join(",")}|${o.days.map((d) => d.status).join(",")}`;
   useEffect(() => {
     const before = last.current;
-    const kept = o.days.filter((d) => d.status === "kept").map((d) => d.date);
-    last.current = { heights, kept, dates };
+    last.current = { heights };
     if (!before || !root.current) return;
     const bars = Array.from(root.current.querySelectorAll<HTMLElement>("[data-bar]"));
     const moved = bars.filter((_, i) => before.heights[i] !== undefined && before.heights[i] !== heights[i]);
-    // Only a day that turned kept while you watched (same range, not another week) earns the fade.
-    const marks =
-      before.dates === dates
-        ? kept
-            .filter((k) => !before.kept.includes(k))
-            .map((k) => root.current!.querySelector<HTMLElement>(`[data-day="${k}"] [data-kept-mark]`))
-            .filter((m): m is HTMLElement => !!m)
-        : [];
-    if (!moved.length && !marks.length) return;
+    if (!moved.length) return;
     run(() => {
       const tl = gsap.timeline({ id: "stats-bars", defaults: { duration: DUR.glide, ease: EASE.glide } });
       moved.forEach((bar) => {
         const i = bars.indexOf(bar);
         tl.fromTo(bar, { height: `${before.heights[i]}%` }, { height: `${heights[i]}%` }, 0);
       });
-      // The mark settles in after its bar has grown, slowly, without a pulse (motion spec: completion).
-      if (marks.length) tl.fromTo(marks, { opacity: 0 }, { opacity: 1, duration: DUR.drain, ease: EASE.drift, clearProps: "opacity" }, DUR.glide * 0.5);
       return tl;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +89,7 @@ export function DayChart({
   return (
     <div ref={root} className="flex min-h-0 grow flex-col gap-[10px]">
       <div className="flex min-h-[160px] grow gap-3">
-        {/* The axis: a tick every quarter hour, hours in the second colour. */}
+        {/* The axis: a tick every quarter hour, hours in the second color. */}
         <div aria-hidden="true" data-testid="stats-axis" className="relative w-[38px] shrink-0 border-r border-line">
           {axis.ticks.map((t, i) => (
             <span
@@ -117,7 +102,7 @@ export function DayChart({
           {axis.labels.map((h) => (
             <span
               key={h}
-              className={`absolute right-4 font-mono text-[10.5px] leading-none ${h * 60 === o.goalMin ? "text-second-text" : "text-muted"}`}
+              className={`absolute right-4 font-mono text-micro leading-none ${h * 60 === o.goalMin ? "text-second-text" : "text-muted"}`}
               style={{ bottom: `${(h / topH) * 100}%`, transform: h === 0 ? undefined : h === topH ? "translateY(100%)" : "translateY(50%)" }}
             >
               {h}h
@@ -125,10 +110,10 @@ export function DayChart({
           ))}
         </div>
         <div className="relative flex min-w-0 grow items-end gap-[14px]">
-          {/* The daily goal: a dashed second-colour line, named at its right end. */}
+          {/* The daily goal: a dashed second-color line, named at its right end. */}
           <div aria-hidden="true" data-testid="stats-target" className="pointer-events-none absolute inset-x-0 z-[1] border-t-2 border-dashed border-second" style={{ bottom: `${goalPct}%` }}>
-            {/* Drawn over the bars, on the panel colour, so a tall last day never hides it. */}
-            <span className="absolute bottom-[4px] right-0 whitespace-nowrap rounded-[3px] bg-panel px-1 py-[2px] text-[11px] leading-none text-second-text">{minutes(o.goalMin)} a day</span>
+            {/* Drawn over the bars, on the panel color, so a tall last day never hides it. */}
+            <span className="absolute bottom-[4px] right-0 whitespace-nowrap rounded-[3px] bg-panel px-1 py-[2px] text-micro leading-none text-second-text">{minutes(o.goalMin)} a day</span>
           </div>
           {o.days.map((d, i) => {
             const on = active === d.date;
@@ -152,9 +137,8 @@ export function DayChart({
                     on ? "outline-muted" : "outline-transparent"
                   } ${d.status === "future" ? "invisible" : ""}`}
                   style={{ height: `${heights[i]}%` }}
-                >
-                  {d.status === "kept" ? <KeptMark className="absolute inset-x-[3px] -top-[6px]" /> : null}
-                </span>
+                  /* No cap over kept days (2026-11-17): the bar itself says it. */
+                />
               </button>
             );
           })}
@@ -165,9 +149,9 @@ export function DayChart({
           <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-[3px] text-meta">
             <span className="whitespace-nowrap font-semibold text-text">
               {fromKey(d.date).toLocaleDateString("en-US", { weekday: "short" })}
-              {DAY_NOTE[d.status] ? <span className={`ml-1 text-[11px] font-medium ${d.status === "broken" ? "text-broken-text" : "text-muted"}`}>{DAY_NOTE[d.status]}</span> : null}
+              {DAY_NOTE[d.status] ? <span className={`ml-1 text-micro font-medium ${d.status === "broken" ? "text-broken-text" : "text-muted"}`}>{DAY_NOTE[d.status]}</span> : null}
             </span>
-            <span className="font-mono text-[11.5px] text-muted">{d.status === "future" ? "" : minutes(d.focusMin)}</span>
+            <span className="font-mono text-meta text-muted">{d.status === "future" ? "" : minutes(d.focusMin)}</span>
           </div>
         ))}
       </div>
@@ -177,7 +161,7 @@ export function DayChart({
 
 /**
  * The summary's focus cell: the range's focused time against this week's target, on an hour
- * ruler. The fill is the accent; the scale's majors and the target are the second colour.
+ * ruler. The fill is the accent; the scale's majors and the target are the second color.
  */
 export function FocusRuler({ totalMin, targetMin }: { totalMin: number; targetMin: number | null }) {
   const root = useRef<HTMLDivElement>(null);
@@ -216,7 +200,7 @@ export function FocusRuler({ totalMin, targetMin }: { totalMin: number; targetMi
         ) : null}
         <span data-fill className="absolute bottom-0 left-0 h-[3px] rounded-[2px] bg-sealed" style={{ width: `${fill}%` }} />
       </div>
-      <div aria-hidden="true" className="relative h-3 font-mono text-[10.5px] leading-none text-muted">
+      <div aria-hidden="true" className="relative h-3 font-mono text-micro leading-none text-muted">
         {s.labels.map((h) => (
           <span
             key={h}

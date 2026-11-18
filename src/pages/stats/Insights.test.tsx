@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StatsPage } from "./StatsPage";
 import { useStore } from "../../state/store";
-import { useRecap, recapLines } from "../../state/recap";
+import { useRecap, recapFigures } from "../../state/recap";
 import { RecapNotice } from "../../components/RecapNotice";
 import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
@@ -84,28 +84,80 @@ describe("Stats in depth (v0.3)", () => {
     expect(screen.getByText(/· Productive$/)).toBeInTheDocument();
   });
 
-  it("the Monday recap shows once a week, says it plainly, and opens Stats", async () => {
+  it("the Monday recap opens as a dialog with two figures, and See the week opens Stats", async () => {
     const recap = { week: "2026-10-19", focusMin: 680, previousFocusMin: 560, kept: 5, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: "discord.exe", sessions: 12 };
-    expect(recapLines(recap).lines).toEqual([
-      "11h 20m in focus over 12 sessions, up 2h from the week before.",
-      "5 of 6 days kept, 1 with a broken seal.",
-      "Best day: Tuesday, 4h.",
-      "Most tempting: discord.",
-    ]);
+    expect(recapFigures(recap)).toEqual({
+      focus: { value: "11h 20m", previous: "9h 20m", note: "In focus, up 2h on the week before", direction: "up", delta: "+2h" },
+      kept: { value: "5 of 6", note: "Days kept, 1 with a broken seal" },
+      aside: "Best day: Tuesday, 4h.",
+    });
+    expect(recapFigures({ ...recap, previousFocusMin: 0, broken: 0, bestDay: null }).focus.note).toBe("In focus");
     mockControls.insightRecap(recap);
     await native.setSetting("weekly_recap", "1");
     await act(() => useRecap.getState().check());
     render(<RecapNotice />);
-    expect(screen.getByRole("region", { name: "Last week" })).toBeInTheDocument();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "See the week" })));
+    const dialog = screen.getByRole("dialog", { name: "Last week" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    // Named by its visible subline (no second copy of "Last week"), described by the figures.
+    expect(dialog).not.toHaveAttribute("aria-label");
+    expect(dialog).toHaveAttribute("aria-describedby", "recap-figures");
+    expect(document.getElementById("recap-figures")).toContainElement(within(dialog).getByRole("group", { name: "Days kept" }));
+    // Focus moves in, onto the one primary action.
+    expect(within(dialog).getByRole("button", { name: "See the week" })).toHaveFocus();
+    expect(within(dialog).getByRole("group", { name: "Days kept" })).toHaveTextContent("5 of 6");
+    await waitFor(() => expect(within(dialog).getByRole("group", { name: "Focus time" })).toHaveTextContent("11h 20m"));
+    expect(within(dialog).getByText("Best day: Tuesday, 4h.")).toBeInTheDocument();
+    // Less to read: no most tempting, no target, one field at most.
+    expect(within(dialog).queryByText(/discord/)).toBeNull();
+    expect(within(dialog).getAllByRole("textbox")).toHaveLength(1);
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "See the week" })));
     expect(useStore.getState().activeTab).toBe("stats");
+    expect(screen.queryByRole("dialog")).toBeNull();
     // Seen: not again this week.
     await act(() => useRecap.getState().check());
     expect(useRecap.getState().recap).toBeNull();
     expect(await native.getSetting("recap_seen_week")).toBeTruthy();
   });
 
-  it("the weekly recap is off by default: no card, but the week is still marked seen", async () => {
+  it("shows the week as a strip: a bar per day, kept days in the accent, the best day's letter in the second color", async () => {
+    const day = (date: string, status: "kept" | "missed" | "broken" | "rest", focusMin: number) => ({ date, status, focusMin });
+    useRecap.setState({
+      recap: {
+        week: "2026-10-19", focusMin: 680, previousFocusMin: 860, kept: 4, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: null, sessions: 12,
+        daily: [day("2026-10-19", "kept", 120), day("2026-10-20", "kept", 240), day("2026-10-21", "missed", 20), day("2026-10-22", "broken", 60), day("2026-10-23", "kept", 140), day("2026-10-24", "kept", 100), day("2026-10-25", "rest", 0)],
+      },
+    });
+    render(<RecapNotice />);
+    const strip = screen.getByRole("img", { name: "Focus each day. Best day: Tuesday." });
+    const cols = Array.from(strip.children) as HTMLElement[];
+    expect(cols).toHaveLength(7);
+    expect(cols[1].querySelector("[data-bar]")).toHaveClass("bg-sealed");
+    expect(cols[1].querySelector("[data-bar]")).toHaveStyle({ height: "100%" });
+    expect(cols[2].querySelector("[data-bar]")).toHaveClass("bg-check-line");
+    expect(cols[1]).toHaveTextContent("T");
+    expect(within(cols[1]).getByText("T")).toHaveClass("text-second-text");
+    expect(cols[6].querySelector("[data-bar]")).toBeNull();
+    expect(cols[6].firstElementChild).toHaveClass("border-dashed");
+    // The quiet aside gives way to the strip; the change shows as a signed figure.
+    expect(screen.queryByText(/^Best day:/)).toBeNull();
+    expect(screen.getByText("−3h")).toHaveClass("text-second-text");
+    expect(screen.getByRole("group", { name: "Days kept" })).toHaveTextContent("4 of 6 days kept, 1 broken");
+  });
+
+  it("Escape closes the recap and marks the week seen", async () => {
+    mockControls.insightRecap({ week: "2026-10-19", focusMin: 45, previousFocusMin: 0, kept: 1, broken: 0, days: 2, bestDay: null, bestDayMin: 0, mostTempting: null, sessions: 1 });
+    await native.setSetting("weekly_recap", "1");
+    await act(() => useRecap.getState().check());
+    render(<RecapNotice />);
+    expect(screen.getByRole("group", { name: "Focus time" })).toHaveTextContent("45m");
+    await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(useStore.getState().activeTab).not.toBe("stats");
+    expect(await native.getSetting("recap_seen_week")).toBeTruthy();
+    expect(mockControls.reviewState().saved).toEqual({});
+  });
+
+  it("the weekly recap is off by default: no dialog, but the week is still marked seen", async () => {
     mockControls.insightRecap({ week: "2026-10-19", focusMin: 680, previousFocusMin: 560, kept: 5, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: null, sessions: 12 });
     const shown = vi.spyOn(native, "reviewRecapShown");
     await act(() => useRecap.getState().check());

@@ -52,7 +52,7 @@ describe("quiet hours schedule", () => {
     await act(async () => fireEvent.change(section.getByRole("combobox", { name: "Until" }), { target: { value: "06:30" } }));
     const saved = (await native.quietStatus()).config;
     expect(saved).toMatchObject({ enabled: true, daysMask: 0b0111111, start: "23:00", end: "06:30" });
-    expect(section.getByTestId("quiet-status")).toHaveTextContent("Sun, Mon, Tue, Wed, Thu, Fri, 11:00 PM to 6:30 AM");
+    expect(section.getByTestId("quiet-status")).toHaveTextContent("11:00 PM to 6:30 AM, Sun, Mon, Tue, Wed, Thu, Fri");
   });
 
   it("holds the schedule mid-window, and pauses 15 minutes only with a reason", async () => {
@@ -67,6 +67,8 @@ describe("quiet hours schedule", () => {
       </>,
     );
     expect(screen.getByRole("switch", { name: "Quiet hours" })).toBeInTheDocument();
+    // Collapsed to its summary until opened.
+    fireEvent.click(screen.getByRole("button", { name: /Quiet hours/, expanded: false }));
     expect(screen.getByRole("button", { name: "Sat" })).toBeDisabled();
     expect(screen.getByTestId("quiet-status")).toHaveTextContent("On now until");
 

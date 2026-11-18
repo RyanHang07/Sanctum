@@ -8,7 +8,7 @@ import { sampleProfiles } from "../lib/catalog";
 import type { HeldStats } from "../lib/types";
 
 // The compact timer (redesign S8): text stays readable on both sides of the fill, and the held
-// moment is a crisp second-colour edge and a closed ring, with no glow.
+// moment is a crisp second-color edge and a closed ring, with no glow.
 
 beforeEach(() => resetMockBackend());
 
@@ -43,7 +43,7 @@ describe("Compact timer", () => {
     expect(timer.innerHTML).not.toMatch(/opacity-80/);
   });
 
-  it("marks the held moment crisply: closed ring, second-colour edge, plain copy", async () => {
+  it("marks the held moment crisply: closed ring, second-color edge, plain copy", async () => {
     await sealed();
     render(<CompactTimer />);
     await screen.findByRole("timer", { name: /left/ });
@@ -77,5 +77,28 @@ describe("Compact timer", () => {
     const glides = src.match(/duration-glide/g)?.length ?? 0;
     expect(glides).toBeGreaterThan(0);
     expect(src.match(/motion-reduce:transition-none/g)?.length ?? 0).toBeGreaterThanOrEqual(glides);
+  });
+});
+
+describe("Compact timer's first read (M12)", () => {
+  it("a session event newer than the first read wins, and a failed read is quiet", async () => {
+    const p = await sealed();
+    const live = await native.getSession();
+    let answer!: (s: null) => void;
+    const get = vi.spyOn(native, "getSession").mockReturnValueOnce(new Promise((r) => (answer = r)));
+    render(<CompactTimer />);
+    act(() => bus.emit(EVENTS.session, live));
+    await act(async () => answer(null));
+    expect(screen.getAllByText(p.name).length).toBeGreaterThan(0);
+    expect(screen.getByRole("timer", { name: /Focus timer, 60:00 left/ })).toBeInTheDocument();
+    get.mockRestore();
+  });
+
+  it("doesn't throw when the first read fails", async () => {
+    const get = vi.spyOn(native, "getSession").mockRejectedValueOnce("No answer.");
+    render(<CompactTimer />);
+    await act(async () => undefined);
+    expect(get).toHaveBeenCalled();
+    get.mockRestore();
   });
 });

@@ -3,6 +3,7 @@ import { errorText, native } from "../lib/native";
 import { addDays, todayKey, type AgendaItem } from "../lib/planner";
 import type { Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "../lib/types";
 import { useStore } from "./store";
+import { onMockReset } from "../lib/mockBackend";
 
 /** How far back Pending looks for unfinished one-time items. */
 const PENDING_DAYS = 60;
@@ -14,6 +15,60 @@ export const UNDO_MS = 5000;
 const deleting = { todos: new Set<number>(), routines: new Set<number>() };
 /** Deletes waiting out their undo window, by "todo:<id>" / "routine:<id>". Quitting runs them. */
 const undoable = new Map<string, () => Promise<unknown>>();
+/** The undo windows' timers, by the same keys, so a reset can stop them. */
+const undoTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Only the latest reload sets state: an older one (an `ensure` for another range, or a Google
+ * sync) finishing late must not overwrite a newer one.
+ */
+let reloadGen = 0;
+let latestReload: Promise<void> | null = null;
+/** Bumped when a local edit starts and when it settles; a reload that spans one is stale. */
+let editGen = 0;
+let editsInFlight = 0;
+/** A reload was dropped for an edit still in flight: run one when the edits settle. */
+let reloadAfterEdits = false;
+/** Bumped by a reset: an edit started before it settles without touching the new counts. */
+let editEpoch = 0;
+
+/** Runs a local edit (optimistic set, then the backend), so reloads around it know. */
+async function edit<T>(fn: () => Promise<T>): Promise<T> {
+  const epoch = editEpoch;
+  editGen++;
+  editsInFlight++;
+  try {
+    return await fn();
+  } finally {
+    if (epoch === editEpoch) settle();
+  }
+}
+
+/** An edit settled: reloads see it, and one dropped meanwhile runs now. */
+function settle() {
+  editsInFlight = Math.max(0, editsInFlight - 1);
+  editGen++;
+  if (!editsInFlight && reloadAfterEdits) {
+    reloadAfterEdits = false;
+    void usePlanner.getState().reload();
+  }
+}
+
+/** Forgets deletes in their undo window and stops their timers (tests: between cases). */
+export function resetPlannerPending(): void {
+  undoTimers.forEach((t) => clearTimeout(t));
+  undoTimers.clear();
+  undoable.clear();
+  deleting.todos.clear();
+  deleting.routines.clear();
+  reloadGen++;
+  latestReload = null;
+  editGen = 0;
+  editEpoch++;
+  editsInFlight = 0;
+  reloadAfterEdits = false;
+}
+onMockReset(resetPlannerPending);
 
 /** Carries out every delete still in its undo window (before quitting). */
 export async function flushDeletes(): Promise<void> {
@@ -67,7 +122,8 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
 
   ensure: async (from, to) => {
     const r = get().range;
-    if (r && r[0] <= from && r[1] >= to && get().loaded) return;
+    // Already covered: wait for a reload of it that may still be running.
+    if (r && r[0] <= from && r[1] >= to && get().loaded) return latestReload ?? undefined;
     const range: [string, string] = r ? [from < r[0] ? from : r[0], to > r[1] ? to : r[1]] : [from, to];
     set({ range });
     await get().reload();
@@ -77,11 +133,25 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     const reset = useStore.getState().settings.dailyResetTime;
     const today = todayKey(new Date(), reset);
     const range = get().range ?? [today, addDays(today, 1)];
-    const [routines, todos, checks] = await Promise.all([
+    const gen = ++reloadGen;
+    const edits = editGen;
+    const fetched = Promise.all([
       native.listRoutines(),
       native.listTodos(range[0], range[1]),
       native.listRoutineChecks(range[0], range[1]),
     ]).catch(() => [[], [], []] as [Routine[], Todo[], RoutineCheck[]]);
+    const done = fetched.then(() => undefined);
+    latestReload = done;
+    const [routines, todos, checks] = await fetched;
+    if (gen !== reloadGen) return;
+    if (latestReload === done) latestReload = null;
+    // A local edit started or settled while this was in flight: its optimistic state wins, and a
+    // fresh read follows once the backend has it.
+    if (edits !== editGen || editsInFlight) {
+      if (editsInFlight) reloadAfterEdits = true;
+      else return get().reload();
+      return;
+    }
     set({
       routines: routines.filter((r) => !deleting.routines.has(r.id)),
       todos: todos.filter((t) => !deleting.todos.has(t.id)),
@@ -99,7 +169,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   saveRoutine: async (d) => {
-    const r = await attempt(() => native.saveRoutine(d));
+    const r = await edit(() => attempt(() => native.saveRoutine(d)));
     if (r) set({ routines: [...get().routines.filter((x) => x.id !== r.id), r] });
     return r;
   },
@@ -113,11 +183,13 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     const commit = () => {
       clearTimeout(timer);
       undoable.delete(`routine:${id}`);
+      undoTimers.delete(`routine:${id}`);
       deleting.routines.delete(id);
       return attempt(() => native.deleteRoutine(id)).then((ok) => ok === null && void get().reload());
     };
     const timer = setTimeout(() => void commit(), UNDO_MS);
     undoable.set(`routine:${id}`, commit);
+    undoTimers.set(`routine:${id}`, timer);
     useStore.getState().showNotice({
       lead: `Deleted “${r.title}”.`,
       ms: UNDO_MS,
@@ -126,6 +198,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
         run: () => {
           clearTimeout(timer);
           undoable.delete(`routine:${id}`);
+          undoTimers.delete(`routine:${id}`);
           deleting.routines.delete(id);
           set({ routines: [...get().routines, r], checks: [...get().checks, ...checks] });
         },
@@ -135,7 +208,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
   },
 
   saveTodo: async (d) => {
-    const t = await attempt(() => native.saveTodo(d));
+    const t = await edit(() => attempt(() => native.saveTodo(d)));
     if (t) {
       const reset = useStore.getState().settings.dailyResetTime;
       const today = todayKey(new Date(), reset);
@@ -156,11 +229,13 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     const commit = () => {
       clearTimeout(timer);
       undoable.delete(`todo:${id}`);
+      undoTimers.delete(`todo:${id}`);
       deleting.todos.delete(id);
       return attempt(() => native.deleteTodo(id)).then((ok) => ok === null && void get().reload());
     };
     const timer = setTimeout(() => void commit(), UNDO_MS);
     undoable.set(`todo:${id}`, commit);
+    undoTimers.set(`todo:${id}`, timer);
     useStore.getState().showNotice({
       lead: `Deleted “${t.title}”.`,
       ms: UNDO_MS,
@@ -169,6 +244,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
         run: () => {
           clearTimeout(timer);
           undoable.delete(`todo:${id}`);
+          undoTimers.delete(`todo:${id}`);
           deleting.todos.delete(id);
           set({ todos: inTodos ? [...get().todos, inTodos] : get().todos, pending: inPending ? [...get().pending, inPending] : get().pending });
         },
@@ -177,22 +253,25 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
     return true;
   },
 
-  reorderRoutines: async (ids) => {
+  reorderRoutines: (ids) =>
+    edit(async () => {
     // Optimistic: the list moves now, and goes back if the backend refuses.
     const before = get().routines;
     const at = new Map(ids.map((id, i) => [id, i]));
     set({ routines: before.map((r) => (at.has(r.id) ? { ...r, sort: at.get(r.id)! } : r)) });
     if ((await attempt(() => native.reorderRoutines(ids).then(() => true))) === null) set({ routines: before });
-  },
+    }),
 
-  reorderTodos: async (ids) => {
+  reorderTodos: (ids) =>
+    edit(async () => {
     const before = get().todos;
     const at = new Map(ids.map((id, i) => [id, i]));
     set({ todos: before.map((t) => (at.has(t.id) ? { ...t, sort: at.get(t.id)! } : t)) });
     if ((await attempt(() => native.reorderTodos(ids).then(() => true))) === null) set({ todos: before });
-  },
+    }),
 
-  toggle: async (item) => {
+  toggle: (item) =>
+    edit(async () => {
     if (item.kind === "routine") {
       const target = Math.max(1, item.sessionsTarget ?? 1);
       const current = Math.min(target, Math.max(0, item.sessionsDone ?? (item.done ? target : 0)));
@@ -210,7 +289,7 @@ export const usePlanner = create<PlannerStore>()((set, get) => ({
       const t = await attempt(() => native.setTodoDone(item.id, done));
       if (!t) set({ todos: get().todos.map((x) => (x.id === item.id ? { ...x, done: !done } : x)) });
     }
-  },
+    }),
 }));
 
 // App-wide state: hot-swapping this module would split it into two copies (the UI reading an

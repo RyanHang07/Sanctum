@@ -6,6 +6,7 @@
 //! ("Shorts - YouTube — youtube.com", added in activity.rs from the extension), or the title
 //! names the site; either way it's grouped by domain here.
 
+use crate::engine::Locked;
 use crate::classify::{self, is_browser, title_matches_domain, CATEGORIES};
 use crate::stats::{self, Days};
 use crate::{session, Shared};
@@ -44,9 +45,11 @@ pub struct SessionRow {
     pub left_off: Option<String>,
 }
 
+// The stored count, not a COUNT of blocked_attempts: those rows go after 90 days (2026-11-17), the
+// session's own total stays.
 const SESSION_COLS: &str = "s.id, s.profile_id, COALESCE(NULLIF(s.profile_name, ''), p.name, 'Focus'), s.started_at, s.ended_at, s.planned_minutes,
      MAX(0, MIN(s.planned_minutes * 60000, s.ended_at - s.started_at - s.idle_ms) - s.gap_ms), s.idle_ms, COALESCE(s.outcome, 'completed'),
-     (SELECT COUNT(*) FROM blocked_attempts b WHERE b.session_id = s.id), s.task_title,
+     s.attempts_blocked, s.task_title,
      s.goal, s.plan, s.result, s.focus_rating, s.left_off";
 
 fn session_row(r: &rusqlite::Row) -> rusqlite::Result<SessionRow> {
@@ -424,6 +427,8 @@ pub struct Recap {
     pub best_day_min: i64,
     pub most_tempting: Option<String>,
     pub sessions: i64,
+    /// The week's seven days, Monday first, for the recap's week strip (2026-11-17).
+    pub daily: Vec<stats::DayStat>,
 }
 
 /// Last week (Monday to Sunday) before `today`, and how it compared with the one before.
@@ -450,6 +455,7 @@ pub fn recap(conn: &Connection, today: NaiveDate) -> rusqlite::Result<Option<Rec
         best_day_min: best.map_or(0, |d| d.focus_min),
         most_tempting: o.tempted.first().map(|t| t.what.clone()),
         sessions,
+        daily: o.days.clone(),
     }))
 }
 
@@ -479,7 +485,7 @@ fn outcome_filter(o: Option<String>) -> Result<Option<String>, String> {
 /// `from`/`to` are planner dates; omit both for all time.
 #[tauri::command]
 pub fn stats_sessions(shared: State<Shared>, from: Option<String>, to: Option<String>, outcome: Option<String>, profile: Option<i64>) -> Result<Vec<SessionRow>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let (f, t) = match (from, to) {
         (Some(f), Some(t)) => range_ms(&conn, &f, &t)?,
         _ => (0, i64::MAX),
@@ -489,7 +495,7 @@ pub fn stats_sessions(shared: State<Shared>, from: Option<String>, to: Option<St
 
 #[tauri::command]
 pub fn stats_session(shared: State<Shared>, id: i64) -> Result<Option<SessionDetail>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     session_detail(&conn, id).map_err(|e| e.to_string())
 }
 
@@ -512,7 +518,7 @@ pub struct ActivityView {
 
 #[tauri::command]
 pub fn stats_activity(shared: State<Shared>, from: String, to: String) -> Result<ActivityView, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let (f, t) = range_ms(&conn, &from, &to)?;
     let (apps, sites) = activity(&conn, f, t).map_err(|e| e.to_string())?;
     Ok(ActivityView { apps, sites })
@@ -521,7 +527,7 @@ pub fn stats_activity(shared: State<Shared>, from: String, to: String) -> Result
 #[tauri::command]
 pub fn stats_reclassify(shared: State<Shared>, kind: String, pattern: String, category: String, profile: Option<i64>) -> Result<usize, String> {
     let changed = {
-        let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let mut conn = shared.db.locked();
         reclassify(&mut conn, &kind, &pattern, &category, profile)?
     };
     // The live tracker picks the new rule up on its next step.
@@ -531,13 +537,13 @@ pub fn stats_reclassify(shared: State<Shared>, kind: String, pattern: String, ca
 
 #[tauri::command]
 pub fn stats_day(shared: State<Shared>, date: String) -> Result<DayView, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     day(&conn, parse_date(&date)?).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn stats_recap(shared: State<Shared>) -> Result<Option<Recap>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let today = Days::load(&conn).of(session::now_ms());
     recap(&conn, today).map_err(|e| e.to_string())
 }
@@ -588,6 +594,8 @@ mod tests {
         let a = session(&conn, deep, at(d, 9, 0), 60, "completed");
         let b = session(&conn, study, at(d, 14, 0), 45, "broken");
         conn.execute("INSERT INTO blocked_attempts (session_id, ts, exe, kind) VALUES (?1, ?2, 'discord.exe', 'app'), (?1, ?2, 'discord.exe', 'app')", params![a, at(d, 9, 5)]).unwrap();
+        // record_attempt keeps the session's own count too; the list reads that (2026-11-17).
+        conn.execute("UPDATE sessions SET attempts_blocked = 2 WHERE id = ?1", [a]).unwrap();
         conn.execute("INSERT INTO tamper_events (session_id, ts, kind) VALUES (?1, ?2, 'clock')", params![b, at(d, 14, 10)]).unwrap();
 
         let all = sessions(&conn, 0, i64::MAX, None, None).unwrap();

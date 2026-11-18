@@ -85,7 +85,8 @@ describe("design tokens", () => {
     const ext = tailwindConfig.theme.extend;
     expect(ext).toBe(theme);
     expect(ext.borderRadius).toEqual({ control: "6px", panel: "8px", dialog: "12px" });
-    expect(ext.spacing).toEqual({ control: "32px", row: "38px", sidebar: "220px", "sidebar-rail": "60px" });
+    expect(ext.spacing).toEqual({ control: "32px", "control-sm": "26px", cta: "52px", row: "38px", sidebar: "220px", "sidebar-rail": "60px" });
+    expect(Object.keys(ext.fontSize)).toEqual(["page-title", "body", "meta", "micro", "moment", "moment-dialog", "moment-compact", "held"]);
     expect(ext.fontFamily.sans[0]).toContain("Geist");
     expect(ext.fontFamily.mono[0]).toContain("Geist Mono");
     expect(ext.fontFamily.headline[0]).toContain("Schibsted Grotesk");
@@ -96,7 +97,7 @@ describe("design tokens", () => {
     const ext = tailwindConfig.theme.extend;
     expect(ext.transitionDuration).toEqual({ ui: "120ms", enter: "180ms", state: "240ms", glide: "400ms", moment: "700ms", drain: "1200ms", breathe: "3200ms" });
     for (const ease of Object.values(ext.transitionTimingFunction)) expect(ease).toMatch(/^cubic-bezier/);
-    expect(Object.keys(ext.transitionTimingFunction)).toEqual(["ui", "glide", "settle", "seat", "exit", "drift"]);
+    expect(Object.keys(ext.transitionTimingFunction)).toEqual(["ui", "glide", "settle", "seat", "exit", "drift", "snap"]);
     expect(Object.keys(ext.animation)).toEqual(["fade-in", "rise-in"]);
   });
 

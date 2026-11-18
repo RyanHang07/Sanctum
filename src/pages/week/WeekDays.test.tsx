@@ -52,7 +52,7 @@ describe("Week day states", () => {
     const kept = await within(day(MONDAY)).findByTestId("day-mark");
     expect(kept).toHaveAttribute("data-status", "kept");
     expect(kept).toHaveTextContent("Kept");
-    // The kept mark is a solid dot in the second colour, never the accent.
+    // The kept mark is a solid dot in the second color, never the accent.
     expect(kept.querySelector("span")).toHaveClass("bg-second");
     expect(kept.querySelector("span")!.className).not.toMatch(/sealed|shadow|gradient|blur/);
     expect(within(day(MONDAY)).getByText("150")).toBeInTheDocument();

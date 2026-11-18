@@ -3,6 +3,7 @@
 //! times on set days; they queue while sealed and can pop up at startup if one was missed.
 //! Everything stays local.
 
+use crate::engine::Locked;
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveTime};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -395,12 +396,12 @@ fn first_due(shared: &Shared) -> Option<Due> {
     if shared.sealed() || shared.engine.is_active() {
         return None;
     }
-    let conn = shared.db.lock().ok()?;
+    let conn = shared.db.locked();
     let now = Local::now();
     let list = list_checkins(&conn).ok()?;
     let handled = handled_on(&conn, &date_key(now.date_naive())).ok()?;
     let on_startup = crate::db::get_setting(&conn, "checkin_on_startup").ok().flatten().as_deref() != Some("0");
-    let snoozed = shared.checkins.snoozed.lock().ok()?.clone();
+    let snoozed = shared.checkins.snoozed.locked().clone();
     due(&list, &handled, &snoozed, now, shared.checkins.booted_at, on_startup).into_iter().next()
 }
 
@@ -418,21 +419,23 @@ pub fn spawn(app: AppHandle) {
         .name("sanctum-checkins".into())
         .spawn(move || loop {
             std::thread::sleep(TICK);
-            let shared = app.state::<Shared>();
-            let Some(d) = first_due(&shared) else { continue };
-            let mut showing = shared.checkins.showing.lock().unwrap();
-            if *showing == Some(d.checkin_id) {
-                continue;
-            }
-            *showing = Some(d.checkin_id);
-            drop(showing);
-            present(&app, &d);
+            crate::engine::guarded("sanctum-checkins", || {
+                let shared = app.state::<Shared>();
+                let Some(d) = first_due(&shared) else { return };
+                let mut showing = shared.checkins.showing.locked();
+                if *showing == Some(d.checkin_id) {
+                    return;
+                }
+                *showing = Some(d.checkin_id);
+                drop(showing);
+                present(&app, &d);
+            });
         })
         .expect("spawn check-in loop");
 }
 
 fn with<T>(shared: &Shared, f: impl FnOnce(&mut Connection) -> Result<T>) -> Result<T> {
-    let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let mut conn = shared.db.locked();
     f(&mut conn)
 }
 
@@ -486,7 +489,7 @@ pub fn delete_checkin_cmd(shared: TauriState<Shared>, id: i64) -> Result<()> {
 #[tauri::command]
 pub fn checkin_pending(app: AppHandle, shared: TauriState<Shared>) -> Option<Due> {
     let d = first_due(&shared)?;
-    *shared.checkins.showing.lock().unwrap() = Some(d.checkin_id);
+    *shared.checkins.showing.locked() = Some(d.checkin_id);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.set_always_on_top(true);
     }
@@ -499,11 +502,11 @@ pub fn checkin_answer(app: AppHandle, shared: TauriState<Shared>, id: i64, date:
     match outcome.as_str() {
         "logged" | "skipped" => with(&shared, |c| mark(c, id, &date, &outcome, now_ms()))?,
         "snoozed" => {
-            shared.checkins.snoozed.lock().unwrap().insert(id, now_ms() + SNOOZE_MS);
+            shared.checkins.snoozed.locked().insert(id, now_ms() + SNOOZE_MS);
         }
         _ => return Err(format!("Unknown outcome: {outcome}.")),
     }
-    *shared.checkins.showing.lock().unwrap() = None;
+    *shared.checkins.showing.locked() = None;
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.set_always_on_top(false);
     }

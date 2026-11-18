@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Kbd } from "../../components/Button";
 import { Mark } from "../../components/Mark";
-import { CheckIcon } from "../../components/icons";
 import { catalogDistractions, rulesForWorkTypes, sampleProfiles, WORK_TYPES } from "../../lib/catalog";
 import { distractionLabel, guessDistraction } from "../../lib/rules";
 import type { NewDistraction } from "../../lib/types";
 import { AppPicker } from "../setup/AppPicker";
-import { native } from "../../lib/native";
+import { errorText, native } from "../../lib/native";
 import { minutes } from "../../lib/time";
 import { useStore } from "../../state/store";
 import { useCalendar } from "../../state/calendar";
 import { RestDays } from "../Setup";
+import { AWAY_MINUTES, GOAL_MINUTES } from "../setup/options";
 import { BrowsersSection } from "../setup/Browsers";
 import { ProtectionSection } from "../setup/Protection";
 import { ThemeGrid } from "../setup/Appearance";
-import { Segmented, Switch, TabPanel } from "../../components/controls";
+import { CheckMark, Segmented, Switch, TabPanel } from "../../components/controls";
 import { useTheme } from "../../state/theme";
 import { THEMES } from "../../theme/themes";
 import { ONBOARDING } from "../headlines";
@@ -27,17 +27,15 @@ import { useMotion } from "../../lib/useMotion";
 const STEPS = ["Welcome", "Profiles", "Distractions", "Goals", "Look", "Calendar", "Browser", "Ready"] as const;
 /** Picked by default: the catalog's always-sealed four. */
 const STARTER = ["Discord", "YouTube", "Instagram", "TikTok"];
-const GOALS = [60, 90, 120, 180, 240];
-const IDLE = [1, 3, 5, 10];
 
 type Picks = Record<string, string[]>;
 
 /** A step title: one plain sentence from ONBOARDING in ../headlines (the 2026-11-15 headline
- *  rule: one weight, one colour, no italic payoff), with a muted line under it. */
+ *  rule: one weight, one color, no italic payoff), with a muted line under it. */
 export function Headline({ title, sub }: { title: string; sub: string }) {
   return (
     <div className="flex flex-col gap-[6px]">
-      <h1 className="headline m-0 text-[26px]">{title}</h1>
+      <h1 className="headline m-0 text-moment">{title}</h1>
       <p className="m-0 text-body text-muted">{sub}</p>
     </div>
   );
@@ -47,7 +45,7 @@ function Chips<T extends number>({ label, value, options, format, onChange }: { 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-meta text-muted">{label}</span>
-      <div role="radiogroup" aria-label={label} className="flex gap-[6px]">
+      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-[6px]">
         {options.map((o) => (
           <button
             key={o}
@@ -56,7 +54,7 @@ function Chips<T extends number>({ label, value, options, format, onChange }: { 
             aria-checked={value === o}
             onClick={() => onChange(o)}
             className={`h-9 rounded-control border px-3 font-mono text-body transition-colors duration-ui ease-ui ${
-              value === o ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
+              value === o ? "border-sealed bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
             }`}
           >
             {format(o)}
@@ -99,12 +97,10 @@ function ProfilesStep({ picks, setPicks }: { picks: Picks; setPicks: (p: Picks) 
               aria-checked={on}
               onClick={() => setPicks({ ...picks, [current]: on ? picked.filter((p) => p !== w) : [...picked, w] })}
               className={`flex h-9 items-center gap-[10px] rounded-control border px-[10px] text-left text-body transition-colors duration-ui ease-ui ${
-                on ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
+                on ? "border-sealed bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
               }`}
             >
-              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-line-input"}`}>
-                {on ? <CheckIcon size={9} className="text-sealed-on" /> : null}
-              </span>
+              <CheckMark done={on} />
               {w}
             </button>
           );
@@ -152,12 +148,10 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
               aria-checked={on}
               onClick={() => toggle(g.label)}
               className={`flex h-8 items-center gap-2 rounded-control border px-[10px] text-body transition-colors duration-ui ease-ui ${
-                on ? "border-sealed-line bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
+                on ? "border-sealed bg-sealed-tint text-text" : "border-line text-text-2 hover:border-line-input"
               }`}
             >
-              <span className={`flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] ${on ? "bg-sealed" : "border-[1.5px] border-line-input"}`}>
-                {on ? <CheckIcon size={9} className="text-sealed-on" /> : null}
-              </span>
+              <CheckMark done={on} />
               {g.label}
             </button>
           );
@@ -170,7 +164,7 @@ function DistractionsStep({ flags, setFlags }: { flags: Flags; setFlags: (f: Fla
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          className="h-9 min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
+          className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
         />
         <Button variant="ghost" onClick={() => setPicking(true)}>
           Add an app
@@ -198,7 +192,7 @@ function LookStep() {
   const mode = theme.scheme;
   return (
     <>
-      <Headline title={ONBOARDING.look} sub="Colours only: Sanctum stays Sanctum. Hover a theme to see it." />
+      <Headline title={ONBOARDING.look} sub="Colors only: Sanctum stays Sanctum. Hover a theme to see it." />
       <label className="flex items-center gap-3 text-body">
         <Switch checked={prefs.follow} onChange={(v) => void setFollow(v)} label="Follow Windows" />
         <span>
@@ -224,8 +218,8 @@ function GoalsStep() {
   return (
     <>
       <Headline title={ONBOARDING.goal} sub="A day keeps your streak when you reach the goal and no seal breaks." />
-      <Chips label="Daily focus goal" value={settings.dailyGoalMin} options={GOALS} format={minutes} onChange={setDailyGoal} />
-      <Chips label="Idle after" value={settings.idleThresholdMin} options={IDLE} format={(m) => `${m} min`} onChange={(m) => setActivitySetting("idleThresholdMin", m)} />
+      <Chips label="Daily focus goal" value={settings.dailyGoalMin} options={GOAL_MINUTES} format={minutes} onChange={setDailyGoal} />
+      <Chips label="Count you as away after" value={settings.idleThresholdMin} options={AWAY_MINUTES} format={(m) => `${m} min`} onChange={(m) => setActivitySetting("idleThresholdMin", m)} />
       <div className="flex flex-col gap-2">
         <span className="text-meta text-muted">Rest days never break the streak</span>
         <RestDays mask={settings.restDaysMask} onChange={setRestDays} />
@@ -269,7 +263,7 @@ function BrowserStep() {
     <>
       <Headline title={ONBOARDING.browser} sub="The extension blocks your distracting sites, links, and keyword tabs. Protection blocks sites in every browser and keeps Sanctum open while you're sealed." />
       <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
-        <BrowsersSection />
+        <BrowsersSection titled />
         <ProtectionSection />
       </div>
     </>
@@ -282,7 +276,7 @@ function ReadyStep({ picks, flags }: { picks: Picks; flags: Flags }) {
   const sealed = [...flags.common, ...flags.extra.map((e) => e.label ?? e.value)];
   return (
     <>
-      <Headline title={ONBOARDING.done} sub="Sanctum starts with Windows and opens Home. Change anything in Setup." />
+      <Headline title={ONBOARDING.done} sub="Sanctum starts with Windows and opens Today. Change anything in Setup." />
       <ul className="m-0 flex list-none flex-col gap-2 p-0 text-body">
         <li className="flex justify-between border-b border-line-soft pb-2">
           <span className="text-muted">Profiles</span>
@@ -351,23 +345,33 @@ export function Onboarding() {
   const [picks, setPicks] = useState<Picks>(() => Object.fromEntries(sampleProfiles().map((p) => [p.name, [...(p.workTypes ?? [])]])));
   const [flags, setFlags] = useState<Flags>({ common: STARTER, extra: [] });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Enter and the button can both fire: one finish at a time, or profiles are made twice.
+  const finishing = useRef(false);
   const last = step === STEPS.length - 1;
   const body = useStepIn(step);
 
   const next = async () => {
+    if (finishing.current) return;
     if (!last) return setStep(step + 1);
+    finishing.current = true;
     setBusy(true);
+    setError(null);
     try {
       await finishOnboarding(picks, name, flags);
       await close();
       await useStore.getState().loadDistractions();
+    } catch (e) {
+      setError(errorText(e));
     } finally {
+      finishing.current = false;
       setBusy(false);
     }
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !(e.target instanceof HTMLInputElement)) void next();
+      // The close dialog owns Enter while it's open.
+      if (e.key === "Enter" && !(e.target instanceof HTMLInputElement) && !useStore.getState().closeDialogOpen) void next();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -398,13 +402,13 @@ export function Onboarding() {
             <>
               <Headline title={ONBOARDING.welcome} sub="Two minutes: pick your profiles, name your distractions, set a goal, and connect what you use." />
               <label className="flex flex-col gap-2">
-                <span className="text-meta text-muted">Your name, for Home</span>
+                <span className="text-meta text-muted">Your name, for Today</span>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void next()}
                   placeholder="Optional"
-                  className="h-9 w-[260px] rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
+                  className="h-control w-[260px] rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
                 />
               </label>
             </>
@@ -419,6 +423,11 @@ export function Onboarding() {
         </div>
 
         <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
+          {error ? (
+            <p role="alert" className="m-0 min-w-0 truncate text-meta text-broken-text">
+              {error}
+            </p>
+          ) : null}
           {step > 0 ? (
             <Button variant="ghost" onClick={() => setStep(step - 1)}>
               Back

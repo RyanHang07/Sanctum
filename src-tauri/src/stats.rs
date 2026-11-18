@@ -2,6 +2,7 @@
 //! next, in local time. A day is kept when focus reaches the daily goal and no seal broke;
 //! planned rest days never break the streak and count toward it.
 
+use crate::engine::Locked;
 use crate::{db, session, Shared};
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, Timelike};
 use rusqlite::{params, Connection};
@@ -305,7 +306,7 @@ pub fn stats_overview(shared: State<Shared>, from: String, to: String) -> Result
         return Err("That range is too long.".into());
     }
     let live_ms = shared.engine.view().map(|v| v.elapsed_ms.max(0)).unwrap_or(0);
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let today = Days::load(&conn).of(session::now_ms());
     overview(&conn, from, to, today, live_ms).map_err(|e| e.to_string())
 }

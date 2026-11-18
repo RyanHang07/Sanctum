@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDayStats } from "../../components/StreakMark";
 import type { DayStat } from "../../lib/types";
 import { Button } from "../../components/Button";
-import { Segmented, Switch, type SegmentOption } from "../../components/controls";
-import { ChevronRightIcon, PlusIcon } from "../../components/icons";
+import { Check, SEGMENT_TEXT, SEGMENTED_HEIGHT, Segmented, Switch, type SegmentOption } from "../../components/controls";
+import { ChevronRightIcon, PlusIcon, WeekIcon } from "../../components/icons";
 import { DUR, EASE, gsap } from "../../lib/gsap";
 import { useMotion } from "../../lib/useMotion";
-import { DayDot, DayMark, Fold, TickBox, whenOf, type When } from "./marks";
+import { DayDot, DayMark, EventMark, Fold, whenOf, type When } from "./marks";
 import { EventDialog, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
 import { drag, dragProps, moveTo } from "./drag";
 import { PendingBox, PendingSection, PendingStrip } from "./Pending";
@@ -45,7 +45,8 @@ function rangeTitle(start: string) {
 /** The words under a card's title: its time, then what it is or how it went. */
 function cardMeta(item: AgendaItem, when: When, tag: string | undefined): string {
   const parts: string[] = [];
-  if (item.kind === "event") parts.push(item.time ? shortTime(item.time) : "all day");
+  // An event names its calendar, so it reads as an event without hovering (decided 2026-11-16).
+  if (item.kind === "event") parts.push(item.time ? shortTime(item.time) : "all day", ...(item.event?.calendarName ? [item.event.calendarName] : []));
   else if (item.kind === "routine" && (item.sessionsTarget ?? 1) > 1) parts.push(`${item.sessionsDone ?? 0}/${item.sessionsTarget}`);
   else if (item.time) parts.push(shortTime(item.time));
   if (tag) parts.push(tag);
@@ -89,8 +90,8 @@ function ItemCard({ item, when, onOpen }: { item: AgendaItem; when: When; onOpen
         when === "future" ? "border-line bg-transparent" : "border-transparent bg-raised"
       }`}
     >
-      {event ? null : (
-        <TickBox
+      {event ? <EventMark size={16} /> : (
+        <Check
           done={item.done}
           partial={partial}
           checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
@@ -100,9 +101,9 @@ function ItemCard({ item, when, onOpen }: { item: AgendaItem; when: When; onOpen
       )}
       <button type="button" onClick={onOpen} title={item.event?.calendarName} className="flex min-w-0 grow flex-col gap-[3px] whitespace-normal text-left">
         <span className={`line-clamp-3 hyphens-auto break-words text-meta leading-snug transition-colors duration-ui ease-ui ${title}`}>{item.title}</span>
-        <span className="flex min-w-0 items-center gap-1 font-mono text-[11px] text-muted">
+        <span className="flex min-w-0 items-center gap-1 font-mono text-micro text-muted">
           {routine ? <RepeatGlyph className="h-[10px] w-[10px] shrink-0" /> : null}
-          <span className="truncate">{cardMeta(item, when, tag)}</span>
+          <span title={cardMeta(item, when, tag)} className="truncate">{cardMeta(item, when, tag)}</span>
         </span>
       </button>
     </div>
@@ -125,7 +126,7 @@ function RoutineFold({ date, when, items, onOpen }: { date: string; when: When; 
       >
         <ChevronRightIcon size={8} className={`shrink-0 transition-transform duration-ui ease-ui ${open ? "rotate-90" : ""}`} />
         <span className="min-w-0 truncate">Routines</span>
-        <span className="ml-auto shrink-0 font-mono text-[11px]">
+        <span className="ml-auto shrink-0 font-mono text-micro">
           {done}/{items.length}
         </span>
       </button>
@@ -205,7 +206,7 @@ function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: 
         if (item) void moveTo(item, date);
       }}
       className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-col gap-[10px] overflow-y-auto overflow-x-hidden rounded-panel border px-[10px] py-[14px] [scrollbar-width:none] transition-[flex-grow,opacity] duration-enter ease-ui ${fixed ? "" : "flex-[1_1_0%] hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100!"} ${
-        when === "today" ? "border-sealed bg-panel" : when === "future" ? "border-line bg-transparent" : "border-line bg-panel"
+        when === "today" ? "border-sealed bg-panel" : when === "future" ? "border-line bg-app" : "border-line bg-panel"
       }`}
     >
       <div className="flex shrink-0 items-baseline justify-between">
@@ -225,7 +226,7 @@ function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: 
         aria-label={`Add to ${d.toLocaleDateString("en-US", { weekday: "long" })}`}
         aria-expanded={!!adding}
         onClick={(e) => setAdding(e.currentTarget)}
-        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:opacity-100 group-hover/day:opacity-100 aria-expanded:opacity-100"
+        className="flex h-7 shrink-0 items-center gap-[6px] rounded-control px-[6px] text-left text-meta text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text-2 focus-visible:opacity-100 group-hover/day:opacity-100 aria-expanded:opacity-100"
       >
         <PlusIcon size={11} /> Add
       </button>
@@ -370,7 +371,7 @@ function RoutinesView({ onOpen }: { onOpen: (r: Routine) => void }) {
                 void usePlanner.getState().reorderRoutines(moveId(sorted.map((x) => x.id), moved, r.id, below(e)));
                 endDrag();
               }}
-              className={`group relative flex h-12 shrink-0 cursor-grab items-center gap-3 border-b border-line-soft px-[14px] transition-colors duration-ui ease-ui last:border-b-0 hover:bg-line-soft active:cursor-grabbing ${r.active ? "" : "opacity-55"} ${dragId === r.id ? "opacity-40" : ""}`}
+              className={`group relative flex h-12 shrink-0 cursor-grab items-center gap-3 border-b border-line-soft px-[14px] transition-colors duration-ui ease-ui last:border-b-0 hover:bg-raised active:cursor-grabbing ${r.active ? "" : "opacity-55"} ${dragId === r.id ? "opacity-40" : ""}`}
             >
               {over?.id === r.id ? <span aria-hidden="true" className={`pointer-events-none absolute inset-x-[14px] h-[2px] rounded-full bg-sealed ${over.after ? "bottom-0" : "top-0"}`} /> : null}
               <RepeatGlyph className={profile ? "text-sealed-text" : "text-muted"} />
@@ -405,14 +406,13 @@ function ListRow({ item, when, meta, onOpen }: { item: AgendaItem; when: When; m
     <div
       data-kind={item.kind}
       data-state={item.kind === "event" ? undefined : item.done ? "done" : slipped ? "slipped" : "open"}
-      className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-line-soft"
+      className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-raised"
     >
       {item.kind === "event" ? (
         // An event has no box: nothing to tick.
         <span aria-hidden="true" className="h-4 w-4 shrink-0" />
       ) : (
-        <TickBox
-          size={16}
+        <Check
           done={item.done}
           partial={partial}
           checked={multi ? (item.done ? true : partial ? "mixed" : false) : item.done}
@@ -423,13 +423,14 @@ function ListRow({ item, when, meta, onOpen }: { item: AgendaItem; when: When; m
       <button
         type="button"
         onClick={onOpen}
+        title={item.title}
         className={`min-w-0 grow truncate text-left text-body transition-colors duration-ui ease-ui ${item.done ? "text-muted line-through decoration-muted" : slipped ? "text-muted" : "text-text"}`}
       >
         {item.title}
       </button>
-      {multi ? <span className="shrink-0 font-mono text-[11px] text-muted">{item.sessionsDone ?? 0}/{item.sessionsTarget}</span> : null}
-      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-[11px] text-text-2">{tag}</span> : null}
-      <span className="shrink-0 font-mono text-[11px] text-muted">{meta ?? (item.time ? shortTime(item.time) : item.kind === "event" ? "all day" : "")}</span>
+      {multi ? <span className="shrink-0 font-mono text-micro text-muted">{item.sessionsDone ?? 0}/{item.sessionsTarget}</span> : null}
+      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-micro text-text-2">{tag}</span> : null}
+      <span className="shrink-0 font-mono text-micro text-muted">{meta ?? (item.time ? shortTime(item.time) : item.kind === "event" ? "all day" : "")}</span>
     </div>
   );
 }
@@ -441,7 +442,7 @@ function QuickAdd({ date, label }: { date: string; label: string }) {
       label={label}
       placeholder="To-do"
       prefix={<span className="box-border h-4 w-4 shrink-0 rounded-[4px] border-[1.5px] border-dashed border-line-input" />}
-      className="flex h-[30px] cursor-text items-center gap-[10px] rounded-control px-1 text-faint transition-colors duration-ui ease-ui hover:bg-line-soft"
+      className="flex h-[30px] cursor-text items-center gap-[10px] rounded-control px-1 text-muted transition-colors duration-ui ease-ui hover:bg-raised"
     />
   );
 }
@@ -454,10 +455,10 @@ function DayList({ date, items, when, onOpen }: { date: string; items: AgendaIte
   const repeats = items.filter((i) => i.kind === "routine");
   return (
     <section aria-label={`${weekday} list`} className="mb-6 break-inside-avoid">
-      <h2 className={`m-0 mb-1 flex items-baseline gap-2 border-b pb-[6px] text-[14px] font-semibold ${today ? "border-sealed-line text-sealed-text" : "border-line text-text"}`}>
+      <h2 className={`m-0 mb-1 flex items-baseline gap-2 border-b pb-[6px] text-body font-semibold ${today ? "border-sealed-line text-sealed-text" : "border-line text-text"}`}>
         {weekday}
-        <span className="font-mono text-[11px] font-normal text-muted">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-        {today ? <span className="ml-auto text-[11px] font-medium">Today</span> : null}
+        <span className="font-mono text-micro font-normal text-muted">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+        {today ? <span className="ml-auto text-micro font-medium">Today</span> : null}
       </h2>
       {once.map((i) => (
         <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
@@ -493,9 +494,9 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
           week={start}
           onOpen={onOpen}
           heading={(count) => (
-            <h2 className="m-0 mb-1 flex items-baseline gap-2 border-b border-line pb-[6px] text-[14px] font-semibold text-text">
+            <h2 className="m-0 mb-1 flex items-baseline gap-2 border-b border-line pb-[6px] text-body font-semibold text-text">
               Pending
-              <span className="font-mono text-[11px] font-normal text-muted">{count}</span>
+              <span className="font-mono text-micro font-normal text-muted">{count}</span>
             </h2>
           )}
         />
@@ -521,16 +522,19 @@ function MonthCell({ date, items, inMonth, today, stat, onPick }: { date: string
       onClick={onPick}
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
       className={`flex min-h-0 min-w-0 flex-col gap-[3px] overflow-hidden rounded-control border p-[6px] text-left whitespace-normal transition-colors duration-ui ease-ui hover:border-line-input hover:bg-panel ${
-        isToday ? "border-sealed-line bg-sealed-tint/40" : "border-line bg-panel/40"
-      } ${inMonth ? "" : "opacity-40"}`}
+        // Today is a full cobalt edge (H4); days outside the month recede with a soft edge and
+        // muted text, not opacity (H5).
+        isToday ? "border-sealed bg-sealed-tint" : inMonth ? "border-line bg-panel" : "border-line-soft bg-panel"
+      }`}
+      data-outside={inMonth ? undefined : ""}
     >
       <span className="flex items-center justify-between">
         <span className="flex items-center gap-[5px]">
-          <span className={`font-mono text-[11px] ${isToday ? "font-semibold text-sealed-text" : "text-text-2"}`}>{d.getDate()}</span>
+          <span className={`font-mono text-micro ${isToday ? "font-semibold text-sealed-text" : inMonth ? "text-text-2" : "text-muted"}`}>{d.getDate()}</span>
           {inMonth ? <DayDot day={stat} /> : null}
         </span>
-        {routines.length ? (
-          <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-[10px] text-muted`}>
+        {routines.length && inMonth ? (
+          <span data-testid="month-routines" className={`flex items-center gap-[3px] font-mono text-micro text-muted`}>
             <RepeatGlyph className="h-[9px] w-[9px]" />
             {date <= today ? `${routines.filter((r) => r.done).length}/${routines.length}` : routines.length}
           </span>
@@ -538,11 +542,17 @@ function MonthCell({ date, items, inMonth, today, stat, onPick }: { date: string
       </span>
       {shown.map((i) => (
         <span key={i.key} className="flex min-w-0 items-center gap-[5px]">
-          <span className={`h-[10px] w-[3px] shrink-0 rounded-[2px] ${i.profileId !== null ? "bg-sealed" : i.kind === "event" ? "bg-event" : "bg-check-line"}`} />
-          <span className={`truncate text-[11px] leading-tight ${i.done ? "text-muted line-through" : "text-text"}`}>{i.title}</span>
+          {i.kind === "event" ? (
+            <span className="flex h-[10px] w-[10px] shrink-0 items-center justify-center text-muted" aria-hidden="true">
+              <WeekIcon size={10} />
+            </span>
+          ) : (
+            <span className={`h-[10px] w-[3px] shrink-0 rounded-[2px] ${i.profileId !== null ? "bg-sealed" : "bg-check-line"}`} />
+          )}
+          <span title={i.title} className={`truncate text-micro leading-tight ${i.done ? "text-muted line-through" : inMonth ? "text-text" : "text-muted"}`}>{i.title}</span>
         </span>
       ))}
-      {rest.length > MONTH_ITEMS ? <span className="text-[10px] text-muted">+{rest.length - MONTH_ITEMS} more</span> : null}
+      {rest.length > MONTH_ITEMS && inMonth ? <span className="text-micro text-muted">+{rest.length - MONTH_ITEMS} more</span> : null}
     </button>
   );
 }
@@ -657,9 +667,17 @@ export function WeekPage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="primary" aria-label={view === "routines" ? "New routine" : "New item"} className="w-[92px]" onClick={newItem}>
-            {view === "routines" ? <RepeatGlyph className="h-3 w-3" /> : <PlusIcon size={12} />} New
-          </Button>
+          {/* Sized like the view tabs beside it (their box height, an option's padding and text) and
+              always the plus; the fill keeps it the primary action. */}
+          <button
+            type="button"
+            data-new-button=""
+            aria-label={view === "routines" ? "New routine" : "New item"}
+            className={`inline-flex shrink-0 items-center justify-center gap-[6px] rounded-control bg-sealed font-semibold text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110 active:brightness-95 ${SEGMENTED_HEIGHT} ${SEGMENT_TEXT}`}
+            onClick={newItem}
+          >
+            <PlusIcon size={11} /> New
+          </button>
           <ViewSwitch view={view} onChange={setView} />
         </div>
       </div>

@@ -10,7 +10,7 @@ import { THEMES, themeById } from "../../theme/themes";
 
 // Setup › Appearance (v0.3, reworked; redesign 2026-11-15, design/gate-canvas/project/
 // SetupAppearance.dc.html): themes as two lists of titles, each row carrying the theme's accent
-// and second colour as a small pair. Hover or focus shows a floating preview near the row (the
+// and second color as a small pair. Hover or focus shows a floating preview near the row (the
 // theme in miniature, then its pair with the values) without live-applying the theme; clicking
 // selects it. The list opens scrolled so the chosen theme sits mid-view.
 
@@ -19,7 +19,7 @@ export const themeVars = (t: Theme) => Object.fromEntries(KEYS.map((k) => [cssVa
 /** A saved id of a retired theme (Catppuccin Frappe Light, Macchiato Light) marks its replacement. */
 export const canonicalId = (id: string) => themeById(id)?.id ?? id;
 
-/** The theme's accent and second colour, side by side. Drawn in that theme's own colours. */
+/** The theme's accent and second color, side by side. Drawn in that theme's own colors. */
 export function PairSwatch({ theme }: { theme: Theme }) {
   return (
     <span aria-hidden="true" data-pair className="flex shrink-0 overflow-hidden rounded-[3px] border border-line">
@@ -73,7 +73,7 @@ function clampPreview(x: number, y: number) {
   return { left, top };
 }
 
-/** The hovered or focused theme: its miniature, name and scheme, then its accent and second colour. */
+/** The hovered or focused theme: its miniature, name and scheme, then its accent and second color. */
 export function FloatingPreview({ hover }: { hover: Hover | null }) {
   const reduce = useReducedMotion();
   const theme = hover ? THEMES.find((t) => t.id === hover.id) : null;
@@ -85,18 +85,18 @@ export function FloatingPreview({ hover }: { hover: Hover | null }) {
         <Miniature />
         <div className="mt-[9px] flex items-baseline justify-between px-[2px]">
           <span className="text-meta font-medium text-text">{theme.name}</span>
-          <span className="text-[11px] text-muted">{theme.scheme === "light" ? "Light" : "Dark"}</span>
+          <span className="text-micro text-muted">{theme.scheme === "light" ? "Light" : "Dark"}</span>
         </div>
         <div className="mt-2 grid grid-cols-2 px-[2px]">
           <span className="h-[22px] rounded-l-[6px] bg-sealed" />
           <span className="h-[22px] rounded-r-[6px] bg-second" />
           <span className="flex flex-col gap-px pt-[6px]">
-            <span className="text-[11px] text-text">Accent</span>
-            <span className="font-mono text-[10.5px] text-muted">{theme.palette.sealed}</span>
+            <span className="text-micro text-text">Accent</span>
+            <span className="font-mono text-micro text-muted">{theme.palette.sealed}</span>
           </span>
           <span className="flex flex-col gap-px border-l border-line pl-2 pt-[6px]">
-            <span className="text-[11px] text-text">Second colour</span>
-            <span className="font-mono text-[10.5px] text-muted">{theme.palette.second}</span>
+            <span className="text-micro text-text">Second color</span>
+            <span className="font-mono text-micro text-muted">{theme.palette.second}</span>
           </span>
         </div>
       </div>
@@ -167,7 +167,7 @@ function ThemeTitleList({
             onClick={() => void pick(theme.id)}
             {...previewHandlers(theme.id, setHover, preview)}
             className={`group flex items-center gap-3 border-b border-line-soft px-[14px] py-[10px] text-left transition-colors duration-ui ease-ui last:border-b-0 ${
-              on ? "bg-sealed-tint text-text" : "text-text-2 hover:bg-line-soft hover:text-text"
+              on ? "bg-sealed-tint text-text" : "text-text-2 hover:bg-raised hover:text-text"
             }`}
           >
             <PairSwatch theme={theme} />
@@ -239,15 +239,22 @@ export function AppearanceSection() {
   useEffect(() => () => preview(null), [preview]);
   useChosenInView(root, showing.id);
 
-  const groups: { id: string; title: string; label: string; themes: Theme[]; chosen: string }[] = prefs.follow
+  // Following Windows, only the mode Windows is in now is listed: picking for the other mode
+  // changed nothing you could see (2026-11-17). With one fixed theme, both lists show, the mode
+  // you're in first.
+  const nowDark = showing.scheme === "dark";
+  type Group = { id: string; title: string; label: string; themes: Theme[]; chosen: string };
+  const groups: Group[] = prefs.follow
     ? [
-        { id: "dark", title: "In dark mode", label: "Theme in dark mode", themes: dark, chosen: prefs.dark },
-        { id: "light", title: "In light mode", label: "Theme in light mode", themes: light, chosen: prefs.light },
+        nowDark
+          ? { id: "dark", title: "In dark mode", label: "Theme in dark mode", themes: dark, chosen: prefs.dark }
+          : { id: "light", title: "In light mode", label: "Theme in light mode", themes: light, chosen: prefs.light },
       ]
-    : [
-        { id: "dark", title: "Dark themes", label: "Dark themes", themes: dark, chosen: prefs.fixed },
-        { id: "light", title: "Light themes", label: "Light themes", themes: light, chosen: prefs.fixed },
-      ];
+    : (() => {
+        const d: Group = { id: "dark", title: "Dark themes", label: "Dark themes", themes: dark, chosen: prefs.fixed };
+        const l: Group = { id: "light", title: "Light themes", label: "Light themes", themes: light, chosen: prefs.fixed };
+        return nowDark ? [d, l] : [l, d];
+      })();
 
   return (
     <div ref={root} className="flex flex-col gap-5">

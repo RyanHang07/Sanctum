@@ -3,6 +3,7 @@
 //! v0.2: a note is a block document (`doc`, the editor's JSON) plus `body`, its plain text,
 //! which search, previews, and exports read. Notes from before have only a body.
 
+use crate::engine::Locked;
 use crate::{session::now_ms, Shared};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -117,7 +118,7 @@ pub fn delete(conn: &Connection, id: i64) -> Result<(), String> {
 }
 
 fn with<T>(shared: &Shared, f: impl FnOnce(&Connection) -> Result<T, String>) -> Result<T, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     f(&conn)
 }
 

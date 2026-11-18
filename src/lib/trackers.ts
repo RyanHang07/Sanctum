@@ -5,6 +5,8 @@ import type { Tracker, TrackerDraft, TrackerEntry, TrackerKind } from "./types";
 export const RANGES = ["7D", "30D", "90D", "1Y", "All"] as const;
 export type TrackerRange = (typeof RANGES)[number];
 const RANGE_DAYS: Record<TrackerRange, number | null> = { "7D": 7, "30D": 30, "90D": 90, "1Y": 365, All: null };
+/** How a range reads on screen: whole words, like the other ranges in Sanctum. */
+export const RANGE_LABEL: Record<TrackerRange, string> = { "7D": "7 days", "30D": "30 days", "90D": "90 days", "1Y": "1 year", All: "All time" };
 
 /** Where a range starts (ms); 0 for All. */
 export function rangeStart(range: TrackerRange, now = Date.now()): number {
@@ -13,11 +15,11 @@ export function rangeStart(range: TrackerRange, now = Date.now()): number {
 }
 
 export const KIND_LABEL: Record<TrackerKind, string> = { number: "Number", bool: "Yes / no", scale: "Scale 1–10", text: "Text" };
-export const DISPLAY_LABEL = { chart: "chart", table: "table", both: "chart + table" } as const;
+export const DISPLAY_LABEL = { chart: "chart", table: "table", both: "chart and table" } as const;
 
-/** "Number · chart + table", "Text · list". */
+/** "Number, chart and table", "Text, list": the type, then how it shows. */
 export function trackerMeta(t: Tracker): string {
-  return `${KIND_LABEL[t.kind]} · ${t.kind === "text" ? "list" : DISPLAY_LABEL[t.display]}`;
+  return `${KIND_LABEL[t.kind]}, ${t.kind === "text" ? "list" : DISPLAY_LABEL[t.display]}`;
 }
 
 /** Starting points for New tracker; everything stays editable. */

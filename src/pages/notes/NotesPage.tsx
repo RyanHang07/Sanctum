@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Dialog } from "../../components/controls";
-import { PanelIcon, PlusIcon, SearchIcon } from "../../components/icons";
+import { FoldIcon, PlusIcon, SearchIcon } from "../../components/icons";
 import { native } from "../../lib/native";
 import { ToolIcon } from "../../components/editor/toolIcons";
 import { noteTitle, notePreview, useNotes } from "../../state/notes";
@@ -43,7 +43,7 @@ function NoteRow({ n, active, onOpen }: { n: Note; active: boolean; onOpen: () =
       aria-current={active || undefined}
       onClick={onOpen}
       className={`animate-fade-in flex w-full flex-col gap-[3px] rounded-control px-3 py-[9px] text-left transition-colors duration-ui ease-ui ${
-        active ? "bg-raised" : "hover:bg-line-soft"
+        active ? "bg-raised" : "hover:bg-raised/60"
       }`}
     >
       <span className="flex items-center gap-[6px]">
@@ -53,9 +53,9 @@ function NoteRow({ n, active, onOpen }: { n: Note; active: boolean; onOpen: () =
           </span>
         ) : null}
         <span className={`min-w-0 grow truncate text-body font-medium ${n.title.trim() || n.body.trim() ? "text-text" : "text-muted"}`}>{noteTitle(n)}</span>
-        <span className="shrink-0 font-mono text-[11px] text-muted">{edited(n.updatedAt)}</span>
+        <span className="shrink-0 font-mono text-micro text-muted">{edited(n.updatedAt)}</span>
       </span>
-      <span className="truncate text-meta text-muted">{notePreview(n) || "No more text"}</span>
+      <span className="truncate text-meta text-muted">{notePreview(n) || "Empty note"}</span>
     </button>
   );
 }
@@ -85,7 +85,7 @@ function Editor({ n, onRequestDelete }: { n: Note; onRequestDelete: () => void }
               focusBody();
             }
           }}
-          className="focus-ring-off min-w-0 grow bg-transparent font-headline text-[21px] font-bold tracking-[-0.02em] text-text placeholder:text-muted"
+          className="focus-ring-off min-w-0 grow bg-transparent text-page-title font-semibold tracking-[-0.02em] text-text placeholder:text-muted"
         />
         </span>
         <span className="shrink-0 text-meta text-muted">
@@ -162,15 +162,8 @@ export function NotesPage() {
   return (
     <div className="flex h-full flex-col gap-4 px-7 pb-6 pt-5">
       <div className="flex h-control shrink-0 items-center justify-between">
-        <div className="flex items-center gap-2">
-          {notes.length ? (
-            <Button variant="quiet" size="sm" aria-label={listHidden ? "Show notes list" : "Hide notes list"} aria-expanded={!listHidden} aria-controls="notes-list" className="w-[26px] px-0" onClick={toggleList}>
-              <PanelIcon className={listHidden ? "" : "rotate-180"} />
-            </Button>
-          ) : null}
-          <h1 className="page-title m-0">Notes</h1>
-        </div>
-        <Button variant="primary" onClick={() => void create()}>
+        <h1 className="page-title m-0">Notes</h1>
+        <Button data-new-note variant="primary" onClick={() => void create()}>
           <PlusIcon size={13} /> New note
         </Button>
       </div>
@@ -179,18 +172,29 @@ export function NotesPage() {
           <h2 className="m-0 text-[16px] font-semibold">No notes yet</h2>
           <p className="m-0 max-w-[360px] text-body text-muted">For anything that isn’t a task: ideas, lists, what you learned. They stay on this PC.</p>
           <Button variant="primary" onClick={() => void create()}>
-            Write a note
+            New note
           </Button>
         </div>
       ) : (
         <div className="flex min-h-0 grow">
+          {/* The list folds to its button (decided 2026-11-16): the button stays put, the search
+              and the list fade as the column narrows. A 3px inset keeps the focus ring in view. */}
           <aside
-            id="notes-list"
             aria-label="All notes"
-            inert={listHidden}
-            className={`flex shrink-0 flex-col gap-2 overflow-hidden [&>*]:w-[260px] transition-[width,margin,opacity] duration-state ease-glide motion-reduce:transition-none ${listHidden ? "mr-0 w-0 opacity-0" : "mr-4 w-[260px] opacity-100"}`}
+            className={`-mb-[3px] -ml-[3px] -mt-[3px] mr-[13px] flex shrink-0 flex-col gap-2 overflow-hidden p-[3px] transition-[width] duration-state ease-glide motion-reduce:transition-none ${listHidden ? "w-[40px]" : "w-[266px]"}`}
           >
-            <label className="focus-ring-within flex h-control shrink-0 items-center gap-2 rounded-control border border-line-input bg-panel px-[10px] text-muted">
+            <div className="flex w-[260px] shrink-0 items-center gap-2">
+              <Button
+                variant="quiet"
+                aria-label={listHidden ? "Show notes list" : "Hide notes list"}
+                aria-expanded={!listHidden}
+                aria-controls="notes-list"
+                className="group h-control w-[34px] shrink-0 px-0"
+                onClick={toggleList}
+              >
+                <FoldIcon size={20} className={listHidden ? "" : "rotate-180"} />
+              </Button>
+            <label inert={listHidden} className={`focus-ring-within flex h-control min-w-0 grow items-center gap-2 rounded-control border border-line-input bg-panel px-[10px] text-muted transition-opacity duration-enter ease-ui ${listHidden ? "opacity-0" : "opacity-100"}`}>
               <SearchIcon size={12} />
               <input
                 aria-label="Search notes"
@@ -200,7 +204,8 @@ export function NotesPage() {
                 className="focus-ring-off min-w-0 grow bg-transparent text-body text-text placeholder:text-muted"
               />
             </label>
-            <nav className="flex min-h-0 grow flex-col gap-px overflow-y-auto">
+            </div>
+            <nav id="notes-list" inert={listHidden} className={`flex min-h-0 w-[260px] grow flex-col gap-px overflow-y-auto transition-opacity duration-enter ease-ui ${listHidden ? "opacity-0" : "opacity-100"}`}>
               {shown.map((n) => (
                 // Glides up as it becomes the most recently edited.
                 <Glide key={n.id}>
@@ -216,10 +221,18 @@ export function NotesPage() {
         </div>
       )}
       {confirmDelete ? (
-        <Dialog label="Delete note" onClose={() => (deleting ? null : setConfirmDelete(null))} width={420} top={170}>
+        <Dialog
+          label="Delete this note"
+          alert
+          onClose={() => (deleting ? null : setConfirmDelete(null))}
+          // The Delete button goes with the note: land on New note, else the list.
+          fallback={() => document.querySelector<HTMLElement>("[data-new-note]") ?? document.getElementById("notes-list")}
+          width={420}
+          top={170}
+        >
           <div className="flex flex-col gap-4 p-5">
             <div className="flex flex-col gap-1">
-              <h2 className="m-0 text-[16px] font-semibold text-text">Delete note?</h2>
+              <h2 className="m-0 text-[16px] font-semibold text-text">Delete this note</h2>
               <p className="m-0 text-body text-muted">
                 This deletes <span className="text-text">“{noteTitle(confirmDelete)}”</span>. This cannot be undone.
               </p>

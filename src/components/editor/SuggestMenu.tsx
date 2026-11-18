@@ -40,7 +40,7 @@ const MenuList = forwardRef<MenuHandle, ListProps>(function MenuList({ items, co
     return <div className="rounded-panel border border-line-input bg-panel px-3 py-2 text-meta text-muted shadow-toast">Nothing matches.</div>;
   }
   return (
-    <div role="listbox" aria-label={label} className="flex max-h-[300px] w-[260px] flex-col overflow-y-auto rounded-panel border border-line-input bg-panel/90 p-1 shadow-toast backdrop-blur-md">
+    <div role="listbox" aria-label={label} className="flex max-h-[300px] w-[260px] flex-col overflow-y-auto rounded-panel border border-line-input bg-panel p-1 shadow-toast">
       {items.map((item, i) => (
         <button
           key={item.id}
@@ -53,12 +53,12 @@ const MenuList = forwardRef<MenuHandle, ListProps>(function MenuList({ items, co
           onClick={() => command(item)}
           className={`flex items-center gap-[10px] rounded-control px-2 py-[6px] text-left transition-colors duration-ui ease-ui ${i === at ? "bg-raised" : ""}`}
         >
-          <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-line-input bg-app font-mono text-[11px] text-text-2">
+          <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control border border-line-input bg-app font-mono text-micro text-text-2">
             {item.icon ?? "•"}
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-body text-text">{item.title}</span>
-            {item.hint ? <span className="truncate text-[11px] text-muted">{item.hint}</span> : null}
+            {item.hint ? <span className="truncate text-micro text-muted">{item.hint}</span> : null}
           </span>
         </button>
       ))}

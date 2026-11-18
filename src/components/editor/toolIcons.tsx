@@ -1,5 +1,5 @@
 // The note toolbar's icons (Notes.dc.html / Journal.dc.html): 14px line icons on a 16px grid,
-// 1.4 stroke in the current colour, so a tool's hover and pressed colours carry through.
+// 1.4 stroke in the current color, so a tool's hover and pressed colors carry through.
 // Formats that read best as letters (B, I, S, H1, H2, 1.) stay letters, as on the artboard.
 
 const PATHS = {

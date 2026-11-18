@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../components/Button";
-import { MiniSelect, Switch } from "../../components/controls";
-import { CheckIcon, ChevronRightIcon } from "../../components/icons";
+import { CheckMark, MiniSelect, Switch } from "../../components/controls";
+import { ChevronRightIcon } from "../../components/icons";
 import { Row, Section } from "./parts";
 import { native } from "../../lib/native";
 import { daysLabel, EVERY_DAY, hasDay, longTime, WEEKDAYS } from "../../lib/planner";
@@ -14,7 +14,7 @@ import { useTheme } from "../../state/theme";
 // that ask for them, and whether a missed check-in shows at startup.
 
 const field =
-  "h-[30px] min-w-0 rounded-control border border-line-input bg-raised px-[10px] text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line";
+  "h-control min-w-0 rounded-control border border-line-input bg-raised px-[10px] text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line";
 
 const KINDS = (Object.keys(KIND_LABEL) as TrackerKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }));
 const DISPLAYS: { value: TrackerDisplay; label: string }[] = [
@@ -51,7 +51,7 @@ function TrackerEditor({ start, used, onDone }: { start: TrackerDraft; used: boo
         </Labeled>
         <Labeled label={used ? "Type (fixed once logged)" : "Type"}>
           {used ? (
-            <span className="flex h-[30px] items-center text-body text-text-2">{KIND_LABEL[d.kind]}</span>
+            <span className="flex h-control items-center text-body text-text-2">{KIND_LABEL[d.kind]}</span>
           ) : (
             <MiniSelect label="Tracker type" value={d.kind} options={KINDS} onChange={(kind) => setD({ ...d, kind })} />
           )}
@@ -99,6 +99,7 @@ function TrackersSection() {
   return (
     <Section
       title="Trackers"
+      titled={false}
       action={
         <Button variant="ghost" size="sm" onClick={() => (setStart({ name: "", kind: "number", display: "both" }), setEditing(editing === "new" ? null : "new"))}>
           New tracker
@@ -115,8 +116,8 @@ function TrackersSection() {
                 type="button"
                 title={t.hint}
                 onClick={() => setStart({ name: t.name, kind: t.kind, unit: t.unit, display: t.display })}
-                className={`h-[26px] rounded-control border px-2 text-meta transition-colors duration-ui ease-ui ${
-                  start.name === t.name ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2 hover:border-check-line hover:text-text"
+                className={`h-control-sm rounded-control border px-2 text-meta transition-colors duration-ui ease-ui ${
+                  start.name === t.name ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-text-2 hover:border-check-line hover:text-text"
                 }`}
               >
                 {t.name}
@@ -133,7 +134,7 @@ function TrackersSection() {
             aria-expanded={editing === t.id}
             aria-label={`Edit ${t.name}`}
             onClick={() => edit(t)}
-            className="flex h-10 w-full items-center gap-[10px] border-b border-line-soft px-[14px] text-left transition-colors duration-ui ease-ui hover:bg-line-soft"
+            className="flex h-10 w-full items-center gap-[10px] border-b border-line-soft px-[14px] text-left transition-colors duration-ui ease-ui hover:bg-raised"
           >
             <span className="grow text-body">
               {t.name} {t.unit ? <span className="font-mono text-meta text-muted">{t.unit}</span> : null}
@@ -164,8 +165,8 @@ function Days({ mask, onChange }: { mask: number; onChange: (m: number) => void 
             aria-label={d.name}
             aria-pressed={on}
             onClick={() => onChange(mask ^ (1 << d.bit))}
-            className={`h-[26px] w-[26px] rounded-control border text-meta transition-colors duration-ui ease-ui ${
-              on ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-muted hover:border-check-line hover:text-text-2"
+            className={`h-control-sm w-control-sm rounded-control border text-meta transition-colors duration-ui ease-ui ${
+              on ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-muted hover:border-check-line hover:text-text-2"
             }`}
           >
             {d.short}
@@ -210,13 +211,11 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
                 role="checkbox"
                 aria-checked={on}
                 onClick={() => toggle(t.id)}
-                className={`flex h-[26px] items-center gap-[6px] rounded-control border px-2 text-meta transition-colors duration-ui ease-ui ${
-                  on ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2 hover:border-check-line"
+                className={`flex h-control-sm items-center gap-[6px] rounded-control border px-2 text-meta transition-colors duration-ui ease-ui ${
+                  on ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-text-2 hover:border-check-line"
                 }`}
               >
-                <span className={`flex h-3 w-3 items-center justify-center rounded-[4px] ${on ? "bg-sealed text-sealed-on" : "border-[1.5px] border-line-input"}`}>
-                  {on ? <CheckIcon size={8} /> : null}
-                </span>
+                <CheckMark done={on} />
                 {t.name}
               </button>
             );
@@ -227,7 +226,7 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
       <div className="flex items-center gap-[10px]">
         <span className="flex grow flex-col gap-[2px]">
           <span className="text-body">Review goals</span>
-          <span className="text-[11px] text-muted">Today’s open tasks, and tomorrow’s top 3</span>
+          <span className="text-micro text-muted">Today’s open tasks, and tomorrow’s top 3</span>
         </span>
         <Switch label="Review goals" checked={c.includeGoalReview} onChange={(includeGoalReview) => setC({ ...c, includeGoalReview })} />
       </div>
@@ -277,7 +276,7 @@ function CheckinsSection() {
             aria-expanded={editing === c.id}
             aria-label={`Edit ${c.name}`}
             onClick={() => setEditing(editing === c.id ? null : c.id)}
-            className="flex w-full flex-col gap-1 border-b border-line-soft px-[14px] py-[10px] text-left transition-colors duration-ui ease-ui hover:bg-line-soft"
+            className="flex w-full flex-col gap-1 border-b border-line-soft px-[14px] py-[10px] text-left transition-colors duration-ui ease-ui hover:bg-raised"
           >
             <span className="flex w-full items-baseline justify-between">
               <span className="text-body font-medium">{c.name}</span>
@@ -312,7 +311,7 @@ export function TrackersTab() {
   const load = useTrackers((s) => s.load);
   useEffect(() => void load(), [load]);
   return (
-    <div className="flex max-w-[640px] flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <TrackersSection />
       <CheckinsSection />
       <p className="m-0 text-meta text-muted">Check-ins wait while you’re sealed and appear when the seal ends. Tracker data stays on this PC.</p>

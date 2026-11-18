@@ -216,6 +216,17 @@ pub fn emergency_next(last_used: Option<i64>, now: i64) -> Option<i64> {
     last_used.map(next_midnight).filter(|next| *next > now)
 }
 
+/// The time the once-a-day rule reads (2026-11-17): the clock given, but never further past
+/// the last use than real time has run since (uptime, which counts through sleep). Setting the
+/// clock forward no longer brings the unlock back early. After a restart uptime starts over,
+/// and the clock is all there is.
+pub fn emergency_clock(now: i64, last_used: Option<(i64, u64)>, uptime: u64) -> i64 {
+    match last_used {
+        Some((at, up)) if uptime >= up => now.min(at + (uptime - up) as i64),
+        _ => now,
+    }
+}
+
 fn next_midnight(t: i64) -> i64 {
     use chrono::{Duration, Local, TimeZone};
     let Some(at) = Local.timestamp_millis_opt(t).single() else { return t + 86_400_000 };
@@ -307,5 +318,25 @@ mod tests {
         assert_eq!(emergency_next(Some(at(6, 9)), at(6, 23)), Some(at(7, 0)));
         assert_eq!(emergency_next(Some(at(6, 9)), at(7, 0)), None);
         assert_eq!(emergency_next(Some(at(6, 23)), at(7, 1)), None, "late last night, free again this morning");
+    }
+
+    #[test]
+    fn a_clock_set_forward_does_not_bring_the_emergency_back() {
+        use chrono::{Local, TimeZone};
+        let at = |d: u32, h: u32| Local.with_ymd_and_hms(2026, 10, d, h, 0, 0).unwrap().timestamp_millis();
+        let hour = 3_600_000u64;
+        // Used at 9 AM with uptime 5 h. An hour later the clock says tomorrow.
+        let used = Some((at(6, 9), 5 * hour));
+        let now = emergency_clock(at(7, 10), used, 6 * hour);
+        assert_eq!(now, at(6, 10));
+        assert_eq!(emergency_next(Some(at(6, 9)), now), Some(at(7, 0)));
+        // Real time past midnight: free again.
+        let now = emergency_clock(at(7, 1), used, 21 * hour);
+        assert_eq!(emergency_next(Some(at(6, 9)), now), None);
+        // A clock set back stays refused, as before.
+        assert!(emergency_next(Some(at(6, 9)), emergency_clock(at(5, 9), used, 6 * hour)).is_some());
+        // After a restart (uptime lower than at use) the clock is read as it is.
+        assert_eq!(emergency_clock(at(7, 1), used, hour), at(7, 1));
+        assert_eq!(emergency_clock(at(7, 1), None, hour), at(7, 1));
     }
 }

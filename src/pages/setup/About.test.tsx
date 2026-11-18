@@ -4,6 +4,7 @@ import { native } from "../../lib/native";
 import { Toast } from "../../components/Toast";
 import { useStore } from "../../state/store";
 import { mockControls, resetMockBackend } from "../../lib/mockBackend";
+import pkg from "../../../package.json";
 
 const initial = useStore.getState();
 
@@ -23,11 +24,12 @@ describe("About", () => {
       </>,
     );
     const about = within(screen.getByRole("region", { name: "About" }));
-    expect(await about.findByText("Sanctum 0.1.0")).toBeInTheDocument();
+    // The version is package.json's, the one the sidebar shows.
+    expect(await about.findByText(`Sanctum ${pkg.version}`)).toBeInTheDocument();
     await act(async () => fireEvent.click(about.getByRole("button", { name: "Check for updates" })));
     expect(about.getByText("You have the latest version.")).toBeInTheDocument();
     await act(async () => fireEvent.click(about.getByRole("button", { name: "Copy diagnostics" })));
-    expect(writeText).toHaveBeenCalledWith("Sanctum 0.1.0 (mock)");
+    expect(writeText).toHaveBeenCalledWith(`Sanctum ${pkg.version} (mock)`);
     expect(screen.getByRole("status")).toHaveTextContent("Diagnostics copied.");
   });
 });

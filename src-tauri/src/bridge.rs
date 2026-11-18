@@ -6,6 +6,7 @@
 //! The extension hears `online` when Sanctum is reachable (and says hello again) and `offline`
 //! when it isn't, so it keeps enforcing the last rules it got.
 
+use crate::engine::Locked;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
@@ -32,7 +33,7 @@ pub fn run() {
         std::thread::spawn(move || {
             let mut stdin = std::io::stdin().lock();
             while let Some(msg) = read_message(&mut stdin) {
-                if let Some(s) = stream.lock().unwrap().as_mut() {
+                if let Some(s) = stream.locked().as_mut() {
                     let _ = s.write_all(format!("{msg}\n").as_bytes());
                 }
             }
@@ -54,7 +55,7 @@ pub fn run() {
         };
         let Ok(reader) = s.try_clone() else { continue };
         let _ = s.set_nodelay(true);
-        *stream.lock().unwrap() = Some(s);
+        *stream.locked() = Some(s);
         online = Some(true);
         let _ = write_message(&mut stdout, &json!({ "type": "online" }));
         for line in BufReader::new(reader).lines() {
@@ -64,7 +65,7 @@ pub fn run() {
                 std::process::exit(0);
             }
         }
-        *stream.lock().unwrap() = None;
+        *stream.locked() = None;
     }
 }
 

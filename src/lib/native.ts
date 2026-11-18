@@ -55,6 +55,7 @@ import type {
   StartupStatus,
   SharedImage,
   JournalDay,
+  JournalHit,
   JournalLock,
   SessionRow,
   SessionDetail,
@@ -93,6 +94,8 @@ export const EVENTS = {
   cloud: "sanctum://cloud",
   checkin: "sanctum://checkin",
   tamper: "sanctum://tamper",
+  /** A seal ended in memory because its end couldn't be saved; the save keeps retrying (2026-11-17). */
+  sealError: "sanctum://seal-error",
   // v0.3.1: a break started or ended; it ran out ("Next block?"); pause mode's settings changed.
   brk: "sanctum://break",
   breakOver: "sanctum://break-over",
@@ -282,6 +285,8 @@ export const native = {
   journalUnlockPin: (pin: string) => call<JournalLock>("journal_unlock_pin", { pin }),
   journalUnlockHello: () => call<JournalLock>("journal_unlock_hello"),
   journalLock: () => call<void>("journal_lock"),
+  journalSearch: (query: string) => call<JournalHit[]>("journal_search", { query }),
+  journalExport: (format: "md" | "json") => call<FileInfo>("journal_export", { format }),
   updateInstall: () => call<void>("update_install"),
   /** A downloaded update waiting for its click (v0.3). */
   updateReady: () => call<UpdateInfo | null>("update_ready"),

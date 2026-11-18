@@ -8,7 +8,7 @@ import { saveEverything } from "../../state/quit";
 import { useUpdate } from "../../state/update";
 import { useTheme } from "../../state/theme";
 
-// Setup > General > About (M13): the version, updates from GitHub Releases, and a diagnostics
+// Setup > Behavior > About (M13): the version, updates from GitHub Releases, and a diagnostics
 // summary to paste into a bug report. Nothing is sent anywhere automatically.
 // v0.3: Check now downloads what it finds, so "Restart to update" is one click (the same path
 // as the update notice); and the license, privacy policy, terms, and notices are a click away.
@@ -62,12 +62,12 @@ export function AboutSection() {
     check.state === "current"
       ? "You have the latest version."
       : check.state === "available"
-        ? `Version ${check.update.version} is downloaded and ready.`
+        ? `Version ${check.update.version} is ready`
         : check.state === "error"
           ? check.message
           : check.state === "installing"
-            ? "Installing. Sanctum restarts in a few seconds."
-            : "Sanctum checks for updates on its own and downloads them in the background.";
+            ? "Installing. Restarting shortly."
+            : "Updates download on their own";
   return (
     <Section title="About">
       <Row label={version ? `Sanctum ${version}` : "Sanctum"} hint={hint}>
@@ -81,12 +81,12 @@ export function AboutSection() {
           </Button>
         )}
       </Row>
-      <Row label="Report a problem" hint="Copies your version, setup, and any crash log. No titles, sites, or emails.">
+      <Row label="Report a problem" hint="No titles, sites, or emails">
         <Button variant="ghost" size="sm" onClick={() => void copy()}>
           Copy diagnostics
         </Button>
       </Row>
-      <Row label="Free and open source" hint="MIT license. Your data stays on this PC; the account holds only what sharing and the partner need.">
+      <Row label="Free and open source" hint="MIT license. Data stays here.">
         <span className="flex items-center gap-1">
           {(
             [
@@ -115,6 +115,15 @@ const CONFIRM = "start over";
 const CALENDAR_STUCK = "calendar-stuck:";
 
 export function StartOverSection({ reload = () => window.location.reload() }: { reload?: () => void }) {
+  return (
+    <Section title="Start over">
+      <StartOverRows reload={reload} />
+    </Section>
+  );
+}
+
+/** Start over's row and its confirmation, for a section to hold (Your Data's danger zone). */
+export function StartOverRows({ reload = () => window.location.reload() }: { reload?: () => void }) {
   const sealed = useStore((s) => s.appState === "sealed");
   const showNotice = useStore((s) => s.showNotice);
   const [asking, setAsking] = useState(false);
@@ -134,11 +143,8 @@ export function StartOverSection({ reload = () => window.location.reload() }: { 
     }
   };
   return (
-    <Section title="Start over">
-      <Row
-        label="Erase everything on this PC"
-        hint="Profiles, distractions, tasks, history, trackers, notes, and settings, and the Sanctum calendar in Google with its events. Events on your own calendars stay. This PC signs out of Google and your account; the account, your partner, and Protection stay."
-      >
+    <>
+      <Row label="Erase everything on this PC" hint="Then setup runs again">
         {asking ? null : (
           <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
             {sealed ? "Waits until the seal ends" : "Start over"}
@@ -155,20 +161,20 @@ export function StartOverSection({ reload = () => window.location.reload() }: { 
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => (setStuck(false), void run())}>
               Try again
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               disabled={busy || sealed}
               onClick={() => void run(true)}
-              className="h-[26px] rounded-control border border-broken-line bg-broken-tint px-2 text-meta font-medium text-broken-text transition-colors duration-ui ease-ui enabled:hover:border-broken disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Erasing…" : "Erase anyway"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : asking ? (
         <div className="flex flex-col gap-2 border-t border-line-soft px-[14px] py-3">
           <span className="text-meta text-text-2">
-            This can’t be undone. Type <span className="font-mono text-text">{CONFIRM}</span> to erase it all and run setup again.
+            Erases profiles, history, notes, and settings here, and Sanctum’s calendar in Google. Your account, partner, and Protection stay. This can’t be undone. Type <span className="font-mono text-text">{CONFIRM}</span> to confirm.
           </span>
           <div className="flex items-center gap-2">
             <input
@@ -176,22 +182,22 @@ export function StartOverSection({ reload = () => window.location.reload() }: { 
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="h-[30px] min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
+              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
             />
             <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
               Cancel
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               disabled={typed.trim().toLowerCase() !== CONFIRM || busy || sealed}
               onClick={() => void run()}
-              className="h-[26px] rounded-control border border-broken-line bg-broken-tint px-2 text-meta font-medium text-broken-text transition-colors duration-ui ease-ui enabled:hover:border-broken disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Erasing…" : "Erase and start over"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
-    </Section>
+    </>
   );
 }

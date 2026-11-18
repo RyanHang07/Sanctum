@@ -1,30 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/Button";
-import { Segmented } from "../../components/controls";
+import { Segmented, useSlidingIndicator } from "../../components/controls";
 import { XIcon } from "../../components/icons";
 import { Odometer } from "../../components/Odometer";
 import { DUR, EASE, gsap, useGSAP } from "../../lib/gsap";
 import { useMotion } from "../../lib/useMotion";
 import { useStore } from "../../state/store";
 import { useTrackers } from "../../state/trackers";
-import { charted, entriesOf, formatValue, num, RANGES, rangeNote, rangeStart, shortDate, type TrackerRange } from "../../lib/trackers";
+import { charted, entriesOf, formatValue, num, RANGE_LABEL, RANGES, rangeNote, rangeStart, shortDate, type TrackerRange } from "../../lib/trackers";
 import type { Tracker, TrackerEntry } from "../../lib/types";
-import { goalDirection, goalText, trackerChart, type RulerTick } from "./chart";
+import { atGoal, goalDirection, goalText, trackerChart, type RulerTick } from "./chart";
 
 // Trackers (gate-canvas ProtoTrackers.dc.html, SPEC 4.13): one chart per tracker (never two
 // metrics on one axis), drawn on rulers. The left ruler is the value axis; the bottom ruler has a
-// tick per day (week, month), and a day at goal gets a taller tick and label in the second colour.
+// tick per day (week, month), and a day at goal gets a taller tick and label in the second color.
 // A new entry rolls the figure, and if it reaches the goal, today's tick grows to full height.
 
 type View = "chart" | "table";
 
-const RANGE_OPTIONS = RANGES.map((r) => ({ value: r, label: <span className="font-mono">{r}</span> }));
+const RANGE_OPTIONS = RANGES.map((r) => ({ value: r, label: RANGE_LABEL[r] }));
 const VIEW_OPTIONS = [
   { value: "chart", label: "Chart" },
   { value: "table", label: "Table" },
 ] as const;
 
-/** Bottom-ruler ticks: neutral scale marks, only the goal in the second colour. */
+/** Bottom-ruler ticks: neutral scale marks, only the goal in the second color. */
 const TICK: Record<RulerTick["kind"], string> = {
   minor: "h-1 w-px bg-line-input",
   major: "-ml-[0.75px] h-2 w-[1.5px] bg-muted",
@@ -67,7 +67,7 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
     { scope: root, dependencies: [c.lastHit, list.length] },
   );
 
-  // Hover areas reach halfway to each neighbour.
+  // Hover areas reach halfway to each neighbor.
   const hits = c.points.map((p, i) => {
     const l = i === 0 ? 0 : (c.points[i - 1]!.x + p.x) / 2;
     const r = i === c.points.length - 1 ? 100 : (p.x + c.points[i + 1]!.x) / 2;
@@ -94,13 +94,13 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
       {c.points.length ? (
         <>
           <div role="img" aria-label={aria} className="relative ml-11 mr-1 mt-[6px] h-[104px]" onMouseLeave={() => setHover(null)}>
-            {/* Left ruler: a tick every tenth, the labelled ones longer. */}
+            {/* Left ruler: a tick every tenth, the labeled ones longer. */}
             <span aria-hidden="true" className="absolute inset-y-0 -left-3 w-px bg-line" />
             {c.yticks.map((y) => (
               <span key={y.y} aria-hidden="true" className={`absolute h-px ${y.major ? "-left-[18px] w-[6px] bg-muted" : "-left-4 w-1 bg-line-input"}`} style={{ top: `${y.y}%` }} />
             ))}
             {c.ylabels.map((l) => (
-              <span key={l.y} aria-hidden="true" className="absolute -left-12 w-7 -translate-y-1/2 text-right font-mono text-[10px] text-muted" style={{ top: `${l.y}%` }}>
+              <span key={l.y} aria-hidden="true" className="absolute right-[calc(100%+20px)] -translate-y-1/2 whitespace-nowrap text-right font-mono text-micro text-muted" style={{ top: `${l.y}%` }}>
                 {l.label}
               </span>
             ))}
@@ -147,12 +147,12 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
                   style={{ left: `clamp(52px, ${h.x}%, calc(100% - 52px))`, top: `max(-40px, calc(${h.y}% - 54px))` }}
                 >
                   <span className="font-mono text-body text-text">{pointValue(t, h.value, c.share)}</span>
-                  <span className="text-[11px] text-muted">{h.full}</span>
+                  <span className="text-micro text-muted">{h.full}</span>
                 </div>
               </>
             ) : null}
           </div>
-          {/* Bottom ruler: a tick per day (or week, or month); days at goal stand taller in the second colour. */}
+          {/* Bottom ruler: a tick per day (or week, or month); days at goal stand taller in the second color. */}
           <div aria-hidden="true" className="relative ml-11 mr-1 mt-[2px] h-3 border-t border-line">
             {c.xticks.map((x, i) => (
               <span key={i} data-xt={x.last ? "last" : undefined} data-kind={x.kind} className={`absolute top-0 ${TICK[x.kind]}`} style={{ left: `${x.x}%` }} />
@@ -163,7 +163,7 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
               <span
                 key={x.x}
                 data-hit={x.hit || undefined}
-                className={`absolute top-0 whitespace-nowrap text-[10.5px] ${x.align === "end" ? "-translate-x-full" : x.align === "middle" ? "-translate-x-1/2" : ""} ${
+                className={`absolute top-0 whitespace-nowrap text-micro ${x.align === "end" ? "-translate-x-full" : x.align === "middle" ? "-translate-x-1/2" : ""} ${
                   x.hit ? "font-semibold text-second-text" : "text-muted"
                 }`}
                 style={{ left: `${x.x}%` }}
@@ -186,38 +186,141 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
 
 const SOURCE = { checkin: "Check-in", manual: "Logged" } as const;
 const COLS = "grid-cols-[90px_110px_minmax(0,1fr)_90px_28px]";
+/** One tracker: no Tracker column; Change and Goal take its place (decided 2026-11-16). */
+const ONE_COLS = "grid-cols-[90px_minmax(0,1fr)_80px_110px_28px]";
 
-function EntryTable({ trackers, list, limit }: { trackers: Tracker[]; list: TrackerEntry[]; limit?: number }) {
+/** "+0.4" / "−1.2" against the entry before it; numbers and scales only. */
+function changeText(t: Tracker, e: TrackerEntry, prev: TrackerEntry | undefined): string {
+  if ((t.kind !== "number" && t.kind !== "scale") || e.value === null || prev?.value == null) return "";
+  const d = e.value - prev.value;
+  if (Math.abs(d) < 1e-9) return "0";
+  return `${d > 0 ? "+" : "−"}${num(Math.abs(d))}`;
+}
+
+/** "At goal", or how far off it is ("0.6 over", "1.5 under"); blank without a goal. */
+function goalStatus(t: Tracker, e: TrackerEntry, dir: ReturnType<typeof goalDirection>): { text: string; met: boolean } | null {
+  if (t.goal === null || e.value === null || t.kind === "text") return null;
+  if (atGoal(e.value, t.goal, dir)) return { text: "At goal", met: true };
+  if (t.kind === "bool") return { text: "Missed", met: false };
+  const off = Math.abs(e.value - t.goal);
+  return { text: `${num(off)} ${e.value > t.goal ? "over" : "under"}`, met: false };
+}
+
+function DeleteEntry({ t, e }: { t: Tracker; e: TrackerEntry }) {
   const deleteEntry = useTrackers((s) => s.deleteEntry);
-  const rows = [...list].reverse().slice(0, limit);
+  return (
+    <button
+      type="button"
+      aria-label={`Delete ${t.name} entry from ${shortDate(e.loggedAt)}`}
+      onClick={() => void deleteEntry(e.id)}
+      className="flex h-6 w-6 items-center justify-center rounded-control text-muted opacity-0 transition-opacity duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100"
+    >
+      <XIcon size={11} />
+    </button>
+  );
+}
+
+/**
+ * The entries, filtered by tracker (decided 2026-11-16): All keeps the log of everything, newest
+ * first; one tracker shows its own history with how each entry moved and where it stands
+ * against the goal, so it reads as that tracker's record rather than an audit log.
+ */
+function EntryTable({ trackers, list, limit }: { trackers: Tracker[]; list: TrackerEntry[]; limit?: number }) {
+  const [filter, setFilter] = useState<number | "all">("all");
+  const one = filter === "all" ? null : (trackers.find((t) => t.id === filter) ?? null);
   const name = (id: number) => trackers.find((t) => t.id === id);
+  const mine = one ? list.filter((e) => e.trackerId === one.id) : list;
+  const dir = one ? goalDirection(mine, one.goal) : "up";
+  const rows = [...mine].reverse().slice(0, limit);
+  const prevOf = (e: TrackerEntry) => {
+    const i = mine.indexOf(e);
+    return i > 0 ? mine[i - 1] : undefined;
+  };
+  const filters = [{ id: "all" as const, label: "All" }, ...trackers.map((t) => ({ id: t.id, label: t.name }))];
+  const filterRow = useRef<HTMLDivElement>(null);
+  const filterMark = useRef<HTMLSpanElement>(null);
+  useSlidingIndicator(filterRow, filterMark, one ? String(one.id) : "all", filters.map((o) => `${o.id}:${o.label}`).join("|"));
   return (
     <section aria-label="Entries" className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-panel border border-line bg-panel">
-      <div className={`grid h-8 shrink-0 ${COLS} items-center border-b border-line px-[14px] text-meta text-muted`}>
+      <div
+        ref={filterRow}
+        role="group"
+        aria-label="Show entries for"
+        className="relative flex shrink-0 flex-wrap gap-[6px] border-b border-line px-[14px] py-[10px]"
+      >
+        {/* The pressed filter's box is one indicator that slides between filters, across lines too. */}
+        <span
+          ref={filterMark}
+          aria-hidden="true"
+          data-indicator=""
+          className="pointer-events-none absolute left-0 top-0 box-border rounded-control border border-check-line bg-raised opacity-0"
+        />
+        {filters.map((o) => {
+          const on = o.id === "all" ? !one : filter === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={on}
+              data-indicator-item={String(o.id)}
+              onClick={() => setFilter(o.id)}
+              className={`relative h-control-sm rounded-control border px-[12px] text-meta transition-colors duration-ui ease-ui ${
+                on ? "border-transparent font-medium text-text" : "border-line-input text-muted hover:border-check-line hover:text-text-2"
+              }`}
+            >
+              {/* Sized to the medium-weight name either way, so picking one never resizes it and the
+                  box glides the whole way (2026-11-17), as Segmented does. */}
+              <span
+                data-label={o.label}
+                className="inline-flex flex-col after:invisible after:h-0 after:overflow-hidden after:font-medium after:content-[attr(data-label)]"
+              >
+                {o.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className={`grid h-8 shrink-0 ${one ? ONE_COLS : COLS} items-center border-b border-line px-[14px] text-meta text-muted`}>
         <span>Date</span>
-        <span>Tracker</span>
-        <span>Value</span>
-        <span>Source</span>
+        {one ? (
+          <>
+            <span>Value</span>
+            <span>Change</span>
+            <span>{one.goal !== null && one.kind !== "text" ? goalText(one, dir) : "Goal"}</span>
+          </>
+        ) : (
+          <>
+            <span>Tracker</span>
+            <span>Value</span>
+            <span>Source</span>
+          </>
+        )}
         <span />
       </div>
       {rows.length ? (
         rows.map((e) => {
-          const t = name(e.trackerId);
+          const t = one ?? name(e.trackerId);
           if (!t) return null;
+          const value = <span className={`${t.kind === "text" ? "whitespace-pre-wrap leading-normal" : "font-mono"} min-w-0 break-words pr-3`}>{formatValue(t, e)}</span>;
+          if (one) {
+            const g = goalStatus(t, e, dir);
+            return (
+              <div key={e.id} className={`group grid min-h-[34px] ${ONE_COLS} items-center border-b border-line px-[14px] py-[6px] text-body last:border-b-0`}>
+                <span className="font-mono text-meta text-text-2">{shortDate(e.loggedAt)}</span>
+                {value}
+                <span className="font-mono text-meta text-muted">{changeText(t, e, prevOf(e))}</span>
+                <span className={g?.met ? "text-second-text" : "text-muted"}>{g?.text ?? ""}</span>
+                <DeleteEntry t={t} e={e} />
+              </div>
+            );
+          }
           return (
             <div key={e.id} className={`group grid min-h-[34px] ${COLS} items-center border-b border-line px-[14px] py-[6px] text-body last:border-b-0`}>
               <span className="font-mono text-meta text-text-2">{shortDate(e.loggedAt)}</span>
               <span className="truncate">{t.name}</span>
-              <span className={`${t.kind === "text" ? "whitespace-pre-wrap leading-normal" : "font-mono"} min-w-0 break-words pr-3`}>{formatValue(t, e)}</span>
+              {value}
               <span className="text-muted">{SOURCE[e.source]}</span>
-              <button
-                type="button"
-                aria-label={`Delete ${t.name} entry from ${shortDate(e.loggedAt)}`}
-                onClick={() => void deleteEntry(e.id)}
-                className="flex h-6 w-6 items-center justify-center rounded-control text-muted opacity-0 transition-opacity duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100"
-              >
-                <XIcon size={11} />
-              </button>
+              <DeleteEntry t={t} e={e} />
             </div>
           );
         })
@@ -274,7 +377,7 @@ export function TrackersPage() {
               ))}
             </div>
           ) : null}
-          <EntryTable trackers={trackers} list={showCharts ? inRange.filter((e) => trackers.find((t) => t.id === e.trackerId)?.display !== "chart") : inRange} limit={showCharts ? 8 : undefined} />
+          <EntryTable trackers={showCharts ? trackers.filter((t) => t.display !== "chart") : trackers} list={showCharts ? inRange.filter((e) => trackers.find((t) => t.id === e.trackerId)?.display !== "chart") : inRange} limit={showCharts ? 8 : undefined} />
         </div>
       )}
     </div>

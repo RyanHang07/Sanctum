@@ -21,7 +21,7 @@ describe("Sidebar", () => {
     renderSidebar({ appState: "open", activeTab: "today", settings: { ...initial.settings, sidebarCollapsed: false, displayName: "Ada" } });
     const toggle = screen.getByRole("button", { name: "Collapse sidebar" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(toggle).toHaveAttribute("title", "Collapse sidebar (Ctrl+B)");
+    expect(toggle).toHaveAttribute("title", "Collapse sidebar (Ctrl B)");
     expect(document.querySelector(".group-hover\\/toggle\\:flex")).toBeNull();
     expect(screen.queryByText("Ada")).toBeNull();
   });
@@ -29,6 +29,18 @@ describe("Sidebar", () => {
   it("shows app version in the expanded sidebar", () => {
     renderSidebar({ settings: { ...initial.settings, sidebarCollapsed: false } });
     expect(screen.getByText(/^v\d+\.\d+$/)).toBeInTheDocument();
+    // Read text, so muted, not faint (H3); the shortcut hints too.
+    expect(screen.getByText(/^v\d+\.\d+$/)).toHaveClass("text-muted");
+    expect(screen.getByRole("button", { name: /^Today/ }).querySelector(".font-mono")).toHaveClass("text-muted");
+  });
+
+  it("says why a tab is locked while sealed", () => {
+    renderSidebar({ appState: "sealed", activeTab: "today", settings: { ...initial.settings, sidebarCollapsed: false } });
+    const locked = TABS.filter((t) => t.id !== "today").map((t) => screen.getByRole("button", { name: new RegExp(`^${t.label}`) }));
+    const described = locked.filter((b) => b.getAttribute("aria-disabled") === "true");
+    expect(described.length).toBeGreaterThan(0);
+    for (const b of described) expect(b).toHaveAttribute("aria-description", "Locked while sealed");
+    expect(screen.getByRole("button", { name: /^Today/ })).not.toHaveAttribute("aria-description");
   });
 
   it("hides the version in the rail, even on hover, so the button stays put (v0.3.3)", () => {
@@ -60,7 +72,7 @@ describe("Sidebar", () => {
     const indicator = () => document.querySelector<HTMLElement>("[data-nav-indicator]")!;
     const y = () => Number(gsap.getProperty(indicator(), "y"));
 
-    it("sits on the active row and paints its icon in the second colour", () => {
+    it("sits on the active row and paints its icon in the second color", () => {
       renderSidebar({ appState: "open", activeTab: "stats" });
       expect(y()).toBe(2 * ROW);
       const active = screen.getByRole("button", { name: /Stats/ });

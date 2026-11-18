@@ -3,7 +3,7 @@ import type { Tracker, TrackerEntry } from "../../lib/types";
 
 // The tracker chart's ruler axes (ProtoTrackers.dc.html, decision log "Trackers"). Entries are
 // grouped into days (7D, 30D), weeks (90D) or months (1Y): one major tick per group on the bottom
-// ruler, in the second colour and taller where the group is at goal. Positions are percentages of
+// ruler, in the second color and taller where the group is at goal. Positions are percentages of
 // the plot, so the card can be any width.
 
 const DAY = 86_400_000;

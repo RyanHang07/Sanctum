@@ -9,7 +9,7 @@ import {
 import { errorText, native } from "../lib/native";
 import type { BreakView, CalEvent, Distraction, FocusPrep, HeldStats, LaunchReport, NewDistraction, NewRule, Profile, ProfileDraft, ProfilePatch, QuietStatus, SessionView, TaskLink } from "../lib/types";
 import { DEFAULT_STYLES, parseStyles, play, setSoundStyles, setSoundsEnabled, setSoundVolume, type Cue, type Style, type Styles } from "../lib/sound";
-import type { Suggestion } from "../lib/planner";
+import { dayBounds, todayKey, type Suggestion } from "../lib/planner";
 
 const TOAST_MS = 3200;
 const NOTICE_MS = 4200;
@@ -29,7 +29,20 @@ export interface UnlockResult {
   partner: string | null;
 }
 
-export type SetupTab = "profiles" | "distractions" | "protection" | "trackers" | "tracking" | "calendar" | "browser" | "partner" | "appearance" | "general";
+export type SetupTab =
+  | "profiles"
+  | "distractions"
+  | "goals"
+  | "protection"
+  | "browser"
+  | "partner"
+  | "trackers"
+  | "tracking"
+  | "calendar"
+  | "appearance"
+  | "sounds"
+  | "behaviour"
+  | "data";
 
 export interface Settings {
   closeAction: CloseAction;
@@ -39,7 +52,7 @@ export interface Settings {
   sounds: boolean;
   /** 0 to 100. */
   soundVolume: number;
-  /** The style chosen for each cue (Setup › General › Sounds). */
+  /** The style chosen for each cue (Setup › Sound and Alerts). */
   soundStyles: Styles;
   dailyGoalMin: number;
   /** Planned rest days, a weekday mask (bit 0 = Sunday). Never break the streak. */
@@ -239,6 +252,8 @@ export interface Store {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 /** Bumped on every session change, so a slow get_session reply can't overwrite a newer event. */
 let sessionEpoch = 0;
+/** A start in flight: the tray's enterFocus event can race the button; the second call is a no-op. */
+let starting = false;
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** "Opened LeetCode, NeetCode." + "Focused VS Code. Zoom is not installed." */
@@ -267,6 +282,27 @@ export const useStore = create<Store>()((set, get) => {
       get().showNotice({ lead: errorText(e) });
       return null;
     }
+  }
+
+  /**
+   * Changes settings at once and saves one of them. If the save fails, the change is put back
+   * (unless something changed it again since) and a notice says so. `apply` runs the side effects
+   * (sound) for the settings now in force, both ways.
+   */
+  function change(patch: Partial<Settings>, key: string, value: string, apply?: (s: Settings) => void) {
+    const before = get().settings;
+    const keys = Object.keys(patch) as (keyof Settings)[];
+    const prev = Object.fromEntries(keys.map((k) => [k, before[k]])) as Partial<Settings>;
+    set({ settings: { ...before, ...patch } });
+    apply?.(get().settings);
+    native.setSetting(key, value).catch((e: unknown) => {
+      const now = get().settings;
+      if (keys.every((k) => now[k] === patch[k])) {
+        set({ settings: { ...now, ...prev } });
+        apply?.(get().settings);
+      }
+      get().showNotice({ lead: "Not saved.", rest: errorText(e) });
+    });
   }
 
   const replace = (p: Profile) => set({ profiles: get().profiles.map((x) => (x.id === p.id ? p : x)) });
@@ -331,7 +367,8 @@ export const useStore = create<Store>()((set, get) => {
         sealedAt: sealed ? (get().sealedAt ?? Date.now()) : null,
         lockedToast: sealed ? get().lockedToast : null,
       });
-      void native.setAppState(appState);
+      // Rust mirrors the state for the tray; a failed write there is logged, not shown.
+      native.setAppState(appState).catch((e: unknown) => console.error("setAppState", e));
     },
 
     navigate: (tab) => {
@@ -356,35 +393,17 @@ export const useStore = create<Store>()((set, get) => {
     openCloseDialog: () => set({ closeDialogOpen: true }),
     closeCloseDialog: () => set({ closeDialogOpen: false }),
 
-    setCloseAction: (closeAction) => {
-      set({ settings: { ...get().settings, closeAction } });
-      void native.setSetting("close_action", closeAction);
-    },
-    setOnLogin: (onLogin) => {
-      set({ settings: { ...get().settings, onLogin } });
-      void native.setSetting("on_login", onLogin);
-    },
-    setCompactOnFocus: (compactOnFocus) => {
-      set({ settings: { ...get().settings, compactOnFocus } });
-      void native.setSetting("compact_on_focus", compactOnFocus ? "1" : "0");
-    },
+    setCloseAction: (closeAction) => change({ closeAction }, "close_action", closeAction),
+    setOnLogin: (onLogin) => change({ onLogin }, "on_login", onLogin),
+    setCompactOnFocus: (compactOnFocus) => change({ compactOnFocus }, "compact_on_focus", compactOnFocus ? "1" : "0"),
 
-    setSoundVolume: (soundVolume) => {
-      set({ settings: { ...get().settings, soundVolume } });
-      setSoundVolume(soundVolume / 100);
-      void native.setSetting("sound_volume", String(soundVolume));
-    },
+    setSoundVolume: (soundVolume) =>
+      change({ soundVolume }, "sound_volume", String(soundVolume), (s) => setSoundVolume(s.soundVolume / 100)),
     setSoundStyle: (cue, style) => {
       const soundStyles = { ...get().settings.soundStyles, [cue]: style };
-      set({ settings: { ...get().settings, soundStyles } });
-      setSoundStyles(soundStyles);
-      void native.setSetting("sound_styles", JSON.stringify(soundStyles));
+      change({ soundStyles }, "sound_styles", JSON.stringify(soundStyles), (s) => setSoundStyles(s.soundStyles));
     },
-    setSounds: (sounds) => {
-      set({ settings: { ...get().settings, sounds } });
-      setSoundsEnabled(sounds);
-      void native.setSetting("sounds", sounds ? "1" : "0");
-    },
+    setSounds: (sounds) => change({ sounds }, "sounds", sounds ? "1" : "0", (s) => setSoundsEnabled(s.sounds)),
     openOnboarding: () => set({ onboarding: true }),
     closeOnboarding: async () => {
       await get().loadSettings();
@@ -397,14 +416,8 @@ export const useStore = create<Store>()((set, get) => {
       // Installs from before onboarding already have profiles: count them as set up.
       else await native.setSetting("onboarded", "1");
     },
-    setDailyGoal: (dailyGoalMin) => {
-      set({ settings: { ...get().settings, dailyGoalMin } });
-      void native.setSetting("daily_goal_min", String(dailyGoalMin));
-    },
-    setRestDays: (restDaysMask) => {
-      set({ settings: { ...get().settings, restDaysMask } });
-      void native.setSetting("rest_days_mask", String(restDaysMask));
-    },
+    setDailyGoal: (dailyGoalMin) => change({ dailyGoalMin }, "daily_goal_min", String(dailyGoalMin)),
+    setRestDays: (restDaysMask) => change({ restDaysMask }, "rest_days_mask", String(restDaysMask)),
     setDailyResetTime: async (time) => {
       const t = (time || "").trim();
       const m = /^(\d{2}):(\d{2})$/.exec(t);
@@ -413,8 +426,16 @@ export const useStore = create<Store>()((set, get) => {
       const min = Number(m[2]);
       if (h < 0 || h > 23 || min < 0 || min > 59) return;
       const value = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      const prev = get().settings.dailyResetTime;
       set({ settings: { ...get().settings, dailyResetTime: value } });
-      await native.setSetting("daily_reset_time", value);
+      try {
+        await native.setSetting("daily_reset_time", value);
+      } catch (e) {
+        // Put the old time back (unless it changed again since) and say the save failed.
+        if (get().settings.dailyResetTime === value) set({ settings: { ...get().settings, dailyResetTime: prev } });
+        get().showNotice({ lead: "Not saved.", rest: errorText(e) });
+        return;
+      }
       const { usePlanner } = await import("./planner");
       await Promise.all([usePlanner.getState().reload(), usePlanner.getState().loadPending()]);
     },
@@ -422,15 +443,13 @@ export const useStore = create<Store>()((set, get) => {
       const l = get().settings.homeLayout;
       const collapsed = l.collapsed.includes(panel) ? l.collapsed.filter((p) => p !== panel) : [...l.collapsed, panel];
       const homeLayout = { ...l, collapsed };
-      set({ settings: { ...get().settings, homeLayout } });
-      void native.setSetting("home_layout", JSON.stringify(homeLayout));
+      change({ homeLayout }, "home_layout", JSON.stringify(homeLayout));
     },
     setHomeHidden: (panel, hide) => {
       const l = get().settings.homeLayout;
       const hidden = hide ? [...new Set([...l.hidden, panel])] : l.hidden.filter((p) => p !== panel);
       const homeLayout = { ...l, hidden };
-      set({ settings: { ...get().settings, homeLayout } });
-      void native.setSetting("home_layout", JSON.stringify(homeLayout));
+      change({ homeLayout }, "home_layout", JSON.stringify(homeLayout));
     },
     weekRoutinesOpen: [],
     toggleWeekRoutines: (date) => {
@@ -438,19 +457,12 @@ export const useStore = create<Store>()((set, get) => {
       set({ weekRoutinesOpen: open.includes(date) ? open.filter((d) => d !== date) : [...open, date] });
     },
     closeWeekRoutines: () => set({ weekRoutinesOpen: [] }),
-    setWeekView: (weekView) => {
-      set({ settings: { ...get().settings, weekView } });
-      void native.setSetting("week_view", weekView);
-    },
+    setWeekView: (weekView) => change({ weekView }, "week_view", weekView),
     toggleSidebar: () => {
       const sidebarCollapsed = !get().settings.sidebarCollapsed;
-      set({ settings: { ...get().settings, sidebarCollapsed } });
-      void native.setSetting("sidebar_collapsed", sidebarCollapsed ? "1" : "0");
+      change({ sidebarCollapsed }, "sidebar_collapsed", sidebarCollapsed ? "1" : "0");
     },
-    setActivitySetting: (key, value) => {
-      set({ settings: { ...get().settings, [key]: value } });
-      void native.setSetting(SETTING_KEYS[key], String(value));
-    },
+    setActivitySetting: (key, value) => change({ [key]: value }, SETTING_KEYS[key], String(value)),
 
     loadSettings: async () => {
       const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw, resetTime] = await Promise.all([
@@ -503,7 +515,8 @@ export const useStore = create<Store>()((set, get) => {
     enterFocus: async () => {
       const s = get();
       const profile = selectedProfile(s);
-      if (!profile || s.appState !== "open" || s.session) return false;
+      if (starting || !profile || s.appState !== "open" || s.session) return false;
+      starting = true;
       try {
         const session = await native.startSession(profile.id, s.durationMin, s.focusTask);
         // The plan stays (the profile remembers it); the goal is this seal's alone.
@@ -512,6 +525,9 @@ export const useStore = create<Store>()((set, get) => {
       } catch (e) {
         get().showNotice({ lead: errorText(e) });
         return false;
+      } finally {
+        // The session guards from here on; launching the profile's apps doesn't hold the start.
+        starting = false;
       }
       play("enter");
       await get().launchProfile(profile.id);
@@ -521,8 +537,14 @@ export const useStore = create<Store>()((set, get) => {
 
     loadSession: async () => {
       const epoch = sessionEpoch;
-      const session = await native.getSession();
-      if (epoch === sessionEpoch) get().applySession(session);
+      try {
+        const session = await native.getSession();
+        if (epoch === sessionEpoch) get().applySession(session);
+      } catch (e) {
+        // A seal that may be running is worth saying out loud.
+        console.error("loadSession", e);
+        get().showNotice({ lead: "Couldn't read the current session.", rest: errorText(e) });
+      }
     },
 
     applySession: (session) => {
@@ -642,7 +664,10 @@ export const useStore = create<Store>()((set, get) => {
 
     refreshFocusToday: async () => {
       try {
-        set({ focusTodayMin: await native.focusMinutesSince(startOfToday()) });
+        // From the planner day's start (the daily reset), not midnight.
+        const reset = get().settings.dailyResetTime;
+        const [from] = dayBounds(todayKey(new Date(), reset), reset);
+        set({ focusTodayMin: await native.focusMinutesSince(from) });
       } catch {
         // Keep the last value.
       }

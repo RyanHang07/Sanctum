@@ -4,11 +4,10 @@ import { Button } from "../../components/Button";
 import { Switch } from "../../components/controls";
 import { errorText, native } from "../../lib/native";
 import { RECAP_SETTING } from "../../state/recap";
-import { minutes } from "../../lib/time";
 import { useStore } from "../../state/store";
 import type { WeekTarget } from "../../lib/types";
 
-// Setup › General › Goal and streak (v0.3.1): the week's focus target, shown on Stats. Until you set one, it's
+// Setup › Goals (v0.3.1): the week's focus target, shown on Stats. Until you set one, it's
 // your average over the last four weeks, rounded to the half hour.
 
 export function WeekTargetRow() {
@@ -38,7 +37,7 @@ export function WeekTargetRow() {
     if (min !== t.targetMin || t.isDefault) void save(min);
   };
   return (
-    <Row label="Week's focus target" hint={t.isDefault ? `Your recent average, ${minutes(t.targetMin)}. Stats shows the week against it.` : "Stats shows the week against it."}>
+    <Row label="Week's focus target" hint={t.isDefault ? "Your recent average" : "Shown on Stats"}>
       {!t.isDefault ? (
         <Button variant="quiet" size="sm" onClick={() => void save(null)}>
           Use my average
@@ -54,7 +53,7 @@ export function WeekTargetRow() {
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
         aria-label="Week's focus target, in hours"
-        className="h-control w-[72px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-body text-text focus:border-sealed-line"
+        className="h-control-sm w-[72px] rounded-control border border-line-input bg-raised px-2 text-right font-mono text-body text-text focus:border-sealed-line"
       />
       <span className="text-meta text-muted">hours</span>
     </Row>
@@ -66,7 +65,7 @@ export function WeeklyRecapRow() {
   const [on, setOn] = useState(false);
   useEffect(() => void native.getSetting(RECAP_SETTING).then((v) => setOn(v === "1"), () => setOn(false)), []);
   return (
-    <Row label="Weekly recap" hint="Last week in a few lines, the first time you open Sanctum each week">
+    <Row label="Weekly recap" hint="Last week, on your first open">
       <Switch
         label="Weekly recap"
         checked={on}

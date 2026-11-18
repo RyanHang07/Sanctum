@@ -5,6 +5,7 @@ import { EVENTS, native } from "../lib/native";
 import { bus } from "../lib/bus";
 import { sampleProfiles } from "../lib/catalog";
 import { todayKey } from "../lib/planner";
+import { useStore } from "../state/store";
 
 beforeEach(() => resetMockBackend());
 
@@ -68,7 +69,7 @@ describe("Tray panel", () => {
     const majors = ruler.querySelectorAll("span[data-major]");
     expect(majors).toHaveLength(5);
     majors.forEach((t) => expect(t).toHaveClass("bg-muted"));
-    // The second colour marks only goals and kept days, never the scale.
+    // The second color marks only goals and kept days, never the scale.
     expect(ruler.innerHTML).not.toMatch(/second/);
     expect(panel.getByTestId("state-dot")).toHaveClass("bg-sealed");
   });
@@ -94,5 +95,47 @@ describe("sealTicks", () => {
     expect(t.map((k) => k.major)).toEqual([true, false, false, true, false, false, true, false, false, true]);
     expect(t[t.length - 1]!.at).toBe(1);
     expect(sealTicks(0)).toEqual([{ at: 0, major: true }]);
+  });
+});
+
+describe("Tray panel's day and reads (M1, M12)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    useStore.setState({ settings: { ...useStore.getState().settings, dailyResetTime: "04:00" } });
+  });
+
+  it("reads the daily reset itself, so today starts when the main window's does", async () => {
+    const now = new Date();
+    now.setHours(10, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+    await native.setSetting("daily_reset_time", "23:00");
+    const day = todayKey(now, "23:00");
+    await native.saveTodo({ title: "From the reset day", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+    await native.saveTodo({ title: "From the calendar day", dueDate: todayKey(now), dueTime: null, durationMin: null, profileId: null });
+    render(<TrayPanel />);
+    const panel = within(await screen.findByRole("region", { name: "Sanctum tray panel" }));
+    expect(await panel.findByText("From the reset day")).toBeInTheDocument();
+    expect(panel.queryByText("From the calendar day")).toBeNull();
+
+    // Changed in the main window: the next planner event picks it up.
+    await native.setSetting("daily_reset_time", "04:00");
+    await act(async () => bus.emit(EVENTS.planner, null));
+    expect(await panel.findByText("From the calendar day")).toBeInTheDocument();
+  });
+
+  it("a session event newer than a refresh keeps its session", async () => {
+    await seed();
+    const [p] = await native.listProfiles();
+    await native.startSession(p!.id, 60);
+    const live = await native.getSession();
+    let answer!: (s: null) => void;
+    const get = vi.spyOn(native, "getSession").mockReturnValueOnce(new Promise((r) => (answer = r)));
+    render(<TrayPanel />);
+    const panel = within(await screen.findByRole("region", { name: "Sanctum tray panel" }));
+    act(() => bus.emit(EVENTS.session, live));
+    await act(async () => answer(null));
+    expect(await panel.findByRole("timer")).toBeInTheDocument();
+    get.mockRestore();
   });
 });

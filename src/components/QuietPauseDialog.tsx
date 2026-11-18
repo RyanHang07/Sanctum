@@ -41,7 +41,7 @@ export function QuietPauseDialog() {
   return (
     <Dialog label="Pause quiet hours" onClose={close} width={440} top={150}>
       <div className="flex flex-col gap-3 px-[18px] pb-4 pt-[18px]">
-        <h1 className="headline m-0 text-[22px]">{HEADLINE.quietPause}</h1>
+        <h1 className="headline m-0 text-moment-dialog">{HEADLINE.quietPause}</h1>
         <p className="m-0 text-body leading-normal text-text-2">
           {quiet?.endsAt ? `Quiet hours run until ${clock(quiet.endsAt)}. ` : ""}Your Distractions list opens for 15 minutes, then closes again. Your streak doesn't change.
         </p>

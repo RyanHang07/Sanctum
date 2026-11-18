@@ -54,10 +54,11 @@ describe("Setup > Trackers", () => {
 
     await click(trackers.getByRole("button", { name: "New tracker" }));
     await click(trackers.getByRole("button", { name: "Body fat" }));
+    expect(trackers.getByRole("button", { name: "Body fat" }).className).toMatch(/(^|\s)border-sealed(\s|$)/);
     expect(trackers.getByLabelText("Tracker name")).toHaveValue("Body fat");
     expect(trackers.getByLabelText("Unit")).toHaveValue("%");
     await click(trackers.getByRole("button", { name: "Add tracker" }));
-    expect(trackers.getByRole("button", { name: "Edit Body fat" })).toHaveTextContent("Number · chart + table");
+    expect(trackers.getByRole("button", { name: "Edit Body fat" })).toHaveTextContent("Number, chart and table");
 
     await click(trackers.getByRole("button", { name: "New tracker" }));
     fireEvent.change(trackers.getByLabelText("Tracker name"), { target: { value: "Gratitude" } });
@@ -65,7 +66,7 @@ describe("Setup > Trackers", () => {
     expect(trackers.queryByLabelText("Unit")).toBeNull();
     expect(trackers.queryByLabelText("Show as")).toBeNull();
     await click(trackers.getByRole("button", { name: "Add tracker" }));
-    expect(trackers.getByRole("button", { name: "Edit Gratitude" })).toHaveTextContent("Text · list");
+    expect(trackers.getByRole("button", { name: "Edit Gratitude" })).toHaveTextContent("Text, list");
 
     // Names are unique.
     await click(trackers.getByRole("button", { name: "New tracker" }));
@@ -138,8 +139,8 @@ describe("Trackers page", () => {
     expect(screen.queryByRole("region", { name: "Journal" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Entries" })).getByText("Long day.")).toBeInTheDocument();
 
-    // 7D drops the older entries.
-    await click(screen.getByRole("button", { name: "7D" }));
+    // 7 days drops the older entries.
+    await click(screen.getByRole("button", { name: "7 days" }));
     expect(weight.getByText("One entry")).toBeInTheDocument();
 
     await click(screen.getByRole("button", { name: "Table" }));
@@ -150,7 +151,78 @@ describe("Trackers page", () => {
     expect(table.queryByText("Long day.")).toBeNull();
   });
 
-  it("draws rulers with taller second-colour ticks on days at goal", async () => {
+  it("filters the table to one tracker, with its change and goal, or back to all", async () => {
+    const w = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb", goal: 175 });
+    mockControls.history(w.id, [
+      [20, 176.2],
+      [10, 174],
+      [3, 172.4],
+    ]);
+    const journal = await native.saveTracker({ name: "Journal", kind: "text" });
+    mockControls.history(journal.id, [[1, "Long day."]]);
+    render(<TrackersPage />);
+    await click(await screen.findByRole("button", { name: "Table" }));
+    const table = within(screen.getByRole("region", { name: "Entries" }));
+    const show = within(table.getByRole("group", { name: "Show entries for" }));
+    expect(show.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(table.getByText("Long day.")).toBeInTheDocument();
+
+    await click(show.getByRole("button", { name: "Weight" }));
+    expect(table.queryByText("Long day.")).toBeNull();
+    expect(table.getByText("Change")).toBeInTheDocument();
+    // Weight began above 175, so the goal is 175 or less.
+    expect(table.getByText("−1.6")).toBeInTheDocument();
+    expect(table.getByText("−2.2")).toBeInTheDocument();
+    expect(table.getAllByText("At goal")).toHaveLength(2);
+    expect(table.getByText("1.2 over")).toBeInTheDocument();
+
+    await click(show.getByRole("button", { name: "All" }));
+    expect(table.getByText("Long day.")).toBeInTheDocument();
+  });
+
+  it("slides one highlight to the pressed entry filter, across wrapped lines", async () => {
+    const w = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb" });
+    const j = await native.saveTracker({ name: "Journal", kind: "text" });
+    // jsdom has no layout: Journal wraps onto the second line.
+    const POS: Record<string, [number, number, number]> = { all: [14, 10, 40], [String(w.id)]: [60, 10, 70], [String(j.id)]: [14, 42, 72] };
+    const saved: Record<string, PropertyDescriptor | undefined> = {};
+    const props = { offsetLeft: 0, offsetTop: 1, offsetWidth: 2 } as const;
+    for (const [prop, i] of Object.entries(props)) {
+      saved[prop] = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop);
+      Object.defineProperty(HTMLElement.prototype, prop, {
+        configurable: true,
+        get(this: HTMLElement) {
+          return POS[this.getAttribute("data-indicator-item") ?? ""]?.[i] ?? 0;
+        },
+      });
+    }
+    try {
+      setReducedMotion(false);
+      render(<TrackersPage />);
+      await click(await screen.findByRole("button", { name: "Table" }));
+      const row = screen.getByRole("group", { name: "Show entries for" });
+      const mark = row.querySelector<HTMLElement>("[data-indicator]")!;
+      const at = () => [Number(gsap.getProperty(mark, "x")), Number(gsap.getProperty(mark, "y")), parseFloat(String(gsap.getProperty(mark, "width")))];
+      expect(gsap.isTweening(mark)).toBe(false);
+      expect(at()).toEqual(POS.all);
+      expect(mark.className).toContain("border-check-line");
+
+      await click(within(row).getByRole("button", { name: "Journal" }));
+      const tweens = gsap.getTweensOf(mark);
+      expect(tweens.length).toBeGreaterThan(0);
+      act(() => tweens.forEach((t) => t.progress(1)));
+      expect(at()).toEqual(POS[String(j.id)]);
+      expect(within(row).getByRole("button", { name: "Journal" })).toHaveClass("border-transparent");
+
+      setReducedMotion(true);
+      await click(within(row).getByRole("button", { name: "Weight" }));
+      expect(at()).toEqual(POS[String(w.id)]);
+    } finally {
+      for (const [prop, d] of Object.entries(saved)) if (d) Object.defineProperty(HTMLElement.prototype, prop, d);
+    }
+  });
+
+  it("draws rulers with taller second-color ticks on days at goal", async () => {
     const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
     const weight = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb", goal: 170 });
     mockControls.history(sleep.id, [
@@ -163,8 +235,8 @@ describe("Trackers page", () => {
       [1, 169.8],
     ]);
     render(<TrackersPage />);
-    await click(await screen.findByRole("button", { name: "7D" }));
-    expect(screen.getByRole("button", { name: "7D" })).toHaveAttribute("aria-pressed", "true");
+    await click(await screen.findByRole("button", { name: "7 days" }));
+    expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
 
     const card = within(screen.getByRole("region", { name: "Sleep" }));
     expect(card.getByText("Goal 8 h")).toBeInTheDocument();
@@ -187,7 +259,7 @@ describe("Trackers page", () => {
     const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
     mockControls.history(sleep.id, [[1, 7]]);
     render(<TrackersPage />);
-    await click(await screen.findByRole("button", { name: "7D" }));
+    await click(await screen.findByRole("button", { name: "7 days" }));
     const region = screen.getByRole("region", { name: "Sleep" });
     expect(region.querySelector('[data-xt="last"]')).toHaveAttribute("data-kind", "major"); // nothing today yet: a plain tick
     expect(moment("tracker-goal")).toBeUndefined();
@@ -208,7 +280,7 @@ describe("Trackers page", () => {
     const sleep = await native.saveTracker({ name: "Sleep", kind: "number", unit: "h", goal: 8, display: "chart" });
     mockControls.history(sleep.id, [[1, 7]]);
     render(<TrackersPage />);
-    await click(await screen.findByRole("button", { name: "7D" }));
+    await click(await screen.findByRole("button", { name: "7 days" }));
     await act(async () => void (await useTrackers.getState().log([{ trackerId: sleep.id, value: 9 }])));
     expect(moment("tracker-goal")!.progress()).toBe(1);
     expect(screen.getByRole("region", { name: "Sleep" }).querySelector<HTMLElement>('[data-xt="last"]')!.style.transform).toBe("");
@@ -234,6 +306,30 @@ describe("Trackers page", () => {
       [mood.id, 7],
       [journal.id, "Shipped M11."],
     ]);
+  });
+
+  it("keeps focus inside the check-in while it's open, and gives it back on closing (H1)", async () => {
+    await seed();
+    render(
+      <>
+        <TrackersPage />
+        <CheckinDialog />
+      </>,
+    );
+    const opener = await screen.findByRole("button", { name: "Log entry" });
+    opener.focus();
+    await click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Log entry" });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    // Shift+Tab from the first control wraps to the last, not out to the page.
+    const first = within(dialog).getByRole("button", { name: "Close" });
+    first.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(first);
+    await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(opener).toHaveFocus();
   });
 });
 
@@ -285,7 +381,7 @@ describe("Scheduled check-in", () => {
     const { off } = await due({ id: 0, name: "Evening check-in", time: "21:00", daysMask: 127, trackerIds: [sleep.id, mood.id, gym.id], includeGoalReview: false });
     const dialog = await screen.findByRole("dialog", { name: "Evening check-in" });
     const d = within(dialog);
-    // Sleep and Mood have goals; their sparklines draw them dashed in the second colour.
+    // Sleep and Mood have goals; their sparklines draw them dashed in the second color.
     const goals = dialog.querySelectorAll("[data-spark-goal]");
     expect(goals).toHaveLength(2);
     expect(goals[0]).toHaveClass("stroke-second");
@@ -342,6 +438,28 @@ describe("Scheduled check-in", () => {
     await act(async () => useStore.getState().setAppState("open"));
     expect(await screen.findByRole("dialog", { name: "Weigh-in" })).toBeInTheDocument();
     off();
+  });
+
+  it("reviews the planner day by the daily reset, not the calendar day (M14)", async () => {
+    // 10:00 with the day resetting at 23:00: the planner day is still yesterday.
+    const now = new Date();
+    now.setHours(10, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+    try {
+      useStore.setState({ settings: { ...useStore.getState().settings, dailyResetTime: "23:00" } });
+      const day = todayKey(now, "23:00");
+      expect(day).not.toBe(todayKey(now));
+      await native.saveTodo({ title: "From the reset day", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+      await native.saveTodo({ title: "From the calendar day", dueDate: todayKey(now), dueTime: null, durationMin: null, profileId: null });
+      const { off } = await due({ id: 0, name: "Evening wrap-up", time: "21:30", daysMask: 127, trackerIds: [], includeGoalReview: true });
+      const review = within(await screen.findByRole("region", { name: "Goal review" }));
+      expect(await review.findByText("From the reset day")).toBeInTheDocument();
+      expect(review.queryByText("From the calendar day")).toBeNull();
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reviews today's open tasks and plans tomorrow's top 3", async () => {

@@ -33,6 +33,8 @@ export interface CalendarStore {
 }
 
 const notice = (e: unknown) => useStore.getState().showNotice({ lead: errorText(e) });
+/** Only the latest events read sets state. */
+let eventsGen = 0;
 
 export const useCalendar = create<CalendarStore>()((set, get) => ({
   status: null,
@@ -67,7 +69,16 @@ export const useCalendar = create<CalendarStore>()((set, get) => ({
   reloadEvents: async () => {
     const r = get().range;
     if (!r) return;
-    const events = await native.gcalEvents(r[0], r[1]).catch(() => [] as CalEvent[]);
+    const gen = ++eventsGen;
+    let events: CalEvent[];
+    try {
+      events = await native.gcalEvents(r[0], r[1]);
+    } catch {
+      // Keep the last events: an empty list would end In event early (and fire a queued focus).
+      return;
+    }
+    // Only the latest read lands; an older one finishing late is stale.
+    if (gen !== eventsGen) return;
     set({ events });
   },
 
@@ -83,7 +94,8 @@ export const useCalendar = create<CalendarStore>()((set, get) => ({
     }
   },
 
-  cancelConnect: () => void native.gcalCancelConnect(),
+  // Background calls: a failure here changes nothing you'd see, so it's logged.
+  cancelConnect: () => void native.gcalCancelConnect().catch((e: unknown) => console.error("gcalCancelConnect", e)),
 
   disconnect: async () => {
     try {
@@ -112,7 +124,7 @@ export const useCalendar = create<CalendarStore>()((set, get) => ({
     }
   },
 
-  syncNow: () => void native.gcalSyncNow(),
+  syncNow: () => void native.gcalSyncNow().catch((e: unknown) => console.error("gcalSyncNow", e)),
 
   saveEvent: async (d) => {
     try {

@@ -52,10 +52,12 @@ describe("Setup: Connections", () => {
   it("connects, picks calendars, and disconnects", async () => {
     await setup({ connect: false });
     render(<ConnectionsSection />);
-    await screen.findByText("Timed items and the routines you choose sync to a Sanctum calendar.");
+    expect(await screen.findByTestId("calendar-status")).toHaveTextContent("Not connected to Google Calendar.");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Connect" })));
-    expect(await screen.findByText(/you@example.com · Synced just now/)).toBeInTheDocument();
-    expect(screen.getByText("Two-way sync")).toBeInTheDocument();
+    expect(await screen.findByText("Connected to Google Calendar.")).toBeInTheDocument();
+    expect(screen.getByTestId("calendar-status")).toHaveAttribute("data-tone", "ok");
+    expect(screen.getByText("you@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Synced just now")).toBeInTheDocument();
 
     // Main and Sanctum's calendar are shown by default; others are off.
     expect(screen.getByRole("switch", { name: "Show Personal" })).toHaveAttribute("aria-checked", "true");
@@ -80,10 +82,11 @@ describe("Setup: Connections", () => {
       </>,
     );
     await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Remove Sanctum calendar" })));
-    const dialog = screen.getByRole("dialog", { name: "Remove the Sanctum calendar" });
+    const dialog = screen.getByRole("alertdialog", { name: "Remove the Sanctum calendar" });
+    expect(within(dialog).getByRole("heading", { level: 1 })).toHaveTextContent("This removes the Sanctum calendar.");
     expect(dialog).toHaveTextContent("Your routines and items stay in Sanctum.");
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Remove calendar" })));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(useCalendar.getState().status?.connected).toBe(false);
     expect(screen.getByText("Sanctum calendar removed.")).toBeInTheDocument();
   });
@@ -92,13 +95,16 @@ describe("Setup: Connections", () => {
 describe("Week: calendar events", () => {
   it("shows events in their day columns and the list, with the sync status", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const tuesday = screen.getByRole("region", { name: "Tuesday, September 29" });
     const standup = within(tuesday).getByRole("button", { name: /Team standup/ });
     expect(standup.closest("[data-kind]")).toHaveAttribute("data-kind", "event");
     expect(standup).toHaveTextContent("9:30a");
-    // An event has no box to tick.
-    expect(within(standup.closest("[data-kind]") as HTMLElement).queryByRole("checkbox")).toBeNull();
+    // An event has no box to tick: a calendar mark stands in its place, and it names its calendar.
+    const card = within(standup.closest("[data-kind]") as HTMLElement);
+    expect(card.queryByRole("checkbox")).toBeNull();
+    expect(card.getByRole("img", { name: "Calendar event" })).toBeInTheDocument();
+    expect(standup.textContent).toMatch(/9:30a · \S/);
     // A bare #focus tag reads as a focus block, shown without the tag (and without a left-edge accent).
     const wednesday = screen.getByRole("region", { name: "Wednesday, September 30" });
     const deep = within(wednesday).getByRole("button", { name: /^Deep work/ });
@@ -117,7 +123,7 @@ describe("Week: calendar events", () => {
 
   it("edits an event, tags it with a profile, and deletes it after confirming", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const wednesday = screen.getByRole("region", { name: "Wednesday, September 30" });
     fireEvent.click(within(wednesday).getByRole("button", { name: /^Deep work/ }));
     let dialog = screen.getByRole("dialog", { name: "Edit event" });
@@ -142,10 +148,13 @@ describe("Week: calendar events", () => {
 
   it("adds a new item straight onto one of your calendars", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(screen.getByRole("button", { name: "New item" }));
     const dialog = screen.getByRole("dialog", { name: "New item" });
     fireEvent.change(within(dialog).getByLabelText("Title"), { target: { value: "Coffee with Sam" } });
+    // To-do or event is a visible choice; the calendar picker shows only for an event.
+    expect(within(dialog).queryByLabelText("Save to")).toBeNull();
+    fireEvent.click(within(within(dialog).getByRole("group", { name: "Kind" })).getByRole("button", { name: "Event" }));
     fireEvent.change(within(dialog).getByLabelText("Save to"), { target: { value: "primary@example.com" } });
     // On a calendar, no time means all day.
     expect(within(within(dialog).getByLabelText("Time")).getByRole("option", { name: "All day" })).toBeInTheDocument();
@@ -177,7 +186,7 @@ describe("Week: calendar events", () => {
       writable: false,
     };
     act(() => useCalendar.setState({ events: [...useCalendar.getState().events, holiday] }));
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const tuesday = screen.getByRole("region", { name: "Tuesday, September 29" });
     fireEvent.click(within(tuesday).getByRole("button", { name: /Indigenous/ }));
     const dialog = screen.getByRole("dialog", { name: "Holidays" });
@@ -194,11 +203,20 @@ describe("Home: In event", () => {
     // The mock's 9:30 standup (4 people) is running at 9:40.
     act(() => void checkSchedule());
     expect(useStore.getState().appState).toBe("event");
-    render(<Home />);
+    await act(async () => void render(<Home />));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeLine("event", { title: "Team standup", until: "9:45 AM" }));
     const bar = screen.getByTestId("event-bar");
-    expect(bar).toHaveTextContent("5m left");
-    await act(async () => fireEvent.click(within(bar).getByRole("button", { name: "Queue focus at 9:45 AM" })));
+    // The time left is the cell's countdown, named for screen readers.
+    // Whole minutes, the way the sealed timer counts (M6).
+    expect(within(bar).getByRole("timer", { name: "5 min left" })).toBeInTheDocument();
+    // The slot's chip is tinted with plain text and an event-colored dot, never white on the fill (H2).
+    const chip = within(screen.getByTestId("event-slot")).getByText("In event");
+    expect(chip).toHaveClass("bg-event-tint", "text-text");
+    expect(chip).not.toHaveClass("bg-event");
+    expect(chip.querySelector(".bg-event")).not.toBeNull();
+    // Times read the way the Today list writes them.
+    expect(screen.getByTestId("event-slot")).toHaveTextContent("9:30a to 9:45a");
+    await act(async () => fireEvent.click(within(bar).getByRole("button", { name: "Queue focus at 9:45a" })));
     expect(bar).toHaveTextContent("Interview Prep starts when it ends");
 
     vi.setSystemTime(new Date(2026, 8, 29, 9, 46));

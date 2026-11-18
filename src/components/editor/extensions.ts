@@ -61,7 +61,7 @@ export async function insertImages(editor: Editor, files: File[], pos?: number) 
   }
 }
 
-/** Moves the block the caret is in up or down past its neighbour, caret and all. */
+/** Moves the block the caret is in up or down past its neighbor, caret and all. */
 export function moveBlock(editor: Editor, dir: -1 | 1): boolean {
   const { state, view } = editor;
   const { $from } = state.selection;

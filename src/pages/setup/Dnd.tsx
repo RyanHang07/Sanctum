@@ -5,7 +5,7 @@ import { errorText, native } from "../../lib/native";
 import { useStore } from "../../state/store";
 import type { DndStatus } from "../../lib/types";
 
-// Setup › General › App (v0.1): Windows Do Not Disturb while sealed. Windows has no public switch,
+// Setup › Sound and Alerts (v0.1): Windows Do Not Disturb while sealed. Windows has no public switch,
 // so Sanctum uses the internal one; the hint says plainly when this Windows won't allow it.
 
 /** Also during quiet hours (v0.3.1, off to start): batching notifications helped well-being and
@@ -22,7 +22,7 @@ export function DndQuietRow() {
     }
   };
   return (
-    <Row label="Do not disturb in quiet hours" hint="Notifications hold until quiet hours end; alarms still ring.">
+    <Row label="Do not disturb in quiet hours" hint="Holds notifications; alarms still ring">
       <Switch label="Do not disturb in quiet hours" checked={!!s.quiet} onChange={(v) => void toggle(v)} />
     </Row>
   );
@@ -51,10 +51,10 @@ export function DndRow() {
   const hint = !s
     ? undefined
     : !s.supported
-      ? "This version of Windows doesn't allow it. Turn Do not disturb on yourself when you seal."
+      ? "This Windows doesn't allow it"
       : s.active
-        ? "On now. Notifications come back when the seal ends; alarms still ring."
-        : "Notifications hold until the seal ends; alarms still ring.";
+        ? "On now. Alarms still ring."
+        : "Holds notifications; alarms still ring";
   return (
     <Row label="Do not disturb while sealed" hint={hint}>
       <Switch label="Do not disturb while sealed" checked={s?.enabled ?? true} onChange={(v) => void toggle(v)} />

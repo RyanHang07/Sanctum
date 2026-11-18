@@ -26,7 +26,7 @@ function Chip({ on, onClick, children, label }: { on: boolean; onClick: () => vo
       aria-label={label}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`h-6 shrink-0 rounded-full border px-[9px] text-[11px] transition-colors duration-ui ease-ui ${
+      className={`h-6 shrink-0 rounded-full border px-[9px] text-micro transition-colors duration-ui ease-ui ${
         on ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-muted hover:border-check-line hover:text-text"
       }`}
     >
@@ -38,7 +38,7 @@ function Chip({ on, onClick, children, label }: { on: boolean; onClick: () => vo
 function PickRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={label} className="flex items-center gap-2">
-      <span className="w-[54px] shrink-0 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">{label}</span>
+      <span className="w-[54px] shrink-0 text-meta font-medium text-muted">{label}</span>
       <div className="flex min-w-0 flex-wrap gap-1">{children}</div>
     </div>
   );
@@ -134,7 +134,7 @@ export function QuickAddPanel({ anchor, date, initial = "", onClose }: { anchor:
         placeholder="Mock interview thu 3pm 90m @interview"
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && void add()}
-        className="h-9 w-full rounded-control border border-line-input bg-raised px-3 text-body text-text outline-none placeholder:text-faint focus:border-sealed"
+        className="h-control w-full rounded-control border border-line-input bg-raised px-3 text-body text-text placeholder:text-muted focus:border-sealed"
       />
       <div className="flex flex-col gap-2 px-1">
         <PickRow label="Repeat">
@@ -202,7 +202,7 @@ export function QuickAddPanel({ anchor, date, initial = "", onClose }: { anchor:
       <div className="flex items-center gap-2 border-t border-line pt-3 pl-1">
         {mask ? <RepeatGlyph className="h-3 w-3 shrink-0 text-sealed-text" /> : null}
         <span data-testid="quick-preview" className="min-w-0 grow truncate text-meta text-text-2">
-          {title ? <span className="font-medium text-text">{title}</span> : <span className="text-faint">Type a name</span>}
+          {title ? <span className="font-medium text-text">{title}</span> : <span className="text-muted">Type a name</span>}
           {" · "}
           {preview}
         </span>
@@ -221,7 +221,8 @@ export function QuickAddField({ date, label, placeholder, className, prefix }: {
   const ref = useRef<HTMLLabelElement>(null);
   return (
     <>
-      <label ref={ref} className={className}>
+      {/* The ring sits on the row (inset, so a full-width row doesn't clip it); the field opts out. */}
+      <label ref={ref} className={`focus-ring-within [outline-offset:-2px]! ${className}`}>
         {prefix}
         <input
           aria-label={label}
@@ -229,7 +230,7 @@ export function QuickAddField({ date, label, placeholder, className, prefix }: {
           placeholder={placeholder}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
-          className="h-full min-w-0 grow cursor-text border-none bg-transparent text-body text-text outline-none placeholder:text-faint"
+          className="focus-ring-off h-full min-w-0 grow cursor-text border-none bg-transparent text-body text-text placeholder:text-muted"
         />
       </label>
       {open && ref.current ? <QuickAddPanel anchor={ref.current} date={date} onClose={() => setOpen(false)} /> : null}

@@ -263,19 +263,86 @@ pub fn mark_broken(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<()>
     Ok(())
 }
 
+#[cfg(test)]
 pub fn heartbeat(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<()> {
     conn.execute("UPDATE sessions SET last_seen_at = ?1 WHERE id = ?2", params![now, id])?;
     Ok(())
 }
 
+/// The heartbeat, with the uptime it was taken at (2026-11-17), so a restart in the same boot
+/// can tell real time passed from the wall clock being set forward (`resume_clock`).
+pub fn heartbeat_at(conn: &Connection, id: i64, now: i64, uptime: u64) -> rusqlite::Result<()> {
+    conn.execute("UPDATE sessions SET last_seen_at = ?1, last_seen_uptime = ?2 WHERE id = ?3", params![now, uptime as i64, id])?;
+    Ok(())
+}
+
+/// The wall time to resume at (2026-11-17). In the same boot (uptime hasn't gone back), it's
+/// never later than the last heartbeat plus the uptime since: setting the clock forward and
+/// then killing Sanctum used to end the seal early. Across a reboot it's the wall clock.
+pub fn resume_clock(raw_now: i64, uptime: u64, last_seen: Option<i64>, last_seen_uptime: Option<i64>) -> i64 {
+    match (last_seen, last_seen_uptime) {
+        (Some(seen), Some(up)) if uptime as i64 >= up => raw_now.min(seen + (uptime as i64 - up)),
+        _ => raw_now,
+    }
+}
+
+/// Startup's clock for the unended seal: (now to resume at, how far the wall clock ran ahead).
+pub fn boot_clock(conn: &Connection, raw_now: i64, uptime: u64) -> (i64, i64) {
+    let seen: Option<(Option<i64>, Option<i64>)> = conn
+        .query_row("SELECT last_seen_at, last_seen_uptime FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()
+        .ok()
+        .flatten();
+    let now = seen.map_or(raw_now, |(at, up)| resume_clock(raw_now, uptime, at, up));
+    (now, raw_now - now)
+}
+
+/// Startup's resume with the boot clock: a wall clock set forward while Sanctum was down
+/// can't end the seal, and counts as clock tamper (SPEC 4.0.3).
+pub fn resume_after_boot(conn: &Connection, raw_now: i64, uptime: u64) -> (Option<Active>, Option<Downtime>) {
+    let (now, jumped) = boot_clock(conn, raw_now, uptime);
+    hold(conn, now, Some(now - uptime as i64), jumped)
+}
+
 /// Logs one blocked launch and returns the session's attempt count.
+/// One transaction (2026-11-17), so the log and the count can't drift apart.
 pub fn record_attempt(conn: &Connection, id: i64, exe: &str, kind: &str, now: i64) -> rusqlite::Result<i64> {
-    conn.execute(
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
         "INSERT INTO blocked_attempts (session_id, ts, exe, kind) VALUES (?1, ?2, ?3, ?4)",
         params![id, now, exe, kind],
     )?;
-    conn.execute("UPDATE sessions SET attempts_blocked = attempts_blocked + 1 WHERE id = ?1", [id])?;
-    conn.query_row("SELECT attempts_blocked FROM sessions WHERE id = ?1", [id], |r| r.get(0))
+    tx.execute("UPDATE sessions SET attempts_blocked = attempts_blocked + 1 WHERE id = ?1", [id])?;
+    let n = tx.query_row("SELECT attempts_blocked FROM sessions WHERE id = ?1", [id], |r| r.get(0))?;
+    tx.commit()?;
+    Ok(n)
+}
+
+/// A seal that ran to its end: its idle total and its outcome, together or not at all.
+pub fn close(conn: &Connection, id: i64, idle_ms: i64, outcome: &str, ended_at: i64) -> rusqlite::Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    save_idle(&tx, id, idle_ms)?;
+    finish(&tx, id, outcome, ended_at)?;
+    tx.commit()
+}
+
+/// Marks a seal broken by tamper and logs what broke it, together or not at all.
+pub fn log_tamper(conn: &Connection, id: i64, kind: &str, now: i64) -> rusqlite::Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    mark_broken(&tx, id, now)?;
+    tx.execute("INSERT INTO tamper_events (session_id, ts, kind) VALUES (?1, ?2, ?3)", params![id, now, kind])?;
+    tx.commit()
+}
+
+/// Runs a write, and once more if it fails (2026-11-17). Both failures are logged; the
+/// second is returned.
+pub fn write_twice<T>(what: &str, mut write: impl FnMut() -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+    write()
+        .or_else(|e| {
+            eprintln!("{what}: {e}; trying again");
+            write()
+        })
+        .inspect_err(|e| eprintln!("{what}: {e}"))
 }
 
 pub fn finish(conn: &Connection, id: i64, outcome: &str, ended_at: i64) -> rusqlite::Result<()> {
@@ -313,7 +380,11 @@ pub struct Downtime {
 
 impl Downtime {
     pub fn detail(&self) -> &'static str {
-        if self.kind == "shutdown" { "the PC was shut down or restarted mid-seal" } else { "Sanctum was closed mid-seal" }
+        match self.kind {
+            "shutdown" => "the PC was shut down or restarted mid-seal",
+            "clock" => "the system clock was set forward mid-seal",
+            _ => "Sanctum was closed mid-seal",
+        }
     }
 }
 
@@ -322,31 +393,61 @@ pub fn resume(conn: &Connection, now: i64) -> rusqlite::Result<Option<Active>> {
     resume_at(conn, now, None).map(|(a, _)| a)
 }
 
+/// The newest unended session row.
+struct Unended {
+    id: i64,
+    profile_id: Option<i64>,
+    profile_name: String,
+    started_at: i64,
+    minutes: i64,
+    last_seen: Option<i64>,
+    gap_ms: i64,
+    broken_at: Option<i64>,
+    attempts: i64,
+    idle_ms: i64,
+}
+
+fn unended_row(conn: &Connection) -> rusqlite::Result<Option<Unended>> {
+    conn.query_row(
+        "SELECT id, profile_id, profile_name, started_at, planned_minutes, last_seen_at, gap_ms, broken_at, attempts_blocked, idle_ms
+         FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1",
+        [],
+        |r| {
+            Ok(Unended {
+                id: r.get(0)?,
+                profile_id: r.get(1)?,
+                profile_name: r.get(2)?,
+                started_at: r.get(3)?,
+                minutes: r.get(4)?,
+                last_seen: r.get(5)?,
+                gap_ms: r.get(6)?,
+                broken_at: r.get(7)?,
+                attempts: r.get(8)?,
+                idle_ms: r.get(9)?,
+            })
+        },
+    )
+    .optional()
+}
+
 /// `resume`, also reporting a seal the downtime just broke. `booted_at` is when Windows last
 /// started (now minus uptime), which tells a shutdown from a closed or crashed Sanctum.
+/// One transaction (2026-11-17): a failure part way leaves the rows as they were.
+#[cfg(test)]
 pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlite::Result<(Option<Active>, Option<Downtime>)> {
-    let row = conn
-        .query_row(
-            "SELECT id, profile_id, profile_name, started_at, planned_minutes, last_seen_at, gap_ms, broken_at, attempts_blocked, idle_ms
-             FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1",
-            [],
-            |r| {
-                Ok((
-                    r.get::<_, i64>(0)?,
-                    r.get::<_, Option<i64>>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, i64>(3)?,
-                    r.get::<_, i64>(4)?,
-                    r.get::<_, Option<i64>>(5)?,
-                    r.get::<_, i64>(6)?,
-                    r.get::<_, Option<i64>>(7)?,
-                    r.get::<_, i64>(8)?,
-                    r.get::<_, i64>(9)?,
-                ))
-            },
-        )
-        .optional()?;
-    let Some((id, profile_id, profile_name, started_at, minutes, last_seen, gap_so_far, broken_at, attempts, idle_ms)) = row else {
+    resume_jumped(conn, now, booted_at, 0)
+}
+
+/// `resume_at`, where the wall clock ran `jumped_ms` ahead of real time while Sanctum was down.
+fn resume_jumped(conn: &Connection, now: i64, booted_at: Option<i64>, jumped_ms: i64) -> rusqlite::Result<(Option<Active>, Option<Downtime>)> {
+    let tx = conn.unchecked_transaction()?;
+    let out = resume_in(&tx, now, booted_at, jumped_ms)?;
+    tx.commit()?;
+    Ok(out)
+}
+
+fn resume_in(conn: &Connection, now: i64, booted_at: Option<i64>, jumped_ms: i64) -> rusqlite::Result<(Option<Active>, Option<Downtime>)> {
+    let Some(Unended { id, profile_id, profile_name, started_at, minutes, last_seen, gap_ms: gap_so_far, broken_at, attempts, idle_ms }) = unended_row(conn)? else {
         return Ok((None, None));
     };
     // Any older unfinished rows can only come from a crash loop; close them as broken.
@@ -357,16 +458,23 @@ pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlit
 
     let planned_ms = minutes * 60_000;
     let ends_at = started_at + planned_ms;
-    // Idle before the restart already pushed the end later.
-    let decision = resume_decision(now, started_at, ends_at + idle_ms, last_seen, broken_at.is_some());
-    let newly_broken = broken_at.is_none()
-        && match decision {
-            Resume::Finished { outcome, .. } => outcome == "broken",
-            Resume::Continue { broken, .. } => broken,
-        };
+    // Idle before the restart already pushed the end later. A clock set forward while down is
+    // tamper too (SPEC 4.0.3).
+    let clock_jumped = jumped_ms > crate::tamper::JUMP_LIMIT_MS;
+    let decision = resume_decision(now, started_at, ends_at + idle_ms, last_seen, broken_at.is_some() || clock_jumped);
+    let (newly_broken, gap) = match decision {
+        Resume::Finished { outcome, gap_ms } => (broken_at.is_none() && outcome == "broken", gap_ms),
+        Resume::Continue { broken, gap_ms, .. } => (broken_at.is_none() && broken, gap_ms),
+    };
     let downtime = if newly_broken {
         let last = last_seen.unwrap_or(started_at).max(started_at);
-        let kind = if booted_at.is_some_and(|b| b > last) { "shutdown" } else { "killed" };
+        let kind = if gap <= GAP_LIMIT_MS && clock_jumped {
+            "clock"
+        } else if booted_at.is_some_and(|b| b > last) {
+            "shutdown"
+        } else {
+            "killed"
+        };
         conn.execute("INSERT INTO tamper_events (session_id, ts, kind) VALUES (?1, ?2, ?3)", params![id, now, kind])?;
         Some(Downtime { session_id: id, profile_name: profile_name.clone(), kind })
     } else {
@@ -414,6 +522,61 @@ pub fn resume_at(conn: &Connection, now: i64, booted_at: Option<i64>) -> rusqlit
     }
 }
 
+/// The unended row as a seal, with nothing written: what startup holds when the full resume
+/// fails. It seals until the planned end (plus saved idle), broken if the downtime says so.
+pub fn unended(conn: &Connection, now: i64, jumped_ms: i64) -> rusqlite::Result<Option<Active>> {
+    let Some(row) = unended_row(conn)? else { return Ok(None) };
+    let planned_ms = row.minutes * 60_000;
+    let ends_at = row.started_at + planned_ms;
+    let already = row.broken_at.is_some() || jumped_ms > crate::tamper::JUMP_LIMIT_MS;
+    let Resume::Continue { gap_ms, broken, .. } = resume_decision(now, row.started_at, ends_at + row.idle_ms, row.last_seen, already) else {
+        return Ok(None);
+    };
+    let (goal, plan) = crate::focus::load_intent(conn, row.id).unwrap_or_default();
+    Ok(Some(Active {
+        id: row.id,
+        profile_id: row.profile_id,
+        profile_name: row.profile_name,
+        planned_ms,
+        started_at: row.started_at,
+        ends_at,
+        gap_ms: row.gap_ms + gap_ms,
+        broken,
+        attempts: row.attempts,
+        sealed_count: 0,
+        idle_ms: row.idle_ms,
+        idle_since: None,
+        anchor_wall: now,
+        // A break already on the row was told when it happened.
+        tampered: row.broken_at.is_some(),
+        task: load_task(conn, row.id).ok().flatten(),
+        goal,
+        plan,
+        anchor_mono: Instant::now(),
+    }))
+}
+
+/// Startup's resume (2026-11-17). A failed resume used to read as "nothing running", so the
+/// window showed Open while the guard held the block. Now it's tried twice, and then the raw
+/// unended row seals until its planned end.
+#[cfg(test)]
+pub fn resume_or_hold(conn: &Connection, now: i64, booted_at: Option<i64>) -> (Option<Active>, Option<Downtime>) {
+    hold(conn, now, booted_at, 0)
+}
+
+fn hold(conn: &Connection, now: i64, booted_at: Option<i64>, jumped_ms: i64) -> (Option<Active>, Option<Downtime>) {
+    match write_twice("resume", || resume_jumped(conn, now, booted_at, jumped_ms)) {
+        Ok(out) => out,
+        Err(_) => match unended(conn, now, jumped_ms) {
+            Ok(a) => (a, None),
+            Err(e) => {
+                eprintln!("resume: the unfinished seal can't be read either: {e}");
+                (None, None)
+            }
+        },
+    }
+}
+
 /// Minutes focused in finished sessions that started at or after `since` (downtime excluded).
 /// The running session is added live by the UI from its ticks.
 pub fn focus_minutes_since(conn: &Connection, since: i64) -> rusqlite::Result<i64> {
@@ -439,6 +602,7 @@ mod tests {
     }
 
     const MIN: i64 = 60_000;
+    const UMIN: u64 = 60_000;
 
     #[test]
     fn resume_rules() {
@@ -537,6 +701,41 @@ mod tests {
     }
 
     #[test]
+    fn a_clock_set_forward_then_a_kill_cannot_end_the_seal() {
+        // Same boot: real time since the last heartbeat is the uptime since it.
+        assert_eq!(resume_clock(500 * MIN, 12 * UMIN, Some(10 * MIN), Some(10 * MIN)), 12 * MIN);
+        // The clock set back is left alone (it only makes the seal longer).
+        assert_eq!(resume_clock(11 * MIN, 12 * UMIN, Some(10 * MIN), Some(10 * MIN)), 11 * MIN);
+        // A reboot (uptime went back) or no uptime saved: the wall clock.
+        assert_eq!(resume_clock(500 * MIN, UMIN, Some(10 * MIN), Some(10 * MIN)), 500 * MIN);
+        assert_eq!(resume_clock(500 * MIN, 12 * UMIN, Some(10 * MIN), None), 500 * MIN);
+
+        // A 60-minute seal, last seen 10 minutes in; the clock is set 8 hours forward and
+        // Sanctum is killed. 20 real seconds later it's back.
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 60, 0).unwrap();
+        heartbeat_at(&conn, s.id, 10 * MIN, 30 * UMIN).unwrap();
+        let raw = 8 * 60 * MIN;
+        let (a, d) = resume_after_boot(&conn, raw, 30 * UMIN + 20_000);
+        let a = a.expect("the seal is still on");
+        assert_eq!(a.id, s.id);
+        // Still 49m40s to go on the real clock: the seal ends when it was meant to.
+        assert_eq!(a.remaining_ms() / 1000, (50 * MIN - 20_000) / 1000);
+        assert!(a.broken && a.tampered, "the jump is clock tamper");
+        assert_eq!(d.unwrap().kind, "clock");
+        let ended: Option<i64> = conn.query_row("SELECT ended_at FROM sessions WHERE id = ?1", [s.id], |r| r.get(0)).unwrap();
+        assert_eq!(ended, None);
+
+        // Without a jump the same path is a plain resume.
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 60, 0).unwrap();
+        heartbeat_at(&conn, s.id, 10 * MIN, 30 * UMIN).unwrap();
+        let (a, d) = resume_after_boot(&conn, 10 * MIN + 20_000, 30 * UMIN + 20_000);
+        assert!(!a.unwrap().broken);
+        assert!(d.is_none());
+    }
+
+    #[test]
     fn resume_closes_sessions_that_ended_while_down() {
         let conn = fresh();
         let s = start(&conn, 1, "Deep Work", 30, 0).unwrap();
@@ -587,6 +786,77 @@ mod tests {
         let r = resume(&conn, s.started_at + 30_000).unwrap().unwrap();
         assert_eq!(r.idle_ms, 7 * MIN);
         assert_eq!(r.view().ends_at, r.ends_at + 7 * MIN);
+    }
+
+    #[test]
+    fn a_failed_resume_writes_nothing_and_still_holds_the_seal() {
+        let conn = fresh();
+        let old = start(&conn, 1, "Deep Work", 30, 0).unwrap();
+        let s = start(&conn, 1, "Deep Work", 90, MIN).unwrap();
+        heartbeat(&conn, s.id, 10 * MIN).unwrap();
+        // The tamper log can't be written, so the resume fails part way.
+        conn.execute("DROP TABLE tamper_events", []).unwrap();
+        assert!(resume_at(&conn, 42 * MIN, Some(40 * MIN)).is_err());
+        let ended: Option<i64> = conn.query_row("SELECT ended_at FROM sessions WHERE id = ?1", [old.id], |r| r.get(0)).unwrap();
+        assert_eq!(ended, None, "closing the older row rolled back with the rest");
+        let gap: i64 = conn.query_row("SELECT gap_ms FROM sessions WHERE id = ?1", [s.id], |r| r.get(0)).unwrap();
+        assert_eq!(gap, 0);
+
+        // Startup still seals until the planned end, broken by the downtime, instead of Open.
+        let (a, d) = resume_or_hold(&conn, 42 * MIN, Some(40 * MIN));
+        let a = a.expect("the seal holds");
+        assert_eq!((a.id, a.ends_at, a.broken, a.tampered), (s.id, 91 * MIN, true, false));
+        assert!(d.is_none());
+        // Past its end there's nothing to hold.
+        assert!(resume_or_hold(&conn, 95 * MIN, None).0.is_none());
+    }
+
+    #[test]
+    fn a_resume_that_works_goes_through_unchanged() {
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 60, 0).unwrap();
+        heartbeat(&conn, s.id, 5 * MIN).unwrap();
+        let (a, d) = resume_or_hold(&conn, 5 * MIN + 20_000, Some(0));
+        assert_eq!((a.unwrap().gap_ms, d), (20_000, None));
+        let gap: i64 = conn.query_row("SELECT gap_ms FROM sessions WHERE id = ?1", [s.id], |r| r.get(0)).unwrap();
+        assert_eq!(gap, 20_000, "written");
+    }
+
+    #[test]
+    fn close_and_log_tamper_write_together() {
+        let conn = fresh();
+        let s = start(&conn, 1, "Deep Work", 60, 0).unwrap();
+        log_tamper(&conn, s.id, "clock", 5 * MIN).unwrap();
+        close(&conn, s.id, 2 * MIN, "broken", 62 * MIN).unwrap();
+        let row: (i64, String, i64, i64) = conn
+            .query_row("SELECT idle_ms, outcome, ended_at, broken_at FROM sessions WHERE id = ?1", [s.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap();
+        assert_eq!(row, (2 * MIN, "broken".into(), 62 * MIN, 5 * MIN));
+        assert_eq!(first_break(&conn, s.id, 0).unwrap().unwrap().kind, "clock");
+
+        // Without the tamper table neither write lands.
+        let s2 = start(&conn, 1, "Deep Work", 60, 100 * MIN).unwrap();
+        conn.execute("DROP TABLE tamper_events", []).unwrap();
+        assert!(log_tamper(&conn, s2.id, "clock", 101 * MIN).is_err());
+        let broken: Option<i64> = conn.query_row("SELECT broken_at FROM sessions WHERE id = ?1", [s2.id], |r| r.get(0)).unwrap();
+        assert_eq!(broken, None);
+    }
+
+    #[test]
+    fn write_twice_retries_once() {
+        let mut tries = 0;
+        let r = write_twice("test", || {
+            tries += 1;
+            if tries == 1 { Err(rusqlite::Error::InvalidQuery) } else { Ok(tries) }
+        });
+        assert_eq!(r.unwrap(), 2);
+        let mut tries = 0;
+        assert!(write_twice("test", || -> rusqlite::Result<()> {
+            tries += 1;
+            Err(rusqlite::Error::InvalidQuery)
+        })
+        .is_err());
+        assert_eq!(tries, 2);
     }
 
     #[test]

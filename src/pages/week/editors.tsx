@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Kbd } from "../../components/Button";
-import { Dialog, Switch } from "../../components/controls";
+import { Check, Dialog, Segmented, Switch } from "../../components/controls";
 import { DaysField, LengthField, ProfileField, SaveToField, TimeField, TitleInput } from "./fields";
 import { usePlanner } from "../../state/planner";
 import { useCalendar } from "../../state/calendar";
@@ -47,8 +47,8 @@ function DateField({ value, onChange, week, onWeek }: { value: string; onChange:
       <span className="flex items-center justify-between">
         <span className="label">Date</span>
         {onWeek ? (
-          <label className="flex cursor-pointer items-center gap-[6px] text-[11px] text-muted hover:text-text-2">
-            <input type="checkbox" checked={week != null} onChange={(e) => onWeek(e.target.checked ? (value >= nextWeek ? nextWeek : thisWeek) : null)} className="accent-sealed" />
+          <label className="flex cursor-pointer items-center gap-[6px] text-micro text-muted hover:text-text-2">
+            <Check checked={week != null} onToggle={() => onWeek(week == null ? (value >= nextWeek ? nextWeek : thisWeek) : null)} />
             No day yet
           </label>
         ) : null}
@@ -108,19 +108,29 @@ export function OneTimeDialog({ initial, date, onClose }: { initial?: Todo; date
           <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{initial ? "Edit item" : "New item"}</h1>
           <span className="text-meta text-muted">Once</span>
         </div>
+        {!initial && calendars.length ? (
+          <Segmented
+            label="Kind"
+            value={target === SANCTUM ? "todo" : "event"}
+            onChange={(k) => {
+              setTarget(k === "todo" ? SANCTUM : calendars[0]!.id);
+              if (k === "event") setWeek(null);
+            }}
+            options={[
+              { value: "todo", label: "To-do" },
+              { value: "event", label: "Event" },
+            ]}
+          />
+        ) : null}
         <TitleInput value={title} onChange={setTitle} onSubmit={() => void save()} placeholder="Mock interview" />
         <div className="grid grid-cols-2 gap-3">
           <DateField value={due} onChange={setDue} week={week} onWeek={target === SANCTUM ? setWeek : undefined} />
           {week ? <div /> : <TimeField value={time} onChange={setTime} empty={target === SANCTUM ? "Anytime" : "All day"} />}
           <LengthField value={length} onChange={setLength} />
           <ProfileField value={profile} onChange={setProfile} />
-          {!initial && calendars.length ? (
+          {!initial && target !== SANCTUM && calendars.length > 1 ? (
             <div className="col-span-2">
-              <SaveToField
-                value={target}
-                onChange={setTarget}
-                options={[{ value: SANCTUM, label: "Sanctum (a to-do)" }, ...calendars.map((c) => ({ value: c.id, label: `${c.summary} (an event)` }))]}
-              />
+              <SaveToField value={target} onChange={setTarget} options={calendars.map((c) => ({ value: c.id, label: c.summary }))} />
             </div>
           ) : null}
         </div>
@@ -284,7 +294,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
  * An event on one of your Google calendars (SPEC 4.3, fully editable from Week). Setting a
  * focus profile writes #focus:<profile> into the title, so Google keeps it too.
  */
-export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; date: string; onClose: () => void }) {
+export function EventDialog({ initial, date, onClose }: { initial: CalEvent; date: string; onClose: () => void }) {
   const { saveEvent, deleteEvent } = useCalendar();
   const profiles = useStore((s) => s.profiles);
   const homeProfile = useStore((s) => s.selectedProfileId);
@@ -304,7 +314,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
   const inSeries = !!initial?.recurring && !!initial.seriesId && !readOnly;
   const [scope, setScope] = useState<"one" | "all">("one");
   const all = inSeries && scope === "all";
-  const heading = initial ? (readOnly ? initial.calendarName : "Edit event") : "New event";
+  const heading = readOnly ? initial.calendarName : "Edit event";
 
   const save = async () => {
     if (!title.trim() || !calendarId || readOnly) return;
@@ -350,7 +360,7 @@ export function EventDialog({ initial, date, onClose }: { initial?: CalEvent; da
                   setScope(id);
                   setConfirmDelete(false);
                 }}
-                className={`h-[26px] rounded-[4px] px-3 text-meta transition-colors duration-ui ease-ui ${scope === id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"}`}
+                className={`h-control-sm rounded-[4px] px-3 text-meta transition-colors duration-ui ease-ui ${scope === id ? "bg-line font-medium text-text" : "text-muted hover:text-text-2"}`}
               >
                 {label}
               </button>

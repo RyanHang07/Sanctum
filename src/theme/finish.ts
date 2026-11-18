@@ -4,8 +4,8 @@ import type { Palette, Theme } from "./palette";
 // The redesign's theme pass (v0.4, decided 2026-11-15, docs/decisions/2026-11-15-theme-pairs.md).
 // Every theme, Sanctum's and OpenCode's alike, goes through finishTheme() once, so the same
 // rules hold everywhere:
-// - a `second` colour (decoration only: kept marks, the goal tick, the active sidebar icon) with its
-//   text, tint and line versions, defaulting to the theme's event colour;
+// - a `second` color (decoration only: kept marks, the goal tick, the active sidebar icon) with its
+//   text, tint and line versions, defaulting to the theme's event color;
 // - `muted` that reads at 4.5:1 on every surface muted text sits on;
 // - `line-input` that reaches 3:1, so an input's edge can be seen (WCAG 1.4.11);
 // - the hand-picked fixes from the theme-pair review.
@@ -13,7 +13,7 @@ import type { Palette, Theme } from "./palette";
 const WHITE = "#FFFFFF";
 const BLACK = "#000000";
 
-/** Second colours picked by hand, where the event colour fails as a pair with the accent. */
+/** Second colors picked by hand, where the event color fails as a pair with the accent. */
 export const SECOND: Readonly<Record<string, string>> = {
   // Flagged in the review.
   "sanctum-light": "#C2822E",
@@ -36,16 +36,16 @@ export const SECOND: Readonly<Record<string, string>> = {
   tokyonight: "#7AA2F7",
   "tokyonight-light": "#2E7DE9",
   "zenburn-light": "#B28C72",
-  // Watch themes the review recommends, so a theme family keeps one second colour.
+  // Watch themes the review recommends, so a theme family keeps one second color.
   "everforest-light": "#3A94C5",
   flexoki: "#3AA99F",
   "matrix-light": "#268FCC",
 };
 
 /**
- * Orng and Lucent Orng: the accent was a near-white (a text colour, not a colour), so the
+ * Orng and Lucent Orng: the accent was a near-white (a text color, not a color), so the
  * orange event carried the theme. Orange becomes the accent, the theme's cyan the second
- * colour and the event colour, and broken moves to a redder value so a broken seal doesn't
+ * color and the event color, and broken moves to a redder value so a broken seal doesn't
  * look like a sealed one.
  */
 export const ACCENT: Readonly<Record<string, { accent: string; event: string; broken: string }>> = {
@@ -82,7 +82,7 @@ export function accentRoles(accent: string, app: string, panel: string, darkInk:
   };
 }
 
-/** The second colour's roles, worked out like the accent's. */
+/** The second color's roles, worked out like the accent's. */
 export function secondRoles(source: string, app: string, panel: string, dark: boolean): Palette {
   const away = dark ? WHITE : BLACK;
   const second = readable(source, [app, panel], 3, away);
@@ -110,6 +110,19 @@ export function brokenRoles(broken: string, app: string, panel: string, dark: bo
   };
 }
 
+/**
+ * The month heatmap's steps. heat-1, the lightest, sits straight on the panel, so it reaches 2:1
+ * there (UI audit, 2026-11-18; it was about 1.3:1 and needed an edge). heat-2 then sits halfway
+ * to heat-3 when the raised heat-1 would crowd it, so the three steps still climb.
+ */
+export function heatSteps(p: Palette, panel: string): Palette {
+  const one = readable(p["heat-1"]!, [panel], 2, p.sealed!);
+  const three = p["heat-3"]!;
+  let two = p["heat-2"]!;
+  if (contrast(two, panel) < contrast(one, panel) + 0.3) two = mix(one, three, 0.5);
+  return { "heat-1": one, "heat-2": two, "heat-3": three };
+}
+
 /** Surfaces muted text is drawn on. */
 export const MUTED_ON = ["app", "panel", "raised", "sidebar", "sealed-tint"] as const;
 
@@ -129,5 +142,13 @@ export function finishTheme(theme: Theme): Theme {
   Object.assign(p, secondRoles(SECOND[theme.id] ?? p.event!, app, panel, dark));
   p.muted = readable(p.muted!, MUTED_ON.map((k) => p[k]!), 4.5, away);
   p["line-input"] = readable(p["line-input"]!, [app, panel], 3, away);
+  // check-line is the hover step and the quiet mark (unchecked boxes, neutral and missed bars). It
+  // was derived from line-input before line-input was raised, so it could end up fainter: hovers
+  // faded and marks went under 3:1 (theme audit, 2026-11-17). Now it sits a step past line-input.
+  p["check-line"] = readable(mix(p["line-input"]!, p.muted!, 0.35), [app, panel, p.raised!], 3, away);
+  // Locked nav items (while sealed) still say what's locked, so they keep 3:1 on the sidebar
+  // (visual polish, 2026-11-17).
+  p.locked = readable(p.locked!, [p.sidebar!, app], 3, away);
+  Object.assign(p, heatSteps(p, panel));
   return { ...theme, palette: p };
 }

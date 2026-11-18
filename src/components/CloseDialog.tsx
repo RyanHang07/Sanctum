@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { CheckIcon } from "./icons";
+import { CheckMark } from "./controls";
 import { Button, Kbd } from "./Button";
 import { canQuit } from "../state/appState";
 import { useStore } from "../state/store";
-import { native } from "../lib/native";
+import { errorText, native } from "../lib/native";
 import { quitSaved } from "../state/quit";
 import { clock, countdown } from "../lib/time";
 
@@ -33,8 +33,10 @@ export function CloseDialog() {
   const confirm = () => {
     if (remember) setCloseAction(choice);
     dismiss();
-    if (choice === "quit" && canQuit(useStore.getState().appState)) void quitSaved();
-    else void native.hideToTray();
+    // The window stays up if this fails: say why.
+    const failed = (e: unknown) => useStore.getState().showNotice({ lead: errorText(e) });
+    if (choice === "quit" && canQuit(useStore.getState().appState)) quitSaved().catch(failed);
+    else native.hideToTray().catch(failed);
   };
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export function CloseDialog() {
                 disabled={disabled}
                 onClick={() => setPicked(o.id)}
                 className={`flex items-start gap-3 whitespace-normal rounded-panel border p-3 transition-colors duration-ui ease-ui ${
-                  on ? "border-sealed-line bg-sealed-tint" : "border-line bg-transparent enabled:hover:border-line-input enabled:hover:bg-line-soft"
+                  on ? "border-sealed-line bg-sealed-tint" : "border-line bg-transparent enabled:hover:border-line-input enabled:hover:bg-raised"
                 } ${disabled ? "cursor-not-allowed text-muted" : "cursor-pointer text-text"}`}
               >
                 <span
@@ -105,7 +107,7 @@ export function CloseDialog() {
                     {o.title}
                     {/* While sealed, the tray choice carries the seal's time left: seal timing is the accent. */}
                     {sealed && o.id === "tray" && session ? (
-                      <span data-testid="close-left" className="ml-auto font-mono text-[11px] font-normal text-sealed-text">
+                      <span data-testid="close-left" className="ml-auto font-mono text-micro font-normal text-sealed-text">
                         {countdown(session.remainingMs)} left
                       </span>
                     ) : null}
@@ -122,15 +124,9 @@ export function CloseDialog() {
             role="checkbox"
             aria-checked={remember}
             onClick={() => setRemember(!remember)}
-            className="flex h-control items-center gap-2 border-none bg-transparent p-0 text-meta text-text-2 transition-colors duration-ui ease-ui hover:text-text"
+            className="check-pop flex h-control items-center gap-2 border-none bg-transparent p-0 text-meta text-text-2 transition-colors duration-ui ease-ui hover:text-text"
           >
-            <span
-              className={`box-border flex h-[15px] w-[15px] items-center justify-center rounded-[4px] text-sealed-on ${
-                remember ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line"
-              }`}
-            >
-              {remember ? <CheckIcon size={9} /> : null}
-            </span>
+            <CheckMark done={remember} />
             Don't ask again
           </button>
           <Button variant="ghost" className="ml-auto" onClick={dismiss}>

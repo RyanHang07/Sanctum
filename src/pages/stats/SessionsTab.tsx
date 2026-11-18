@@ -22,7 +22,7 @@ const dayLabel = (t: number) => new Date(t).toLocaleDateString("en-US", { weekda
 
 function OutcomeTag({ outcome }: { outcome: SessionOutcome }) {
   const tone = outcome === "broken" ? "border-broken-line bg-broken-tint text-broken-text" : outcome === "unlocked_early" ? "border-line-input text-text-2" : "border-sealed-line bg-sealed-tint text-sealed-text";
-  return <span className={`whitespace-nowrap rounded-full border px-2 py-[1px] text-[11px] ${tone}`}>{OUTCOME[outcome]}</span>;
+  return <span className={`whitespace-nowrap rounded-full border px-2 py-[1px] text-micro ${tone}`}>{OUTCOME[outcome]}</span>;
 }
 
 const RESULT = { done: "Done", partly: "Partly", no: "No" } as const;
@@ -236,7 +236,7 @@ export function SessionsTab({ onOpenDay }: { onOpenDay: (key: string) => void })
                 type="button"
                 onClick={() => setOpen(r.id)}
                 aria-label={`${r.profileName}, ${clock(r.startedAt)}, ${OUTCOME[r.outcome]}`}
-                className="flex h-row w-full items-center gap-3 border-b border-line-soft px-[14px] text-left text-body transition-colors duration-ui ease-ui last:border-b-0 hover:bg-line-soft"
+                className="flex h-row w-full items-center gap-3 border-b border-line-soft px-[14px] text-left text-body transition-colors duration-ui ease-ui last:border-b-0 hover:bg-raised"
               >
                 <span className="w-[74px] shrink-0 font-mono text-meta text-muted">{clock(r.startedAt)}</span>
                 <span className="min-w-0 grow truncate">

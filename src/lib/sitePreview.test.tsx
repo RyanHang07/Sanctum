@@ -3,7 +3,7 @@ import { ThemePreview } from "../../partner/src/site/ThemePreview";
 import { THEMES } from "../theme/themes";
 
 // The site's theme preview (v0.3): every app theme, Open or Sealed, drawn with the app's own
-// colours, so the site can't show a theme the app doesn't have.
+// colors, so the site can't show a theme the app doesn't have.
 
 describe("the site's theme preview", () => {
   it("offers every theme and paints the window in the one picked", () => {

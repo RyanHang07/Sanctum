@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Kbd } from "./Button";
 import { Dialog } from "./controls";
 import { CheckIcon, XIcon } from "./icons";
@@ -25,7 +25,7 @@ function Badge({ n, state }: { n: number; state: StepState }) {
     no: "border border-broken-line bg-broken-tint text-broken-text",
   }[state];
   return (
-    <span className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full font-mono text-[11px] ${cls}`}>
+    <span className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full font-mono text-micro ${cls}`}>
       {state === "done" || state === "ok" ? <CheckIcon size={9} /> : state === "no" ? <XIcon size={9} /> : n}
     </span>
   );
@@ -110,6 +110,8 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
   const [why, setWhy] = useState("");
   const setResult = useStore((s) => s.setUnlockResult);
   const close = useStore((s) => s.closeEndEarly);
+  // Enter and the button can both fire: one unlock at a time.
+  const busy = useRef(false);
   if (v.emergencyNextAt) {
     // Once a day: it comes back at midnight.
     return <span className="text-meta text-muted">Emergency unlock back at midnight</span>;
@@ -122,12 +124,16 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
     );
   }
   const go = async () => {
+    if (busy.current || !why.trim()) return;
+    busy.current = true;
     try {
       await native.emergencyUnlock(why);
       close();
       setResult({ kind: "emergency", partner: v.partner });
     } catch (e) {
       onError(errorText(e));
+    } finally {
+      busy.current = false;
     }
   };
   return (
@@ -139,7 +145,7 @@ function Emergency({ v, onError }: { v: LadderView; onError: (e: string) => void
         value={why}
         onChange={(e) => setWhy(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && void go()}
-        className="h-[28px] min-w-0 grow rounded-control border border-line-input bg-raised px-2 text-meta text-text placeholder:text-muted focus:border-broken"
+        className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-2 text-meta text-text placeholder:text-muted focus:border-broken"
       />
       <Button variant="ghost" size="sm" disabled={!why.trim()} onClick={() => void go()}>
         Use it
@@ -156,6 +162,10 @@ export function BreakSealDialog() {
   const [v, setV] = useState<LadderView | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** The 1-second poll failing (the backend or the partner call); cleared by the next good read. */
+  const [pollError, setPollError] = useState<string | null>(null);
+  /** Bumped by "Try again" after the ladder failed to open. */
+  const [attempt, setAttempt] = useState(0);
   const [, tick] = useState(0);
 
   const apply = useCallback(
@@ -169,37 +179,127 @@ export function BreakSealDialog() {
     },
     [close, setResult],
   );
-  const run = (f: () => Promise<LadderView>) =>
+  // Whether the dialog is still up: an answer landing after it closed says nothing.
+  const showing = useRef(false);
+  showing.current = open && !!session;
+  /** The error shown is the ladder failing to open: the next good poll clears it. A step's error stays. */
+  const openFailed = useRef(false);
+  const say = useCallback((e: string) => {
+    if (!showing.current) return;
+    openFailed.current = false;
+    setError(e);
+  }, []);
+  // One step at a time: a double click can't send it twice.
+  const running = useRef(false);
+  const run = (f: () => Promise<LadderView>) => {
+    if (running.current) return;
+    running.current = true;
     void f()
       .then((next) => {
         setError(null);
         setDraft("");
         apply(next);
       })
-      .catch((e) => setError(errorText(e)));
+      .catch((e) => say(errorText(e)))
+      .finally(() => {
+        running.current = false;
+      });
+  };
 
   useEffect(() => {
     if (!open || !session) return;
     let live = true;
-    void native.ladderOpen().then((x) => live && apply(x), (e) => live && setError(errorText(e)));
+    // A new session (or a retry) starts from its own ladder, never the last one's: no old
+    // error, and no old reason typed in.
+    setV(null);
+    setPollError(null);
+    setError(null);
+    setDraft("");
+    openFailed.current = false;
+    void native.ladderOpen().then(
+      (x) => {
+        if (!live) return;
+        openFailed.current = false;
+        setError(null);
+        apply(x);
+      },
+      (e) => {
+        if (!live) return;
+        openFailed.current = true;
+        setError(errorText(e));
+      },
+    );
+    // A partner call can take up to 20 seconds: one poll at a time.
+    let polling = false;
     const t = setInterval(() => {
       tick((n) => n + 1);
+      if (polling) return;
+      polling = true;
       // An approval ends the session, which tears this effect down; show it anyway.
-      void native.ladderView().then((x) => (live || x.outcome === "approved") && apply(x), () => undefined);
+      void native
+        .ladderView()
+        .then(
+          (x) => {
+            if (live) {
+              setPollError(null);
+              // The ladder is there after all: the failed open no longer applies.
+              if (openFailed.current) {
+                openFailed.current = false;
+                setError(null);
+              }
+            }
+            if (live || x.outcome === "approved") apply(x);
+          },
+          (e) => live && setPollError(errorText(e)),
+        )
+        .finally(() => {
+          polling = false;
+        });
     }, POLL_MS);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [open, session?.id, apply]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, session?.id, apply, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dismiss = () => {
+    setDraft("");
+    setError(null);
+    setPollError(null);
+    close();
+  };
+
+  // The ladder didn't open: say why, and offer a retry or a way out (never an invisible dialog).
+  if (open && session && !v && error) {
+    return (
+      <Dialog label="Break the seal" onClose={dismiss} width={460} top={110}>
+        <div className="flex flex-col gap-3 px-[18px] pb-4 pt-[18px]">
+          <span className="text-body font-semibold">Break the seal</span>
+          <p className="m-0 text-meta text-broken-text">{error}</p>
+        </div>
+        <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setError(null);
+              setAttempt((n) => n + 1);
+            }}
+          >
+            Try again
+          </Button>
+          <Button variant="primary" className="ml-auto shrink-0" onClick={dismiss}>
+            Close
+          </Button>
+        </div>
+      </Dialog>
+    );
+  }
 
   if (!open || !session || !v) return <Result />;
 
   const stay = () => {
-    if (v.stage !== "none") void native.ladderCancel();
-    setDraft("");
-    setError(null);
-    close();
+    if (v.stage !== "none") native.ladderCancel().catch((e: unknown) => console.error("ladderCancel", e));
+    dismiss();
   };
 
   let body: ReactNode;
@@ -218,7 +318,7 @@ export function BreakSealDialog() {
           placeholder="What changed, and why it can't wait."
           className="resize-none rounded-control border border-line-input bg-raised p-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
         />
-        <span className={`self-end font-mono text-[11px] ${n >= MIN_REASON ? "text-sealed-text" : "text-muted"}`}>
+        <span className={`self-end font-mono text-micro ${n >= MIN_REASON ? "text-sealed-text" : "text-muted"}`}>
           {Math.min(n, MIN_REASON)} / {MIN_REASON}
         </span>
       </>
@@ -321,7 +421,7 @@ export function BreakSealDialog() {
       <>
         {refused ? (
           <>
-            <h2 className="headline m-0 text-[22px]">{v.outcome === "denied" ? HEADLINE.partnerDenied(v.partner ?? "Your partner") : HEADLINE.partnerExpired}</h2>
+            <h2 className="headline m-0 text-moment-dialog">{v.outcome === "denied" ? HEADLINE.partnerDenied(v.partner ?? "Your partner") : HEADLINE.partnerExpired}</h2>
             {v.note ? <Quote>{v.note}</Quote> : null}
           </>
         ) : (
@@ -352,10 +452,10 @@ export function BreakSealDialog() {
       <Steps v={v} />
       <div className="flex flex-col gap-3 border-t border-line px-[18px] pb-[18px] pt-4">
         {body}
-        {error ? <p className="m-0 text-meta text-broken-text">{error}</p> : null}
+        {error || pollError ? <p className="m-0 text-meta text-broken-text">{error ?? pollError}</p> : null}
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
-        <Emergency v={v} onError={setError} />
+        <Emergency v={v} onError={say} />
         {action}
         <Button variant="primary" className="ml-auto shrink-0" onClick={stay}>
           Never mind, stay sealed

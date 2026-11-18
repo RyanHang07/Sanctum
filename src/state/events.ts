@@ -1,7 +1,7 @@
 import { play } from "../lib/sound";
 import type { BreakView } from "../lib/types";
 import { brokeFix } from "../pages/headlines";
-import { EVENTS, onNative } from "../lib/native";
+import { EVENTS, errorText, onNative } from "../lib/native";
 import type { CheckinDue, GcalStatus, HeldStats, QuietStatus, SessionView } from "../lib/types";
 import { useCalendar } from "./calendar";
 import { usePlanner } from "./planner";
@@ -18,9 +18,10 @@ const FOCUS_SYNC_MS = 30_000;
  */
 export function connectNativeEvents(): () => void {
   const store = useStore.getState;
-  const offs = [
+  const listeners = [
     onNative(EVENTS.closeRequested, () => store().openCloseDialog()),
-    onNative(EVENTS.quit, () => void quitSaved()),
+    // A quit that fails leaves the window up: say why.
+    onNative(EVENTS.quit, () => void quitSaved().catch((e: unknown) => store().showNotice({ lead: errorText(e) }))),
     // From the tray menu, or the tray panel with its own picks.
     onNative<{ profileId: number; minutes: number } | null>(EVENTS.enterFocus, (pick) => {
       store().navigate("today");
@@ -55,13 +56,32 @@ export function connectNativeEvents(): () => void {
       play("broken");
       // Plain (v0.3.1). Setup is locked until the seal ends, so the fix waits on the held page.
       const fix = brokeFix(t.kind);
+      // No detail (or not a string): the plain sentence alone.
+      const detail = typeof t?.detail === "string" ? t.detail.trim() : "";
+      const why = detail ? `${detail[0]!.toUpperCase()}${detail.slice(1)}. ` : "";
       store().showNotice({
         lead: "The seal is broken.",
-        rest: `${t.detail[0]!.toUpperCase()}${t.detail.slice(1)}. It stays on until the planned end${fix ? "; the fix is on the page after" : ""}.`,
+        rest: `${why}It stays on until the planned end${fix ? "; the fix is on the page after" : ""}.`,
         ms: fix ? 9000 : undefined,
       });
     }),
+    // The seal's end couldn't be written (a full or read-only disk). Rust ended it anyway and keeps
+    // retrying the save; say so once, plainly, so the user knows why (stability audit, 2026-11-17).
+    onNative<{ sessionId: number; what: "complete" | "unlock"; message: string }>(EVENTS.sealError, (e) => {
+      store().showNotice({
+        lead: "The seal ended, but it wasn't saved.",
+        rest: `Sanctum keeps trying. ${e.message}`,
+        ms: 9000,
+      });
+    }),
   ];
+  // A listener that fails to attach is logged, not left as an unhandled rejection; its unlisten is a no-op.
+  const offs = listeners.map((p) =>
+    p.catch((e: unknown) => {
+      console.error("listen failed", e);
+      return () => {};
+    }),
+  );
   // Check-ins queue while sealed; one that came due shows when the seal ends.
   const offSeal = useStore.subscribe((s, prev) => {
     if (prev.appState === "sealed" && s.appState !== "sealed") void useTrackers.getState().checkPending();
@@ -77,6 +97,14 @@ export function connectNativeEvents(): () => void {
   return () => {
     window.removeEventListener("focus", onFocus);
     offSeal();
-    offs.forEach((p) => void p.then((off) => off()));
+    offs.forEach((p) =>
+      void p.then((off) => {
+        try {
+          off();
+        } catch (e) {
+          console.error("unlisten failed", e);
+        }
+      }),
+    );
   };
 }

@@ -4,7 +4,7 @@ import { barPct, chartAxis, chartHours, focusScale, ticks } from "./scale";
 import { finish, moment, seek, setReducedMotion } from "../../test/motion";
 import type { DayStat, DayStatus, StatsOverview } from "../../lib/types";
 
-// Stats' Ruler direction: the scale maths, the marks' colour roles, and the motion when figures change.
+// Stats' Ruler direction: the scale maths, the marks' color roles, and the motion when figures change.
 
 const DATES = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"];
 
@@ -69,7 +69,7 @@ describe("the scales", () => {
   });
 
   it("scales the week's focus half again past the target, or to 15 hours", () => {
-    // ProtoStats: 9h 16m of a 10h target on a 15 hour scale, labelled 0, 5, 10 and 15.
+    // ProtoStats: 9h 16m of a 10h target on a 15 hour scale, labeled 0, 5, 10 and 15.
     const s = focusScale(556, 600);
     expect(s.scaleH).toBe(15);
     expect(s.labels).toEqual([0, 5, 10, 15]);
@@ -91,7 +91,7 @@ describe("the scales", () => {
 });
 
 describe("FocusRuler", () => {
-  it("draws the range's focus in the accent on a tick scale, the target in the second colour", () => {
+  it("draws the range's focus in the accent on a tick scale, the target in the second color", () => {
     render(<FocusRuler totalMin={556} targetMin={570} />);
     const ruler = screen.getByRole("img", { name: "9h 16m focused against a 9h 30m target, on a 15 hour scale" });
     expect(ruler.querySelector("[data-fill]")).toHaveClass("bg-sealed");
@@ -101,7 +101,7 @@ describe("FocusRuler", () => {
     expect(screen.getByTestId("focus-target")).toHaveClass("bg-second");
   });
 
-  it("names a target on a major tick in the second colour instead", () => {
+  it("names a target on a major tick in the second color instead", () => {
     render(<FocusRuler totalMin={556} targetMin={600} />);
     expect(screen.queryByTestId("focus-target")).toBeNull();
     expect(screen.getByText("10h", { exact: false }).closest("span")).toHaveClass("text-second-text");
@@ -116,7 +116,7 @@ describe("DayChart motion", () => {
     expect(bar(DATES[1]!).style.height).toBe(`${(222 / 240) * 100}%`);
   });
 
-  it("glides a bar from its old height when the minutes change, and fades in a new kept mark", () => {
+  it("glides a bar from its old height when the minutes change", () => {
     setReducedMotion(false);
     const { rerender } = render(chart(overview(WEEK)));
     const later = WEEK.map((d, i): [DayStatus, number] => (i === 6 ? ["kept", 126] : d));
@@ -124,21 +124,18 @@ describe("DayChart motion", () => {
     const today = bar(DATES[6]!);
     seek("stats-bars", 0);
     expect(today.style.height).toBe(`${(42 / 240) * 100}%`);
-    const mark = today.querySelector<HTMLElement>("[data-kept-mark]")!;
-    expect(mark.style.opacity).toBe("0");
+    expect(today.querySelector("[data-kept-mark]")).toBeNull(); // no cap over kept days
     finish("stats-bars");
     expect(today.style.height).toBe(`${(126 / 240) * 100}%`);
-    expect(mark.style.opacity).toBe("");
   });
 
-  it("glides the bars to another week without fading its kept marks", () => {
+  it("glides the bars to another week", () => {
     setReducedMotion(false);
     const { rerender } = render(chart(overview(WEEK)));
     const next = overview(WEEK.map(([, m]) => ["kept", m + 30] as [DayStatus, number]));
     next.days = next.days.map((d, i) => ({ ...d, date: `2026-11-${16 + i}` }));
     rerender(chart(next));
     seek("stats-bars", 0);
-    for (const m of document.querySelectorAll<HTMLElement>("[data-kept-mark]")) expect(m.style.opacity).toBe("");
     finish("stats-bars");
   });
 

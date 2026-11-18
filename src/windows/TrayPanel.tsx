@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Mark } from "../components/Mark";
 import { AnimatedMark } from "../components/AnimatedMark";
-import { CheckIcon, ChevronIcon, PlusIcon } from "../components/icons";
+import { Check } from "../components/controls";
+import { ChevronIcon, PlusIcon } from "../components/icons";
 import { Kbd } from "../components/Button";
-import { broadcast, EVENTS, native, onNative } from "../lib/native";
+import { broadcast, errorText, EVENTS, native, onNative } from "../lib/native";
 import { agendaFor, longTime, shortTime, todayKey, type AgendaItem } from "../lib/planner";
 import { useStore } from "../state/store";
 import { clock, countdown } from "../lib/time";
@@ -18,7 +19,7 @@ import type { NextCheckin, Profile, Routine, RoutineCheck, SessionView, Todo } f
 // Redesign (v0.4, S8): the sealed timer is accent text on the panel (`sealed-text`, never
 // `sealed-on`, which is for text on the accent fill). The seal reads as a ruler: the accent fill
 // is progress, and the scale's ticks are neutral (minor in `line`, quarter hours in `muted`),
-// because the second colour marks only goals and kept days. Open is neutral: a hollow dot.
+// because the second color marks only goals and kept days. Open is neutral: a hollow dot.
 // Motion is CSS only (motion spec 12): the fill glides, and reduced motion drops the glide.
 
 /** The seal's scale: a tick every 5 minutes, a major one every quarter hour. */
@@ -38,7 +39,10 @@ interface TrayData {
   next: NextCheckin | null;
 }
 
-const EMPTY: TrayData = { session: null, profiles: [], routines: [], todos: [], checks: [], next: null };
+/** How long a failed save shows in the footer. */
+const FAILED_MS = 4200;
+
+const EMPTY: TrayData ={ session: null, profiles: [], routines: [], todos: [], checks: [], next: null };
 
 async function load(resetTime?: string): Promise<TrayData> {
   const today = todayKey(new Date(), resetTime ?? useStore.getState().settings.dailyResetTime);
@@ -53,8 +57,19 @@ async function load(resetTime?: string): Promise<TrayData> {
   return { session, profiles, routines, todos, checks, next };
 }
 
+/**
+ * The tray is its own window and loads no settings: it reads the daily reset itself (on opening,
+ * on planner events, and when shown), so "today" starts when the main window's does.
+ */
+export async function syncTrayReset(): Promise<void> {
+  const raw = await native.getSetting("daily_reset_time").catch(() => null);
+  if (!raw || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(raw)) return;
+  const settings = useStore.getState().settings;
+  if (settings.dailyResetTime !== raw) useStore.setState({ settings: { ...settings, dailyResetTime: raw } });
+}
+
 const field =
-  "h-8 w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-[26px] text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
+  "h-control w-full cursor-pointer appearance-none rounded-control border border-line-input bg-raised pl-[10px] pr-[26px] text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line focus-visible:border-sealed";
 
 function Select<T extends string | number>({ label, value, options, onChange, className = "", mono = false }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; className?: string; mono?: boolean }) {
   return (
@@ -86,12 +101,38 @@ export function TrayPanel() {
   const [minutes, setMinutes] = useState(60);
   const [draft, setDraft] = useState("");
 
-  const refresh = () => void load(dailyResetTime).then(setData).catch(() => undefined);
+  // Only the latest read lands; a session event newer than the read keeps its session.
+  const gen = useRef(0);
+  const sessionSeen = useRef(0);
+  const refresh = () => {
+    const g = ++gen.current;
+    const seen = sessionSeen.current;
+    void load(dailyResetTime)
+      .then((d) => {
+        if (g !== gen.current) return;
+        setData((prev) => (seen !== sessionSeen.current ? { ...d, session: prev.session } : d));
+      })
+      .catch(() => undefined);
+  };
+  useEffect(() => {
+    void syncTrayReset();
+    const offs = [onNative(EVENTS.planner, () => void syncTrayReset())];
+    const onFocus = () => void syncTrayReset();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      offs.forEach((p) => void p.then((off) => off()));
+    };
+  }, []);
   useEffect(() => {
     refresh();
+    const live = (session: SessionView | null) => {
+      sessionSeen.current++;
+      setData((d) => ({ ...d, session }));
+    };
     const offs = [
-      onNative<SessionView | null>(EVENTS.session, (session) => setData((d) => ({ ...d, session }))),
-      onNative<SessionView>(EVENTS.tick, (session) => setData((d) => ({ ...d, session }))),
+      onNative<SessionView | null>(EVENTS.session, live),
+      onNative<SessionView>(EVENTS.tick, live),
       onNative(EVENTS.planner, refresh),
     ];
     // Shown again from the tray: catch up.
@@ -119,14 +160,31 @@ export function TrayPanel() {
   const done = items.filter((i) => i.done).length;
   const shown = [...items.filter((i) => !i.done), ...items.filter((i) => i.done)].slice(0, 3);
 
+  // The tray has no toasts: a failed save shows in the footer for a moment instead.
+  const [failed, setFailed] = useState<string | null>(null);
+  const failedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(failedTimer.current), []);
+  const fail = (e: unknown) => {
+    clearTimeout(failedTimer.current);
+    setFailed(errorText(e));
+    failedTimer.current = setTimeout(() => setFailed(null), FAILED_MS);
+  };
+
   const toggle = async (i: AgendaItem) => {
-    if (i.kind === "routine") {
-      const target = Math.max(1, i.sessionsTarget ?? 1);
-      const current = Math.min(target, Math.max(0, i.sessionsDone ?? (i.done ? target : 0)));
-      const completed = current < target ? current + 1 : Math.max(0, current - 1);
-      await native.setRoutineProgress(i.id, i.date, completed);
-    } else {
-      await native.setTodoDone(i.id, !i.done);
+    try {
+      if (i.kind === "routine") {
+        const target = Math.max(1, i.sessionsTarget ?? 1);
+        const current = Math.min(target, Math.max(0, i.sessionsDone ?? (i.done ? target : 0)));
+        const completed = current < target ? current + 1 : Math.max(0, current - 1);
+        await native.setRoutineProgress(i.id, i.date, completed);
+      } else {
+        await native.setTodoDone(i.id, !i.done);
+      }
+    } catch (e) {
+      // Re-read what's saved, so the check shows as it was.
+      refresh();
+      fail(e);
+      return;
     }
     refresh();
     void broadcast(EVENTS.planner);
@@ -134,10 +192,17 @@ export function TrayPanel() {
   const add = async () => {
     const title = draft.trim();
     if (!title) return;
-    setDraft("");
-    // While sealed, the same field parks the thought (v0.3.1): a task for today, from this seal.
-    if (data.session) await native.focusPark(title).catch(() => undefined);
-    else await native.saveTodo({ title, dueDate: today, dueTime: null, durationMin: null, profileId: null });
+    try {
+      // While sealed, the same field parks the thought (v0.3.1): a task for today, from this seal.
+      if (data.session) await native.focusPark(title);
+      else await native.saveTodo({ title, dueDate: today, dueTime: null, durationMin: null, profileId: null });
+    } catch (e) {
+      // The text stays in the field to try again.
+      fail(e);
+      return;
+    }
+    // Cleared only once saved, and only if it's still what was sent.
+    setDraft((d) => (d.trim() === title ? "" : d));
     refresh();
     void broadcast(EVENTS.planner);
   };
@@ -158,7 +223,7 @@ export function TrayPanel() {
         )}
         <span className="text-body font-semibold">Sanctum</span>
         <span
-          className={`flex h-[22px] items-center gap-[6px] rounded-[5px] border px-[7px] text-[11px] ${
+          className={`flex h-[22px] items-center gap-[6px] rounded-[5px] border px-[7px] text-micro ${
             sealed ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2"
           }`}
         >
@@ -207,7 +272,7 @@ export function TrayPanel() {
           </div>
           <div className="flex gap-[6px]">
             <button type="button" onClick={() => void native.showCompact()} className="flex h-8 flex-1 items-center justify-center gap-2 rounded-control border border-line-input bg-raised text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-line">
-              Compact timer<span className="font-mono text-[11px] text-muted">Ctrl M</span>
+              Compact timer<span className="font-mono text-micro text-muted">Ctrl M</span>
             </button>
             <button type="button" onClick={() => void native.showMain()} className="flex h-8 flex-1 items-center justify-center rounded-control border border-line-input bg-raised text-meta text-text transition-colors duration-ui ease-ui hover:border-check-line hover:bg-line">
               Open Sanctum
@@ -245,7 +310,7 @@ export function TrayPanel() {
       <div className="flex min-h-0 grow flex-col border-t border-line">
         <div className="flex justify-between px-[14px] pb-1 pt-[10px]">
           <span className="text-meta font-medium">Up next today</span>
-          <span className="font-mono text-[11px] text-muted">
+          <span className="font-mono text-micro text-muted">
             {done}/{items.length}
           </span>
         </div>
@@ -254,21 +319,16 @@ export function TrayPanel() {
           const label = multi ? `${i.title} ${i.sessionsDone ?? 0}/${i.sessionsTarget}` : i.title;
           return (
             <div key={i.key} className="flex h-8 shrink-0 items-center gap-[10px] px-[14px]">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={multi ? "mixed" : i.done}
-                aria-label={label}
-                onClick={() => void toggle(i)}
-                className={`check-pop box-border flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] ${
-                  i.done ? "border border-sealed bg-sealed text-sealed-on" : multi && (i.sessionsDone ?? 0) > 0 ? "border border-sealed bg-sealed/30 text-sealed-text" : "border-[1.5px] border-check-line hover:border-sealed"
-                }`}
-              >
-                {i.done ? <CheckIcon size={9} /> : multi && (i.sessionsDone ?? 0) > 0 ? <span className="h-[6px] w-[6px] rounded-[2px] bg-sealed" /> : null}
-              </button>
+              <Check
+                checked={multi ? "mixed" : i.done}
+                done={i.done}
+                partial={multi && (i.sessionsDone ?? 0) > 0}
+                label={label}
+                onToggle={() => void toggle(i)}
+              />
               <span className={`min-w-0 grow truncate text-meta ${i.done ? "text-muted line-through" : "text-text"}`}>{i.title}</span>
-              {multi ? <span className="font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
-              <span className="font-mono text-[11px] text-muted">{i.time ? shortTime(i.time) : ""}</span>
+              {multi ? <span className="font-mono text-micro text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
+              <span className="font-mono text-micro text-muted">{i.time ? shortTime(i.time) : ""}</span>
             </div>
           );
         })}
@@ -287,7 +347,13 @@ export function TrayPanel() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1 border-t border-line bg-panel-footer px-[10px] py-2">
-        <span className="truncate pl-1 text-[11px] text-muted">{data.next ? `Next check-in ${longTime(data.next.time)}` : "No more check-ins today"}</span>
+        {failed ? (
+          <span role="status" className="truncate pl-1 text-micro text-broken-text">
+            Not saved. {failed}
+          </span>
+        ) : (
+          <span className="truncate pl-1 text-micro text-muted">{data.next ? `Next check-in ${longTime(data.next.time)}` : "No more check-ins today"}</span>
+        )}
         {sealed ? (
           <button
             type="button"

@@ -16,6 +16,7 @@ import { SealedAppCard, TitleNudge, ordinal } from "../windows/Intercept";
 import { fillStyle } from "../windows/CompactTimer";
 import { countdown, joinNames, minutes } from "../lib/time";
 import type { Intercept } from "../lib/types";
+import { addDays, todayKey } from "../lib/planner";
 
 const initial = useStore.getState();
 const REASON = "My interview moved up an hour and I need the laptop for the shared screen.";
@@ -218,8 +219,8 @@ describe("session lifecycle", () => {
 
   it("follows session events from Rust", async () => {
     await sealed();
-    render(<AppShell />);
-    act(() => bus.emit(EVENTS.session, null));
+    await act(async () => void render(<AppShell />));
+    await act(async () => bus.emit(EVENTS.session, null));
     expect(useStore.getState().appState).toBe("open");
   });
 });
@@ -292,5 +293,76 @@ describe("animated mark", () => {
       expect(svg).toContain(`x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}"`);
     }
     expect(svg).toContain(`cx="${m.keyCircle.cx}" cy="${m.keyCircle.cy}" r="${m.keyCircle.r}"`);
+  });
+});
+
+describe("break-seal dialog state (M6)", () => {
+  it("sends a step once on a double click, and an emergency unlock once on Enter and click", async () => {
+    await sealed();
+    act(() => useStore.getState().openEndEarly());
+    render(<BreakSealDialog />);
+    const dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+    const reason = vi.spyOn(native, "ladderReason");
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: REASON } });
+    const start = within(dialog).getByRole("button", { name: "Start the wait" });
+    await act(async () => {
+      fireEvent.click(start);
+      fireEvent.click(start);
+    });
+    expect(reason).toHaveBeenCalledTimes(1);
+    reason.mockRestore();
+
+    const unlock = vi.spyOn(native, "emergencyUnlock");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Emergency unlock" }));
+    const why = within(dialog).getByLabelText("What's the emergency");
+    fireEvent.change(why, { target: { value: "Family call" } });
+    await act(async () => {
+      fireEvent.keyDown(why, { key: "Enter" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Use it" }));
+    });
+    expect(unlock).toHaveBeenCalledTimes(1);
+    unlock.mockRestore();
+  });
+
+  it("opens clean the next time: no old error, no old reason, and nothing said after it closed", async () => {
+    await sealed();
+    act(() => useStore.getState().openEndEarly());
+    render(<BreakSealDialog />);
+    let dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+    let fail!: (e: unknown) => void;
+    const reason = vi.spyOn(native, "ladderReason").mockReturnValueOnce(new Promise((_, rej) => (fail = rej)));
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: REASON } });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Start the wait" })));
+    // Closed from elsewhere (not Never mind), then the step fails.
+    act(() => useStore.getState().closeEndEarly());
+    await act(async () => fail("The backend went away."));
+    reason.mockRestore();
+
+    act(() => useStore.getState().openEndEarly());
+    dialog = await screen.findByRole("dialog", { name: "Break the seal" });
+    expect(dialog).not.toHaveTextContent("The backend went away.");
+    expect(within(dialog).getByLabelText("Reason")).toHaveValue("");
+  });
+});
+
+describe("held page streak day (M14)", () => {
+  it("reads the streak for the planner day by the daily reset", async () => {
+    const now = new Date();
+    now.setHours(5, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+    try {
+      useStore.setState({ settings: { ...useStore.getState().settings, dailyResetTime: "06:00" } });
+      const overview = vi.spyOn(native, "statsOverview");
+      const held = { sessionId: 7, profileId: 1, profileName: "Deep Work", plannedMinutes: 60, focusMinutes: 60, attempts: 0, broken: false };
+      render(<HeldPage held={held} />);
+      await act(async () => undefined);
+      const day = todayKey(now, "06:00");
+      expect(day).not.toBe(todayKey(now));
+      expect(overview).toHaveBeenCalledWith(addDays(day, -6), day);
+      overview.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

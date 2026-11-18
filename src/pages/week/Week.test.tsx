@@ -13,6 +13,8 @@ import { mockControls, resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { sampleProfiles } from "../../lib/catalog";
 import { WEEKDAYS_MASK } from "../../lib/planner";
+import { PlusIcon } from "../../components/icons";
+import { SEGMENT_TEXT, SEGMENTED_HEIGHT } from "../../components/controls";
 
 const initialStore = useStore.getState();
 const initialPlanner = usePlanner.getState();
@@ -54,7 +56,7 @@ afterEach(() => {
 describe("Week: one-time items", () => {
   it("adds a one-time item inline on a day and checks it off", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
     const thursday = screen.getByRole("region", { name: "Thursday, October 1" });
     fireEvent.click(within(thursday).getByRole("button", { name: "Add to Thursday" }));
@@ -68,7 +70,7 @@ describe("Week: one-time items", () => {
   it("edits and deletes a one-time item from its dialog", async () => {
     await setup();
     await act(async () => void (await usePlanner.getState().saveTodo({ title: "Pay rent", dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null })));
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(screen.getByRole("button", { name: /Pay rent/ }));
     const dialog = screen.getByRole("dialog", { name: "Edit item" });
     fireEvent.change(within(dialog).getByLabelText("Time"), { target: { value: "13:00" } });
@@ -120,11 +122,11 @@ describe("Week: one-time items", () => {
 
   it("steps between weeks", async () => {
     await setup();
-    render(<WeekPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    await act(async () => void render(<WeekPage />));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next week" })));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Oct 5 – 11");
     expect(screen.getByText("Upcoming")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "This week" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "This week" })));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sep 28 – Oct 4");
   });
 });
@@ -132,7 +134,7 @@ describe("Week: one-time items", () => {
 describe("Week: routines are separate", () => {
   it("creates a routine with weekday chips in the Routines view and shows it on its days", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("Routines"));
     expect(screen.getByText("No routines yet. Add the things you do every day or every week.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /New routine/ }));
@@ -169,19 +171,20 @@ describe("Week: routines are separate", () => {
     const monday = within(screen.getByRole("region", { name: "Monday, September 28" })).getByRole("checkbox", { name: "Gym" });
     await act(async () => fireEvent.click(monday));
     expect(monday).toHaveAttribute("aria-checked", "true");
+    expect(monday).toHaveClass("before:w-[max(100%,24px)]");
     expect(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("checkbox", { name: "Gym" })).toHaveAttribute("aria-checked", "false");
     expect(monday.closest("[data-kind]")).toHaveAttribute("data-kind", "routine");
     // A different week starts folded, and coming back does too.
-    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next week" })));
     expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Previous week" })));
     expect(screen.queryByRole("checkbox", { name: "Gym" })).toBeNull();
   });
 
   it("pauses a routine from its row", async () => {
     await setup();
     await act(async () => void (await usePlanner.getState().saveRoutine({ title: "Weigh-in", daysMask: 127, time: "08:00", durationMin: null, profileId: null, active: true })));
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("Routines"));
     await act(async () => fireEvent.click(screen.getByRole("switch", { name: "Weigh-in active" })));
     expect(usePlanner.getState().routines[0]!.active).toBe(false);
@@ -192,7 +195,7 @@ describe("Week: routines are separate", () => {
     await act(async () => {
       for (const title of ["Run", "Read", "Stretch"]) await usePlanner.getState().saveRoutine({ title, daysMask: 127, time: null, durationMin: null, profileId: null, active: true });
     });
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("Routines"));
     const rows = () => screen.getAllByTestId("routine-row");
     const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
@@ -215,7 +218,7 @@ describe("Week: list view and header", () => {
       await usePlanner.getState().saveRoutine({ title: "Weigh", daysMask: 0b0010010, time: "08:00", durationMin: null, profileId: null, active: true });
       await usePlanner.getState().saveTodo({ title: "Reply to emails", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null });
     });
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("List"));
     const thursday = screen.getByRole("region", { name: "Thursday list" });
     const rows = within(thursday).getAllByRole("checkbox").map((c) => [c.getAttribute("aria-label"), c.closest("[data-kind]")!.getAttribute("data-kind")]);
@@ -224,6 +227,9 @@ describe("Week: list view and header", () => {
       ["Weigh", "routine"],
     ]);
     expect(thursday).toHaveTextContent("Repeat");
+    // Section headers at 13px, like Today and Stats; long titles keep their full text in a tooltip.
+    expect(within(thursday).getByRole("heading", { level: 2 })).toHaveClass("text-body");
+    expect(within(thursday).getByRole("button", { name: "Reply to emails" })).toHaveAttribute("title", "Reply to emails");
     expect(within(screen.getByRole("region", { name: "Tuesday list" })).getByText("Today")).toBeInTheDocument();
     // Quick add on a day, like the To-do row in the reference page.
     fireEvent.focus(within(screen.getByRole("region", { name: "Saturday list" })).getByLabelText("Add a to-do on Saturday"));
@@ -238,10 +244,12 @@ describe("Week: list view and header", () => {
       const done = await native.saveTodo({ title: "Finished", dueDate: "2026-09-21", dueTime: null, durationMin: null, profileId: null });
       await native.setTodoDone(done.id, true);
     });
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("List"));
     const pending = await screen.findByRole("region", { name: "Pending" });
     expect(within(pending).getByRole("checkbox", { name: "Old errand" })).toBeInTheDocument();
+    // A 14px box with a 24px hit area (M13).
+    expect(within(pending).getByRole("checkbox", { name: "Old errand" })).toHaveClass("h-4", "before:h-[max(100%,24px)]");
     expect(within(pending).queryByRole("checkbox", { name: "Finished" })).toBeNull();
     expect(pending).toHaveTextContent("Sep 20");
     await act(async () => fireEvent.click(within(pending).getByRole("checkbox", { name: "Old errand" })));
@@ -256,7 +264,7 @@ describe("Week: list view and header", () => {
       await native.saveTodo({ title: "Groceries", dueDate: "2026-09-30", dueTime: null, durationMin: null, profileId: null });
       await usePlanner.getState().reload();
     });
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const strip = await screen.findByRole("region", { name: "Pending" });
     // Light and folded until opened; shows this week's count.
     expect(within(strip).getByRole("button", { name: "Show pending" })).toHaveTextContent("1");
@@ -295,7 +303,7 @@ describe("Week: list view and header", () => {
 
   it("parks a new item with No day yet, and gives a pending one its day (v0.1)", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(screen.getByRole("button", { name: "New item" }));
     let dialog = screen.getByRole("dialog", { name: "New item" });
     fireEvent.change(within(dialog).getByLabelText("Title"), { target: { value: "Renew passport" } });
@@ -307,7 +315,7 @@ describe("Week: list view and header", () => {
     expect([saved.undated, saved.dueDate]).toEqual([true, "2026-10-05"]);
 
     // Next week's Pending has it; open it there and give it a day.
-    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next week" })));
     const strip = screen.getByRole("region", { name: "Pending" });
     fireEvent.click(within(strip).getByRole("button", { name: "Show pending" }));
     fireEvent.click(within(strip).getByRole("button", { name: "Renew passport" }));
@@ -322,7 +330,7 @@ describe("Week: list view and header", () => {
 
   it("understands quick add words in Add to pending (v0.1)", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const strip = screen.getByRole("region", { name: "Pending" });
     fireEvent.click(within(strip).getByRole("button", { name: "Show pending" }));
     const add = within(strip).getByRole("textbox", { name: "Add to pending" });
@@ -357,7 +365,7 @@ describe("Week: list view and header", () => {
 
   it("keeps New and the view tabs in the same place across views", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     const tabsBefore = screen.getByRole("group", { name: "View" });
     expect(screen.getByRole("button", { name: "New item" })).toBeInTheDocument();
     fireEvent.click(view("Routines"));
@@ -367,6 +375,25 @@ describe("Week: list view and header", () => {
     // The Week tab reopens on the last view used.
     expect(await native.getSetting("week_view")).toBe("routines");
     expect(useStore.getState().settings.weekView).toBe("routines");
+  });
+
+  it("shows New with the plus in every view, sized like the view tabs beside it", async () => {
+    await setup();
+    await act(async () => void render(<WeekPage />));
+    const plus = render(<PlusIcon size={11} />).container.innerHTML;
+    const tab = view("Week");
+    const box = screen.getByRole("group", { name: "View" });
+    for (const name of ["Week", "List", "Month", "Routines"]) {
+      fireEvent.click(view(name));
+      const btn = document.querySelector<HTMLElement>("[data-new-button]")!;
+      expect(btn).toHaveAccessibleName(name === "Routines" ? "New routine" : "New item");
+      expect(btn.querySelector("svg")!.outerHTML).toBe(plus);
+      // The tabs' box height, an option's padding and text; the fill keeps it primary.
+      expect(btn).toHaveClass(SEGMENTED_HEIGHT, ...SEGMENT_TEXT.split(" "), "bg-sealed");
+      expect(tab).toHaveClass(...SEGMENT_TEXT.split(" "));
+      expect(btn).not.toHaveClass("h-control", "px-3", "text-body");
+    }
+    expect(box).toHaveClass("border", "p-[2px]"); // 24px options + 2px padding + 1px border = 30px
   });
 });
 
@@ -388,11 +415,15 @@ describe("Home follows the schedule", () => {
     const card = screen.getByTestId("suggestion");
     expect(card).toHaveTextContent("Next");
     expect(card).toHaveTextContent("Work session: SQL + DSA");
-    expect(card).toHaveTextContent("at 10:00 AM");
+    // The list's time format, in the slot too (M5).
+    expect(card).toHaveTextContent("at 10:00a");
     expect(card).toHaveTextContent("Deep Work · 60 min");
     // Nothing is pre-filled yet; Use applies it.
     expect(useStore.getState().selectedProfileId).toBe(profileId("Interview Prep"));
-    fireEvent.click(within(card).getByRole("button", { name: "Use" }));
+    // A short word, a full name (M5).
+    const use = within(card).getByRole("button", { name: "Use Deep Work, 60 min" });
+    expect(use).toHaveTextContent(/^Use$/);
+    fireEvent.click(use);
     expect(useStore.getState().selectedProfileId).toBe(profileId("Deep Work"));
   });
 
@@ -409,6 +440,9 @@ describe("Home follows the schedule", () => {
     const s = useStore.getState();
     expect([s.selectedProfileId, s.durationMin]).toEqual([profileId("Deep Work"), 60]);
     expect(screen.getByTestId("suggestion")).toHaveTextContent("Now");
+    // The current block's slot has a full cobalt edge, not the faint line (H4).
+    expect(screen.getByTestId("suggestion")).toHaveClass("border-sealed");
+    expect(screen.getByTestId("suggestion")).not.toHaveClass("border-sealed-line");
     const prompt = screen.getByRole("alertdialog", { name: "Deep Work starts now" });
     expect(prompt).toHaveTextContent("Work session: SQL + DSA · 60 min");
     await act(async () => fireEvent.click(within(prompt).getByRole("button", { name: /Enter focus/ })));
@@ -464,7 +498,7 @@ describe("Home panels", () => {
 describe("Quick add popover", () => {
   it("fills picks from what you type, lets a click override, and adds a timed focus item", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: "Add to Wednesday" }));
     const panel = screen.getByRole("dialog", { name: "Quick add" });
     // The column's day is the default.
@@ -489,7 +523,7 @@ describe("Quick add popover", () => {
 
   it("makes a routine when it repeats", async () => {
     await setup();
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(screen.getByRole("button", { name: "Add to Monday" }));
     const panel = screen.getByRole("dialog", { name: "Quick add" });
     fireEvent.change(within(panel).getByLabelText("Quick add"), { target: { value: "Gym 7am" } });
@@ -507,11 +541,20 @@ describe("Month view", () => {
     await setup();
     await act(async () => void (await usePlanner.getState().saveRoutine({ title: "Stretch", daysMask: 127, time: null, durationMin: null, profileId: null, active: true })));
     await act(async () => void (await usePlanner.getState().saveTodo({ title: "Pay rent", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null })));
-    render(<WeekPage />);
+    await act(async () => void render(<WeekPage />));
     fireEvent.click(view("Month"));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("September 2026");
     const today = screen.getByRole("button", { name: "Tuesday, September 29" });
     expect(within(today).getByTestId("month-routines")).toHaveTextContent("0/1");
+    // Today has a full cobalt edge (H4).
+    expect(today).toHaveClass("border-sealed");
+    // A day outside the month recedes by color, not opacity, and shows no counts (H5).
+    const outside = screen.getByRole("button", { name: "Thursday, October 1" });
+    expect(outside).toHaveAttribute("data-outside");
+    expect(outside).toHaveClass("border-line-soft");
+    expect(outside.className).not.toMatch(/opacity-/);
+    expect(within(outside).queryByTestId("month-routines")).toBeNull();
+    expect(within(outside).getByText("Pay rent")).toHaveClass("text-muted");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next month" })));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("October 2026");
     const oct1 = screen.getByRole("button", { name: "Thursday, October 1" });

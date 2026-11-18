@@ -4,11 +4,11 @@ import { cssVar, kebab } from "./palette";
 
 type ColorValue = string | Record<string, string>;
 
-/** A colour by its flat name, as the theme's variable (src/theme/palette.ts). */
+/** A color by its flat name, as the theme's variable (src/theme/palette.ts). */
 const ref = (flat: string) => `var(${cssVar(flat)})`;
 
 /**
- * The colour names from design/tokens.json (and extra.json) in the shape Tailwind expects,
+ * The color names from design/tokens.json (and extra.json) in the shape Tailwind expects,
  * each pointing at its theme variable: `bg-sealed-tint` draws `var(--s-sealed-tint)`.
  */
 export function buildColors(): Record<string, ColorValue> {
@@ -44,7 +44,12 @@ export const theme = {
     "page-title": [px(tokens.type.pageTitle[0]), { fontWeight: String(tokens.type.pageTitle[1]) }],
     body: px(tokens.type.body[0]),
     meta: px(tokens.type.meta[0]),
+    micro: px(tokens.type.micro[0]),
+    // Headline sizes (README headline rule): each pairs with `.headline` for the face and tracking.
     moment: [px(tokens.type.moment[0]), { fontWeight: String(tokens.type.moment[1]) }],
+    "moment-dialog": [px(tokens.type.momentDialog[0]), { fontWeight: String(tokens.type.momentDialog[1]) }],
+    "moment-compact": [px(tokens.type.momentCompact[0]), { fontWeight: String(tokens.type.momentCompact[1]) }],
+    held: [px(tokens.type.held[0]), { fontWeight: String(tokens.type.held[1]) }],
   },
   // Shadows are part of the theme too (a light theme casts a softer one).
   boxShadow: Object.fromEntries(Object.keys(extra.shadow).map((k) => [k, ref(`shadow-${k}`)])),

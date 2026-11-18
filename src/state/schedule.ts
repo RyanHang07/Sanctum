@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useNow } from "../lib/useNow";
 import { addDays, suggestFocus, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import { currentMeeting } from "../lib/calendar";
 import { agendaNow, useCalendar } from "./calendar";
@@ -38,10 +39,19 @@ export const resetPrompted = () => prompted.clear();
 /** Keeps the focus row following the schedule while Sanctum runs (SPEC 4.12, focus row). */
 export function useScheduleFocus() {
   const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  // The planner day moves at the daily reset, not only when the reset setting changes.
+  const today = todayKey(new Date(useNow(60_000)), dailyResetTime);
+  const shown = useRef(today);
   useEffect(() => {
-    const today = todayKey(new Date(), dailyResetTime);
     void usePlanner.getState().ensure(today, addDays(today, 1)).then(() => checkSchedule());
     void useCalendar.getState().ensure(today, addDays(today, 1)).then(() => checkSchedule());
+    // A new planner day (the reset passed, or it moved): Focus today counts from its reset.
+    if (shown.current !== today) {
+      shown.current = today;
+      void useStore.getState().refreshFocusToday();
+    }
+  }, [today]);
+  useEffect(() => {
     const t = setInterval(() => checkSchedule(), CHECK_MS);
     // Re-check right away when items change (added, checked off, moved).
     const off = usePlanner.subscribe((s, prev) => {
@@ -55,5 +65,5 @@ export function useScheduleFocus() {
       off();
       offEvents();
     };
-  }, [dailyResetTime]);
+  }, []);
 }

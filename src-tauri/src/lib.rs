@@ -35,6 +35,7 @@ mod trackers;
 mod tray;
 mod winutil;
 
+use crate::engine::Locked;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -72,11 +73,22 @@ pub struct Shared {
     pub journal: journal::State,
     /// A downloaded update waiting for its click (v0.3).
     pub update: updates::Ready,
+    /// Which database `db` is: bumped by Start over and Restore (2026-11-17).
+    pub db_generation: db::Generation,
 }
 
 impl Shared {
     pub fn sealed(&self) -> bool {
-        *self.app_state.lock().unwrap() == AppState::Sealed
+        *self.app_state.locked() == AppState::Sealed
+    }
+
+    /// After Start over or Restore swapped the database, called with `db` still locked
+    /// (2026-11-17): work begun on the old one is told, and the activity tracker forgets the
+    /// rows it was growing there (their ids mean other rows now).
+    pub fn replaced(&self) {
+        self.db_generation.bump();
+        *self.activity.tracker.locked() = activity::Tracker::default();
+        self.gcal.wake();
     }
 }
 
@@ -116,11 +128,7 @@ pub fn show_compact_window(app: &AppHandle) {
     }
     let Some(w) = app.get_webview_window("compact") else { return };
     if let Some(geo) = compact_geometry(&w) {
-        let saved = app
-            .state::<Shared>()
-            .db
-            .lock()
-            .ok()
+        let saved = Some(app.state::<Shared>().db.locked())
             .and_then(|c| db::get_setting(&c, "compact_offset").ok().flatten())
             .and_then(|s| parse_pair(&s))
             .unwrap_or((0, 0));
@@ -181,7 +189,7 @@ struct DbStatus {
 
 #[tauri::command]
 fn db_status(shared: State<Shared>) -> Result<DbStatus, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let s = db::status(&conn).map_err(|e| e.to_string())?;
     Ok(DbStatus {
         ready: s.ready,
@@ -191,15 +199,46 @@ fn db_status(shared: State<Shared>) -> Result<DbStatus, String> {
     })
 }
 
+/// Settings only Rust writes (2026-11-17): the window could reset the emergency unlock, drop the
+/// journal lock, turn off the guard's elevated pass mid-seal, or forget the partner. Each has
+/// its own command with its own checks, or is internal state.
+const SET_EXACT: &[&str] = &[
+    "journal_lock",
+    "quiet_hours",
+    "pause_mode",
+    "browser_extension_seen",
+    "dnd_restore",
+    "partner_summary_sent_week",
+    cloud::K_PARTNER_LINKED,
+    cloud::K_PARTNER_NAME,
+];
+const SET_PREFIX: &[&str] = &["emergency_", "journal_pin", "guard_", "gcal_"];
+/// Settings the window may not read: secrets.
+const GET_PREFIX: &[&str] = &["journal_pin"];
+
+fn settable(key: &str) -> bool {
+    !SET_EXACT.contains(&key) && !SET_PREFIX.iter().any(|p| key.starts_with(p))
+}
+
+fn readable(key: &str) -> bool {
+    !GET_PREFIX.iter().any(|p| key.starts_with(p))
+}
+
 #[tauri::command]
 fn get_setting(shared: State<Shared>, key: String) -> Result<Option<String>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    if !readable(&key) {
+        return Err("That setting isn't readable from here.".into());
+    }
+    let conn = shared.db.locked();
     db::get_setting(&conn, &key).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn set_setting(shared: State<Shared>, key: String, value: String) -> Result<(), String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    if !settable(&key) {
+        return Err("That setting changes through its own control.".into());
+    }
+    let conn = shared.db.locked();
     db::set_setting(&conn, &key, &value).map_err(|e| e.to_string())?;
     shared.activity.mark_dirty();
     Ok(())
@@ -211,20 +250,20 @@ fn guard_close_elevated(shared: State<Shared>, enabled: bool) -> Result<bool, St
     if !enabled && shared.sealed() {
         return Err("This stays on until the seal ends.".into());
     }
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     db::set_setting(&conn, guard::CLOSE_ELEVATED, if enabled { "1" } else { "0" }).map_err(|e| e.to_string())?;
     Ok(enabled)
 }
 
 #[tauri::command]
 fn list_class_rules(shared: State<Shared>) -> Result<Vec<classify::ClassRule>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     classify::list(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn add_class_rule(shared: State<Shared>, rule: classify::ClassRule) -> Result<classify::ClassRule, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let r = classify::add(&conn, rule)?;
     shared.activity.mark_dirty();
     Ok(r)
@@ -232,7 +271,7 @@ fn add_class_rule(shared: State<Shared>, rule: classify::ClassRule) -> Result<cl
 
 #[tauri::command]
 fn set_class_rule_category(shared: State<Shared>, id: i64, category: String) -> Result<(), String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     classify::set_category(&conn, id, &category)?;
     shared.activity.mark_dirty();
     Ok(())
@@ -240,14 +279,14 @@ fn set_class_rule_category(shared: State<Shared>, id: i64, category: String) -> 
 
 #[tauri::command]
 fn remove_class_rule(shared: State<Shared>, id: i64) -> Result<(), String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     classify::remove(&conn, id).map_err(|e| e.to_string())?;
     shared.activity.mark_dirty();
     Ok(())
 }
 
 fn db_call<T>(shared: &Shared, f: impl FnOnce(&rusqlite::Connection) -> Result<T, String>) -> Result<T, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     f(&conn)
 }
 
@@ -352,7 +391,7 @@ fn delete_todo(shared: State<Shared>, id: i64) -> Result<(), String> {
 
 #[tauri::command]
 fn activity_summary(shared: State<Shared>, since: i64) -> Result<activity::Summary, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     activity::summary(&conn, since, session::now_ms()).map_err(|e| e.to_string())
 }
 
@@ -362,7 +401,7 @@ fn set_app_state(app: AppHandle, shared: State<Shared>, state: AppState) -> Resu
     if shared.engine.is_active() {
         return if state == AppState::Sealed { Ok(()) } else { Err("A session is running.".into()) };
     }
-    *shared.app_state.lock().map_err(|e| e.to_string())? = state;
+    *shared.app_state.locked() = state;
     tray::refresh(&app, state == AppState::Sealed).map_err(|e| e.to_string())
 }
 
@@ -375,7 +414,7 @@ fn unsealed(shared: &Shared) -> Result<(), String> {
 }
 
 fn with_db<T>(shared: &Shared, f: impl FnOnce(&mut rusqlite::Connection) -> profiles::Result<T>) -> Result<T, String> {
-    let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let mut conn = shared.db.locked();
     let out = f(&mut conn).map_err(|e| e.to_string());
     // Profiles feed activity classification.
     shared.activity.mark_dirty();
@@ -418,7 +457,7 @@ fn remove_rule(shared: State<Shared>, rule_id: i64) -> Result<profiles::Profile,
 }
 
 fn flags<T>(shared: &Shared, f: impl FnOnce(&rusqlite::Connection) -> Result<T, String>) -> Result<T, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let out = f(&conn);
     // Flags are distracting time too.
     shared.activity.mark_dirty();
@@ -474,7 +513,7 @@ fn locked_while_sealed(shared: &Shared) -> Result<(), String> {
 
 #[tauri::command]
 fn guard_status(shared: State<Shared>) -> Result<guard::GuardStatus, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     Ok(guard::status(&conn))
 }
 
@@ -514,37 +553,48 @@ const CALENDAR_STUCK: &str = "calendar-stuck:";
 /// and Protection are left as they are. Never while sealed.
 #[tauri::command]
 async fn reset_all(app: AppHandle, force: bool) -> Result<(), String> {
+    const WAITS: &str = "Starting over waits until the seal ends.";
     {
         let shared = app.state::<Shared>();
         if shared.sealed() || shared.engine.is_active() {
-            return Err("Starting over waits until the seal ends.".into());
+            return Err(WAITS.into());
         }
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let connected = gcal::sync::connected(&*app.state::<Shared>().db.lock().map_err(|e| e.to_string())?);
+        let shared = app.state::<Shared>();
+        // Held for the whole reset (2026-11-17): a seal started part way used to have its row
+        // wiped by the replace below.
+        let _claim = shared.engine.begin_start().map_err(|_| WAITS.to_string())?;
+        if shared.sealed() {
+            return Err(WAITS.into());
+        }
+        let connected = gcal::sync::connected(&shared.db.locked());
         if connected && !force {
             gcal::remove_calendar(&app).map_err(|e| format!("{CALENDAR_STUCK} {e}"))?;
         } else {
             let _ = gcal::sign_out(&app);
         }
         cloud::sign_out(&app);
-        let shared = app.state::<Shared>();
-        let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
-        // Swap in a throwaway connection so the old one closes and its files can go.
-        *conn = rusqlite::Connection::open_in_memory().map_err(|e| e.to_string())?;
-        for ext in ["", "-wal", "-shm"] {
-            let path = format!("{}{ext}", shared.db_path.display());
-            if std::path::Path::new(&path).exists() {
-                std::fs::remove_file(&path).map_err(|e| format!("Couldn't clear the old data: {e}"))?;
+        let mut conn = shared.db.locked();
+        // Checked again under the database lock. Safe from deadlock: with the claim held no seal
+        // can become active, so nothing holds the session lock while waiting on this one.
+        if shared.engine.is_active() {
+            return Err(WAITS.into());
+        }
+        // The partner link and the emergency unlock's day aren't data to start over.
+        let carried = backup::carried_settings(&conn);
+        // On any failure the old data stays, and so does a real connection (db::replace).
+        db::replace(&mut conn, &shared.db_path, |_| Ok(()), |fresh| {
+            backup::restore_carried(fresh, &carried)?;
+            classify::seed_from_catalog(fresh).map_err(|e| e.to_string())?;
+            // A clean slate in dev builds too: no sample profiles, so first-run setup shows.
+            if cfg!(debug_assertions) {
+                db::set_setting(fresh, "dev_seeded", "1").map_err(|e| e.to_string())?;
             }
-        }
-        let fresh = db::open(&shared.db_path).map_err(|e| e.to_string())?;
-        classify::seed_from_catalog(&fresh).map_err(|e| e.to_string())?;
-        // A clean slate in dev builds too: no sample profiles, so first-run setup shows.
-        if cfg!(debug_assertions) {
-            db::set_setting(&fresh, "dev_seeded", "1").map_err(|e| e.to_string())?;
-        }
-        *conn = fresh;
+            Ok(())
+        })
+        .map_err(|e| format!("Couldn't clear the old data: {e}"))?;
+        shared.replaced();
         drop(conn);
         engine::load_quiet(&app);
         engine::load_pause(&app);
@@ -557,11 +607,20 @@ async fn reset_all(app: AppHandle, force: bool) -> Result<(), String> {
 }
 
 fn installed_apps(shared: &Shared, refresh: bool) -> Vec<apps::InstalledApp> {
-    let mut cache = shared.apps.lock().unwrap();
-    if refresh || cache.is_none() {
-        *cache = Some(apps::scan());
+    cached_scan(&shared.apps, refresh, apps::scan)
+}
+
+/// The cached app list, scanning only when asked or empty. The scan takes seconds and runs
+/// outside the lock (2026-11-17): the engine tick and preview_seal read app names through it.
+fn cached_scan<T: Clone>(cache: &Mutex<Option<Vec<T>>>, refresh: bool, scan: impl FnOnce() -> Vec<T>) -> Vec<T> {
+    if !refresh {
+        if let Some(list) = cache.locked().as_ref() {
+            return list.clone();
+        }
     }
-    cache.clone().unwrap_or_default()
+    let list = scan();
+    *cache.locked() = Some(list.clone());
+    list
 }
 
 #[tauri::command]
@@ -575,11 +634,11 @@ async fn list_installed_apps(app: AppHandle, refresh: bool) -> Result<Vec<apps::
 async fn app_icon(app: AppHandle, path: String) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let shared = app.state::<Shared>();
-        if let Some(hit) = shared.icons.lock().unwrap().get(&path) {
+        if let Some(hit) = shared.icons.locked().get(&path) {
             return hit.clone();
         }
         let icon = apps::icon_data_url(&path);
-        shared.icons.lock().unwrap().insert(path, icon.clone());
+        shared.icons.locked().insert(path, icon.clone());
         icon
     })
     .await
@@ -715,11 +774,15 @@ pub fn run() {
             updates::install_panic_hook(&dir);
             // Dev builds keep their own database so sample data never reaches a real install.
             let db_path = dir.join(if cfg!(debug_assertions) { "sanctum-dev.db" } else { "sanctum.db" });
-            let conn = db::open(&db_path)?;
+            let backups = dir.join("Backups before updates");
+            let conn = match db::open_at_launch(&db_path, &backups, &backup::stamp(chrono::Local::now())) {
+                Ok(c) => c,
+                Err(e) => fatal(&e, Some(&dir)),
+            };
             classify::seed_from_catalog(&conn)?;
             // The guard brought Sanctum back mid-seal: log it (the seal resumes below).
             if std::env::args().any(|a| a == guard::RESTART_ARG) {
-                let _ = guard::log_restart(&conn, session::now_ms());
+                let _ = guard::log_restart(&conn, session::now_ms(), tamper::uptime_ms());
             }
 
             // Start with Windows is on by default (SPEC 4.11 step 6). The startup entry is
@@ -747,6 +810,7 @@ pub fn run() {
                 tamper: tamper::State::default(),
                 journal: journal::State::default(),
                 update: updates::Ready::default(),
+                db_generation: db::Generation::default(),
             });
             // Windows are created here, not by Tauri, so no page can call a command before
             // Shared is managed (that panics inside WebView2 and aborts the app).
@@ -791,10 +855,7 @@ pub fn run() {
                 api.prevent_close();
                 let app = window.app_handle();
                 let shared = app.state::<Shared>();
-                let saved = shared
-                    .db
-                    .lock()
-                    .ok()
+                let saved = Some(shared.db.locked())
                     .and_then(|c| db::get_setting(&c, "close_action").ok().flatten());
                 match resolve_close(shared.sealed(), saved.as_deref()) {
                     CloseAction::Tray => {
@@ -824,9 +885,10 @@ pub fn run() {
                 let (x0, y0) = compact_anchor(&geo);
                 // Windows move while they're created, before setup has managed Shared.
                 let Some(shared) = window.app_handle().try_state::<Shared>() else { return };
-                if let Ok(conn) = shared.db.lock() {
+                {
+                    let conn = shared.db.locked();
                     let _ = db::set_setting(&conn, "compact_offset", &format!("{},{}", pos.x - x0, pos.y - y0));
-                };
+                }
             }
             _ => {}
         })
@@ -874,6 +936,8 @@ pub fn run() {
             journal::journal_unlock_pin,
             journal::journal_unlock_hello,
             journal::journal_lock,
+            journal::journal_search,
+            journal::journal_export,
             updates::update_install,
             updates::update_ready,
             updates::update_apply,
@@ -997,12 +1061,66 @@ pub fn run() {
             gcal::gcal_open
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Sanctum");
+        .unwrap_or_else(|e| fatal(&format!("Sanctum couldn't start: {e}"), None));
+}
+
+/// A start that can't go on (2026-11-17: these used to panic with no word to the user). Says why
+/// in a native message box, keeps it in the logs folder when there is one, and exits.
+fn fatal(message: &str, app_data: Option<&std::path::Path>) -> ! {
+    if let Some(dir) = app_data {
+        let logs = updates::logs_dir(dir);
+        let _ = std::fs::create_dir_all(&logs);
+        let _ = std::fs::write(logs.join(format!("startup-{}.log", chrono::Local::now().format("%Y%m%d-%H%M%S"))), message);
+    }
+    #[cfg(windows)]
+    {
+        use windows::core::PCWSTR;
+        use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+        let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+        let (text, title) = (wide(message), wide("Sanctum"));
+        unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_OK | MB_ICONERROR) };
+    }
+    #[cfg(not(windows))]
+    eprintln!("{message}");
+    std::process::exit(1)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_cannot_write_protected_settings() {
+        for key in ["emergency_used_at", "emergency_used_uptime", "journal_lock", "journal_pin_hash", "guard_close_elevated", "partner_linked", "partner_name", "quiet_hours", "pause_mode", "browser_extension_seen", "gcal_sync_token"] {
+            assert!(!settable(key), "{key}");
+        }
+        // Everything the window sets today still goes through.
+        for key in [
+            "checkin_on_startup", "close_action", "compact_on_focus", "daily_goal_min", "daily_reset_time", "dev_seeded", "dev_seeded_planner", "display_name",
+            "home_layout", "note_font_size", "notes_list_hidden", "on_login", "onboarded", "partner_weekly_summary", "rest_days_mask", "sidebar_collapsed",
+            "sound_styles", "sound_volume", "sounds", "week_view", "weekly_recap", "recap_seen_week", "journal_setup", "theme", "distraction_suggestions_dismissed",
+            "idle_threshold_min", "activity_retention_days", "passive_apps", "private_apps",
+        ] {
+            assert!(settable(key), "{key}");
+        }
+        // Reads: only secrets are refused (the window reads guard_close_elevated).
+        assert!(!readable("journal_pin_hash"));
+        assert!(readable("guard_close_elevated") && readable("emergency_used_at"));
+    }
+
+    #[test]
+    fn the_app_scan_runs_outside_the_cache_lock() {
+        let cache: Mutex<Option<Vec<i32>>> = Mutex::new(None);
+        // While scanning, the cache can still be read (the engine tick's app names).
+        let list = cached_scan(&cache, false, || {
+            assert!(cache.try_lock().is_ok(), "the lock is free during the scan");
+            vec![1, 2]
+        });
+        assert_eq!(list, vec![1, 2]);
+        // Cached: no second scan unless asked.
+        assert_eq!(cached_scan(&cache, false, || unreachable!()), vec![1, 2]);
+        assert_eq!(cached_scan(&cache, true, || vec![3]), vec![3]);
+    }
 
     #[test]
     fn close_goes_to_tray_while_sealed() {

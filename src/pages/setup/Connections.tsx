@@ -6,62 +6,82 @@ import { syncedAgo } from "../../lib/calendar";
 import { useNow } from "../../lib/useNow";
 import type { GcalStatus } from "../../lib/types";
 import { Row, Section } from "./parts";
+import { StatusLine, useCascade, type ConnectionTone } from "./status";
 
 // Setup > Connections (design/screens/Setup.dc.html): Google Calendar sign-in and the
 // calendars Sanctum reads (SPEC 4.3).
 
-function SyncDot({ tone }: { tone: "connected" | "broken" | "open" }) {
-  // Connected is a neutral dot (connection state is not the second colour); not connected is a hollow ring.
-  const bg = tone === "connected" ? "bg-muted" : tone === "broken" ? "bg-broken" : "border border-line-input";
-  return <span aria-hidden="true" className={`h-[6px] w-[6px] shrink-0 rounded-full ${bg}`} />;
+export function calendarTone(s: GcalStatus | null): ConnectionTone {
+  if (!s?.connected && !s?.needsReconnect) return "off";
+  return s.needsReconnect || s.error ? "attention" : "ok";
 }
 
-function hintFor(s: GcalStatus, now: number): string {
-  if (!s.configured) return "Google Calendar isn't set up in this build. Add a Google OAuth client to src-tauri/.env (docs/self-hosting.md).";
-  if (s.connecting) return "Finish signing in in your browser.";
-  if (s.needsReconnect) return "Sign-in expired. Google asks again every 7 days while the app is in testing.";
-  if (!s.connected) return "Timed items and the routines you choose sync to a Sanctum calendar.";
-  if (s.error) return s.error;
-  return `${s.email ?? "Connected"} · ${s.syncing ? "Syncing" : syncedAgo(s.lastSyncAt, now)}`;
+/** For the side list's dot: connected, needing a reconnect or showing an error, or not connected. */
+export function useCalendarStatus(): ConnectionTone {
+  return calendarTone(useCalendar((s) => s.status));
 }
 
-function GoogleRow() {
-  const status = useCalendar((s) => s.status);
-  const { connect, cancelConnect } = useCalendar();
-  const now = useNow();
-  if (!status) return null;
-
-  let action;
+function CalendarStatus({ status }: { status: GcalStatus }) {
+  const { connect, cancelConnect, syncNow } = useCalendar();
+  const tone = calendarTone(status);
+  if (!status.configured) return <StatusLine tone="off" testId="calendar-status">Not set up in this build.</StatusLine>;
   if (status.connecting) {
-    action = (
-      <Button variant="quiet" size="sm" onClick={cancelConnect}>
-        Cancel
-      </Button>
+    return (
+      <StatusLine
+        tone="off"
+        testId="calendar-status"
+        action={
+          <Button variant="quiet" size="sm" onClick={cancelConnect}>
+            Cancel
+          </Button>
+        }
+      >
+        Finish signing in in your browser.
+      </StatusLine>
     );
-  } else if (status.needsReconnect) {
-    action = (
-      <Button variant="tint" size="sm" onClick={() => void connect()}>
-        Reconnect
-      </Button>
+  }
+  if (status.needsReconnect) {
+    return (
+      <StatusLine
+        tone={tone}
+        testId="calendar-status"
+        action={
+          <Button variant="primary" size="sm" onClick={() => void connect()}>
+            Reconnect
+          </Button>
+        }
+      >
+        Google sign-in expired.
+      </StatusLine>
     );
-  } else if (status.connected) {
-    action = (
-      <span className="flex shrink-0 items-center gap-[6px] text-meta text-muted">
-        <SyncDot tone={status.error ? "broken" : "connected"} />
-        Two-way sync
-      </span>
-    );
-  } else {
-    action = (
-      <Button variant="ghost" size="sm" disabled={!status.configured} onClick={() => void connect()}>
-        Connect
-      </Button>
+  }
+  if (!status.connected) {
+    return (
+      <StatusLine
+        tone={tone}
+        testId="calendar-status"
+        action={
+          <Button variant="primary" size="sm" onClick={() => void connect()}>
+            Connect
+          </Button>
+        }
+      >
+        Not connected to Google Calendar.
+      </StatusLine>
     );
   }
   return (
-    <Row label="Google Calendar" hint={hintFor(status, now)}>
-      {action}
-    </Row>
+    <StatusLine
+      tone={tone}
+      testId="calendar-status"
+      action={
+        <Button variant="quiet" size="sm" disabled={status.syncing} onClick={syncNow}>
+          Sync now
+        </Button>
+      }
+    >
+      {status.error ?? "Connected to Google Calendar."}
+    </StatusLine>
   );
 }
 
@@ -77,7 +97,7 @@ function CalendarList() {
           <span className="min-w-0 grow truncate text-body text-text">
             {c.summary}
             {c.primary ? <span className="text-muted"> · main</span> : null}
-            {c.sanctum ? <span className="text-muted"> · timed items and chosen routines</span> : null}
+            {c.sanctum ? <span className="text-muted"> · where Sanctum writes</span> : null}
             {!c.writable ? <span className="text-muted"> · read-only</span> : null}
           </span>
           <Switch label={`Show ${c.summary}`} checked={c.selected} onChange={(v) => void setSelected(c.id, v)} />
@@ -91,12 +111,10 @@ function RemoveDialog({ onClose }: { onClose: () => void }) {
   const removeCalendar = useCalendar((s) => s.removeCalendar);
   const [busy, setBusy] = useState(false);
   return (
-    <Dialog label="Remove the Sanctum calendar" onClose={onClose} width={420}>
+    <Dialog label="Remove the Sanctum calendar" alert onClose={onClose} width={420}>
       <div className="flex flex-col gap-2 px-[18px] pb-4 pt-[18px]">
-        <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">Remove the Sanctum calendar.</h1>
-        <p className="m-0 text-body text-muted">
-          Deletes it and its events from Google, then disconnects. Your routines and items stay in Sanctum.
-        </p>
+        <h1 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">This removes the Sanctum calendar.</h1>
+        <p className="m-0 text-body text-muted">Deletes it from Google and disconnects. Your routines and items stay in Sanctum.</p>
       </div>
       <div className="flex items-center justify-end gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
         <Button variant="ghost" onClick={onClose}>
@@ -119,19 +137,26 @@ function RemoveDialog({ onClose }: { onClose: () => void }) {
 
 export function ConnectionsSection() {
   const status = useCalendar((s) => s.status);
-  const { syncNow, disconnect } = useCalendar();
+  const { disconnect } = useCalendar();
+  const now = useNow();
   const [removing, setRemoving] = useState(false);
   const connected = !!status?.connected;
+  const rows = useCascade<HTMLDivElement>(connected);
   return (
     <Section title="Google Calendar">
-      <GoogleRow />
+      {status ? <CalendarStatus status={status} /> : null}
+      {status && !status.configured ? (
+        <Row label="Add a Google OAuth client" hint="src-tauri/.env, see docs/self-hosting.md">
+          <span />
+        </Row>
+      ) : null}
       {connected ? (
-        <>
+        <div ref={rows}>
+          <Row label={status!.email ?? "Google account"}>
+            <span className="shrink-0 text-body text-text-2">{status!.syncing ? "Syncing" : syncedAgo(status!.lastSyncAt, now)}</span>
+          </Row>
           <CalendarList />
           <div className="flex items-center gap-2 px-[14px] py-[10px]">
-            <Button variant="ghost" size="sm" disabled={status?.syncing || status?.needsReconnect} onClick={syncNow}>
-              Sync now
-            </Button>
             <Button variant="ghost" size="sm" onClick={() => void disconnect()}>
               Disconnect
             </Button>
@@ -139,7 +164,7 @@ export function ConnectionsSection() {
               Remove Sanctum calendar
             </Button>
           </div>
-        </>
+        </div>
       ) : null}
       {removing ? <RemoveDialog onClose={() => setRemoving(false)} /> : null}
     </Section>
