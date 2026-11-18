@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { A } from "./nav";
 import { REPO } from "./releases";
 import { useTabTitle } from "../title";
 import notices from "./notices.json";
+import { useGrow } from "./motion";
 
 // /legal (v0.3): Sanctum's license, the open-source libraries it ships (scripts/licenses.mjs
 // reads them from the build's own dependencies), and a note on the names of other products.
@@ -39,6 +40,34 @@ SOFTWARE.`;
 
 const ALL = notices as Notice[];
 
+/** One group of notices, folded: opening grows the table to its height, then its rows rise in. */
+function Notices({ title, count, open: openAt, children }: { title: string; count: number; open: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(openAt);
+  const [seen, setSeen] = useState(openAt);
+  if (seen !== openAt) {
+    setSeen(openAt);
+    setOpen(openAt);
+  }
+  const body = useRef<HTMLDivElement>(null);
+  useGrow(body, open);
+  return (
+    <details className="notice-group" open={open}>
+      {/* The summary toggles through state, so the body grows from closed instead of flashing open. */}
+      <summary
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }}
+      >
+        {title} <span className="count">{count}</span>
+      </summary>
+      <div className="doc-table" ref={body}>
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export function LegalPage() {
   useTabTitle("Legal");
   const [q, setQ] = useState("");
@@ -52,8 +81,8 @@ export function LegalPage() {
     <article className="legal-page">
       <h1 className="headline">Sanctum's legal notes, in plain view.</h1>
       <p className="lede">
-        Sanctum is free and open source. This page has its license, the libraries it's built on, and a note on other products' names. How your data is
-        handled is in the <A href="/privacy">privacy policy</A>; the rules of use are in the <A href="/terms">terms</A>.
+        The license, the libraries Sanctum is built on, and other products' names. Your data is covered in the <A href="/privacy">privacy policy</A>, and
+        use in the <A href="/terms">terms</A>.
       </p>
 
       <section className="legal-block" aria-labelledby="license">
@@ -67,7 +96,7 @@ export function LegalPage() {
       <section className="legal-block" aria-labelledby="names">
         <h2 id="names">Other products' names</h2>
         <p className="muted">
-          Sanctum's themes are named after the colour schemes they follow: GitHub, Dracula, One Dark, Monokai, Tokyo Night, Catppuccin, Nord, Gruvbox, and
+          Sanctum's themes are named after the color schemes they follow: GitHub, Dracula, One Dark, Monokai, Tokyo Night, Catppuccin, Nord, Gruvbox, and
           Solarized. Those names belong to their owners, and Sanctum isn't affiliated with or endorsed by them. The same goes for the browsers, apps, and
           services Sanctum mentions or works with, such as Windows, Chrome, Edge, Brave, Comet, Google Calendar, Discord, and YouTube.
         </p>
@@ -76,19 +105,14 @@ export function LegalPage() {
       <section className="legal-block" aria-labelledby="notices">
         <h2 id="notices">Open-source notices</h2>
         <p className="muted">
-          Sanctum is built on {ALL.length} open-source packages, each under its own license, listed from the dependencies of the build. Each name links to
-          its page, where its full license and copyright notice are. The fonts (Geist, Geist Mono, Schibsted Grotesk) are under the SIL Open Font License.
+          Sanctum is built on {ALL.length} open-source packages, each under its own license and linked to its page. The fonts (Geist, Geist Mono, Schibsted Grotesk) are under the SIL Open Font License.
         </p>
         <input className="notice-search" type="search" placeholder="Find a package or license" aria-label="Find a package or license" value={q} onChange={(e) => setQ(e.target.value)} />
         {groups.map((g) => {
           const rows = shown.filter((n) => n.group === g);
           if (!rows.length) return null;
           return (
-            <details key={g} className="notice-group" open={!!q.trim()}>
-              <summary>
-                {g} <span className="muted">· {rows.length}</span>
-              </summary>
-              <div className="doc-table">
+            <Notices key={g} title={g} count={rows.length} open={!!q.trim()}>
                 <table>
                   <thead>
                     <tr>
@@ -111,8 +135,7 @@ export function LegalPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </details>
+            </Notices>
           );
         })}
         {!shown.length ? <p className="muted">Nothing matches “{q.trim()}”.</p> : null}

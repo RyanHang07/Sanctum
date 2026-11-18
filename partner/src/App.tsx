@@ -7,6 +7,7 @@ import { SharedNote } from "./SharedNote";
 import { Shell } from "./site/Shell";
 import { Home } from "./site/Home";
 import { go } from "./site/nav";
+import { useCascade, useGrow } from "./site/motion";
 
 // Sanctum's site (v0.2): / the home page, /docs, /changelog, and the accountability partner's
 // pages (SPEC 4.6, design/screens/PartnerApprove.dc.html), all in one frame (site/Shell.tsx):
@@ -68,19 +69,17 @@ function useRoute(): Route {
   return route;
 }
 
-/** A partner page: a phone-width column inside the site's frame. */
+/** A partner page: a phone-width column inside the site's frame (App puts it in the Shell). */
 function Card({ context, children }: { context?: ReactNode; children: ReactNode }) {
   return (
-    <Shell wide={false}>
-      <main className="card">
-        {context ? <div className="card-context">{context}</div> : null}
-        {children}
-      </main>
-    </Shell>
+    <main className="card">
+      {context ? <div className="card-context">{context}</div> : null}
+      {children}
+    </main>
   );
 }
 
-/** One plain sentence (design/README.md headline rule): one weight, one colour, no payoff. */
+/** One plain sentence (design/README.md headline rule): one weight, one color, no payoff. */
 function Headline({ children }: { children: string }) {
   return <h1 className="headline">{children}</h1>;
 }
@@ -191,7 +190,7 @@ function Invite({ token }: { token: string }) {
     <>
       <Headline>{`${info.from} asked you to hold the key.`}</Headline>
       <p className="muted">
-        When {info.from} wants out of a focus session early, you get an email and decide here with a PIN only you know. They can't remove you without your say.
+        When {info.from} asks to leave a focus session early, you decide here with a PIN only you know.
       </p>
       {info.needsPin ? (
         <div className="stack">
@@ -233,10 +232,8 @@ function useNow(ms = 1000) {
   return now;
 }
 
-const countdown = (ms: number) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-};
+/** Time left in whole minutes, as the app's sealed card counts it. */
+const minutesLeft = (ms: number) => `${Math.max(0, Math.ceil(ms / 60_000))} min`;
 
 async function nameOf(id: string): Promise<string> {
   const { data } = await supabase.from("profiles_user").select("email,display_name").eq("id", id).maybeSingle();
@@ -349,7 +346,7 @@ function Approve({ id, demo = false }: { id: string; demo?: boolean }) {
           <div>
             <dt>Time left</dt>
             {/* The seal's time: accent text. */}
-            <dd className="mono seal-time">{left !== null ? countdown(left) : "—"}</dd>
+            <dd className="mono seal-time">{left !== null ? minutesLeft(left) : "—"}</dd>
           </div>
           <div>
             <dt>Asks this week</dt>
@@ -409,6 +406,8 @@ function Dashboard({ session }: { session: Session }) {
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState<{ text: string; bad?: boolean } | null>(null);
   const now = useNow(15_000);
+  const resetForm = useRef<HTMLFormElement>(null);
+  useGrow(resetForm, resetting);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("partnerships").select("id,user_id,status,created_at").eq("partner_id", session.user.id).neq("status", "ended");
@@ -441,6 +440,9 @@ function Dashboard({ session }: { session: Session }) {
     setLoaded(true);
   }, [session.user.id]);
   const first = requests[0];
+  // Requests, partners and past requests cascade in once they've loaded.
+  const root = useRef<HTMLDivElement>(null);
+  useCascade(root, "[data-rise]", [], loaded);
   useTabTitle(
     resetting
       ? "Reset your PIN"
@@ -483,14 +485,14 @@ function Dashboard({ session }: { session: Session }) {
   };
 
   return (
-    <>
+    <div className="stack-page" ref={root}>
       <Headline>{links.length === 1 ? "You hold one key." : `You hold ${links.length || "no"} keys.`}</Headline>
       {!loaded ? <p className="muted">Loading…</p> : null}
       {requests.map((r) => {
         const who = names[r.user_id] ?? "Someone";
         const left = Math.max(0, Math.ceil((new Date(r.created_at).getTime() + TTL_MS - now) / 60_000));
         return (
-          <section key={r.id} className="panel urgent" aria-label={`${who} wants out early`}>
+          <section key={r.id} data-rise="" className="panel urgent" aria-label={`${who} wants out early`}>
             <div className="row between">
               <strong>{who} wants out early</strong>
               <span className="small">{left} min to answer</span>
@@ -502,25 +504,25 @@ function Dashboard({ session }: { session: Session }) {
           </section>
         );
       })}
-      {loaded && !links.length ? <p className="muted">Nobody has chosen you as their partner yet. Invites come as a link or an email from the Sanctum app.</p> : null}
+      {loaded && !links.length ? <p className="muted">Nobody has asked you to hold their key yet. Invites come from the Sanctum app.</p> : null}
       {links.map((l) => {
         const who = names[l.user_id] ?? "Someone";
         return (
-          <section key={l.id} className="panel" aria-label={who}>
+          <section key={l.id} data-rise="" className="panel" aria-label={who}>
             <div className="row between">
               <strong>{who}</strong>
               <span className="small">since {new Date(l.created_at).toLocaleDateString()}</span>
             </div>
             {l.status === "removal_requested" ? (
               <>
-                <p>{who} asked you to step down as their partner. Nothing changes until you release them.</p>
+                <p className="muted">{who} asked you to step down. Nothing changes until you release them.</p>
                 <button className="primary" onClick={() => void end(l.id)}>
                   Release {who}
                 </button>
               </>
             ) : (
               <>
-                <p className="muted">When {who} asks to leave a session early, you'll get an email and the request shows up here.</p>
+                <p className="muted">Their requests come by email and show up here.</p>
                 <button className="ghost" onClick={() => void end(l.id)}>
                   Step down
                 </button>
@@ -534,17 +536,17 @@ function Dashboard({ session }: { session: Session }) {
           <span className="label">Past requests</span>
           <ul>
             {past.map((r) => (
-              <li key={r.id}>
+              <li key={r.id} data-rise="">
                 <div className="row between">
                   <strong>{names[r.user_id] ?? "Someone"}</strong>
                   <span className={`outcome ${r.status}`}>{r.status === "approved" ? "Approved" : r.status === "denied" ? "Denied" : "Expired"}</span>
                 </div>
                 <p className="reason clamp">“{r.reason}”</p>
-                <span className="small">
-                  {new Date(r.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  {r.profile_name ? ` · ${r.profile_name}` : ""}
-                  {r.note ? ` · You said: ${r.note}` : ""}
+                <span className="small history-meta">
+                  <span>{new Date(r.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                  {r.profile_name ? <span>{r.profile_name}</span> : null}
                 </span>
+                {r.note ? <span className="small">You said: {r.note}</span> : null}
               </li>
             ))}
           </ul>
@@ -552,7 +554,7 @@ function Dashboard({ session }: { session: Session }) {
       ) : null}
       {links.length ? (
         resetting ? (
-          <form className="panel" onSubmit={(e) => void resetPin(e)}>
+          <form ref={resetForm} className="panel" onSubmit={(e) => void resetPin(e)}>
             <strong>Choose a new PIN</strong>
             <PinBoxes id="pin-reset" label="New PIN, 6 to 12 digits" value={pin} onChange={setPin} autoFocus />
             <PinBoxes id="pin-reset-again" label="Same PIN again" value={confirm} onChange={setConfirm} />
@@ -579,7 +581,7 @@ function Dashboard({ session }: { session: Session }) {
         </button>
       </p>
       <DeleteAccount />
-    </>
+    </div>
   );
 }
 
@@ -592,6 +594,8 @@ function DeleteAccount() {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const panel = useRef<HTMLElement>(null);
+  useGrow(panel, asking);
   if (!asking) {
     return (
       <button className="link small danger" onClick={() => setAsking(true)}>
@@ -611,10 +615,9 @@ function DeleteAccount() {
     }
   };
   return (
-    <section className="panel danger-panel" aria-label="Delete account">
+    <section ref={panel} className="panel danger-panel" aria-label="Delete account">
       <p className="muted">
-        This deletes your account, your partner links both ways, your PIN, and any requests. It can't be undone. Type <span className="mono">delete</span> to
-        confirm.
+        This deletes your account, partner links, PIN, and requests for good. Type <span className="mono">delete</span> to confirm.
       </p>
       <div className="row">
         <input aria-label="Type delete to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
@@ -628,6 +631,14 @@ function DeleteAccount() {
       {error ? <p className="error">{error}</p> : null}
     </section>
   );
+}
+
+/** A route's swap key: a new key fades the old page out and the new one in (site/Shell.tsx). */
+function pageKey(route: Route): string {
+  if (route.page === "invite") return `invite/${route.token}`;
+  if (route.page === "approve") return `approve/${route.id}`;
+  // Docs pages swap their own article, inside the docs frame.
+  return route.page;
 }
 
 export function App() {
@@ -649,40 +660,22 @@ export function App() {
       </Suspense>
     );
   }
-  if (route.page === "home") {
-    return (
-      <Shell>
-        <Home />
-      </Shell>
-    );
-  }
-  if (route.page === "docs") {
-    return (
-      <Shell>
-        <Suspense fallback={null}>
-          <Docs slug={route.slug} />
-        </Suspense>
-      </Shell>
-    );
-  }
-  if (route.page === "changelog") {
-    return (
-      <Shell>
-        <Suspense fallback={null}>
-          <Changelog />
-        </Suspense>
-      </Shell>
-    );
-  }
-  if (route.page === "legal") {
-    return (
-      <Shell>
-        <Suspense fallback={null}>
-          <LegalPage />
-        </Suspense>
-      </Shell>
-    );
-  }
+  const site = route.page === "home" || route.page === "docs" || route.page === "changelog" || route.page === "legal";
+  return (
+    <Shell page={pageKey(route)} wide={site}>
+      {site ? <SitePage route={route} /> : <PartnerPage route={route} session={session} />}
+    </Shell>
+  );
+}
+
+function SitePage({ route }: { route: Route }) {
+  if (route.page === "home") return <Home />;
+  return (
+    <Suspense fallback={null}>{route.page === "docs" ? <Docs slug={route.slug} /> : route.page === "changelog" ? <Changelog /> : <LegalPage />}</Suspense>
+  );
+}
+
+function PartnerPage({ route, session }: { route: Route; session: Session | null | undefined }) {
   if (route.page === "privacy" || route.page === "terms") {
     const [Page, title] = route.page === "privacy" ? [Privacy, "Privacy policy"] : [Terms, "Terms of service"];
     return (
@@ -712,9 +705,9 @@ export function App() {
   if (!session) {
     const [title, intro] =
       route.page === "invite"
-        ? ["Someone wants you in their corner.", "Sign in to see the invite. Google or an email link, no password."]
+        ? ["Someone wants you in their corner.", "Sign in with Google or an email link to see the invite."]
         : route.page === "approve"
-          ? ["A request is waiting.", "Sign in to answer it. Google or an email link, no password."]
+          ? ["A request is waiting.", "Sign in with Google or an email link to answer it."]
           : ["Hold the key and keep them honest.", "Sign in to see who you're a partner for."];
     return (
       <Card>

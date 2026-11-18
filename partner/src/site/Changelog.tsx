@@ -2,10 +2,12 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { REPO, useReleases, type Release } from "./releases";
 import { useTabTitle } from "../title";
+import { useRef } from "react";
+import { useCascade } from "./motion";
 
 // The changelog (v0.2 site): every published release, newest first, from GitHub. Each release's
 // notes are its CHANGELOG.md section (the release workflow writes them), then an "## Install"
-// part for GitHub's page, which this page leaves out.
+// part for GitHub's page, which this page leaves out. The releases cascade in once they load.
 
 /** A release's changes: its notes up to the install part (or nothing, for install-only notes). */
 export function changesOf(notes: string): string {
@@ -34,7 +36,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: 
 function Entry({ r, latest }: { r: Release; latest: boolean }) {
   const changes = changesOf(r.notes);
   return (
-    <section className="release" id={r.tag} aria-labelledby={`${r.tag}-title`}>
+    <section className="release" data-rise="" id={r.tag} aria-labelledby={`${r.tag}-title`}>
       <div className="release-meta">
         <h2 id={`${r.tag}-title`}>
           <a href={`#${r.tag}`}>{r.tag}</a>
@@ -59,7 +61,7 @@ function Entry({ r, latest }: { r: Release; latest: boolean }) {
             </a>
           ) : null}
           <a className="more" href={r.url}>
-            On GitHub →
+            On GitHub
           </a>
         </div>
       </div>
@@ -70,15 +72,13 @@ function Entry({ r, latest }: { r: Release; latest: boolean }) {
 export function Changelog() {
   useTabTitle("Changelog");
   const releases = useReleases();
+  const root = useRef<HTMLDivElement>(null);
+  useCascade(root, "[data-rise]", [releases.kind], releases.kind === "ready");
   return (
-    <div className="changelog">
+    <div className="changelog" ref={root}>
       <header className="changelog-head">
-        <h1 className="headline">
-          What changed. <em>Release by release.</em>
-        </h1>
-        <p className="lede">
-          Sanctum updates itself; this is what each update brought. Follow along on <a href={`${REPO}/releases`}>GitHub Releases</a>.
-        </p>
+        <h1 className="headline">What changed, release by release.</h1>
+        <p className="lede">Sanctum updates itself, and this is what each update brought.</p>
       </header>
       {releases.kind === "loading" ? <p className="muted">Loading releases…</p> : null}
       {releases.kind === "offline" ? (

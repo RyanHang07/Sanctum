@@ -5,10 +5,13 @@ import { A, go } from "./nav";
 import { REPO } from "./releases";
 import { useTabTitle } from "../title";
 import { ThemePreview } from "./ThemePreview";
+import { useGrow, useSwap } from "./motion";
 
 // The docs (v0.2 site). Pages are Markdown in the repo (docs/guide/*.md, plus
 // docs/self-hosting.md), bundled at build time and drawn with react-markdown, which never
 // inserts raw HTML. A page's title is its "# " line; its "## " lines make "On this page".
+// Moving between pages swaps the page the way the app's screens swap (site/motion.ts); the
+// sidebar stays.
 
 const files = import.meta.glob<string>(["../../../docs/guide/*.md", "../../../docs/self-hosting.md"], { query: "?raw", import: "default", eager: true });
 const source = (slug: string) => Object.entries(files).find(([path]) => path.endsWith(`/${slug}.md`))?.[1] ?? null;
@@ -114,8 +117,7 @@ function Search() {
   }, []);
   const open = (r: (typeof results)[number]) => {
     setQ("");
-    go(`/docs/${r.page.slug}`);
-    if (r.heading) requestAnimationFrame(() => document.getElementById(r.heading!.id)?.scrollIntoView());
+    go(`/docs/${r.page.slug}${r.heading ? `#${r.heading.id}` : ""}`);
   };
   return (
     <div className="doc-search">
@@ -141,7 +143,7 @@ function Search() {
               <li key={`${r.page.slug}#${r.heading?.id ?? ""}`} role="option" aria-selected={i === at}>
                 <button type="button" onMouseEnter={() => setAt(i)} onClick={() => open(r)}>
                   <strong>{r.heading?.text ?? r.page.title}</strong>
-                  <span>{r.heading ? `${r.page.title} · ${r.page.section}` : r.page.section}</span>
+                  <span>{r.heading ? `${r.page.title}, in ${r.page.section}` : r.page.section}</span>
                 </button>
               </li>
             ))
@@ -154,12 +156,15 @@ function Search() {
   );
 }
 
-function Sidebar({ slug }: { slug: string | null }) {
+function Sidebar({ slug, open }: { slug: string | null; open: boolean }) {
+  // On a phone the list folds away: opening grows it, then its groups cascade in.
+  const nav = useRef<HTMLElement>(null);
+  useGrow(nav, open);
   return (
-    <nav className="doc-nav" aria-label="Docs">
+    <nav ref={nav} className="doc-nav" aria-label="Docs">
       {SECTIONS.map((sec) => (
-        <div key={sec.title} className="doc-nav-group">
-          <span className="doc-nav-title">{sec.title}</span>
+        <div key={sec.title} className="doc-nav-group" data-rise="">
+          <span className="label doc-nav-title">{sec.title}</span>
           {PAGES.filter((p) => p.section === sec.title).map((p) => (
             <A key={p.slug} href={`/docs/${p.slug}`} aria-current={p.slug === slug ? "page" : undefined}>
               {p.title}
@@ -199,9 +204,7 @@ function Index() {
   useTabTitle("Docs");
   return (
     <article className="doc-page">
-      <h1 className="headline">
-        How Sanctum <em>works.</em>
-      </h1>
+      <h1 className="headline">How Sanctum works.</h1>
       <p className="lede">From installing to your first seal, leaving early, and being someone's partner.</p>
       <div className="doc-cards">
         {SECTIONS.map((sec) => (
@@ -220,84 +223,92 @@ function Index() {
 }
 
 export function Docs({ slug }: { slug: string | null }) {
-  const index = PAGES.findIndex((p) => p.slug === slug);
-  const page = PAGES[index];
-  useTabTitle(page ? `${page.title} · Docs` : slug ? "Not found" : "Docs");
-  const ids = useMemo(() => page?.headings.map((h) => h.id) ?? [], [page]);
-  const reading = useReading(ids);
   const [menu, setMenu] = useState(false);
   useEffect(() => setMenu(false), [slug]);
+  // The page shown trails `slug` until the old one has faded out.
+  const { ref, shown } = useSwap(slug);
+  const index = PAGES.findIndex((p) => p.slug === shown);
+  const page = PAGES[index];
+  useTabTitle(page ? `${page.title} · Docs` : shown ? "Not found" : "Docs");
+  const ids = useMemo(() => page?.headings.map((h) => h.id) ?? [], [page]);
+  const reading = useReading(ids);
   const prev = index > 0 ? PAGES[index - 1] : undefined;
   const next = index >= 0 ? PAGES[index + 1] : undefined;
+  const current = PAGES.find((p) => p.slug === slug);
 
   return (
     <div className="docs">
       <aside className={`doc-side ${menu ? "open" : ""}`}>
         <Search />
         <button type="button" className="doc-menu ghost" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
-          {page ? page.title : "All pages"} <span aria-hidden="true">▾</span>
+          {current ? current.title : "All pages"}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d={menu ? "M3 7.5 6 4.5l3 3" : "M3 4.5 6 7.5l3-3"} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-        <Sidebar slug={slug} />
+        <Sidebar slug={slug} open={menu} />
       </aside>
-      {!slug ? (
-        <Index />
-      ) : !page ? (
-        <article className="doc-page">
-          <h1 className="headline">
-            No such page. <em>Try the search.</em>
-          </h1>
-          <A href="/docs">All docs</A>
-        </article>
-      ) : (
-        <>
-          <article className="doc-page" key={page.slug}>
-            <span className="kicker">{page.section}</span>
-            <h1 className="doc-title">{page.title}</h1>
-            <div className="prose">
-              <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-                {page.text}
-              </Markdown>
-              {/* The Themes page lets you try them (v0.3). */}
-              {page.slug === "themes" ? (
-                <div className="doc-preview">
-                  <ThemePreview />
-                </div>
-              ) : null}
-            </div>
-            <div className="doc-pager">
-              {prev ? (
-                <A href={`/docs/${prev.slug}`} className="prev">
-                  <span>Previous</span>
-                  {prev.title}
-                </A>
-              ) : (
-                <span />
-              )}
-              {next ? (
-                <A href={`/docs/${next.slug}`} className="next">
-                  <span>Next</span>
-                  {next.title}
-                </A>
-              ) : null}
-            </div>
-            <a className="doc-edit" href={`${REPO}/blob/main/docs/${page.slug === "self-hosting" ? "" : "guide/"}${page.slug}.md`}>
-              Edit this page on GitHub
-            </a>
+      <div className="doc-body" ref={ref}>
+        {!shown ? (
+          <Index />
+        ) : !page ? (
+          <article className="doc-page">
+            <h1 className="headline">That page doesn't exist.</h1>
+            <A className="more" href="/docs">
+              All docs
+            </A>
           </article>
-          {page.headings.length > 1 ? (
-            <nav className="doc-toc" aria-label="On this page">
-              <span className="doc-nav-title">On this page</span>
-              {page.headings.map((h) => (
-                <a key={h.id} href={`#${h.id}`} aria-current={h.id === reading ? "location" : undefined}>
-                  {h.text}
-                </a>
-              ))}
-            </nav>
-          ) : (
-            <span />
-          )}
-        </>
-      )}
+        ) : (
+          <>
+            <article className="doc-page" key={page.slug}>
+              <span className="label">{page.section}</span>
+              <h1 className="page-title doc-title">{page.title}</h1>
+              <div className="prose">
+                <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+                  {page.text}
+                </Markdown>
+                {/* The Themes page lets you try them (v0.3). */}
+                {page.slug === "themes" ? (
+                  <div className="doc-preview">
+                    <ThemePreview />
+                  </div>
+                ) : null}
+              </div>
+              <div className="doc-pager">
+                {prev ? (
+                  <A href={`/docs/${prev.slug}`} className="prev">
+                    <span>Previous</span>
+                    {prev.title}
+                  </A>
+                ) : (
+                  <span />
+                )}
+                {next ? (
+                  <A href={`/docs/${next.slug}`} className="next">
+                    <span>Next</span>
+                    {next.title}
+                  </A>
+                ) : null}
+              </div>
+              <a className="doc-edit" href={`${REPO}/blob/main/docs/${page.slug === "self-hosting" ? "" : "guide/"}${page.slug}.md`}>
+                Edit this page on GitHub
+              </a>
+            </article>
+            {page.headings.length > 1 ? (
+              <nav className="doc-toc" aria-label="On this page">
+                <span className="label doc-nav-title">On this page</span>
+                {page.headings.map((h) => (
+                  <a key={h.id} href={`#${h.id}`} aria-current={h.id === reading ? "location" : undefined}>
+                    {h.text}
+                  </a>
+                ))}
+              </nav>
+            ) : (
+              <span />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
