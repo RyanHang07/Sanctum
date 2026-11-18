@@ -68,3 +68,34 @@ export function useReleases(): Releases {
   }, []);
   return state;
 }
+
+// The repo's star count for the top bar (2026-11-18): one public read per visit, like the
+// releases. Null until it loads, and if GitHub can't be reached the bar shows the button without it.
+let starsOnce: Promise<number | null> | null = null;
+
+export function fetchStars(): Promise<number | null> {
+  starsOnce ??= fetch("https://api.github.com/repos/ryanhang07/sanctum", { headers: { Accept: "application/vnd.github+json" } })
+    .then((r) => (r.ok ? (r.json() as Promise<{ stargazers_count?: number }>) : null))
+    .then((repo) => (typeof repo?.stargazers_count === "number" ? repo.stargazers_count : null))
+    .catch(() => null);
+  return starsOnce;
+}
+
+/** "842", "1.2k", "12k". */
+export function starCount(n: number): string {
+  if (n < 1000) return String(n);
+  const k = n / 1000;
+  return `${k < 10 ? Math.floor(k * 10) / 10 : Math.floor(k)}k`;
+}
+
+export function useStars(): number | null {
+  const [stars, setStars] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchStars().then((n) => live && setStars(n));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return stars;
+}

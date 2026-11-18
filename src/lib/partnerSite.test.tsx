@@ -191,3 +191,26 @@ describe("the home page says what v0.4.0 does", () => {
     expect(within(bar).getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "page");
   });
 });
+
+describe("the GitHub star button beside Download", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the repo's star count once GitHub answers, and the button alone when it can't", async () => {
+    const { starCount } = await import("../../partner/src/site/releases");
+    expect([starCount(842), starCount(1234), starCount(12_400)]).toEqual(["842", "1.2k", "12k"]);
+    vi.resetModules();
+    vi.stubGlobal("fetch", (url: string) =>
+      Promise.resolve(url.endsWith("/sanctum") ? new Response(JSON.stringify({ stargazers_count: 1234 })) : new Response("[]")),
+    );
+    const { App: Fresh } = await import("../../partner/src/App");
+    history.replaceState(null, "", "/");
+    render(<Fresh />);
+    const star = await screen.findByRole("link", { name: "Star Sanctum on GitHub, 1234 stars" });
+    expect(star).toHaveAttribute("href", "https://github.com/ryanhang07/sanctum");
+    expect(within(star).getByTestId("star-count")).toHaveTextContent("1.2k");
+    // It sits beside Download in the top bar.
+    expect(star.nextElementSibling).toHaveTextContent("Download");
+  });
+});
