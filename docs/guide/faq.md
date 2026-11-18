@@ -20,6 +20,10 @@ Yes. MIT licensed, with no account required, no ads, and no tracking.
 
 Everything it records stays in a database on your PC. The optional account holds only what the partner and note sharing need. See the [privacy policy](/privacy).
 
+## Can I back up or export it?
+
+Yes, in **Setup › Your Data**: **Export** as JSON or CSV, export the journal, and **Back up now**, with **Restore** for any backup (what's there now is backed up first). Sanctum also backs up before an update changes your data, and keeps the three newest of each kind of automatic backup. Blocked attempts, tamper events, and unlock attempts older than 90 days are cleared. **Start over**, in the Danger Zone, erases everything on this PC.
+
 ## Mac or Linux?
 
 Windows only for now. macOS is under way: a Mac build already compiles and passes its tests, and its own blocking comes next.

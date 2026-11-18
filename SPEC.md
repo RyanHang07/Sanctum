@@ -114,26 +114,35 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
   - Setup › Behavior › "Go compact when focus starts" (off by default; was Setup > Window)
 
 ### 4.0.2 Sanctum held page, logo motion, sound (**Decided**)
-- **Sanctum held** is a full-page takeover of the main window (not a dialog): animated **mesh gradient** background (WebGL/canvas mesh gradient lib, Stripe-style) with a subtle grain, the logo draw animation, "Sanctum *held.*", session stats, and Replay / Done (Esc) / Enter again (Enter). It **stays until dismissed**. Gradient colors follow the chosen accent palette
-- **Logo motion** (SVG + CSS, respects prefers-reduced-motion):
-  - Boot splash (~2.2s): arch strokes on, baseline draws, dot drops in, wordmark settles
-  - Held (~2.9s): same draw + two rings pulse out from the dot, timed with the chime
-  - Sealed idle pulse (3.2s loop): only the dot breathes, in the sidebar mark and tray icon
-- **Sound: all cues on by default** (enter, blocked tick, held chime, seal broken). Toggle in Setup > Preferences
-- **Accent color: Cobalt `#2F5BFF` (Decided).** Chosen to read as discipline. White text on cobalt fills; use `#7A95FF` when cobalt is the text color on dark (contrast). Everything references the `sealed` tokens so it stays a one-line swap
+- **Sanctum held** is a full-page takeover of the main window (not a dialog). It **stays until dismissed**. ~~Animated **mesh gradient** background (WebGL/canvas mesh gradient lib, Stripe-style) with a subtle grain, the logo draw animation, "Sanctum *held.*", session stats, and Replay / Done (Esc) / Enter again (Enter). Gradient colors follow the chosen accent palette~~ **(changed 2026-11-17)** A plain page on the theme's app color, no gradient, grain or glow, holding one card: the mark build, one headline ("Sanctum held.") and one fact line ("1h of Interview Prep, 3 attempts blocked."), a hairline, then a footer with "Add a note" on the left and Done (Esc) / Enter again (Enter) on the right. Replay is gone. The session review (how it went, focus 1 to 5, where you left off) opens inside the card only when asked. A broken seal uses the same page with its own headline, the cause and the fix
+- **Logo motion** (GSAP timelines for the moments, CSS for the pulse; respects prefers-reduced-motion):
+  - Boot splash: the torii keyhole builds: pillars rise, top beam settles, crossbar slides in, keyhole seats
+  - Held: the same build, then two second-color rings settle around the keyhole with the chime. Broken: a crack runs down through the keyhole as the falling notes play
+  - Sealed idle pulse (3.2s loop): only the keyhole breathes, in the sidebar mark and tray icon
+- **Sound: all cues on by default** (enter, blocked tick, held chime, seal broken). Toggle in Setup › Sound and Alerts (was Setup > Preferences)
+- **Accent color: Cobalt `#2F5BFF` (Decided).** Chosen to read as discipline. White text on cobalt fills; use `#7A95FF` when cobalt is the text color on dark (contrast). Everything references the `sealed` tokens so it stays a one-line swap. It is Sanctum Dark's accent; each theme brings its own (4.0.5)
+
+### 4.0.5 Themes (built v0.3, reworked v0.4.0)
+- 75 themes: Sanctum Dark and Sanctum Light plus dark and light versions of popular editor themes (Dracula, Nord, Tokyonight, Catppuccin, Solarized, and others), each through one finishing pass held to the same contrast standard. Colors only; layout and type never change
+- **Follow Windows** picks a dark and a light theme and switches with the system. **(changed 2026-11-17)** While following Windows, Appearance lists only the themes for the mode Windows is in now (a pick for the other mode changed nothing you could see); with one fixed theme, both lists show. The command bar's theme search follows the same rule
+- **Every theme has a second color (changed 2026-11-17)** for decoration only: kept-day marks, the goal tick and goal lines, the held rings, the active sidebar icon. Never for text that must be read on its own, never for a state
+- The theme reaches every window, the title bar, the extension's pages, and the tray and window icons
 
 ### 4.0.3 Offline and time integrity (**Decided**)
 - Blocking, sessions, streaks, trackers, and check-ins all run locally and work fully offline
 - **Offline indicator:** a subtle "Offline" tag in the sidebar state pill and the tray panel. Nothing else changes
-- **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to a 5-minute wait (changed 2026-10-06; was the solo 30 min cooldown)
+- **Break the seal while offline:** partner approval can't be reached, so level 3 falls back to a 5-minute wait (changed 2026-10-06; was the solo 30 min cooldown). **(changed 2026-11-17)** The partner link is remembered, so offline or signed out with a linked partner still means the 5-minute wait; it never reads as solo. Only an answer from the server can say there's no partner. **Signing out is refused while sealed**, like deleting the account
 - **Google Calendar offline:** edits queue locally and sync on reconnect; last edit wins on conflicts
 - **Downtime mid-seal (decided 2026-10-29):** if Sanctum is gone for more than a minute during a seal, the seal is broken and logged as **tamper**: kind `shutdown` when Windows rebooted since the session was last seen (the PC went off), `killed` when it didn't (Sanctum was closed or crashed). The partner is told, and the window says why on the next start
 - **Clock changes:** session timers use a monotonic clock. If the Windows system clock jumps (forward or back) during a session, treat it as tampering: the seal breaks, the streak resets, and the partner is notified. **Built 2026-09-30 (M12):** a jump is more than 2 minutes of wall-clock change beyond GetTickCount64 (which counts through sleep, so waking a laptop never counts). A broken seal stays on until its planned end
+- **Clock set forward around a restart (changed 2026-11-17):** each heartbeat stores Windows' uptime with the wall time. A resume in the same boot never treats more time as passed than uptime says, so setting the clock forward and then closing Sanctum (or closing it and then setting the clock) can't end a seal early; the jump is recorded as clock tamper. Across a reboot the wall clock is all there is
+- **End early's waits are monotonic (changed 2026-11-17):** the ladder's waits read the seal's own monotonic clock, not the wall clock, so moving the clock can't skip them
+- **The emergency unlock is guarded against the clock (changed 2026-11-17):** its once-a-day rule never counts more time since the last use than uptime has run, so setting the clock forward doesn't bring it back before midnight. After a restart, uptime starts over and the clock is used
 
 ### 4.0.4 Release, startup, extension, uninstall (**Decided**)
 - ~~**v1 is a public release.** Ship a signed Windows installer (Tauri bundler, NSIS), code-signed with an OV/EV certificate so SmartScreen doesn't block it, and auto-updates via `tauri-plugin-updater` with signed update manifests hosted on GitHub Releases. Add a crash/error reporter and an opt-in, anonymous usage ping only~~
-- **v1 is an open-source public release (Decided 2026-09-30, M13).** The repo is public on GitHub under MIT (`ryanhang07/sanctum`). Installers are **not code-signed**: a per-user NSIS installer built by GitHub Actions on each `v*` tag and published to GitHub Releases, with SmartScreen's "Run anyway" explained in the README. Auto-updates via `tauri-plugin-updater` from GitHub Releases, signed with the updater key (not a Windows certificate). No remote crash reporter or usage ping: crashes write local logs, and Setup › General › About copies a diagnostics summary for GitHub issues. Google Calendar and the account/partner are bring-your-own: each build reads its keys from `src-tauri/.env` (docs/self-hosting.md), and without them those features say they aren't set up
-- **On login:** open the centered Home window by default. Setup > Preferences > On login: Open Home / Start in tray
+- **v1 is an open-source public release (Decided 2026-09-30, M13).** The repo is public on GitHub under MIT (`ryanhang07/sanctum`). Installers are **not code-signed**: a per-user NSIS installer built by GitHub Actions on each `v*` tag and published to GitHub Releases, with SmartScreen's "Run anyway" explained in the README. Auto-updates via `tauri-plugin-updater` from GitHub Releases, signed with the updater key (not a Windows certificate). No remote crash reporter or usage ping: crashes write local logs, and Setup › Behavior › About (was Setup › General) copies a diagnostics summary for GitHub issues. Google Calendar and the account/partner are bring-your-own: each build reads its keys from `src-tauri/.env` (docs/self-hosting.md), and without them those features say they aren't set up
+- **On login:** open the centered Home window by default. Setup › Behavior › On login (was Setup > Preferences): Open Home / Start in tray
 - **Browser extension:** Chromium only for v1 (Chrome, Edge, Brave, Arc, Opera from one Manifest V3 build). ~~Publish to the Chrome Web Store and Edge Add-ons.~~ **Decided 2026-09-30:** ships inside the installer and loads unpacked (fixed ID from the manifest key), no store listings. No Firefox yet
 - **Uninstall during a session = tamper.** If the watchdog sees the app, the watchdog service, or the extension being removed or disabled while sealed, the seal breaks, the streak resets, and the partner is notified. The extension heartbeats to the app every 30s; a missed heartbeat while sealed counts as disabled. **Built 2026-09-30 (M12):** only what was on when the seal started counts. The guard stopped for 20 s (Windows restarts a killed guard in 2) or a browser running without its extension for 90 s breaks the seal; closing the browser doesn't. Removing protection from Setup is refused while sealed
 
@@ -179,7 +188,7 @@ The accountability partner (a friend who holds the unlock PIN) is **optional**. 
 
 ### 4.4 Blocking
 - **Apps:** poll processes every 1s, kill matches. v2: WMI process-start events for instant blocking
-- **Sites (baseline):** watchdog service writes a marked block section into `C:\Windows\System32\drivers\etc\hosts` and removes it after the session. **Built 2026-09-30 (M8):** every whole-domain flagged site (plus www. and m.) goes in while sealed; links, keywords, and sites with Allow pages stay with the extension. The service ("Sanctum Guard") is a copy of sanctum.exe under %ProgramData%\Sanctum\guard, installed from Setup > Distractions > Protection (or onboarding's browser step) with one UAC prompt, and can't be removed while sealed
+- **Sites (baseline):** watchdog service writes a marked block section into `C:\Windows\System32\drivers\etc\hosts` and removes it after the session. **Built 2026-09-30 (M8):** every whole-domain flagged site (plus www. and m.) goes in while sealed; links, keywords, and sites with Allow pages stay with the extension. The service ("Sanctum Guard") is a copy of sanctum.exe under %ProgramData%\Sanctum\guard, installed from Setup › App Guard (was Setup > Distractions > Protection; or onboarding's browser step) with one UAC prompt, and can't be removed while sealed. **Hosts edits (changed 2026-11-17):** the guard works on the file's bytes, keeps every line outside its marked block exactly as it was, writes only when something changed, and replaces the file in one step (a temp file beside it, flushed, then moved over it). A failed read writes nothing, so the user's own entries are never wiped; a block with no end marker isn't treated as ours
 - **Sites (precise):** extension uses `declarativeNetRequest` for per-URL rules (e.g. block `youtube.com` but allow `youtube.com/watch?v=<allowed>`)
 - **Extension scope:** blocking only. It receives rules from the desktop app via native messaging and never reports page titles, URLs, or history back. Nothing from the extension reaches the partner
 - **Title keywords:** if foreground window title matches a blocked keyword, minimize it and show a nudge
@@ -196,14 +205,14 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 | 1 | Type a reason (min 50 chars) + wait 5 minutes (pauses while you leave the screen; changed 2026-10-06, was resets) |
 | 2 | Retype a random ~300 char paragraph exactly |
 | 3 (with partner) | Partner approval from email. The email links to the partner web page, where the partner confirms with **their** PIN and taps Approve or Deny (optional note back). You never type a PIN |
-| 3 (solo) | **Changed 2026-10-06:** none, the session ends after the paragraph. If a linked partner can't be reached: a 5-minute wait. All waits pause (not reset) while the app is out of focus |
+| 3 (solo) | **Changed 2026-10-06:** none, the session ends after the paragraph. If a linked partner can't be reached (offline, or signed out; changed 2026-11-17): a 5-minute wait. All waits pause (not reset) while the app is out of focus, and run on the seal's monotonic clock (4.0.3) |
 
 - ~~Approved unlock is a **grace window** (default 10 min), not the end of the session.~~ **Changed 2026-09-29 (your call):** an approved unlock ends the session (unlocked early, not broken). Asking again after a denial or expiry starts at level 2
 - Partner approval arrives via Supabase Realtime
 - Request expires after 30 min. Denied or expired: the seal stands and the next request unlocks after 15 min
 - Partner PIN: 3 wrong tries on the approval page locks approvals for 30 min (enforced server-side)
 - An approved exit does NOT break the streak
-- **Emergency unlock:** 1 per day, back at local midnight (**changed 2026-10-06**; was 1 per week), skips the ladder, partner is notified if one is set. **Decided 2026-09-29:** it doesn't break the streak, but the day still needs the focus goal to be kept
+- **Emergency unlock:** 1 per day, back at local midnight (**changed 2026-10-06**; was 1 per week), skips the ladder, partner is notified if one is set. **Decided 2026-09-29:** it doesn't break the streak, but the day still needs the focus goal to be kept. Setting the clock forward doesn't bring it back early (4.0.3; changed 2026-11-17)
 - **Level 2 paragraphs (decided 2026-09-29):** a built-in set of about 20 short paragraphs in Sanctum's voice, one at random
 
 ### 4.6 Accountability Partner (optional)
@@ -223,6 +232,8 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 - Classify each entry as productive / neutral / distracting using per-profile rules plus a global rules table I can edit
 - Raw titles never leave the device. Only daily summaries sync (see 5.2)
 - Retention: raw entries auto-deleted after 30 days (configurable)
+- **History retention (changed 2026-11-17):** blocked attempts, tamper events and unlock attempts are pruned after 90 days, never a running seal's. Sessions themselves, with their attempt counts, are kept for good, and Stats reads the stored counts. Raw activity keeps the 30-day rule above
+- Setup › Activity groups apps and sites into Productive, Neutral and Distracting, with the defaults folded away, a Block button on distracting rows, and drag or keyboard moves between groups
 
 ### 4.8 Idle Detection
 - Use `GetLastInputInfo`. Idle after 3 min without input (configurable)
@@ -242,7 +253,7 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 ### 4.10 Streaks + Stakes (**Decided**)
 - ~~The streak breaks only when: a seal is broken (ended early without approval, force-quit, tamper), OR a non-rest day passes with no completed session~~
 - **Changed 2026-09-29 (your call):** a day is **Kept** only when focus minutes reach the daily goal and no seal was broken that day. A non-rest day that misses the goal, or has a broken seal, breaks the streak. Today counts once it's kept and never breaks the streak while in progress
-- **Planned rest days** (chosen in Setup > Preferences, e.g. Saturdays) never break the streak and count toward its length
+- **Planned rest days** (chosen in Setup › Goals, was Setup > Preferences, e.g. Saturdays) never break the streak and count toward its length
 - Stakes: **streak resets**, and **partner is notified** if one is set
 - **Changed 2026-09-29:** a new **Stats** tab holds the full streak, heatmap, and stats (4.9). Home keeps the 7-day chip, which opens Stats. Week and Month day marks come later.
 - ~~Streak lives **only on Home**~~ (chip with the last 7 days: kept, broken, rest, today). History: marks under each day in **Week** (Kept / Broken with time / Rest day / In progress) and a **Month** view (heatmap shaded by focus minutes, broken days outlined, rest days dashed, hover for details, summary row: current, longest, kept, broken, focused)
@@ -251,12 +262,12 @@ Early unlock requests climb a ladder. Each level must be completed in order:
 ### 4.10b Focus science (**Decided** 2026-10-30, v0.3.1)
 Research-backed additions, each opt-in or optional, with the reasoning kept in the code:
 - **Intent:** "If I'm tempted, I'll ___" (an if-then plan; Gollwitzer & Sheeran 2006), set per profile in Setup and echoed on every catch. Moved off Today on 2026-11-04, when the optional "Will be done" line was dropped: main screens stay quiet, with less to read and more urgency.
-- **Park it:** Ctrl Alt P while sealed (global, only while sealed) parks a stray thought as a task for today (Masicampo & Baumeister 2011); also from Home, the tray panel, and the extension's sealed page.
+- **Park it:** Ctrl Alt P while sealed (global, only while sealed) parks a stray thought as a task for today (Masicampo & Baumeister 2011). ~~Also from Home, the tray panel, and the extension's sealed page.~~ **(changed 2026-11-17)** Park is no longer a field on Today's sealed card; Ctrl Alt P (a small card over whatever is in front) is the way to park.
 - **How it went:** the held page asks Done / Partly / No, a 1-5 focus rating, and "where I left off", shown at the next seal of that task or profile (attention residue; Leroy 2009). Stats counts "got done" next to "kept".
 - **Never miss twice:** one missed day holds the streak; two in a row reset it; a broken seal still resets (Lally et al. 2010). After a break, plain words and the fix, never scolding (Breines & Chen 2012).
 - **Pause mode:** opt-in (all day or set hours), outside seals: a flagged app or site asks "Still want it?" for 5 seconds; Go on allows 15 minutes; Not now closes it (Grüning et al. 2023).
-- **Break after a seal:** 5/10/15 minutes with the Distractions list still blocked, then "Next block?" (Albulescu et al. 2022; Biwer et al. 2023).
-- **Weekly review:** two optional questions on the Monday card, saved per week and to the journal, and a weekly focus target defaulting to the 4-week average (Di Stefano et al. 2014; Dai, Milkman & Riis 2014).
+- ~~**Break after a seal:** 5/10/15 minutes with the Distractions list still blocked, then "Next block?" (Albulescu et al. 2022; Biwer et al. 2023).~~ **(changed 2026-11-17)** The take-a-break offer is removed from the held page and from a broken seal's page: Enter again does that job, and fewer choices sit on the moment. Today's top slot still suggests a break once the daily goal is kept.
+- **Weekly review:** ~~two optional questions on the Monday card, saved per week and to the journal,~~ A weekly focus target (Setup › Goals) defaulting to the 4-week average (Di Stefano et al. 2014; Dai, Milkman & Riis 2014). **(changed 2026-11-17)** The weekly recap is **off by default** (Setup › Goals › Weekly recap). When on, it is a centered dialog the size of the daily check-in, once a week from Monday: one line of figures (focus against the week before, days kept), last week as a strip of bars, one per day, with the best day marked, and one optional line to change. With it off, the partner's weekly summary (if turned on) still goes out.
 - **Partner weekly summary:** opt-in Monday email of totals only (Harkin et al. 2016).
 - **Suggestions from your own history:** best length, best hours, when temptation comes; shown on Stats only when the data clearly says so.
 - **Do not disturb in quiet hours:** opt-in (Fitz et al. 2019).
@@ -271,7 +282,7 @@ Research-backed additions, each opt-in or optional, with the reasoning kept in t
 6. Enable autostart (on by default) and install the watchdog service (needs one admin prompt)
 
 Added 2026-09-29 (at M5 these become steps; see BACKLOG "M5 onboarding"):
-- **Browser extension:** after profiles, detect installed Chromium browsers. For each one, walk through loading the extension and turning on Allow in Incognito, and show it connect live. Skippable; Setup > Browser extension offers it later.
+- **Browser extension:** after profiles, detect installed Chromium browsers. For each one, walk through loading the extension and turning on Allow in Incognito, and show it connect live. Skippable; Setup › Browser Extension offers it later.
 - **Distractions (built 2026-09-29):** a step after Profiles with the common distractions as toggles (Discord, YouTube, Instagram, TikTok on by default), a field for sites, links, and keywords, and an app picker.
 
 Accounts are optional. Solo users without an account run fully local. An account is required only for the partner feature and cloud summary sync.
@@ -305,6 +316,14 @@ Accounts are optional. Solo users without an account run fully local. An account
 - Check-ins never appear during a sealed session; they queue until it ends
 - **Fitness trends page:** one chart per tracker (never two metrics on one axis), range toggle 7D / 30D / 90D / 1Y / All, hover tooltip with date and value, change over range, plus a table view of all entries
 - Tracker data stays local (SQLite). It is not synced to Supabase or shown to a partner
+- **(changed 2026-11-17)** The daily check-in and the weekly recap share one dialog size
+
+### 4.14 Journal (built v0.2, reworked v0.4.0)
+- A page per day under its own sidebar tab (Ctrl 6), local only, with optional prompts and an optional lock (Windows Hello or a PIN). The lock keeps out people at this PC; pages aren't encrypted on disk, and the backend refuses pages while locked
+- **First run (changed 2026-11-17):** a single screen on the Journal page itself, "Lock Your Journal (Optional)", then today's page. It no longer asks for prompts: a new journal starts from a starter set (one prompt from each theme), and "Change prompts" sits on the page's "Try" line
+- **Journal settings** is one dialog with the prompts, then the lock, saved together
+- Older pages open from a calendar, can be searched, and "on this day" shows earlier years. The journal exports as Markdown or JSON to Documents\Sanctum\Exports
+- A page that fails to load shows an error instead of an empty page you could type over
 
 ## 5. Data Model
 
@@ -312,7 +331,8 @@ Accounts are optional. Solo users without an account run fully local. An account
 - `profiles(id, name, default_minutes, created_at)` (`allowlist_mode` stays in old databases, always 0)
 - `distractions(id, kind[app|site|keyword], value, label, path, created_at)` and `distraction_allows(id, distraction_id, prefix)` (migration 0008)
 - `profile_rules(id, profile_id, kind[app|domain|title|launch_app|launch_url], value)`
-- `sessions(id, profile_id, started_at, ended_at, planned_minutes, outcome, source[manual|calendar])`
+- `sessions(id, profile_id, started_at, ended_at, planned_minutes, outcome, source[manual|calendar])`, plus `last_seen_at` and `last_seen_uptime` (the heartbeat and Windows' uptime with it, for the resume clock; 4.0.3)
+- `blocked_attempts` and `tamper_events`: pruned after 90 days with `unlock_attempts` (4.7)
 - `unlock_attempts(id, session_id, level_reached, reason, approved, created_at)`
 - `activity(id, ts, exe, title, duration_s, category, session_id)`
 - `idle_periods(id, started_at, ended_at, session_id)`
@@ -337,7 +357,13 @@ Accounts are optional. Solo users without an account run fully local. An account
 - `notifications(id, recipient_id, kind, payload jsonb, read_at)`
 
 ## 6. Security + Tamper Resistance
-- Watchdog service relaunches the app if its process dies mid-session and logs it as a tamper event. ~~(counts as broken session)~~ **Decided** 2026-09-30: the seal resumes and isn't broken; the restart is logged (`tamper_events`) and shown in Setup. At most 5 relaunches in 10 minutes
+- Watchdog service relaunches the app if its process dies mid-session and logs it as a tamper event. ~~(counts as broken session)~~ **Decided** 2026-09-30: the seal resumes and isn't broken; the restart is logged (`tamper_events`) and shown in Setup. At most 5 relaunches in 10 minutes, at least 10 s apart. **(changed 2026-11-17)** After 5 relaunches in a row without Sanctum ever showing up running, the guard stops relaunching until the next seal
+- **The guard lets go of a seal it can't see ended (changed 2026-11-17):** an unended session counts as sealed only until 15 minutes past its planned end plus idle, so a Sanctum that is slow or gone can't hold the hosts block on for good. It measures from when it first saw the seal, so setting the clock forward can't end it early. A database that stays unreadable for a while also takes the block out
+- **The guard's folder is protected (changed 2026-11-17):** %ProgramData%\Sanctum\guard is created fresh with its own ACL (SYSTEM and Administrators write, Users only read and run, nothing inherited), so another user can't plant files that would run as SYSTEM. A folder someone made first is never reused
+- **Outdated guard (changed 2026-11-17):** the guard writes its version beside its exe at install. Setup › App Guard flags a guard from another Sanctum version (installing again, one admin prompt, updates it) and shows the guard's last error
+- **Protected settings (changed 2026-11-17):** settings that hold the seal's or the journal's state (the emergency unlock, the journal lock and PIN, the guard's settings, quiet hours, pause mode, the partner link, calendar state) can't be written from the window. Each has its own command with its own checks, or is internal
+- **A seal's end that can't be saved (changed 2026-11-17):** if the database can't record the end (a full or read-only disk), Sanctum ends the seal in memory after a short grace, keeps retrying the save, and shows a notice ("The seal ended, but it wasn't saved."). A failed start says why instead of crashing, a double click on Enter focus starts one session, and a panic in a background task no longer stops the seal
+- **Backups (changed 2026-11-17):** the database is backed up before every migration (an update that changes it); if that copy can't be made, the data is left untouched. The newest 3 of each kind of safety copy are kept (before updates, before restore); backups you make yourself are never pruned. Start over and Restore keep your data if anything goes wrong
 - Session state persisted to SQLite every 10s so reboots resume the session
 - Settings that loosen blocking (remove rule, shorten session, disable autostart) are locked during active sessions
 - PIN verification and lockouts are server-side only
@@ -366,7 +392,7 @@ Each milestone should end with passing tests and a short note in `CHANGELOG.md`.
 
 ## 8. Design Reference
 
-The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed session, Success, Sealed app/site, Onboarding, Today, Check-in, Fitness, Trackers, Logos, Brand sheet). Match it.
+The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed session, Success, Sealed app/site, Onboarding, Today, Check-in, Fitness, Trackers, Logos, Brand sheet). Match it. The v0.4.0 redesign's screens are in `design/gate-canvas/` (dated history); where they and the older `design/screens/` differ, the rules below and `design/README.md` win.
 
 ### Color tokens (dark first, v2)
 | Token | Hex | Use |
@@ -376,22 +402,26 @@ The full mock lives in the "Sanctum Design" canvas (Home, Calendar, Sealed sessi
 | panel | `#12151C` | panels, dialogs |
 | raised | `#171B24` | selected rows, inputs |
 | line | `#1F2430` | borders |
-| line-input | `#2A3040` | input and button borders |
+| line-input | `#666A75` (was `#2A3040`) | input and button borders, 3:1 on app and panel |
 | text | `#E6E9EF` | primary text |
 | text-2 | `#B8BFCC` | secondary text |
 | muted | `#8A93A6` | labels, meta |
-| faint | `#5C6477` | hints, shortcuts |
+| faint | `#5C6477` | icons and borders only, never text that must be read (changed 2026-11-17; was hints, shortcuts) |
 | sealed | `#2F5BFF` (tint `#172040`, line `#1F3482`, text-on-dark `#7A95FF`, on-fill text `#FFFFFF`) | focus state + primary buttons |
 | event | `#FF8A6B` coral (tint `#2A1712`, line `#5A2E24`; was teal `#5FD4C8`, changed 2026-09-30) | calendar event state |
-| held mesh | `#1F3FD9` / `#2F5BFF` / `#6A4CFF` / `#12A8C9` | Sanctum held page only |
+| second | `#FF8A6B` (text `#FF8A6B`, tint `#2B1D1E`, line `#79453A`) | the second color, decoration only: kept-day marks, the goal tick, held rings, the active sidebar icon (added 2026-11-15; every theme has one) |
+| ~~held mesh~~ | `#1F3FD9` / `#2F5BFF` / `#6A4CFF` / `#12A8C9` | ~~Sanctum held page only~~ still in the tokens, unused since the held page went flat (changed 2026-11-17) |
 
-Radius 6 controls, 8 panels, 12 dialogs. 32px controls, 38px list rows (was 34; roomier, 2026-10-29), 1px borders, shadows only on dialogs. The UI is monochrome; color only ever means a state.
+Radius 6 controls, 8 panels, 12 dialogs. Controls 32px (`control`), small controls 26px (`control-sm`), the Enter focus row 52px (`cta`), 38px list rows (was 34; roomier, 2026-10-29), 1px borders. **Flat (changed 2026-11-17):** no gradients, glows or blur; every screen sits on the theme's plain app color. ~~Shadows only on dialogs.~~ Soft shadows are allowed on dialogs, toasts and popovers only. The UI is monochrome; color only ever means a state, apart from the second color's decoration. One checkbox everywhere: a 16px box with a 24px click area. Nothing smaller than 11px. One focus ring everywhere.
+
+Motion: durations `ui` 120, `enter` 180, `state` 240, `glide` 400, `moment` 700 ms. Easings include `ui`, `glide`, `settle`, `exit` and `snap` (`cubic-bezier(0.05, 0.8, 0.1, 1)`, quick and front-loaded: the sliding highlight in Week's view switch, Stats' tabs and Trackers' ranges). Tokens in `src/theme/extra.json`; motion rules in `docs/decisions/2026-11-15-motion-spec.md`.
 
 ### Type
-- **Moments only** (Home headline, sealed dialogs, held dialog, onboarding step titles): one plain sentence in Schibsted Grotesk 700, letter-spacing -0.03em, one weight and one colour (`text`), no italic payoff and no question (was Geist bold statement + Instrument Serif italic payoff; changed 2026-11-15, see `docs/decisions/2026-11-15-second-colour-and-headlines.md`)
-- **Labels:** sentence case, never all caps (the shared `.label` style)
-- **Page titles:** Geist 600, 20px. **Body:** 13px. **Meta:** 12px
-- **UI:** Geist 400/500/600
+- **Moments only** (Home headline, sealed dialogs, held dialog, onboarding step titles): one plain sentence in Schibsted Grotesk 700, letter-spacing -0.03em, one weight and one color (`text`), no italic payoff and no question (was Geist bold statement + Instrument Serif italic payoff; changed 2026-11-15, see `docs/decisions/2026-11-15-second-colour-and-headlines.md`)
+- **Labels:** sentence case, never all caps (the shared `.label` style). User-approved title-case names: App Guard, Browser Extension, Sound and Alerts, Your Data, Danger Zone, Lock Your Journal (Optional)
+- **Type scale tokens (built v0.4.0):** `micro` 11 (chips, axes, kbd), `meta` 12, `body` 13, `page-title` 20 (Geist 600). Headlines: `moment` 28, `moment-dialog` 22, `moment-compact` 18, `held` 64 (all Schibsted Grotesk 700)
+- **Spelling:** US English throughout (changed 2026-11-17)
+- **UI:** Geist 400/500/600. Fonts are bundled (Fontsource) so they work offline
 - **Numbers and timers:** Geist Mono (300 for big timers)
 
 ### Voice

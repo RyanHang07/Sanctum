@@ -31,7 +31,7 @@ export function Suggestions() {
         const duration = ((h2! * 60 + m2! - (h1! * 60 + m1!)) + 1440) % 1440 || 120;
         await native.saveRoutine({ title: "Focus block", profileId: s.profileId, active: true, daysMask: WEEKDAYS_MASK, time: s.start, durationMin: duration });
         void usePlanner.getState().reload();
-        notice({ lead: "Added.", rest: `A weekday focus block at ${s.start}. Home suggests it when it starts.` });
+        notice({ lead: "Added.", rest: `A weekday focus block at ${s.start}. Today suggests it when it starts.` });
       } else {
         // An if-then plan is yours to write: the field waits on the profile.
         useStore.getState().openSetup("profiles");

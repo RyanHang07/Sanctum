@@ -5,13 +5,13 @@ Requested items not yet scheduled into a milestone. Move an item into CHANGELOG.
 ## Motion and interaction polish
 Raised after the Milestone 1 review (2026-09-29).
 
-- **Boot animation.** Logo splash on launch (~2.2s): arch strokes on, baseline draws, keyhole drops in, wordmark settles. Spec: SPEC 4.0.2 and `design/screens/LogoMotion.dc.html`. The held page's `AnimatedMark` (M3) already has the per-part animation classes to reuse. Planned for M12.
-- **Sealed idle pulse.** Only the keyhole breathes (3.2s loop) in the sidebar mark and tray icon. SPEC 4.0.2, M12.
+- ~~**Boot animation.**~~ Shipped: the torii keyhole builds on the boot splash (`AnimatedMark`, GSAP since v0.4.0).
+- ~~**Sealed idle pulse.**~~ Shipped: only the keyhole breathes in the sidebar mark and tray icon.
 - ~~Hover effects on panels and buttons~~: shipped in M2.
 - ~~Held page, sound cues, compact timer~~: pulled into M3.
 
 ## App picker
-- **Store (UWP/MSIX) apps** aren't discovered yet (no Start menu .lnk or App Paths entry). Enumerate `shell:AppsFolder` to include them.
+- ~~**Store (UWP/MSIX) apps** aren't discovered yet.~~ Shipped: the picker reads packaged apps and launches them through `shell:AppsFolder`.
 
 ## Plan changes (2026-09-29)
 - M4 next: idle pauses the countdown and extends the seal (SPEC 4.8 updated).
@@ -36,7 +36,7 @@ Raised after the Milestone 1 review (2026-09-29).
 - Later: drag events between days in Week; edit a whole recurring series from Sanctum (today an edit changes one occurrence).
 
 ## 4d Today + Week (complete 2026-09-29)
-- Later: a Ctrl K quick-add bar from anywhere (the Home "Search or command" box).
+- ~~Later: a Ctrl K quick-add bar from anywhere.~~ Shipped: Ctrl K opens the command bar, which adds tasks.
 
 ## M5 onboarding (noted 2026-09-29)
 - **Browser extension step.**
@@ -44,10 +44,7 @@ Raised after the Milestone 1 review (2026-09-29).
   - For each: open `chrome://extensions` (can't be deep-linked; show the steps), copy the folder path, turn on Developer mode, Load unpacked, then Details > Allow in Incognito.
   - Watch `sanctum://browser` and tick each browser off as it connects.
   - After M13, this becomes a Chrome Web Store / Edge Add-ons install link.
-- **Always open step.**
-  - Start from the seeded defaults (`blocker::DEFAULT_ALWAYS`).
-  - Show apps running right now that aren't on the list as suggestions (editors, Docker, chat) with one-tap add.
-  - Say plainly: allowlist mode only stops new launches; what's open when you enter stays.
+- ~~**Always open step.**~~ Dropped: allowlist mode and Always open were removed (SPEC 4.2, 4.4).
 - **Try a seal.** An optional 1-minute test seal on a sample site, so the blocked page and an attempt show once before real use.
 
 ## M6 follow-ups (noted 2026-09-29)
@@ -65,4 +62,14 @@ Raised after the Milestone 1 review (2026-09-29).
 
 ## Blocking
 - **Instant blocking.** Replace the 1s process poll with WMI process-start events (SPEC 4.4 v2).
-- **Elevated apps** can't be closed from the user-level app; the elevated watchdog service (M8) should do it.
+- ~~**Elevated apps** can't be closed from the user-level app.~~ Shipped: with App Guard on, the guard can close flagged apps run as administrator.
+
+## Open real-Windows checks (v0.4.0)
+Unit-tested, not yet tried on a real Windows install. The full checklist lives in `docs/manual-testing.md`; these are the v0.4.0 protection and stability changes to try there.
+- App Guard: install on a fresh PC and confirm `%ProgramData%\Sanctum\guard` has only SYSTEM and Administrators write access; install over an older guard and see Setup flag it as outdated, then update it.
+- Hosts file: with your own entries in it, seal and unseal and confirm every other line is unchanged; seal while the file is locked by another program and confirm nothing is wiped.
+- The guard lets go 15 minutes past a seal's planned end (plus idle) when Sanctum can't end it, and stops relaunching after 5 failed tries in a row.
+- Clock forward: set the clock ahead mid-seal, before and after closing Sanctum, and confirm the seal holds, End early's waits don't skip, the emergency unlock doesn't come back, and tamper is recorded.
+- Offline and signed out with a linked partner: level 3 waits 5 minutes; Sign out is refused while sealed.
+- A full or read-only disk at a seal's end: the seal ends and the "wasn't saved" notice shows.
+- An update that migrates the database leaves a copy in "Backups before updates", and only the newest 3 are kept.

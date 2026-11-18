@@ -7,7 +7,7 @@ import { useStore } from "../../state/store";
 import type { PauseConfig, PauseStatus } from "../../lib/types";
 
 // Setup › Distractions › Pause before opening (v0.3.1, decided 2026-10-30): outside seals, a
-// flagged app or site asks "Still want it?" for five seconds before it opens. A one-second pause
+// flagged app or site waits five seconds ("youtube.com can wait five seconds.") before it opens. A one-second pause
 // cut how often an app was opened by about 57% (Grüning et al. 2023). Opt-in; seals and quiet hours
 // still block. A row of When it blocks (decided 2026-11-16): the switch turns it on, opening the
 // row picks all day or set hours.
@@ -69,7 +69,7 @@ export function PauseModeSection() {
       }
     >
       <p className="m-0 text-meta leading-normal text-muted">
-        Outside focus sessions, an app or site from your Distractions list asks "Still want it?" for five seconds before it opens. Go on lets it be for 15
+        Outside focus sessions, an app or site from your Distractions list waits five seconds before it opens. Go on lets it be for 15
         minutes. Seals and quiet hours still block outright.
       </p>
       <Segmented label="Pause mode" options={MODES} value={c.mode as OnMode} onChange={(mode) => void save({ ...c, mode })} className="self-start" />
