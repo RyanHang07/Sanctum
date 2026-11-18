@@ -14,11 +14,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            partner/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
+      # The root tests render the partner site, which needs its own dependencies (supabase-js).
+      - run: npm ci --prefix partner
       - run: npm run typecheck
       - run: npm test
       # No keys in CI: Calendar and accounts build as "not set up", which is a supported mode.
