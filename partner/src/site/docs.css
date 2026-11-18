@@ -1,11 +1,20 @@
-/* Docs and the changelog (v0.2 site), and Markdown drawn on either. */
+/* Docs and the changelog (v0.2 site; flat since v0.4), and Markdown drawn on either. The app's
+   type scale: the page title 20, body 13, meta 12, micro 11. */
 
 .docs {
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) 200px;
+  grid-template-columns: 236px minmax(0, 1fr);
   gap: 48px;
   padding: 36px 0 80px;
   align-items: start;
+}
+/* The page and its "On this page", which swap together. */
+.doc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: 48px;
+  align-items: start;
+  min-width: 0;
 }
 .doc-side {
   position: sticky;
@@ -36,7 +45,7 @@
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--faint);
+  color: var(--muted);
   pointer-events: none;
 }
 .doc-results {
@@ -51,7 +60,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   background: var(--panel);
-  box-shadow: var(--shot-shadow);
+  box-shadow: var(--shadow-pop);
 }
 .doc-results button {
   width: 100%;
@@ -67,11 +76,11 @@
   text-align: left;
 }
 .doc-results li[aria-selected="true"] button {
-  background: var(--line-soft);
+  background: var(--raised);
 }
 .doc-results strong {
-  font-size: 13.5px;
-  font-weight: 550;
+  font-size: 13px;
+  font-weight: 500;
 }
 .doc-results span,
 .doc-results .none {
@@ -95,30 +104,29 @@
   gap: 1px;
 }
 .doc-nav-title {
-  margin-bottom: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--faint);
+  margin: 0 0 6px 10px;
 }
 .doc-nav a,
 .doc-toc a {
-  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
   border-radius: var(--radius-control);
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 13px;
   text-decoration: none;
+  transition: color 120ms cubic-bezier(0.2, 0, 0, 1), background-color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
 .doc-nav a:hover,
 .doc-toc a:hover {
   color: var(--text);
-  background: var(--line-soft);
+  background: var(--raised);
 }
 .doc-nav a[aria-current="page"] {
   color: var(--text);
-  background: var(--sealed-tint);
-  box-shadow: inset 2px 0 0 var(--sealed);
+  background: var(--raised);
+  font-weight: 500;
 }
 .doc-toc {
   position: sticky;
@@ -128,14 +136,17 @@
   gap: 1px;
 }
 .doc-toc a {
-  padding: 4px 10px;
-  font-size: 13px;
+  min-height: 24px;
+  font-size: 12px;
   border-left: 1px solid var(--line);
   border-radius: 0;
 }
+.doc-toc a:hover {
+  background: none;
+}
 .doc-toc a[aria-current="location"] {
-  color: var(--sealed-text);
-  border-left-color: var(--sealed);
+  color: var(--text);
+  border-left-color: var(--text);
 }
 .doc-page {
   min-width: 0;
@@ -143,16 +154,9 @@
   flex-direction: column;
   gap: 14px;
 }
-.doc-page .headline {
-  font-size: clamp(30px, 4vw, 40px);
-  letter-spacing: -0.035em;
-}
 .doc-title {
   margin: 0;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  line-height: 1.3;
 }
 .doc-cards {
   display: grid;
@@ -163,18 +167,20 @@
 .doc-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 18px 20px;
+  gap: 2px;
+  padding: 16px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius-dialog);
   background: var(--panel);
 }
 .doc-card strong {
   margin-bottom: 6px;
-  font-size: 15px;
+  font-weight: 600;
 }
 .doc-card a {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: var(--sealed-text);
   text-decoration: none;
 }
@@ -184,7 +190,7 @@
 
 /* Markdown */
 .prose {
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--text-2);
   overflow-wrap: anywhere;
@@ -200,22 +206,21 @@
 .prose h2,
 .prose h3,
 .prose h4 {
-  margin: 32px 0 0;
+  margin: 28px 0 0;
   color: var(--text);
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
   scroll-margin-top: calc(var(--bar-h) + 20px);
 }
 .prose h2 {
-  font-size: 21px;
   padding-top: 20px;
   border-top: 1px solid var(--line);
 }
-.prose h3 {
-  font-size: 17px;
-}
+.prose h3,
 .prose h4 {
-  font-size: 15px;
+  margin-top: 20px;
+  color: var(--text-2);
 }
 .prose strong {
   color: var(--text);
@@ -238,11 +243,11 @@
   margin-top: 6px;
 }
 .prose li::marker {
-  color: var(--faint);
+  color: var(--muted);
 }
 .prose code {
   font-family: var(--font-mono);
-  font-size: 0.86em;
+  font-size: 12px;
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid var(--line);
@@ -262,13 +267,12 @@
   padding: 0;
   border: none;
   background: none;
-  font-size: 13px;
 }
 .prose blockquote {
   margin: 0;
   padding: 2px 16px;
-  border-left: 2px solid var(--sealed-line);
-  color: var(--muted);
+  border-left: 2px solid var(--line-input);
+  color: var(--text-2);
 }
 .doc-table {
   overflow-x: auto;
@@ -278,7 +282,7 @@
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 .prose th,
 .prose td {
@@ -309,12 +313,13 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   color: var(--text);
-  font-weight: 550;
+  font-weight: 500;
   text-decoration: none;
-  transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1);
+  transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1), background-color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
 .doc-pager a:hover {
-  border-color: var(--sealed-line);
+  border-color: var(--line-input);
+  background: var(--raised);
 }
 .doc-pager a span {
   font-size: 12px;
@@ -326,13 +331,18 @@
   align-items: flex-end;
   grid-column: 2;
 }
+main a.doc-edit,
 a.doc-edit {
-  font-size: 13px;
-  color: var(--faint);
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--muted);
   text-decoration: none;
 }
 a.doc-edit:hover {
-  color: var(--muted);
+  color: var(--text);
 }
 
 /* Changelog */
@@ -348,10 +358,6 @@ a.doc-edit:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.changelog-head .headline {
-  font-size: clamp(30px, 4.4vw, 44px);
-  letter-spacing: -0.035em;
 }
 .changelog-head a,
 .changelog > p a {
@@ -377,7 +383,7 @@ a.doc-edit:hover {
 .release-meta h2 {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 500;
 }
 .release-meta h2 a {
@@ -385,16 +391,16 @@ a.doc-edit:hover {
   text-decoration: none;
 }
 .release-meta time {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 .pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--sealed-line);
-  background: var(--sealed-tint);
-  color: var(--sealed-text);
-  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-input);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
 }
 .release-body {
   display: flex;
@@ -411,6 +417,9 @@ a.doc-edit:hover {
 @media (max-width: 1080px) {
   .docs {
     grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .doc-body {
+    grid-template-columns: minmax(0, 1fr);
   }
   .doc-toc {
     display: none;
@@ -430,7 +439,6 @@ a.doc-edit:hover {
   }
   .doc-menu {
     display: inline-flex;
-    align-items: center;
     justify-content: space-between;
     width: 100%;
     align-self: stretch;
@@ -466,10 +474,6 @@ a.doc-edit:hover {
   flex-direction: column;
   gap: 28px;
 }
-.legal-page .headline {
-  font-size: clamp(30px, 4.4vw, 44px);
-  letter-spacing: -0.035em;
-}
 .legal-page a {
   color: var(--sealed-text);
 }
@@ -480,9 +484,11 @@ a.doc-edit:hover {
   padding-top: 24px;
   border-top: 1px solid var(--line);
 }
+/* Section titles at the app's page-title size. */
 .legal-block h2 {
   margin: 0;
   font-size: 20px;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 .license {
@@ -492,7 +498,7 @@ a.doc-edit:hover {
   border-radius: var(--radius-panel);
   background: var(--panel);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.6;
   white-space: pre-wrap;
   color: var(--text-2);
@@ -501,9 +507,18 @@ a.doc-edit:hover {
   max-width: 360px;
 }
 .notice-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
   cursor: pointer;
-  padding: 8px 0;
   font-weight: 600;
+}
+.notice-group > summary .count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }
 .notice-group .doc-table {
   max-height: 480px;
@@ -512,7 +527,7 @@ a.doc-edit:hover {
 .notice-group table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 .notice-group th,
 .notice-group td {
@@ -524,15 +539,6 @@ a.doc-edit:hover {
   position: sticky;
   top: 0;
   background: var(--panel);
-}
-.legal-links {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-}
-.legal-links a,
-.closing .small a {
-  color: var(--sealed-text);
 }
 
 /* The theme preview on the Themes page (v0.3). */

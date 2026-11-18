@@ -1,11 +1,14 @@
 import { useEffect, useState, type AnchorHTMLAttributes, type MouseEvent } from "react";
+import { landAt } from "./motion";
 
-// Moving between the site's pages without a reload (v0.2 site).
+// Moving between the site's pages without a reload (v0.2 site). The page swap (site/motion.ts)
+// scrolls to the top, or to the link's #heading, once the new page is in.
 
-export function go(path: string) {
-  history.pushState(null, "", path);
+export function go(href: string) {
+  const [path, hash] = href.split("#");
+  history.pushState(null, "", `${path || location.pathname}${hash ? `#${hash}` : ""}`);
   dispatchEvent(new PopStateEvent("popstate"));
-  scrollTo({ top: 0 });
+  landAt(hash || null);
 }
 
 /** The current path, updated on every move (and the browser's back and forward). */
@@ -27,9 +30,7 @@ export function A({ href = "/", onClick, ...rest }: AnchorHTMLAttributes<HTMLAnc
     // Same-page anchors scroll as usual.
     if (href.startsWith("#")) return;
     e.preventDefault();
-    const [path, hash] = href.split("#");
-    go(path || location.pathname);
-    if (hash) requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView());
+    go(href);
   };
   return <a href={href} onClick={open} {...rest} />;
 }

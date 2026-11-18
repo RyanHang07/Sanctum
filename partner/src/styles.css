@@ -1,11 +1,17 @@
-/* The partner page (design/gate-canvas/project/PartnerApprove.dc.html, redesign v0.4). Colours
-   and type come from design/tokens.css, or from the person's Sanctum theme when the link carries
-   one (site/theme.ts). The two below mirror src/theme/extra.json until they're promoted there.
-   Roles: accent for the primary action and seal timing, `muted` for anything read (never
-   `faint`). No glow, no gradient. */
+/* The site's base and the partner pages (design/gate-canvas/project/PartnerApprove.dc.html,
+   redesign v0.4). Colors and type come from design/tokens.css, or from the person's Sanctum theme
+   when the link carries one (site/theme.ts). The app's rules hold here too (design/README.md):
+   flat, the theme's plain page color, the app's type scale (micro 11, meta 12, body 13, page
+   title 20, moment 28), its control heights (32, 26, 52), one focus ring, and `muted` for
+   anything read (never `faint`). Shadows live in site.css, on popovers only. */
+
+/* Colors the dark tokens don't carry yet: Sanctum Dark's own (src/theme/extra.json). */
 :root {
+  --check-line: #737886;
+  --broken: #e5484d;
+  --broken-tint: #2a1418;
   --broken-text: #ff8a8e;
-  --check-line: #3a4155;
+  --broken-line: #5a2328;
 }
 * {
   box-sizing: border-box;
@@ -17,26 +23,65 @@ body {
   background: var(--app);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+p {
+  margin: 0;
+  line-height: 1.6;
 }
+.muted {
+  color: var(--text-2);
+}
+.small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.error {
+  color: var(--broken-text);
+}
+.stack,
+.stack-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.stack-page {
+  gap: 16px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.between {
+  justify-content: space-between;
+}
+
+/* One focus ring (the app's): a 2px accent outline 2px off the edge; on a text field, the accent
+   edge plus the ring at 40%. Mouse clicks never show it. */
+:where(a[href], button, summary, [tabindex]:not([tabindex="-1"]), [role="radio"], [role="tab"]):focus-visible {
+  outline: 2px solid var(--sealed);
+  outline-offset: 2px;
+}
+:where(input:not([type="checkbox"], [type="radio"]), select, textarea):focus-visible {
+  border-color: var(--sealed);
+  outline: 2px solid color-mix(in srgb, var(--sealed) 40%, transparent);
+  outline-offset: 0;
+}
+
+/* A partner page: a phone-width column. */
 .card {
   width: min(440px, 100%);
   margin: 32px auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  animation: rise 220ms cubic-bezier(0.2, 0, 0, 1) both;
+  gap: 16px;
 }
 .brand {
   display: flex;
@@ -48,7 +93,7 @@ body {
 .card-context {
   display: flex;
   justify-content: flex-end;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 .brand .context {
@@ -56,47 +101,13 @@ body {
   font-weight: 400;
   color: var(--muted);
 }
-.headline {
+/* Moment headlines: one plain sentence at the app's moment size (the face is in tokens.css). */
+.card .headline,
+.shared-empty .headline {
   margin: 0;
-  font-size: 34px;
-  line-height: 1.1;
-  letter-spacing: -0.035em;
+  font-size: var(--text-moment);
 }
-p {
-  margin: 0;
-  line-height: 1.5;
-}
-.muted {
-  color: var(--text-2);
-}
-.small {
-  font-size: 12px;
-  color: var(--muted);
-}
-.label {
-  font-size: 12px;
-  color: var(--muted);
-}
-.mono {
-  font-family: var(--font-mono);
-}
-.error {
-  color: var(--broken-text);
-}
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.between {
-  justify-content: space-between;
-}
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -116,8 +127,7 @@ p {
 }
 .reason {
   padding: 12px 14px;
-  font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--text);
 }
 .panel:not(.flush) .reason {
@@ -147,12 +157,15 @@ p {
   border-left: 1px solid var(--line);
 }
 .facts dt {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .facts dd {
   margin: 0;
-  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -179,7 +192,7 @@ p {
   background: var(--muted);
 }
 
-/* PIN: boxes over one real input. */
+/* PIN: boxes over one real input, the app's 52px row height. */
 .pin {
   display: flex;
   flex-direction: column;
@@ -193,13 +206,13 @@ p {
 }
 .pin-box {
   width: 44px;
-  height: 48px;
+  height: var(--cta-h);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--panel);
   border: 1px solid var(--line-input);
-  border-radius: var(--radius-panel);
+  border-radius: var(--radius-control);
   font-family: var(--font-mono);
   font-size: 20px;
   transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1);
@@ -215,17 +228,20 @@ p {
   opacity: 0;
   cursor: text;
 }
-.pin-input:focus + .pin-box,
 .pin-boxes:focus-within .pin-box.next {
   border-color: var(--sealed);
 }
-/* The PIN input is invisible over its boxes, so the keyboard ring goes on the row of boxes. */
+/* The PIN input is invisible over its boxes, so the ring goes on the row of boxes. */
+.pin-input:focus-visible {
+  outline: none;
+}
 .pin-boxes:has(.pin-input:focus-visible) {
   outline: 2px solid var(--sealed);
   outline-offset: 2px;
-  border-radius: var(--radius-panel);
+  border-radius: var(--radius-control);
 }
 
+/* Fields: 32px, a line-input edge. */
 .field {
   display: flex;
   flex-direction: column;
@@ -236,8 +252,9 @@ p {
 }
 input {
   flex: 1 1 180px;
-  height: 36px;
-  padding: 0 12px;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 10px;
   border: 1px solid var(--line-input);
   border-radius: var(--radius-control);
   background: var(--panel);
@@ -246,103 +263,136 @@ input {
   font-size: 13px;
   transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-input:focus {
-  border-color: var(--sealed);
-}
-/* Keyboard focus on a field: the accent edge plus the app's 40% accent ring. */
-input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--sealed) 40%, transparent);
-  outline-offset: 0;
-}
-.pin-input:focus-visible {
-  outline: none;
-}
 input::placeholder {
   color: var(--muted);
 }
-button {
-  height: 36px;
-  padding: 0 14px;
+
+/* Buttons: the app's variants (src/components/Button.tsx) at the control height. */
+button,
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
   font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    filter 120ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 120ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+/* In a column, a button keeps its own width unless it's .wide. */
+button {
   align-self: flex-start;
-  transition: filter 120ms cubic-bezier(0.2, 0, 0, 1), background-color 120ms cubic-bezier(0.2, 0, 0, 1), color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.site-bar button,
+.row button {
+  align-self: center;
 }
 button:disabled {
   opacity: 0.5;
-  cursor: default;
-}
-button:focus-visible {
-  outline: 2px solid var(--sealed);
-  outline-offset: 2px;
+  cursor: not-allowed;
 }
 .wide {
   align-self: stretch;
 }
-.primary {
-  border: none;
+/* Primary: the accent fill. */
+button.primary,
+a.button.primary {
+  border-color: var(--sealed);
   background: var(--sealed);
   color: var(--on-sealed);
   font-weight: 600;
 }
-.primary:hover:enabled {
+button.primary:hover:enabled,
+a.button.primary:hover {
   filter: brightness(1.1);
 }
-.light {
-  border: none;
-  background: var(--text);
-  color: var(--app);
-  font-weight: 600;
+/* Ghost: outlined, neutral. */
+button.ghost,
+a.button.ghost {
+  border-color: var(--line-input);
+  color: var(--text-2);
 }
-.light:hover:enabled {
-  filter: brightness(0.92);
-}
-.ghost {
-  border: 1px solid var(--line-input);
-  background: transparent;
-  color: var(--text);
-  font-weight: 500;
-}
-.ghost:hover:enabled {
+button.ghost:hover:enabled,
+a.button.ghost:hover {
+  border-color: var(--check-line);
   background: var(--raised);
+  color: var(--text);
 }
-.link {
+/* Quiet: text until hovered. */
+button.quiet {
+  color: var(--muted);
+}
+button.quiet:hover:enabled {
+  background: var(--raised);
+  color: var(--text);
+}
+/* A text link that acts: at least 24px to hit. */
+button.link {
   height: auto;
+  min-height: 24px;
   padding: 0;
   border: none;
-  background: none;
   color: var(--sealed-text);
 }
-.link:hover {
+button.link:hover {
   color: var(--sealed-text-hover);
 }
+/* A step that can't be undone: the broken role, never the accent. */
+button.danger-button {
+  border-color: var(--broken-line);
+  background: var(--broken-tint);
+  color: var(--broken-text);
+  font-weight: 500;
+}
+button.danger-button:hover:enabled {
+  border-color: var(--broken);
+}
+.danger {
+  color: var(--broken-text);
+}
+button.link.danger:hover {
+  color: var(--broken-text);
+  text-decoration: underline;
+}
+.danger-panel {
+  border-color: var(--broken-line);
+}
+/* Deny and Approve: the app's 52px row. */
 .choices {
   display: flex;
   gap: 8px;
 }
 .choices button {
   flex: 1 1 0;
-  height: 44px;
-  border-radius: var(--radius-panel);
-  font-size: 14px;
+  height: var(--cta-h);
+  font-size: 13px;
 }
 
-/* Phones: partners open this from an email. */
+/* Phones: partners open these from an email. */
 @media (max-width: 420px) {
   .card {
     margin: 20px 0;
-    gap: 16px;
   }
-  .headline {
-    font-size: 28px;
+  .card .headline {
+    font-size: var(--text-moment-dialog);
   }
   .pin-boxes {
     gap: 6px;
   }
   .pin-box {
     width: calc((100% - 30px) / 6);
-    height: 48px;
   }
   .choices {
     flex-direction: column;
@@ -356,16 +406,11 @@ button:focus-visible {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    animation: none;
-  }
-}
-
 /* /emails preview (dev only). */
 .emails {
   width: min(1040px, calc(100vw - 32px));
   min-height: 100vh;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 20px;
@@ -381,11 +426,8 @@ button:focus-visible {
 }
 .emails nav button {
   align-self: stretch;
-  text-align: left;
-  border: none;
-  background: transparent;
+  justify-content: flex-start;
   color: var(--text-2);
-  font-size: 13px;
 }
 .emails nav button.on {
   background: var(--raised);
@@ -429,21 +471,21 @@ button:focus-visible {
   line-height: 1.6;
 }
 
-/* Public pages (About, Privacy, Terms) and the footer that links them (v0.1). */
+/* Privacy and Terms (v0.1). */
 .legal-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 .legal-section h2 {
-  margin: 0;
-  font-size: 15px;
+  margin: 8px 0 0;
+  font-size: 13px;
   font-weight: 600;
 }
 .legal-section p,
 .legal-section li {
   color: var(--text-2);
-  line-height: 1.55;
+  line-height: 1.6;
 }
 .legal-section ul {
   margin: 0;
@@ -467,55 +509,11 @@ main a {
 main a:hover {
   color: var(--sealed-text-hover);
 }
-a.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 38px;
-  padding: 0 14px;
-  border-radius: var(--radius-control);
-  text-decoration: none;
-  font-size: 14px;
-}
-a.button.primary {
+main a.button.primary {
   color: var(--on-sealed);
 }
-a.button.ghost {
-  color: var(--text);
-}
-.legal-footer {
-  display: flex;
-  gap: 16px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-}
-.legal-footer a {
-  color: var(--muted);
-  text-decoration: none;
-}
-.legal-footer a:hover {
+main a.button.ghost {
   color: var(--text-2);
-}
-.danger {
-  color: var(--broken-text);
-  align-self: flex-start;
-}
-.danger:hover {
-  color: var(--broken-text);
-  text-decoration: underline;
-}
-.danger-panel {
-  border-color: var(--broken-line, var(--line-input));
-}
-.danger-button {
-  border: 1px solid var(--broken-line, var(--line-input));
-  background: transparent;
-  color: var(--broken-text);
-  font-weight: 600;
-}
-.danger-button:disabled {
-  opacity: 0.5;
 }
 
 /* A shared note (v0.2): wider than the phone cards, the note drawn from its blocks. */
@@ -524,37 +522,162 @@ a.button.ghost {
   margin: 40px auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   align-self: start;
 }
-.shared-empty { display: flex; flex-direction: column; gap: 6px; padding: 24px 0; }
-.shared-title { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
-.shared-note { display: flex; flex-direction: column; gap: 10px; padding: 26px 28px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
-.shared-note p { margin: 0; }
-.shared-note h1, .shared-note h2, .shared-note h3 { margin: 0.6em 0 0; letter-spacing: -0.015em; line-height: 1.25; }
-.shared-note h1 { font-size: 1.55em; }
-.shared-note h2 { font-size: 1.28em; }
-.shared-note h3 { font-size: 1.07em; color: var(--text-2); }
-.shared-note ul, .shared-note ol { margin: 0; padding-left: 1.35em; }
-.shared-note li::marker { color: var(--muted); }
-.shared-note ul.tasks { list-style: none; padding-left: 0; }
-.shared-note ul.tasks ul.tasks { padding-left: 1.4em; }
-.shared-note ul.tasks > li { display: flex; gap: 10px; align-items: flex-start; }
-.shared-note ul.tasks > li > input { margin-top: 5px; accent-color: var(--sealed); }
-.shared-note ul.tasks > li.done > div { color: var(--muted); text-decoration: line-through; }
-.shared-note blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--line-input); color: var(--text-2); }
-.shared-note .callout { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--sealed-line); background: var(--sealed-tint); }
-.shared-note hr { border: 0; border-top: 1px solid var(--line); width: 100%; }
-.shared-note code { font-family: var(--font-mono); font-size: 0.89em; padding: 1px 5px; border-radius: 4px; background: var(--raised); }
-.shared-note pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--app); border: 1px solid var(--line); overflow-x: auto; }
-.shared-note pre code { padding: 0; background: none; }
-.shared-note a { color: var(--sealed-text); }
-.shared-note .link { padding: 1px 6px; border-radius: 4px; background: var(--sealed-tint); color: var(--sealed-text); border: 1px solid var(--sealed-line); white-space: nowrap; }
-.shared-note .table { overflow-x: auto; }
-.shared-note table { border-collapse: collapse; width: 100%; }
-.shared-note th, .shared-note td { padding: 6px 10px; border: 1px solid var(--line-input); text-align: left; vertical-align: top; }
-.shared-note th { background: var(--raised); }
-.shared-note img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); }
-.shared-note .img-wait { height: 160px; border-radius: 8px; background: var(--raised); }
-.shared-note details > summary { cursor: pointer; font-weight: 500; }
-
+.shared-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 24px 0;
+}
+.shared-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.shared-note {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-dialog);
+  background: var(--panel);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.shared-note p {
+  margin: 0;
+}
+.shared-note h1,
+.shared-note h2,
+.shared-note h3 {
+  margin: 0.6em 0 0;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+.shared-note h1 {
+  font-size: 20px;
+}
+.shared-note h2 {
+  font-size: 17px;
+}
+.shared-note h3 {
+  font-size: 14px;
+  color: var(--text-2);
+}
+.shared-note ul,
+.shared-note ol {
+  margin: 0;
+  padding-left: 1.35em;
+}
+.shared-note li::marker {
+  color: var(--muted);
+}
+.shared-note ul.tasks {
+  list-style: none;
+  padding-left: 0;
+}
+.shared-note ul.tasks ul.tasks {
+  padding-left: 1.4em;
+}
+.shared-note ul.tasks > li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+/* The app's checkbox: a 16px box. */
+.shared-note ul.tasks > li > input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 4px 0 0;
+  accent-color: var(--sealed);
+}
+.shared-note ul.tasks > li.done > div {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.shared-note blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--line-input);
+  color: var(--text-2);
+}
+.shared-note .callout {
+  padding: 10px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--line-input);
+  background: var(--raised);
+}
+.shared-note hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  width: 100%;
+}
+.shared-note code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--raised);
+}
+.shared-note pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-panel);
+  background: var(--app);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+}
+.shared-note pre code {
+  padding: 0;
+  background: none;
+}
+.shared-note a {
+  color: var(--sealed-text);
+}
+.shared-note .link {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--sealed-text);
+  border: 1px solid var(--line-input);
+  white-space: nowrap;
+}
+.shared-note .table {
+  overflow-x: auto;
+}
+.shared-note table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.shared-note th,
+.shared-note td {
+  padding: 6px 10px;
+  border: 1px solid var(--line-input);
+  text-align: left;
+  vertical-align: top;
+}
+.shared-note th {
+  background: var(--raised);
+}
+.shared-note img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--line);
+}
+.shared-note .img-wait {
+  height: 160px;
+  border-radius: var(--radius-panel);
+  background: var(--raised);
+}
+.shared-note details > summary {
+  cursor: pointer;
+  font-weight: 500;
+}

@@ -1,41 +1,49 @@
-/* The site (v0.2): home, docs, changelog, and the partner pages in one frame. Dark is the app's
-   own palette (design/tokens.css); light is the site's, as tokens (the app's themes are tried in ThemePreview.tsx). */
+/* The site (v0.2; flat since the v0.4 redesign): home, docs, changelog, legal, and the partner
+   pages in one frame. Dark is the app's own palette (design/tokens.css); light is Sanctum Light's
+   (src/theme/themes.ts), so the site's light and dark are the app's. A link from the app paints
+   the person's own theme over both (site/theme.ts). The theme's plain page color everywhere: no
+   gradients, glows, blur or grain. Soft shadows only on popovers. */
 
 :root {
   --site-w: 1120px;
   --bar-h: 56px;
-  --glass: rgba(11, 13, 18, 0.72);
-  --shot-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
-  --mesh-opacity: 0.55;
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
 
-/* Light: chosen with the toggle, or the system's when nothing was chosen. */
+/* Light: chosen with the toggle, or the system's when nothing was chosen. Sanctum Light's values. */
 :root[data-theme="light"] {
   --app: #f7f8fa;
   --sidebar: #f0f2f5;
   --panel: #ffffff;
-  --panel-footer: #f5f6f8;
+  --panel-footer: #fbfcfd;
   --raised: #eef0f4;
   --line: #e2e5eb;
-  --line-soft: #eceef2;
-  --line-input: #d2d7e0;
+  --line-soft: #f1f2f5;
+  --line-input: #868a8f;
   --text: #12151c;
   --text-2: #394050;
   --muted: #5d6678;
   --faint: #8a93a6;
-  --payoff: #6a7387;
-  --sealed-text: #2447d6;
-  --sealed-text-hover: #1a36a8;
-  --sealed-tint: #e8edff;
-  --sealed-line: #bccaff;
-  --event-tint: #ffede7;
-  --event-line: #ffc9b8;
-  --broken-text: #c62f36;
-  --check-line: #c9cfdb;
-  --glass: rgba(247, 248, 250, 0.78);
-  --shot-shadow: 0 24px 50px -28px rgba(18, 21, 28, 0.45);
-  --mesh-opacity: 0.22;
+  --sealed: #2f5bff;
+  --sealed-text: #2d57f5;
+  --sealed-text-hover: #1d399f;
+  --on-sealed: #ffffff;
+  --sealed-tint: #e3e8fb;
+  --sealed-line: #b1c1fc;
+  --event: #e0502e;
+  --event-tint: #f5e7e6;
+  --event-line: #efbdb3;
+  --second: #c2822e;
+  --second-text: #8c5e21;
+  --second-tint: #f2ece6;
+  --second-line: #e4cfb3;
+  --check-line: #787d87;
+  --broken: #d93036;
+  --broken-tint: #f4e6e8;
+  --broken-text: #bf2a30;
+  --broken-line: #edb2b5;
+  --shadow-pop: 0 12px 32px rgba(18, 21, 28, 0.16);
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -43,27 +51,34 @@
     --app: #f7f8fa;
     --sidebar: #f0f2f5;
     --panel: #ffffff;
-    --panel-footer: #f5f6f8;
+    --panel-footer: #fbfcfd;
     --raised: #eef0f4;
     --line: #e2e5eb;
-    --line-soft: #eceef2;
-    --line-input: #d2d7e0;
+    --line-soft: #f1f2f5;
+    --line-input: #868a8f;
     --text: #12151c;
     --text-2: #394050;
     --muted: #5d6678;
     --faint: #8a93a6;
-    --payoff: #6a7387;
-    --sealed-text: #2447d6;
-    --sealed-text-hover: #1a36a8;
-    --sealed-tint: #e8edff;
-    --sealed-line: #bccaff;
-    --event-tint: #ffede7;
-    --event-line: #ffc9b8;
-    --broken-text: #c62f36;
-    --check-line: #c9cfdb;
-    --glass: rgba(247, 248, 250, 0.78);
-    --shot-shadow: 0 24px 50px -28px rgba(18, 21, 28, 0.45);
-    --mesh-opacity: 0.22;
+    --sealed: #2f5bff;
+    --sealed-text: #2d57f5;
+    --sealed-text-hover: #1d399f;
+    --on-sealed: #ffffff;
+    --sealed-tint: #e3e8fb;
+    --sealed-line: #b1c1fc;
+    --event: #e0502e;
+    --event-tint: #f5e7e6;
+    --event-line: #efbdb3;
+    --second: #c2822e;
+    --second-text: #8c5e21;
+    --second-tint: #f2ece6;
+    --second-line: #e4cfb3;
+    --check-line: #787d87;
+    --broken: #d93036;
+    --broken-tint: #f4e6e8;
+    --broken-text: #bf2a30;
+    --broken-line: #edb2b5;
+    --shadow-pop: 0 12px 32px rgba(18, 21, 28, 0.16);
     color-scheme: light;
   }
 }
@@ -92,27 +107,20 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  /* The hero's mesh runs edge to edge without a sideways scroll. */
   overflow-x: clip;
 }
 .grow {
   flex: 1;
 }
-/* Footer and fine-print text that's read: muted, never faint (redesign v0.4). */
-.faint {
-  color: var(--muted);
-}
 
-/* Top bar */
+/* Top bar: the page color, a line under it. */
 .site-bar {
   position: sticky;
   top: 0;
   z-index: 20;
   height: var(--bar-h);
   border-bottom: 1px solid var(--line);
-  background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--app);
 }
 .site-bar-inner,
 .site-footer-inner {
@@ -127,56 +135,60 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 24px;
   margin-right: 16px;
   color: var(--text);
-  font-weight: 650;
-  font-size: 15px;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  font-size: 13px;
   text-decoration: none;
 }
 main a.site-logo:hover,
 .site-logo:hover {
   text-decoration: none;
 }
+/* The links are a tab strip: the current page's highlight slides between them. */
 .site-links {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
 }
+.site-links-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 .site-links a {
-  padding: 6px 10px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 10px;
   border-radius: var(--radius-control);
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 13px;
   text-decoration: none;
-  transition: color 120ms cubic-bezier(0.2, 0, 0, 1), background-color 120ms cubic-bezier(0.2, 0, 0, 1);
+  transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.site-links a:hover {
-  color: var(--text);
-  background: var(--line-soft);
-}
+.site-links a:hover,
 .site-links a[aria-current="page"] {
   color: var(--text);
 }
 .icon-button {
-  width: 34px;
-  height: 34px;
+  width: var(--control-h);
+  height: var(--control-h);
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   align-self: center;
-  border: 1px solid transparent;
-  background: none;
   color: var(--muted);
 }
 .icon-button:hover {
   color: var(--text);
-  background: var(--line-soft);
-}
-a.button.site-download {
-  height: 32px;
-  font-size: 13px;
+  background: var(--raised);
 }
 .site-menu {
   display: none;
@@ -198,14 +210,17 @@ a.button.site-download {
 /* Footer */
 .site-footer {
   border-top: 1px solid var(--line);
-  padding: 22px 0;
-  font-size: 13px;
+  padding: 20px 0;
+  font-size: 12px;
 }
 .site-footer-inner {
   flex-wrap: wrap;
-  gap: 6px 18px;
+  gap: 6px 16px;
 }
 .site-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: var(--muted);
   text-decoration: none;
 }
@@ -213,7 +228,7 @@ a.button.site-download {
   color: var(--text);
 }
 .small-logo {
-  font-size: 13px;
+  font-size: 12px;
   margin-right: 0;
 }
 
@@ -240,34 +255,27 @@ a.button.site-download {
 .history li + li {
   border-top: 1px solid var(--line);
 }
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
 .outcome {
-  font-size: 12px;
-  padding: 1px 8px;
-  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
   border: 1px solid var(--line-input);
+  color: var(--text-2);
+}
+.outcome.expired {
   color: var(--muted);
-}
-.outcome.approved {
-  border-color: var(--sealed-line);
-  background: var(--sealed-tint);
-  color: var(--sealed-text);
-}
-.outcome.denied {
-  color: var(--text);
 }
 
 /* Shared bits */
-a.button.large {
-  height: 42px;
-  padding: 0 18px;
-  font-size: 14.5px;
-}
-.kicker {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--sealed-text);
+.lede {
+  max-width: 560px;
+  color: var(--text-2);
 }
 .shot {
   display: block;
@@ -275,103 +283,96 @@ a.button.large {
   height: auto;
   border-radius: var(--radius-dialog);
   border: 1px solid var(--line);
-  box-shadow: var(--shot-shadow);
+}
+a.button.large {
+  height: var(--cta-h);
+  padding: 0 20px;
+  font-size: 13px;
+}
+main a.more,
+a.more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  align-self: flex-start;
+  font-weight: 500;
+  color: var(--sealed-text);
+  text-decoration: none;
+}
+a.more:hover {
+  color: var(--sealed-text-hover);
+}
+/* Site headlines: one plain sentence (tokens.css .headline), on the app's scale. */
+.site-main .headline {
+  margin: 0;
+  font-size: var(--text-moment);
 }
 
 /* Home */
 .home {
   display: flex;
   flex-direction: column;
-  gap: 104px;
+  gap: 96px;
   padding-bottom: 96px;
 }
 .hero {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 48px;
+  gap: 40px;
   padding-top: 72px;
   text-align: center;
-}
-.hero-mesh {
-  position: absolute;
-  z-index: -1;
-  left: 50%;
-  top: 0;
-  width: 100vw;
-  height: 760px;
-  transform: translateX(-50%);
-  opacity: var(--mesh-opacity);
-  overflow: hidden;
-  /* Its four lights (and their drift) are in home-motion.css. */
-  mask-image: linear-gradient(to bottom, black 40%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent);
-  pointer-events: none;
 }
 .hero-text {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
-  max-width: 720px;
+  gap: 16px;
+  max-width: 760px;
 }
-.hero h1.headline {
-  font-size: clamp(38px, 6.4vw, 64px);
+.site-main .hero .headline {
+  font-size: var(--text-held);
   line-height: 1.04;
-  letter-spacing: -0.04em;
-}
-.lede {
-  font-size: 17px;
-  line-height: 1.6;
-  color: var(--text-2);
-  max-width: 620px;
 }
 .download {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  margin-top: 8px;
 }
 .download .row {
   justify-content: center;
-  flex-wrap: wrap;
 }
 .hero-shot {
   width: 100%;
   max-width: 980px;
 }
-/* Over the mesh, the quiet button needs its own ground. */
-.hero a.button.ghost {
-  background: var(--glass);
-  border-color: var(--line-input);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
 
 .proof {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-dialog);
   background: var(--panel);
-  margin-top: -40px;
 }
-.proof div {
+.proof li {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 18px 20px;
+  gap: 2px;
+  padding: 16px 18px;
 }
-.proof div + div {
+.proof li + li {
   border-left: 1px solid var(--line);
 }
 .proof strong {
-  font-size: 14px;
   font-weight: 600;
 }
 .proof span {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -391,26 +392,18 @@ a.button.large {
 .feature-text {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .feature-text p {
-  font-size: 15px;
-  line-height: 1.65;
   color: var(--text-2);
 }
 .feature-text p.muted {
   color: var(--muted);
 }
-.feature .headline,
-.pillars .headline,
-.closing .headline {
-  font-size: clamp(28px, 3.6vw, 38px);
-  line-height: 1.1;
-  letter-spacing: -0.035em;
-}
 .feature-media {
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 .stack-shots {
   position: relative;
@@ -421,6 +414,7 @@ a.button.large {
   width: 88%;
 }
 .stack-shots .shot.offset {
+  position: relative;
   width: 62%;
   margin: -22% 0 0 auto;
 }
@@ -435,24 +429,21 @@ a.button.large {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  font-size: 14.5px;
-  line-height: 1.55;
+  gap: 8px;
   color: var(--text-2);
 }
 .ticks li {
   position: relative;
-  padding-left: 22px;
+  padding-left: 18px;
 }
 .ticks li::before {
   content: "";
   position: absolute;
   left: 2px;
-  top: 0.55em;
+  top: 0.7em;
   width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--sealed);
+  height: 1px;
+  background: var(--muted);
 }
 .ladder {
   counter-reset: step;
@@ -460,8 +451,9 @@ a.button.large {
 .ladder li {
   counter-increment: step;
   display: flex;
+  align-items: baseline;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   background: var(--panel);
@@ -469,76 +461,60 @@ a.button.large {
 .ladder li::before {
   content: counter(step);
   flex: none;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--sealed-tint);
-  border: 1px solid var(--sealed-line);
-  color: var(--sealed-text);
   font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--muted);
 }
 .ladder strong {
   color: var(--text);
   font-weight: 600;
 }
-main a.more,
-a.more {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--sealed-text);
-  text-decoration: none;
-}
-a.more:hover {
-  color: var(--sealed-text-hover);
-}
 
 .pillars {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 24px;
 }
 .pillar-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 .pillar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px;
+  gap: 6px;
+  padding: 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius-dialog);
   background: var(--panel);
 }
 .pillar strong {
-  font-size: 15px;
+  font-weight: 600;
 }
 .pillar p {
-  font-size: 14px;
-  line-height: 1.6;
   color: var(--muted);
 }
-.pillar a {
-  color: var(--sealed-text);
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
 }
 
 .closing {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   padding: 56px 24px;
   text-align: center;
-  border: 1px solid var(--sealed-line);
-  border-radius: 16px;
-  background: radial-gradient(80% 120% at 50% 0%, var(--sealed-tint), var(--panel) 70%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-dialog);
+  background: var(--panel);
 }
 .closing .small {
-  max-width: 460px;
+  max-width: 440px;
 }
 
 @media (max-width: 860px) {
@@ -550,20 +526,19 @@ a.more:hover {
   }
   .proof {
     grid-template-columns: 1fr 1fr;
-    margin-top: -24px;
   }
-  .proof div + div {
+  .proof li + li {
     border-left: none;
   }
-  .proof div:nth-child(even) {
+  .proof li:nth-child(even) {
     border-left: 1px solid var(--line);
   }
-  .proof div:nth-child(n + 3) {
+  .proof li:nth-child(n + 3) {
     border-top: 1px solid var(--line);
   }
   .feature,
   .feature.flip {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
   .feature.flip .feature-text {
@@ -575,6 +550,9 @@ a.more:hover {
 }
 
 @media (max-width: 680px) {
+  .site-main .hero .headline {
+    font-size: var(--text-moment);
+  }
   .site-menu {
     display: inline-flex;
   }
@@ -594,10 +572,75 @@ a.more:hover {
     display: flex;
   }
   .site-links a {
-    padding: 10px 8px;
-    font-size: 15px;
+    height: var(--control-h);
+    padding: 0 8px;
   }
   .site-logo {
     margin-right: 0;
   }
+}
+
+@media (max-width: 420px) {
+  .proof {
+    grid-template-columns: 1fr;
+  }
+  .proof li:nth-child(even) {
+    border-left: none;
+  }
+  .proof li + li {
+    border-top: 1px solid var(--line);
+  }
+  .closing {
+    padding: 40px 18px;
+  }
+}
+
+/* Segmented control (site/Segmented.tsx): the app's, 26px options in a 32px frame, the picked
+   option's highlight sliding between them. */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  height: var(--control-h);
+  padding: 2px;
+  border: 1px solid var(--line-input);
+  border-radius: var(--radius-control);
+}
+.segmented-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.segmented button {
+  position: relative;
+  height: var(--control-h-sm);
+  padding: 0 12px;
+  border: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.segmented button:hover {
+  color: var(--text-2);
+}
+.segmented button[aria-pressed="true"] {
+  color: var(--text);
+  font-weight: 500;
+}
+/* The width is the medium-weight label's, picked or not, so picking never resizes it. */
+.segmented button span {
+  display: inline-flex;
+  flex-direction: column;
+}
+.segmented button span::after {
+  content: attr(data-label);
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 500;
 }

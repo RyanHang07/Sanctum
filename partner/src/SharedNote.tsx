@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "./supabase";
 import { decryptBytes, decryptJson } from "./shareCrypto";
 import { useTabTitle } from "./title";
+import { Mark } from "./site/Shell";
 
 // A shared note (v0.2): /n/<token>#<key>. The server hands over ciphertext; the key in the
 // link's #fragment (never sent anywhere) decrypts it here. The note is drawn from its blocks
@@ -239,9 +240,9 @@ export function SharedNote({ token }: { token: string }) {
   return (
     <main className="sheet">
       <header className="brand">
-        <img src="/mark.svg" width="18" height="18" alt="" />
+        <Mark size={18} />
         <span>Sanctum</span>
-        <span className="context">{state.kind === "ready" ? `Read only · until ${until(state.expiresAt)}` : "Shared note"}</span>
+        <span className="context">{state.kind === "ready" ? `Read only until ${until(state.expiresAt)}` : "Shared note"}</span>
       </header>
       {state.kind === "loading" ? <p className="muted">Opening…</p> : null}
       {state.kind === "nokey" ? message("This link is missing its key.", "Shared notes are encrypted; the key is the part after # in the link. Ask for the full link.") : null}

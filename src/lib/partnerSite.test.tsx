@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { App } from "../../partner/src/App";
 import { applyTheme, appTheme } from "../../partner/src/site/theme";
 import { THEMES } from "../theme/themes";
 
 // The partner site in the redesign (v0.4, S8): it follows the person's Sanctum theme when the
-// link carries one, and the approve page makes "Deny, keep the seal" the primary action.
+// link carries one, and the approve page makes "Deny, keep the seal" the primary action. Since the
+// site's own redesign it is flat, moves like the app (site/motion.ts), and its home page says
+// what v0.4.0 does.
 
 const root = document.documentElement;
 
@@ -73,11 +75,11 @@ describe("the approve page", () => {
     expect(readFileSync("partner/src/styles.css", "utf8")).not.toMatch(/column-reverse/);
   });
 
-  it("shows time left in accent text and asks as neutral tally ticks", async () => {
+  it("shows time left in whole minutes in accent text and asks as neutral tally ticks", async () => {
     history.replaceState(null, "", "/demo/approve");
     const { container } = render(<App />);
     await screen.findByRole("heading", { level: 1 });
-    expect(container.querySelector("dd.seal-time")).toBeInTheDocument();
+    expect(container.querySelector("dd.seal-time")?.textContent).toMatch(/^\d+ min$/);
     expect(container.querySelectorAll(".tally span")).toHaveLength(2);
     const style = readFileSync("partner/src/styles.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     expect(style).toMatch(/\.tally span \{[^}]*background: var\(--muted\)/);
@@ -114,5 +116,78 @@ describe("the site's credits", () => {
     const notices = readFileSync("partner/src/site/notices.json", "utf8");
     expect(notices).toMatch(/schibsted-grotesk/);
     expect(notices).not.toMatch(/instrument-serif/);
+  });
+});
+
+describe("the site's design language", () => {
+  const strip = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = ["partner/src/styles.css", "partner/src/site/site.css", "partner/src/site/docs.css", "partner/src/site/theme-preview.css"].map(strip).join(" ");
+
+  it("is flat: no gradients, glows, blur, or decorative loops, and shadows only on popovers", () => {
+    expect(css).not.toMatch(/gradient\(|blur\(|backdrop-filter|infinite|held-\d|--glass/);
+    expect(css.match(/box-shadow:[^;]*/g)).toEqual(["box-shadow: var(--shadow-pop)"]);
+  });
+
+  it("uses sentence-case labels, nothing under 11px, and never faint for text", () => {
+    expect(css).not.toMatch(/text-transform:\s*uppercase/);
+    for (const [, px] of css.matchAll(/font-size:\s*([\d.]+)px/g)) expect(Number(px)).toBeGreaterThanOrEqual(11);
+    expect(css).not.toMatch(/(^|[^-])color:\s*var\(--faint\)/m);
+  });
+
+  it("writes every headline as one plain sentence, with no italic payoff or question", () => {
+    for (const f of ["partner/src/site/Home.tsx", "partner/src/site/Docs.tsx", "partner/src/site/Changelog.tsx", "partner/src/site/LegalPage.tsx", "partner/src/App.tsx"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src).not.toMatch(/<em>/);
+      for (const [, text] of src.matchAll(/className="headline"[^>]*>\s*([^<{]+?)\s*</g)) {
+        expect(text).toMatch(/^[^.?]+\.$/);
+      }
+    }
+  });
+
+  it("puts gsap in the site at the app's version, and moves on the app's tokens", async () => {
+    const root = JSON.parse(readFileSync("package.json", "utf8"));
+    const site = JSON.parse(readFileSync("partner/package.json", "utf8"));
+    expect(site.dependencies.gsap).toBe(root.dependencies.gsap);
+    const motion = await import("../../partner/src/site/motion");
+    const app = await import("./gsap");
+    expect(motion.DUR).toEqual(app.DUR);
+    expect(motion.RISE_FROM).toEqual(app.RISE_FROM);
+    expect(motion.RISE_STAGGER).toBe(app.RISE_STAGGER);
+  });
+});
+
+describe("the home page says what v0.4.0 does", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("counts every theme, names Today and the weekly recap's switch, and has no middle-dot meta", async () => {
+    history.replaceState(null, "", "/");
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { level: 1, name: "Seal yourself in and finish what you started." });
+    const text = container.textContent ?? "";
+    expect(text).toContain(`${THEMES.length} themes, each with its own accent and second color`);
+    expect(text).not.toMatch(/Thirteen|Home suggests/);
+    expect(text).toContain("Today suggests it when it starts");
+    expect(text).toContain("A weekly recap, off by default; turn it on in Setup › Goals.");
+    expect(text).toContain("App Guard");
+    expect(text).not.toContain(" Â· ");
+    // The same nine screenshots as before.
+    expect(container.querySelectorAll("img.shot")).toHaveLength(9);
+  });
+
+  it("swaps pages inside one frame: the bar stays, the page changes", async () => {
+    history.replaceState(null, "", "/");
+    render(<App />);
+    const bar = await screen.findByRole("banner");
+    await act(async () => {
+      fireEvent.click(within(bar).getByRole("link", { name: "Docs" }));
+    });
+    expect(await screen.findByRole("heading", { level: 1, name: "How Sanctum works." }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBe(bar);
+    expect(within(bar).getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "page");
   });
 });

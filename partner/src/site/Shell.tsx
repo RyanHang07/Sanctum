@@ -1,13 +1,15 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { A, usePath } from "./nav";
 import { DOWNLOAD, REPO } from "./releases";
 import { useTheme } from "./theme";
+import { useGrow, useSlidingIndicator, useSwap } from "./motion";
 
 // The site's frame (v0.2): a top bar (Docs, Changelog, Partners, Download, light/dark) over
 // every page, and a footer with the legal links. On a phone the links fold into a menu.
 // Redesign (v0.4, S8): when the page follows a Sanctum theme (site/theme.ts), the light/dark
-// switch steps aside and the footer says which theme it is, with its accent and second colour.
-// The partner pages (narrow) keep the footer to Privacy and GitHub: one decision per page.
+// switch steps aside. The partner pages (narrow) keep the footer to Privacy and GitHub: one
+// decision per page. The frame stays put while pages swap inside it (site/motion.ts): the old
+// page fades out, a beat, then the new one rises in, as the app's screens do.
 
 const LINKS = [
   { href: "/docs", label: "Docs" },
@@ -42,12 +44,35 @@ function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => void }) {
   );
 }
 
-export function Shell({ children, wide = true }: { children: ReactNode; wide?: boolean }) {
+interface View {
+  node: ReactNode;
+  wide: boolean;
+}
+
+/**
+ * The frame around every site page. `page` names what's inside: a new name swaps the content
+ * (the old page stays drawn while it fades out); the same name updates it in place.
+ */
+export function Shell({ children, wide = true, page = "" }: { children: ReactNode; wide?: boolean; page?: string }) {
   const path = usePath();
   const { dark, toggle, app } = useTheme();
   const [menu, setMenu] = useState(false);
   useEffect(() => setMenu(false), [path]);
   const here = (href: string) => path === href || path.startsWith(`${href}/`) || (href === "/partner" && /^\/(approve|invite)\//.test(path));
+
+  // The page being shown trails `page` until the old one has faded out.
+  const views = useRef(new Map<string, View>());
+  views.current.set(page, { node: children, wide });
+  const { ref, shown } = useSwap(page);
+  for (const k of [...views.current.keys()]) if (k !== page && k !== shown) views.current.delete(k);
+  const view = views.current.get(shown) ?? { node: children, wide };
+
+  const links = useRef<HTMLElement>(null);
+  const indicator = useRef<HTMLSpanElement>(null);
+  const active = LINKS.find((l) => here(l.href))?.href ?? null;
+  useSlidingIndicator(links, indicator, active, String(menu));
+  useGrow(links, menu);
+
   return (
     <div className="site">
       <header className="site-bar">
@@ -56,13 +81,14 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
             <Mark size={20} />
             <span>Sanctum</span>
           </A>
-          <nav className={`site-links ${menu ? "open" : ""}`} aria-label="Site">
+          <nav ref={links} className={`site-links ${menu ? "open" : ""}`} aria-label="Site">
+            <span ref={indicator} className="site-links-indicator" aria-hidden="true" />
             {LINKS.map((l) => (
-              <A key={l.href} href={l.href} aria-current={here(l.href) ? "page" : undefined}>
+              <A key={l.href} href={l.href} data-indicator-item={l.href} data-rise="" aria-current={here(l.href) ? "page" : undefined}>
                 {l.label}
               </A>
             ))}
-            <a href={REPO} className="site-github">
+            <a href={REPO} className="site-github" data-rise="">
               GitHub
             </a>
           </nav>
@@ -78,7 +104,9 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
           </button>
         </div>
       </header>
-      <div className={wide ? "site-main" : "site-main narrow"}>{children}</div>
+      <div ref={ref} className={view.wide ? "site-main" : "site-main narrow"}>
+        <Fragment key={shown}>{view.node}</Fragment>
+      </div>
       <footer className="site-footer">
         <div className="site-footer-inner">
           <span className="site-logo small-logo">
@@ -87,14 +115,14 @@ export function Shell({ children, wide = true }: { children: ReactNode; wide?: b
           </span>
           <span className="muted">Free and open source, MIT.</span>
           <span className="grow" />
-          {wide ? (
+          {view.wide ? (
             <>
               <A href="/docs">Docs</A>
               <A href="/changelog">Changelog</A>
             </>
           ) : null}
           <A href="/privacy">Privacy</A>
-          {wide ? (
+          {view.wide ? (
             <>
               <A href="/terms">Terms</A>
               <A href="/legal">Legal</A>
