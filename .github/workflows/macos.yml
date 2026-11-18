@@ -19,11 +19,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            partner/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
+      # The root tests render the partner site, which needs its own dependencies (supabase-js).
+      - run: npm ci --prefix partner
       # Compiler errors become annotations, readable without signing in to GitHub.
       - name: Check
         shell: bash

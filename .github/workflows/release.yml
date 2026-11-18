@@ -20,11 +20,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            partner/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
+      # The root tests render the partner site, which needs its own dependencies (supabase-js).
+      - run: npm ci --prefix partner
       - run: npm test
       # The release notes are this version's CHANGELOG.md section (the site's /changelog reads
       # them); tagging a version without a section stops here.
