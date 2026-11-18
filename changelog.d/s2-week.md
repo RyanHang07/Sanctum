@@ -1,9 +1,0 @@
-- **Each day in Week says how it went.** A kept day carries a small dot in the theme's second colour, today is outlined in the accent with your minutes so far against the goal and a fill bar, a missed day gets a hollow ring, and future days stay plain. Past days show their focused minutes, or "Nothing recorded" before your history starts. There is no glow or backdrop behind any of it.
-- **What slipped stays visible.** Done items are struck through in muted text. Items left undone on a past day keep their empty box and dim, with "Not done" underneath. Future items are outlined rather than raised, since they're only planned.
-- **Ticking draws the check.** The box fills with the accent and the check draws itself, instead of popping and glowing.
-- **Routine folds open smoothly.** A day's routines slide open under their row and fade in, and close a little faster. Closed routines can't be tabbed into. Pending under the week opens the same way.
-- **No more coloured edges on cards.** Week's routine, focus and event cards lose their left-edge stripes (the routine and event dialogs too). An event is the card without a box, and a focus block shows its profile's name under the title.
-- **The view switch is one segmented control,** like the rest of the app: Week, List, Month and Routines as a pressed-button group.
-- **Stepping weeks shows the direction.** Previous and next week slide the days 16 px the way you went and settle. With Windows' animations off, they just change.
-- **The Key button is gone.** The day marks and cards explain themselves.
-- **Labels in the routine, item and event dialogs are sentence case,** and Month's weekday heads too. Month's kept days use the second-colour dot.
