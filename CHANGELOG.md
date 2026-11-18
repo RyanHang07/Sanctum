@@ -1,33 +1,72 @@
 # Changelog
 
-## v0.4.0 (in progress)
+## v0.4.0 (2026-11-18)
 
-**The redesign, Wave 0: foundations.** The screens themselves move over in Wave 1; until then they pick up the new colours, type and motion through the shared parts below.
+**The redesign.** Sanctum is flat and quieter: every screen sits on the theme's plain page color, headlines are one plain sentence, labels are sentence case, and motion is short and purposeful. Setup is reorganized, the seal is harder to slip, and a long list of stability fixes keeps the app from getting stuck.
 
-- **Every theme has a second colour.** A new `second` slot (with `second-text`, `second-tint` and `second-line`) carries decoration only: kept marks, the goal tick, the active sidebar icon. It defaults to the theme's event colour; the 23 themes where that pair failed get a hand-picked colour from the theme's own palette (Nord's frost, Tokyonight's blue, Sanctum Light's amber).
-- **Orng and Lucent Orng look like themselves.** Orange is now the accent and the theme's cyan the second colour, instead of a near-white accent with an orange decoration. Their broken colour is redder, so a broken seal no longer looks sealed.
-- **Catppuccin Latte replaces two mislabelled themes.** Catppuccin Frappe Light and Macchiato Light were copies of the dark flavours. A saved choice of either opens Latte.
-- **Muted text and input edges read in every theme.** Muted text reaches 4.5:1 on every surface it sits on (Cobalt2 Light and Night Owl fell short on raised cards, the sidebar and the accent tint), and input borders reach 3:1. The theme test now checks all of this for every theme.
-- **Headlines are one plain sentence.** Every headline is set in Schibsted Grotesk, bold, in one colour, with no italic payoff and no question: "Your word is the plan.", "Head down, the noise can wait.", "Design review until 10:39 AM.". All of them come from `src/pages/headlines.ts`, and the extension's sealed page uses the same lines.
-- **Pause mode states, it doesn't ask.** "Still want youtube.com?" becomes "youtube.com can wait five seconds." on the extension's page.
-- **Schibsted Grotesk is bundled** in the app and the extension (Latin only), so headlines render the same offline. Instrument Serif is no longer loaded anywhere.
-- **Labels are sentence case.** A shared `.label` style (Geist 500, 12px, muted) replaces all-caps labels as each screen moves to it. The headline and label rules are updated in design/README.md and CLAUDE.md.
-- **One animation engine.** Motion now runs on GSAP instead of Framer Motion. Durations and curves come from the same tokens as the CSS (now with state, glide, moment, drain and breathe durations and the glide, settle, seat, exit and drift eases), so a tween and a transition with the same name move alike. Rows still glide when a list reorders, and totals still roll, with no change to the screens.
-- **Numbers roll like a counter.** A shared odometer turns only the digits that changed, rightmost first, and rolls the whole figure over when its shape changes ("59m" to "1h"). Every moment jumps to its end under Windows' "reduce motion" and while the window is hidden, so nothing plays to an empty screen.
-- **A plain background.** Every screen sits on the theme's flat page colour, with no moving light or gradient behind it. The state (open, sealed, an event) shows in the controls, not the backdrop. The held page is a solid field of the accent until its Wave 1 rework. The WebGL aurora built for this release, and the mesh before it, are gone.
-- **It costs nothing when it can't be seen.** The light stops while the window is minimized or in the tray, holds a still frame under Windows' "reduce motion", and on a laptop running on battery it holds still while open and moves at half the frame rate while sealed. Where the web view has no WebGL, a still gradient in the same colours stands in. The keyhole's breathe now pauses with the window too.
-- **The held page uses the same light,** from the theme instead of the fixed held colours, and a broken seal opens on the held light before it drains to grey.
-- **The sidebar shows where you are, and moves with you.** The active row's background is one indicator that glides to the screen you pick (the Ctrl shortcuts too), in the sidebar and the rail alike, and the active icon takes the theme's second colour. With Windows' animations off, it jumps.
-- **Screens swap without a fade.** The content changes almost at once, with a short opacity ramp and nothing rising from below. Changing state (open, sealed, an event) no longer blurs and lifts the page.
-- **One focus ring everywhere.** Keyboard focus draws the same accent ring on every button, link, tab and switch, and text fields get an accent border with a softer ring, in every theme. An old `outline-none` can no longer hide where focus is.
-- **Segmented controls say what they are.** The shared `Segmented` control is a tablist with arrow keys only when it switches panels, and a pressed-button group when it filters. Fields share one box with the 3:1 input edge.
-- **Command bar groups read in sentence case.** "Go to", "Focus" and the rest use the shared label style instead of small capitals.
+**Highlights**
 
-**Also in this release**
+- **Today has a ruler of the day.** Your focused minutes run along a ruler under the headline, with your goal as one tall tick in the theme's second color. Reaching the goal keeps the day calmly: no sound, no glow, no confetti.
+- **The Today card holds still.** Open, Sealed and In event share one top slot, so the row of controls never jumps. Entering focus draws a thin seal line across the card while the controls fade into place.
+- **Setup is regrouped** into Focus, Protection, Tracking and App, in one column that is the same width on every screen. Connections open on a single status line and one next step.
+- **The seal holds under pressure.** Moving the clock, closing the app, going offline or a full disk can no longer end a seal early or leave it stuck on.
+- **Every theme has a second color,** used only for marks like kept days and the goal tick, and every theme was audited in light and dark for readable text and controls.
 
-- **The extension's toolbar icon shows the mark again.** Theming it painted every pixel one colour, which left a blank square in your accent (seen in Comet). Now the tile takes the accent and the torii stays readable on it.
-- **The extension's mark follows your theme.** The popup and the blocked page draw the mark inline, so the keyhole takes your theme's accent (Aura's coral, not always cobalt).
-- **The collapsed sidebar stays still.** The version number no longer slides out on hover and pushes the expand button aside. It shows only when the sidebar is expanded.
+**Today and Week**
+
+- A fixed top slot shows the next focus block, the task you linked, or the empty-schedule hint. With nothing scheduled, it says one short line for the day, and once your goal is kept it suggests a break or another block.
+- Sealed and In event show only what the controls below don't: when the seal ends, apps sealed, attempts blocked, the event's time range.
+- Next up, under Today's list, shows the next timed item with a live countdown.
+- Profile and Length are keyboard pickers; End early is a small outlined button; time left counts down in whole minutes.
+- The days strip, Week and the journal mark kept days with a second-color dot, missed days with a hollow ring and today in the accent.
+- Week's view switch, Stats' tabs and Trackers' ranges slide a highlight quickly between options. Month view days outside the month stay readable.
+- Pending opens by growing, then its rows cascade in. Park a thought is no longer a field on the sealed card; Ctrl Alt P still parks one for after the seal.
+
+**Stats and Trackers**
+
+- Stats draws the week on a ruler with your daily goal as a dashed second-color line. Bars glide when the figures change.
+- Tracker charts sit on rulers, mark days at goal, and say how many days were at goal.
+- The weekly recap is off by default (Setup › Goals). When on, it shows last week as a strip of bars, one per day, with the best day marked.
+- The daily check-in and the weekly recap share one dialog size.
+
+**Setup**
+
+- Profiles open inside Setup with a back button and the same animation as the other sections.
+- Distractions lists what's blocked and when; suggestions can be dismissed and come back after a few days or when your time on a site jumps.
+- Activity groups apps and sites into Productive, Neutral and Distracting, with defaults folded away, a Block button on distracting rows and drag or keyboard moves between groups.
+- The old General section is now Goals, Sound and Alerts, Behavior and Your Data. Start over and Delete account sit together in a Danger Zone at the end.
+- App Guard (formerly "Sanctum stays open") flags a guard left over from an older version and shows its last error.
+- Appearance lists only the themes for the mode Windows is in when you follow Windows; the command bar's theme search follows the same rule.
+
+**Journal**
+
+- First run is one screen: lock your journal (optional), then start writing. New journals offer a starter set of prompts, and "Change prompts" sits on the "Try" line.
+- Look back at older pages from a calendar, search them, and see "on this day" from earlier years. Export the journal as Markdown or JSON.
+- Journal settings is one dialog with prompts and the lock.
+
+**Protection and the seal**
+
+- The guard never rewrites your hosts file after a failed read, keeps every other line exactly as it was, and replaces the file in one step.
+- A seal the app can no longer end is let go 15 minutes after its planned end, and the guard stops relaunching Sanctum after five failed tries.
+- Setting the clock forward, before or after closing Sanctum, can't end a seal early or skip End early's waits; it's recorded as tampering.
+- Offline or signed out, a linked partner still means the five-minute wait at level 3. Signing out is refused while sealed.
+- A double click on Enter focus starts one session, and a crash in a background task no longer stops the seal.
+- The guard's folder is locked down so other users can't plant files that would run as SYSTEM.
+
+**Reliability**
+
+- An error on one screen no longer blanks the window: the sidebar stays, with a way back and, while sealed, End early.
+- Start over and Restore keep your data if anything goes wrong, and the database is backed up before every update.
+- Settings that fail to save go back to what they were and say so. Journal pages that fail to load show an error instead of an empty page you could type over.
+- The day rolls over at the right hour on daylight-saving days, and the tray follows your daily reset time.
+- Blocked attempts, tamper events and unlock attempts older than 90 days are pruned; the three newest backups of each kind are kept.
+
+**Look and accessibility**
+
+- A flat look with no gradients, glows or blur; Schibsted Grotesk headlines bundled for offline use; one focus ring everywhere.
+- Text that must be read is never in the faintest grey, selected chips have a clear border, checkboxes are one 16px design with a 24px click area, and nothing is smaller than 11px.
+- Dialogs take focus, keep it inside and give it back; Setup's list works with the arrow keys; the sidebar and notes fold buttons show which way they'll go.
+- Spelling is US English throughout.
 
 ## v0.3.3 (2026-11-13)
 

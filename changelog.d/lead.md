@@ -1,9 +1,0 @@
-- **The weekly recap is off by default.** Turn it on in Setup › General › Weekly recap. With it off, the partner's weekly summary still goes out as before.
-- **Today's ruler drops the "time left" figure.** The gap between the needle and the goal tick already shows it; screen readers still hear it.
-- **Next up replaces Focus today.** The bar under Today's list shows the next timed thing on today's agenda (not the block the focus card already suggests) with a live countdown in the accent. The ruler above already measures the day.
-- **Screens rise in again,** a short fade up as you move between them, and Pending's rows cascade in with the same motion when you open it.
-- **Distractions stacks on narrow windows,** so site and link names no longer squeeze to a letter.
-- **Setup › Activity:** the two boxes are the same height, the rules list scrolls inside its box, and the settings box is called Tracking.
-- **The notes list folds away** with the panel button by the Notes title, and stays the way you left it.
-- **The window and taskbar icon's keyhole follows the theme's accent,** as the tray icon's already did.
-- **The partner page's footer no longer names your theme.**
