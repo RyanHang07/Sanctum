@@ -14,14 +14,16 @@ Today, Notes, and the Journal stay usable. You can check off tasks and write. Se
 
 ## Idle
 
-After 3 minutes without input (you can change it), the timer pauses and the end moves later. A 60-minute seal is 60 minutes of work.
+After 3 minutes without input (change it in **Setup › Activity › Count you as away after**), the timer pauses and the end moves later. A 60-minute seal is 60 minutes of work.
 
 ## Restarts
 
-Sanctum saves the seal every few seconds and picks it up where it left off. Being gone for more than a minute mid-seal, because the PC went off or Sanctum was closed, breaks the seal and is logged. See [Protection and tamper](/docs/protection).
+Sanctum saves the seal every few seconds and picks it up where it left off. Being gone for more than a minute mid-seal, because the PC went off or Sanctum was closed, breaks the seal and is logged. Setting the clock forward, before or after closing Sanctum, can't end a seal early. See [Protection and tamper](/docs/protection).
+
+If the disk is full or read-only when a seal ends, the seal still ends: Sanctum says "The seal ended, but it wasn't saved." and keeps trying to save it.
 
 ## Your streak
 
 A day is **kept** when focus reaches your daily goal and no seal broke. Rest days you choose never break the streak.
 
-**Never miss twice:** one missed day holds the streak where it was, and the streak chip says "keep it today". A second missed day in a row resets it. A broken seal always does. Missing once doesn't slow a habit down; giving up after a reset does.
+**Never miss twice:** one missed day holds the streak where it was, and the streak on Today says "keep it today". A second missed day in a row resets it. A broken seal always does. Missing once doesn't slow a habit down; giving up after a reset does.

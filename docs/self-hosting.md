@@ -87,7 +87,7 @@ They're generated from `supabase/functions/_shared/email.ts`; run `npm run email
 
 ### 5. Public pages
 
-The partner page also serves `/about`, `/privacy`, and `/terms`, the home page, privacy policy, and terms of service links Google's OAuth consent screen asks for. If you run your own copy, change the operator and contact email in `partner/src/Legal.tsx`.
+The partner page is also Sanctum's public site: the home page (`/`; the old `/about` address still works), `/privacy`, and `/terms` are the home page, privacy policy, and terms of service links Google's OAuth consent screen asks for. If you run your own copy, change `OPERATOR` and `CONTACT` in `partner/src/Legal.tsx`.
 
 ### 6. Email (optional)
 
@@ -98,6 +98,8 @@ Partner notifications (a broken seal, an unlock request, an emergency unlock) ar
 - `PARTNER_APP_URL`: your deployed partner page, linked from emails.
 
 ## Official releases
+
+The workflows (`ci.yml`, `macos.yml`, `release.yml` in `.github/workflows/`) install the app's dependencies with `npm ci` and the partner page's with `npm ci --prefix partner`, since the app's tests also cover the partner site. Do the same locally before `npm test`.
 
 The release workflow (`.github/workflows/release.yml`) reads the same values from the GitHub repo's settings:
 

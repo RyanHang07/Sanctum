@@ -6,12 +6,12 @@ The extension blocks flagged sites, links, and title keywords while you're seale
 
 It ships with Sanctum and loads unpacked, so there's no store listing to trust.
 
-1. Open **Setup › Browser** in Sanctum and copy the folder it shows.
+1. Open **Setup › Browser Extension** in Sanctum and choose **Copy path** (or **Open folder**). If a browser is already connected, **Load in another browser** shows the steps again.
 2. In your browser, open `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
 3. Turn on **Developer mode**, choose **Load unpacked**, and pick that folder.
 4. Open the extension's **Details** and turn on **Allow in Incognito**.
 
-Setup shows each browser connect live once it's loaded.
+Setup shows each browser connect live once it's loaded, and one line sums them up, like "Private windows in Chrome aren't covered."
 
 ## What it sees
 

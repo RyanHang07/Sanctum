@@ -12,10 +12,10 @@ Sanctum isn't code-signed yet, so SmartScreen may stop the installer the first t
 
 ## Updates
 
-Sanctum checks for a new version a little after it starts and every 6 hours, and downloads it in the background. When it's ready, a small note says so: **Restart to update** installs it in a few seconds. During a seal it waits until the seal ends. Setup › General › About shows your version and can check now. Updates are signed, and Sanctum refuses one that isn't.
+Sanctum checks for a new version a little after it starts and every 6 hours, and downloads it in the background. When it's ready, a small note says so: **Restart to update** installs it in a few seconds. During a seal it waits until the seal ends. **Setup › Behavior › About** shows your version and has **Check for updates**. Updates are signed, and Sanctum refuses one that isn't. Before an update changes your data, Sanctum backs the database up to **Backups before updates** in its data folder, and keeps the three newest.
 
 ## Uninstall
 
-Use Windows' **Settings › Apps**. Uninstalling during a seal counts as tampering, so end the seal first. If you turned on Protection, turn it off in Setup first so the Sanctum Guard service is removed too.
+Use Windows' **Settings › Apps**. Uninstalling during a seal counts as tampering, so end the seal first. If you turned on Protection, turn it off in **Setup › App Guard** first so the Sanctum Guard service is removed too.
 
 Next: [Set up Sanctum](/docs/first-setup).

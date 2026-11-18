@@ -4,7 +4,7 @@
 
 # Sanctum
 
-**Seal yourself in.** *Finish what you started.*
+**Seal yourself in, and finish what you started.**
 
 A focus app for Windows that actually holds. Pick what you're working on, enter focus, and Sanctum opens what the work needs, closes what distracts you, and keeps the door shut until the time is up. Getting out early takes real effort, or a friend's approval.
 
@@ -37,7 +37,7 @@ It's free, open source, and local first: your activity, history, trackers, and n
 
 ### Focus: Open, Sealed, and In event
 
-Pick a profile and a length on the wheels and press **Enter focus**. Sanctum closes the apps you flagged, opens the ones the profile needs, and the whole app turns cobalt. A meeting on your calendar puts it In event, in coral, and can queue focus for when the meeting ends.
+Pick a profile and a length and press **Enter focus**. Sanctum closes the apps you flagged, opens the ones the profile needs, and draws a thin seal line across the Today card while the controls settle into place. Your focused minutes run along a ruler under the headline, with your daily goal as one tall tick. A meeting on your calendar puts it In event, and can queue focus for when the meeting ends.
 
 | Open | Sealed |
 |---|---|
@@ -47,7 +47,7 @@ Pick a profile and a length on the wheels and press **Enter focus**. Sanctum clo
 |---|---|
 | <img src="docs/screenshots/home-event.jpg" alt="Home, In event: a calendar meeting in coral, with Queue focus at its end" /> | <img src="docs/screenshots/held.jpg" alt="The Sanctum held page after a completed session" /> |
 
-When a session ends, the **Sanctum held** page shows what you kept: minutes in focus, attempts blocked, and today against your goal. Link a session to a task first, and it offers to check it off.
+When a session ends, the **Sanctum held** page shows what you kept in one line: minutes in focus and attempts blocked. Add a note on how it went if you like, then Done or Enter again. Link a session to a task first, and it offers to check it off.
 
 ### Caught, and sent back
 
@@ -75,17 +75,17 @@ Routines and one-time tasks, synced two ways with Google Calendar. Tag a block w
 
 ### See where the time went
 
-Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting. Tabs go deeper: **Sessions** keeps every session for good, with what was blocked and how it ended (export it as CSV); **Activity** shows time by app and by site, and one click calls any of them productive or distracting, everywhere or in one profile; **Day** lays out a day as a timeline under its focus sessions. Each Monday, a short card says how last week went.
+Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting. Tabs go deeper: **Sessions** keeps every session for good, with what was blocked and how it ended (export it as CSV); **Activity** shows time by app and by site, and one click calls any of them productive or distracting, everywhere or in one profile; **Day** lays out a day as a timeline under its focus sessions. Turn on the weekly recap (Setup › Goals; off by default) and each Monday a short dialog shows last week as a strip of bars, one per day.
 
 <img src="docs/screenshots/stats.png" alt="Stats: streaks, daily focus against the goal, what tempted you, and where time went" />
 
 ### Make it yours
 
-Thirteen themes, from Sanctum Dark and Light to Dracula, Nord, Tokyo Night, and Catppuccin. Every window follows, along with the title bar, the browser extension's pages, and the tray icon, and **Follow Windows** switches between a dark and a light pick with the system. [Try them on the site](https://sanctum-desktop.vercel.app/#themes).
+75 themes, from Sanctum Dark and Light to Dracula, Nord, Tokyonight, and Catppuccin, each in dark and light. Every theme has a second color for marks like kept days and the goal tick. Every window follows, along with the title bar, the browser extension's pages, and the tray icon, and **Follow Windows** switches between a dark and a light pick with the system. [Try them on the site](https://sanctum-desktop.vercel.app/#themes).
 
 ### Track anything, keep notes, and journal
 
-Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled check-ins. Notes are block documents: type `/` for headings, checklists, tables, callouts, toggles, and images, and `@` to link a task or a day. Share one as a live, end-to-end encrypted, read-only link that expires when you choose. The journal gives each day a page, with optional prompts and a lock (Windows Hello or a PIN).
+Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled check-ins. Notes are block documents: type `/` for headings, checklists, tables, callouts, toggles, and images, and `@` to link a task or a day. Share one as a live, end-to-end encrypted, read-only link that expires when you choose. The journal gives each day a page, with starter prompts you can change and an optional lock (Windows Hello or a PIN). Look back from a calendar, search old pages, and export it as Markdown or JSON.
 
 | Trackers | Notes |
 |---|---|
@@ -103,9 +103,9 @@ Invite a friend. When you ask to leave early, they get an email and answer from 
 
 ### Set it up once
 
-One Distractions list for apps, sites, links, and keywords; **quiet hours** that block it on a schedule; **Protection**, a Windows service that blocks sites in every browser and reopens Sanctum if it's closed; and the details: Do Not Disturb while sealed, sounds, export, and backups.
+Setup is grouped into Focus, Protection, Tracking, and App. One Distractions list for apps, sites, links, and keywords; **quiet hours** that block it on a schedule; **App Guard**, a Windows service that blocks sites in every browser and reopens Sanctum if it's closed; and the details: Do Not Disturb while sealed, sounds, export, and backups.
 
-| Distractions and quiet hours | Protection |
+| Distractions and quiet hours | App Guard |
 |---|---|
 | <img src="docs/screenshots/setup-distractions.png" alt="Setup, Distractions: apps, sites, and keywords, with quiet hours" /> | <img src="docs/screenshots/setup-protection.png" alt="Setup, Protection: the guard service" /> |
 
@@ -114,20 +114,21 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 ## Everything it does
 
 **Focus**
-- Profiles for each kind of work: the apps and links it opens, and a default length (30 to 120 minutes).
+- Profiles for each kind of work: the apps and links it opens, and a default length (15 minutes to 2 hours, in 15-minute steps).
 - One Distractions list of apps (including Microsoft Store apps), sites, links with allowed pages, and title keywords. Every seal blocks them.
 - Flagged apps close within a fraction of a second of starting. Keyword windows are minimized.
 - Idle pauses the countdown and pushes the end back, so the time you get is the time you focused.
 - Link a session to a task, and check it off when the seal holds.
 - Say what the seal is for and what you'll do when tempted ("stand up and stretch"); every catch reminds you.
-- Park a stray thought from any app with Ctrl Alt P: it's a task for later, out of your head.
-- At the end: did it get done, focus from 1 to 5, where you left off (shown next time), and an optional break with your distractions still closed.
+- Park a stray thought from any app with Ctrl Alt P while sealed: it's a task for later, out of your head.
+- At the end, if you want: did it get done, focus from 1 to 5, and where you left off (shown next time).
 - Windows Do Not Disturb while sealed; your setting comes back after.
 
 **Holding the seal**
 - Leaving early: a reason and a 5-minute wait, then retyping a paragraph, then (with a partner) their approval. One emergency unlock a day.
-- Protection (optional, one admin prompt): blocks flagged sites in the hosts file for every browser, reopens Sanctum within seconds if it's closed, and can close flagged apps run as administrator.
-- Tamper detection: changing the clock, stopping the guard, or turning off the extension mid-seal breaks the seal, and your partner hears about it.
+- App Guard (optional, one admin prompt): blocks flagged sites in the hosts file for every browser, reopens Sanctum within seconds if it's closed, and can close flagged apps run as administrator. It leaves the rest of your hosts file exactly as it was.
+- Tamper detection: changing the clock, stopping the guard, or turning off the extension mid-seal breaks the seal, and your partner hears about it. Setting the clock forward, before or after closing Sanctum, can't end a seal early or skip End early's waits.
+- Offline or signed out, a linked partner still means a wait at the last step; signing out waits until the seal ends.
 - Quiet hours: your Distractions list blocked on a schedule outside sessions, with a 15-minute pause that asks why.
 - Pause mode (optional): outside seals, flagged apps and sites ask "Still want it?" for five seconds before they open.
 - Never miss twice: one missed day holds the streak; two in a row reset it.
@@ -141,13 +142,13 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 
 **Review**
 - Stats: streaks, rest days, kept and broken days, what tempted you, and where the time went.
-- Every session kept, filtered and exported as CSV; time by app and site, reclassified in one click; a timeline of each day; and a Monday recap of last week, with two questions and the week's target.
+- Every session kept, filtered and exported as CSV; time by app and site, grouped into productive, neutral, and distracting; a timeline of each day; a weekly focus target; and an optional Monday recap of last week.
 - Suggestions from your own history: the length you finish, the hours you keep, and when temptation comes.
 - Trackers with charts and check-ins, block notes with encrypted sharing, and a journal.
-- Export everything as JSON or CSV, back up, and restore.
+- Export everything as JSON or CSV, back up, and restore. Sanctum also backs up its data before every update that changes it, and keeps the three newest safety copies.
 
 **Make it yours**
-- Thirteen themes, colours only, held to the same contrast standard; Follow Windows picks dark or light with the system.
+- 75 themes, colors only, held to the same contrast standard; Follow Windows picks dark or light with the system and lists only the themes for the mode you're in.
 - The theme reaches every window, the title bar, the extension's pages, and the tray icon (dark ink on a light taskbar).
 - Start with Windows, and updates in one click: Sanctum downloads them in the background and installs on **Restart to update**, never mid-seal.
 
@@ -170,14 +171,14 @@ One Distractions list for apps, sites, links, and keywords; **quiet hours** that
 
 ## Install
 
-1. Download `Sanctum_x.y.z_x64-setup.exe` from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
+1. Download `Sanctum_x.y.z_x64-setup.exe` (currently 0.4.0) from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 3. First-run setup walks you through profiles, your Distractions list, and a theme. After that Sanctum keeps itself up to date: it downloads new versions in the background, and **Restart to update** installs them.
 
 Then, in the app (the [docs](https://sanctum-desktop.vercel.app/docs) walk through each step):
 
-- **Browser extension** (Setup › Browser). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**. It updates along with Sanctum.
-- **Protection** (Setup › Protection). Turn it on with one admin approval. It installs the Sanctum Guard service.
+- **Browser extension** (Setup › Browser Extension). Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked**, and pick the folder Setup shows. Then open **Details** and turn on **Allow in Incognito**. It updates along with Sanctum.
+- **App Guard** (Setup › App Guard). Turn it on with one admin approval. It installs the Sanctum Guard service. After an update, Setup says if the guard is from an older version; turning it on again updates it.
 - **Google Calendar and a partner** (Setup › Calendar, Setup › Partner) are optional.
 
 ## Keyboard
@@ -199,7 +200,7 @@ Sanctum is local first. Sessions, activity (which app and window is in front), t
 ## FAQ
 
 **Can't I just close it?**
-While you're sealed, closing the window sends Sanctum to the tray, and Quit is disabled. With Protection on, a Windows service reopens it within seconds if it's killed, the seal carries on, and the restart is logged.
+While you're sealed, closing the window sends Sanctum to the tray, and Quit is disabled. With App Guard on, a Windows service reopens it within seconds if it's killed, the seal carries on, and the restart is logged.
 
 **What if my PC restarts mid-session?**
 The seal resumes where it left off, but being gone for more than a minute breaks it and is logged, so plan restarts between seals.
@@ -242,7 +243,7 @@ Google Calendar sync and the account and partner features need your own keys. Wi
 
 ### Built with
 
-[Tauri 2](https://tauri.app) and Rust for the app, the blocker, and the guard service; React 19, TypeScript, Tailwind, and Zustand for the UI; SQLite on your PC; a Chromium MV3 extension with native messaging; and Supabase and Vercel for the optional partner features.
+[Tauri 2](https://tauri.app) and Rust for the app, the blocker, and the guard service; React 19, TypeScript, Tailwind 4, Zustand, GSAP for motion, and Tiptap for notes in the UI; Geist, Geist Mono, and Schibsted Grotesk, bundled for offline use; SQLite on your PC; a Chromium MV3 extension with native messaging; and Supabase and Vercel for the optional partner features.
 
 | Path | What |
 |---|---|
@@ -265,7 +266,7 @@ Ideas and votes welcome in [Issues](https://github.com/ryanhang07/sanctum/issues
 
 ## Contributing
 
-Issues and pull requests are welcome. For a bug, include what Setup › General › About › **Copy diagnostics** gives you. Keep changes in the voice and design of the app (see `design/README.md`), with tests. See the [CHANGELOG](CHANGELOG.md) for what's shipped.
+Issues and pull requests are welcome. For a bug, include what Setup › Behavior › About › **Copy diagnostics** gives you. Keep changes in the voice and design of the app (see `design/README.md`), with tests. See the [CHANGELOG](CHANGELOG.md) for what's shipped.
 
 ## License
 
