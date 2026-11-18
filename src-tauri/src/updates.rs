@@ -7,6 +7,7 @@
 //! 6 hours, downloads a new version in the background, and says it's ready; one click installs
 //! it and restarts. Never while sealed (the restart would drop enforcement for a moment).
 
+use crate::engine::Locked;
 use crate::{db, Shared};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -47,7 +48,7 @@ pub struct Ready {
 
 impl Ready {
     fn info(&self) -> Option<UpdateInfo> {
-        self.inner.lock().unwrap().as_ref().map(|(u, _)| UpdateInfo { version: u.version.clone(), notes: u.body.clone() })
+        self.inner.locked().as_ref().map(|(u, _)| UpdateInfo { version: u.version.clone(), notes: u.body.clone() })
     }
 }
 
@@ -61,7 +62,7 @@ async fn fetch(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         return Ok(ready.info());
     }
     let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| format!("The update didn't download: {e}"))?;
-    *ready.inner.lock().unwrap() = Some((update, bytes));
+    *ready.inner.locked() = Some((update, bytes));
     let info = ready.info();
     if let Some(i) = &info {
         let _ = app.emit(EV_READY, i);
@@ -89,16 +90,51 @@ pub fn update_ready(shared: State<Shared>) -> Option<UpdateInfo> {
     shared.update.info()
 }
 
+const UPDATE_WAITS: &str = "Updates wait until the seal ends.";
+
+/// Checked right before installing, and held through it (2026-11-17): the check used to be at
+/// the start, before a download, so a seal started meanwhile was cut by the restart.
+fn install_gate(engine: &crate::engine::Engine, sealed: bool) -> Result<crate::engine::Claim<'_>, String> {
+    let claim = engine.begin_start().map_err(|_| UPDATE_WAITS.to_string())?;
+    if sealed || engine.is_active() {
+        return Err(UPDATE_WAITS.into());
+    }
+    Ok(claim)
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::*;
+
+    #[test]
+    fn an_update_never_installs_while_a_seal_starts_or_runs() {
+        let engine = crate::engine::Engine::new();
+        assert!(install_gate(&engine, true).is_err(), "sealed");
+        // A start is underway: refused.
+        let start = engine.begin_start().unwrap();
+        assert_eq!(install_gate(&engine, false).err().as_deref(), Some(UPDATE_WAITS));
+        drop(start);
+        // Idle: allowed, and no seal can start until the install is done.
+        let held = install_gate(&engine, false).unwrap();
+        assert!(engine.begin_start().is_err());
+        drop(held);
+        assert!(engine.begin_start().is_ok());
+    }
+}
+
 /// The one click: installs what's downloaded (or downloads it now) and restarts.
 #[tauri::command]
 pub async fn update_apply(app: AppHandle) -> Result<(), String> {
     if app.state::<Shared>().sealed() {
-        return Err("Updates wait until the seal ends.".into());
+        return Err(UPDATE_WAITS.into());
     }
     if app.state::<Shared>().update.info().is_none() && fetch(&app).await?.is_none() {
         return Err("Sanctum is up to date.".into());
     }
-    let taken = app.state::<Shared>().update.inner.lock().unwrap().take();
+    let shared = app.state::<Shared>();
+    // No seal may start between this check and the restart.
+    let _claim = install_gate(&shared.engine, shared.sealed())?;
+    let taken = shared.update.inner.locked().take();
     let Some((update, bytes)) = taken else { return Err("Sanctum is up to date.".into()) };
     update.install(bytes).map_err(|e| format!("The update didn't install: {e}"))?;
     app.restart();
@@ -115,12 +151,16 @@ pub async fn update_check(app: AppHandle) -> Result<Option<UpdateInfo>, String> 
 #[tauri::command]
 pub async fn update_install(app: AppHandle) -> Result<(), String> {
     if app.state::<Shared>().sealed() {
-        return Err("Updates wait until the seal ends.".into());
+        return Err(UPDATE_WAITS.into());
     }
     let Some(update) = app.updater().map_err(friendly)?.check().await.map_err(friendly)? else {
         return Err("Sanctum is up to date.".into());
     };
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("The update didn't install: {e}"))?;
+    // Downloaded first, then checked again and held through the install (2026-11-17).
+    let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| format!("The update didn't download: {e}"))?;
+    let shared = app.state::<Shared>();
+    let _claim = install_gate(&shared.engine, shared.sealed())?;
+    update.install(bytes).map_err(|e| format!("The update didn't install: {e}"))?;
     app.restart();
 }
 
@@ -197,7 +237,8 @@ pub fn diagnostics(app: AppHandle, shared: State<Shared>) -> Result<String, Stri
         format!("Sanctum {}{}", env!("CARGO_PKG_VERSION"), if cfg!(debug_assertions) { " (dev build)" } else { "" }),
         format!("Windows: {}", sysinfo::System::long_os_version().unwrap_or_default()),
     ];
-    if let Ok(conn) = shared.db.lock() {
+    {
+        let conn = shared.db.locked();
         if let Ok(s) = db::status(&conn) {
             out.push(format!("Database: schema {} of {}, {}", s.version, db::MIGRATIONS.len(), if s.ready { "ready" } else { "NOT ready" }));
         }

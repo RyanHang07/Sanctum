@@ -32,7 +32,7 @@
   :root {
     color-scheme: dark;
   }
-  /* Switching themes swaps every colour at once, not through each control's colour fade. */
+  /* Switching themes swaps every color at once, not through each control's color fade. */
   .theme-switching,
   .theme-switching *,
   .theme-switching *::before,
@@ -83,7 +83,7 @@
 }
 
 /* Moments only (Home headline, sealed dialogs, held dialog, onboarding titles). Mirrors design/tokens.css.
-   A headline is one plain sentence in Schibsted Grotesk: one weight, one colour, no italic payoff. */
+   A headline is one plain sentence in Schibsted Grotesk: one weight, one color, no italic payoff. */
 @layer components {
   .headline {
     @apply font-headline font-bold text-text;
@@ -175,18 +175,24 @@ html[data-window-hidden] .mark-breathe { animation-play-state: paused; }
   .note-doc ul[data-type="taskList"] { list-style: none; padding-left: 0; }
   .note-doc ul[data-type="taskList"] ul[data-type="taskList"] { padding-left: 1.4em; }
   .note-doc ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 10px; }
-  .note-doc ul[data-type="taskList"] > li > label { flex: none; margin-top: 4px; user-select: none; }
+  .note-doc ul[data-type="taskList"] > li > label { flex: none; margin-top: 3px; user-select: none; }
   .note-doc ul[data-type="taskList"] > li > div { flex: 1; min-width: 0; }
   .note-doc ul[data-type="taskList"] > li > div > * + * { margin-top: 0.35em; }
+  /* Matches the app's one checkbox (Check in controls.tsx): 16px, a check-line edge, the sealed
+     fill and the check-pop when ticked. */
   .note-doc ul[data-type="taskList"] > li input[type="checkbox"] {
-    appearance: none; margin: 0; display: grid; place-content: center; width: 15px; height: 15px; cursor: pointer;
+    appearance: none; margin: 0; display: grid; place-content: center; width: 16px; height: 16px; box-sizing: border-box; cursor: pointer;
     border: 1.5px solid theme(colors.check-line); border-radius: 4px; background: transparent;
     transition: background-color 120ms, border-color 120ms;
   }
-  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:hover { border-color: theme(colors.sealed.DEFAULT); }
-  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked { background: theme(colors.sealed.DEFAULT); border-color: theme(colors.sealed.DEFAULT); }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:hover { border-color: theme(colors.muted); }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked {
+    background: theme(colors.sealed.DEFAULT); border: 1px solid theme(colors.sealed.DEFAULT);
+    animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked:hover { border-color: theme(colors.sealed.DEFAULT); filter: brightness(1.1); }
   .note-doc ul[data-type="taskList"] > li input[type="checkbox"]:checked::after {
-    content: ""; width: 8px; height: 5px; margin-top: -2px; border-left: 2px solid theme(colors.sealed.on); border-bottom: 2px solid theme(colors.sealed.on); transform: rotate(-45deg);
+    content: ""; width: 7px; height: 4px; margin-top: -2px; border-left: 1.8px solid theme(colors.sealed.on); border-bottom: 1.8px solid theme(colors.sealed.on); transform: rotate(-45deg);
   }
   .note-doc li[data-checked="true"] > div { color: theme(colors.faint); text-decoration: line-through; }
   .note-doc blockquote { margin: 0; padding-left: 14px; border-left: 2px solid theme(colors.line-input); color: theme(colors.text-2); }
@@ -221,7 +227,7 @@ html[data-window-hidden] .mark-breathe { animation-play-state: paused; }
   .note-doc summary { list-style: none; font-weight: 500; }
   /* The empty-line hint. */
   .note-doc p.is-editor-empty:first-child::before,
-  .note-doc .is-empty::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: theme(colors.faint); }
+  .note-doc .is-empty::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: theme(colors.muted); }
   /* Images: never wider than the note, softly rounded, a cobalt ring and corner handles when picked. */
   .note-doc img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid theme(colors.line); }
   .note-doc [data-resize-wrapper] { max-width: 100%; }
@@ -234,18 +240,9 @@ html[data-window-hidden] .mark-breathe { animation-play-state: paused; }
   .note-doc .ProseMirror-gapcursor::after { border-top-color: theme(colors.text); }
 }
 
-/* Motion (v0.2): a soft glow as a box is checked, and a shimmer across a counter's bar when it
-   reaches its goal. Both are skipped with reduced motion (the global rule above). */
-@keyframes check-glow { from { box-shadow: 0 0 0 0 theme(colors.sealed.DEFAULT / 55%); } to { box-shadow: 0 0 0 7px theme(colors.sealed.DEFAULT / 0%); } }
-.check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1), check-glow 420ms cubic-bezier(0.2, 0, 0, 1); }
-@keyframes goal-shine { from { background-position: -120% 0; } to { background-position: 220% 0; } }
-.goal-shine { position: relative; }
-.goal-shine::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, transparent 0%, theme(colors.sealed.text-hover / 85%) 50%, transparent 100%);
-  background-size: 50% 100%; background-repeat: no-repeat;
-  animation: goal-shine 900ms cubic-bezier(0.2, 0, 0, 1) both;
-}
+/* Motion (v0.2): a box pops as it's checked, skipped with reduced motion (the global rule above).
+   The glow ring and the goal shimmer went with the flat look (theme audit, 2026-11-17). */
+.check-pop[aria-checked="true"] { animation: check-pop 180ms cubic-bezier(0.2, 0, 0, 1); }
 
 /* ---- Focus ring (redesign F5, 2026-11-15; design critique finding 6) --------------------------
    One keyboard focus style for every control, in the accent token, so it reads on light and dark

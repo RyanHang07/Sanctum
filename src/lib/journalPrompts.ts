@@ -1,6 +1,7 @@
-// Journal prompts (v0.2): themes to pick from in the journal's setup, and the day's draw. A new
-// day starts with the prompts as small headings to write under; with a daily count set, each day
-// draws that many from everything picked, so the page doesn't read the same every day.
+// Journal prompts (v0.2): themes to pick from in the journal's setup, and the day's draw. Since
+// v0.5 a new page opens blank: one prompt from the picks is offered above it ("Try: ..."), and
+// using it puts it on the page as a small heading to write under. Pages saved before then keep
+// the prompts they started with.
 
 export interface Prompt {
   id: string;
@@ -105,11 +106,16 @@ export interface JournalSetup {
   done: boolean;
   /** Picked prompt ids, in the order they were picked. Empty: a blank page. */
   prompts: string[];
-  /** How many a day, drawn from the picks; 0 shows all of them every day. */
+  /** How many a day, drawn from the picks; 0 shows all of them every day. Kept for saved setups
+   *  and `promptsFor`; since v0.5 the page offers one prompt at a time from all the picks. */
   perDay: number;
 }
 
-export const DEFAULT_SETUP: JournalSetup = { done: false, prompts: [], perDay: 3 };
+/** A new journal offers one prompt from each theme (2026-11-17): first run no longer asks which,
+ *  so the page has a "Try" line from day one; Journal settings changes them. */
+export const STARTER_PROMPTS = ["prod-one-thing", "refl-well", "emo-feel", "grat-three", "focus-tempted"];
+
+export const DEFAULT_SETUP: JournalSetup = { done: false, prompts: STARTER_PROMPTS, perDay: 3 };
 
 /** A small stable hash, so a date always draws the same prompts. */
 function seedOf(s: string): number {
@@ -127,6 +133,17 @@ export function promptsFor(setup: JournalSetup, date: string): Prompt[] {
   return order.sort((a, b) => a.i - b.i).map((o) => o.x);
 }
 
+/**
+ * The prompt the page offers: one of the picks, drawn by the date so a day keeps its offer, and
+ * the next one on each "Another" (	urn). Null with nothing picked: the page is simply blank.
+ */
+export function dayPrompt(setup: JournalSetup, date: string, turn = 0): Prompt | null {
+  const picked = setup.prompts.map((id) => PROMPTS.find((x) => x.id === id)).filter((x): x is Prompt => !!x);
+  if (!picked.length) return null;
+  const order = [...picked].sort((a, b) => seedOf(`${date}:${a.id}`) - seedOf(`${date}:${b.id}`));
+  return order[turn % order.length]!;
+}
+
 /** A new page: each prompt as a small heading with a line to write on. */
 export function promptDoc(prompts: Prompt[]) {
   if (!prompts.length) return { type: "doc", content: [{ type: "paragraph" }] };
@@ -137,6 +154,12 @@ export function promptDoc(prompts: Prompt[]) {
       { type: "paragraph" },
     ]),
   };
+}
+
+/** A page's opening words for a look back: its writing (no prompts), the first `n` words. */
+export function firstWords(body: string, n = 12): string {
+  const words = writtenText(body, PROMPTS).split(/\s+/).filter(Boolean);
+  return words.slice(0, n).join(" ") + (words.length > n ? "…" : "");
 }
 
 /** What was written on a page, leaving out the prompts themselves (untouched prompts aren't writing). */

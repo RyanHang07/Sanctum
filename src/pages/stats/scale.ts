@@ -1,7 +1,7 @@
 import type { DayStat } from "../../lib/types";
 
 // The scales behind Stats' Ruler direction (ProtoStats.dc.html): thin ticks along an axis,
-// majors in the second colour and minors in the line colour. Pure, so the maths is tested alone.
+// majors in the second color and minors in the line color. Pure, so the maths is tested alone.
 
 export interface Tick {
   /** Where the tick sits, 0 (start) to 1 (end). */

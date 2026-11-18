@@ -21,7 +21,7 @@ function AppRow({ app, added, onPick }: { app: InstalledApp; added: boolean; onP
           <CheckIcon size={10} /> Added
         </span>
       ) : (
-        <span className="font-mono text-[11px] text-muted">{app.exe}</span>
+        <span className="font-mono text-micro text-muted">{app.exe}</span>
       )}
     </button>
   );

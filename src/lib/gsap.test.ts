@@ -15,7 +15,7 @@ describe("GSAP setup", () => {
   });
 
   it("registers every easing token as a named ease", () => {
-    expect(Object.keys(EASE).sort()).toEqual(["drift", "exit", "glide", "seat", "settle", "ui"]);
+    expect(Object.keys(EASE).sort()).toEqual(["drift", "exit", "glide", "seat", "settle", "snap", "ui"]);
     for (const name of Object.values(EASE)) {
       const ease = gsap.parseEase(name);
       expect(ease(0)).toBeCloseTo(0);

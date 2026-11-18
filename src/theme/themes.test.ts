@@ -4,7 +4,7 @@ import { ACCENT, SECOND } from "./finish";
 import { THEMES, themeById } from "./themes";
 
 // Every theme clears the same bar (v0.3). Ratios are WCAG's: 4.5 for text, 3 for large text
-// and things that only need to be seen (the event colour on a bar, a focus ring).
+// and things that only need to be seen (the event color on a bar, a focus ring).
 const pairs: [fg: string, bg: string, min: number][] = [
   ["text", "app", 7],
   ["text", "panel", 7],
@@ -20,7 +20,7 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["broken-text", "app", 4.5],
   ["broken-text", "broken-tint", 4.5],
   ["sealed", "app", 3],
-  // v0.4: muted on every surface it sits on, input edges, and the second colour.
+  // v0.4: muted on every surface it sits on, input edges, and the second color.
   ["muted", "raised", 4.5],
   ["muted", "sidebar", 4.5],
   ["muted", "sealed-tint", 4.5],
@@ -31,20 +31,22 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["second-text", "app", 4.5],
   ["second-text", "panel", 4.5],
   ["second-text", "second-tint", 4.5],
+  // UI audit (2026-11-18): the lightest heatmap step reads on the panel without an edge.
+  ["heat-1", "panel", 2],
 ];
 
 describe("theme pass (v0.4)", () => {
-  it("every hand-picked second colour and accent fix names a real theme", () => {
+  it("every hand-picked second color and accent fix names a real theme", () => {
     for (const id of [...Object.keys(SECOND), ...Object.keys(ACCENT)]) expect(themeById(id), id).toBeDefined();
   });
 
-  it("the second colour defaults to the event colour", () => {
+  it("the second color defaults to the event color", () => {
     const t = themeById("aura")!;
     expect(t.palette.second).toBe(t.palette.event);
     expect(themeById("sanctum-dark")!.palette.second).toBe("#FF8A6B");
   });
 
-  it("uses the hand-picked second colour where the review flagged the pair", () => {
+  it("uses the hand-picked second color where the review flagged the pair", () => {
     expect(themeById("nord")!.palette.second).toBe("#88C0D0");
     expect(themeById("sanctum-light")!.palette.second).toBe("#C2822E");
     expect(themeById("flexoki-light")!.palette.second).not.toBe(themeById("flexoki-light")!.palette.sealed);
@@ -69,6 +71,14 @@ describe("theme pass (v0.4)", () => {
     expect(themeById("catppuccin-macchiato-light")).toBe(latte);
   });
 
+  it("keeps every heatmap step at 2:1 or more on the panel, and Sanctum's steps climbing", () => {
+    for (const t of THEMES) {
+      const c = (k: string) => contrast(t.palette[k]!, t.palette.panel!);
+      for (const k of ["heat-1", "heat-2", "heat-3"]) expect(c(k), `${t.id} ${k}`).toBeGreaterThanOrEqual(2);
+      if (t.id.startsWith("sanctum")) expect(c("heat-2"), t.id).toBeGreaterThan(c("heat-1"));
+    }
+  });
+
   it("no theme calls itself Light on a dark scheme", () => {
     for (const t of THEMES) if (/ Light$/.test(t.name)) expect(t.scheme, t.id).toBe("light");
   });
@@ -88,7 +98,7 @@ describe("themes (v0.3)", () => {
     expect(themeById("nope")).toBeUndefined();
   });
 
-  it.each(THEMES.map((t) => [t.name, t] as const))("%s defines every colour", (_, t) => {
+  it.each(THEMES.map((t) => [t.name, t] as const))("%s defines every color", (_, t) => {
     for (const key of KEYS) expect(t.palette[key], `${t.id} ${key}`).toBeTruthy();
   });
 

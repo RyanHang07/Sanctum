@@ -6,6 +6,7 @@
 //! as attempts) and the active tab's domain (never the full URL) for Activity. A browser whose
 //! extension drops out mid-seal gets its windows minimized until it's back.
 
+use crate::engine::Locked;
 use crate::distractions::{self, Distraction};
 use crate::{db, engine, session, winutil, Shared};
 use rand::RngCore;
@@ -94,7 +95,7 @@ impl State {
 
     /// The active tab's domain in `exe`, when a fresh report says that browser is in front.
     pub fn active_domain(&self, exe: &str) -> Option<String> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.locked();
         inner
             .conns
             .values()
@@ -128,18 +129,26 @@ fn reload_stale(inner: &mut Inner, sealed: bool) {
     let bundled = bundled_version();
     let msg = json!({ "type": "reload", "version": bundled });
     let Inner { conns, asked_reload, .. } = inner;
-    for c in conns.values_mut() {
-        let Some(v) = c.version.as_deref().filter(|v| is_older(v, &bundled)) else { continue };
-        if asked_reload.insert(format!("{}@{v}", c.exe)) {
-            let _ = send_line(&mut c.stream, &msg);
-        }
-    }
+    conns.retain(|_, c| {
+        let Some(v) = c.version.as_deref().filter(|v| is_older(v, &bundled)) else { return true };
+        // A bridge that can't take the line is dropped; it reconnects and hears the rules again.
+        !asked_reload.insert(format!("{}@{v}", c.exe)) || send_line(&mut c.stream, &msg).is_ok()
+    });
 }
+
+/// How long one line to a bridge may take (2026-11-17). Sends happen under `inner`, and the
+/// engine tick waits on that lock, so a stalled bridge must fail fast and be dropped.
+const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 
 fn send_line(stream: &mut TcpStream, msg: &Value) -> std::io::Result<()> {
     let mut line = msg.to_string();
     line.push('\n');
     stream.write_all(line.as_bytes())
+}
+
+/// Sends one line to every bridge, dropping any that can't take it within WRITE_TIMEOUT.
+fn broadcast(inner: &mut Inner, msg: &Value) {
+    inner.conns.retain(|_, c| send_line(&mut c.stream, msg).is_ok());
 }
 
 /// What the extension should enforce right now: the flagged sites and keywords while sealed.
@@ -193,7 +202,7 @@ fn needs_extension(rules: &Value) -> bool {
 pub fn push_rules(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let view = shared.engine.view();
-    let flags = shared.db.lock().ok().and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
+    let flags = Some(shared.db.locked()).and_then(|c| distractions::list(&c).ok()).unwrap_or_default();
     let quiet_until = if view.is_none() { shared.engine.quiet_until() } else { None };
     let break_until = if view.is_none() { shared.engine.break_until() } else { None };
     let msg = match (quiet_until, break_until) {
@@ -203,11 +212,11 @@ pub fn push_rules(app: &AppHandle) {
         _ if view.is_none() && shared.engine.pausing() => pause_message(&flags),
         _ => rules_message(view.as_ref(), &flags),
     };
-    let mut inner = shared.browser.inner.lock().unwrap();
+    let mut inner = shared.browser.inner.locked();
     inner.rules = msg.clone();
     inner.missing.clear();
     inner.logged.clear();
-    inner.conns.retain(|_, c| send_line(&mut c.stream, &msg).is_ok());
+    broadcast(&mut inner, &msg);
     inner.at_seal = if view.is_some() { inner.conns.values().map(|c| c.exe.clone()).collect() } else { Vec::new() };
     // A seal just ended: an extension that waited for it can update now.
     reload_stale(&mut inner, view.is_some());
@@ -224,23 +233,55 @@ pub fn start(app: &AppHandle, app_data: &Path) -> std::io::Result<()> {
     let token = app.state::<Shared>().browser.token.clone();
     std::fs::write(token_file(app_data), json!({ "port": port, "token": token }).to_string())?;
     let app = app.clone();
+    let handshakes = Handshakes::default();
     std::thread::Builder::new().name("sanctum-browser".into()).spawn(move || {
         for stream in listener.incoming().flatten() {
+            let Some(slot) = handshakes.take() else {
+                let _ = stream.shutdown(Shutdown::Both);
+                continue;
+            };
             let app = app.clone();
-            let _ = std::thread::Builder::new().name("sanctum-browser-conn".into()).spawn(move || serve(&app, stream));
+            let _ = std::thread::Builder::new().name("sanctum-browser-conn".into()).spawn(move || serve(&app, stream, slot));
         }
     })?;
     Ok(())
 }
 
-fn serve(app: &AppHandle, stream: TcpStream) {
+/// Connections still owing their auth line, at most this many at once (2026-11-17). Any local
+/// process can connect, and each used to hold a thread for up to 10 s before saying anything.
+const MAX_HANDSHAKES: usize = 8;
+/// How long the bridge has to send its auth line; it sends it right after connecting.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[derive(Default)]
+struct Handshakes(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+/// One handshake's place, given back when dropped.
+struct Slot(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+impl Handshakes {
+    fn take(&self) -> Option<Slot> {
+        // Taken first, so the count is the slot's own and it gives itself back if over.
+        let slot = Slot(self.0.clone());
+        (slot.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < MAX_HANDSHAKES).then_some(slot)
+    }
+}
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+fn serve(app: &AppHandle, stream: TcpStream, slot: Slot) {
     let shared = app.state::<Shared>();
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(10)));
+    let _ = stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let Ok(writer) = stream.try_clone() else { return };
     let mut lines = BufReader::new(stream).lines();
 
     // The first line proves the bridge read our token file.
     let Some(Ok(first)) = lines.next() else { return };
+    drop(slot);
     let auth: Value = serde_json::from_str(&first).unwrap_or_default();
     if auth["type"] != "auth" || auth["token"].as_str() != Some(shared.browser.token.as_str()) {
         let _ = writer.shutdown(Shutdown::Both);
@@ -251,16 +292,20 @@ fn serve(app: &AppHandle, stream: TcpStream) {
     let _ = writer.set_read_timeout(Some(Duration::from_secs(70)));
 
     let id = {
-        let mut inner = shared.browser.inner.lock().unwrap();
+        let mut inner = shared.browser.inner.locked();
         let id = inner.next_id;
         inner.next_id += 1;
         let mut w = match writer.try_clone() {
             Ok(w) => w,
             Err(_) => return,
         };
-        let _ = send_line(&mut w, &inner.rules);
-        if !inner.theme.is_null() {
-            let _ = send_line(&mut w, &inner.theme);
+        if w.set_write_timeout(Some(WRITE_TIMEOUT)).is_err() {
+            return;
+        }
+        let theme = inner.theme.clone();
+        if send_line(&mut w, &inner.rules).is_err() || (!theme.is_null() && send_line(&mut w, &theme).is_err()) {
+            let _ = writer.shutdown(Shutdown::Both);
+            return;
         }
         inner.conns.insert(id, Conn { exe: exe.clone(), stream: w, version: None, incognito: None, domain: None });
         inner.missing.remove(&exe);
@@ -276,7 +321,7 @@ fn serve(app: &AppHandle, stream: TcpStream) {
         handle(app, &shared, id, &msg);
     }
 
-    shared.browser.inner.lock().unwrap().conns.remove(&id);
+    shared.browser.inner.locked().conns.remove(&id);
     let _ = writer.shutdown(Shutdown::Both);
     emit_status(app);
 }
@@ -284,7 +329,7 @@ fn serve(app: &AppHandle, stream: TcpStream) {
 fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
     match msg["type"].as_str() {
         Some("hello") => {
-            let mut inner = shared.browser.inner.lock().unwrap();
+            let mut inner = shared.browser.inner.locked();
             if let Some(c) = inner.conns.get_mut(&id) {
                 c.version = msg["version"].as_str().map(String::from);
                 c.incognito = msg["incognito"].as_bool();
@@ -294,7 +339,7 @@ fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
             emit_status(app);
         }
         Some("active") => {
-            if let Some(c) = shared.browser.inner.lock().unwrap().conns.get_mut(&id) {
+            if let Some(c) = shared.browser.inner.locked().conns.get_mut(&id) {
                 c.domain = msg["domain"].as_str().map(|d| (d.to_lowercase(), Instant::now()));
             }
         }
@@ -316,8 +361,9 @@ fn handle(app: &AppHandle, shared: &Shared, id: u64, msg: &Value) {
         // A thought parked from the sealed page (v0.3.1): a task for today. The page hears back.
         Some("park") => {
             let ok = msg["text"].as_str().is_some_and(|t| crate::focus::park_now(app, t).is_ok());
-            if let Some(c) = shared.browser.inner.lock().unwrap().conns.get_mut(&id) {
-                let _ = send_line(&mut c.stream, &json!({ "type": "parked", "ok": ok }));
+            let mut inner = shared.browser.inner.locked();
+            if inner.conns.get_mut(&id).is_some_and(|c| send_line(&mut c.stream, &json!({ "type": "parked", "ok": ok })).is_err()) {
+                inner.conns.remove(&id);
             }
         }
         _ => {}
@@ -332,7 +378,8 @@ fn mark_seen(shared: &Shared, exe: &str) {
     if exe.is_empty() {
         return;
     }
-    if let Ok(conn) = shared.db.lock() {
+    {
+        let conn = shared.db.locked();
         let mut list = seen(&conn);
         if !list.iter().any(|e| e == exe) {
             list.push(exe.to_string());
@@ -350,7 +397,7 @@ pub fn spawn_watch(app: AppHandle) {
             let mut sys = sysinfo::System::new();
             loop {
                 std::thread::sleep(Duration::from_secs(1));
-                watch(&app, &mut sys);
+                engine::guarded("sanctum-browser-watch", || watch(&app, &mut sys));
             }
         })
         .expect("browser watch thread");
@@ -360,12 +407,12 @@ fn watch(app: &AppHandle, sys: &mut sysinfo::System) {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
     let shared = app.state::<Shared>();
     let held: Vec<String> = {
-        let inner = shared.browser.inner.lock().unwrap();
+        let inner = shared.browser.inner.locked();
         if !needs_extension(&inner.rules) {
             return;
         }
         let connected: Vec<&str> = inner.conns.values().map(|c| c.exe.as_str()).collect();
-        let Ok(conn) = shared.db.lock() else { return };
+        let conn = shared.db.locked();
         seen(&conn).into_iter().filter(|e| !connected.contains(&e.as_str())).collect()
     };
     if held.is_empty() {
@@ -379,7 +426,7 @@ fn watch(app: &AppHandle, sys: &mut sysinfo::System) {
             .filter(|(_, p)| p.name().to_string_lossy().eq_ignore_ascii_case(&exe))
             .map(|(pid, _)| pid.as_u32())
             .collect();
-        let mut inner = shared.browser.inner.lock().unwrap();
+        let mut inner = shared.browser.inner.locked();
         if pids.is_empty() {
             inner.missing.remove(&exe);
             continue;
@@ -524,7 +571,7 @@ fn extension_dir(app: &AppHandle) -> PathBuf {
 #[tauri::command]
 pub fn browser_status(app: AppHandle, shared: TauriState<Shared>) -> Result<BrowserStatus, String> {
     let manifest = app.path().app_data_dir().map_err(|e| e.to_string())?.join("bridge").join(format!("{HOST_NAME}.json"));
-    let inner = shared.browser.inner.lock().unwrap();
+    let inner = shared.browser.inner.locked();
     let browsers = BROWSERS
         .iter()
         .map(|(name, exe, key)| {
@@ -563,12 +610,12 @@ pub fn theme_message(id: &str, scheme: &str, palette: &serde_json::Map<String, V
 #[tauri::command]
 pub fn browser_set_theme(shared: TauriState<Shared>, id: String, scheme: String, palette: serde_json::Map<String, Value>) {
     let msg = theme_message(&id, &scheme, &palette);
-    let mut inner = shared.browser.inner.lock().unwrap();
+    let mut inner = shared.browser.inner.locked();
     if inner.theme == msg {
         return;
     }
     inner.theme = msg.clone();
-    inner.conns.retain(|_, c| send_line(&mut c.stream, &msg).is_ok());
+    broadcast(&mut inner, &msg);
 }
 
 #[tauri::command]
@@ -581,6 +628,16 @@ pub fn browser_open_extension_dir(app: AppHandle) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::distractions::Allow;
+
+    #[test]
+    fn only_eight_connections_wait_on_their_handshake_at_once() {
+        let h = Handshakes::default();
+        let mut held: Vec<Slot> = (0..MAX_HANDSHAKES).map(|_| h.take().expect("a free place")).collect();
+        assert!(h.take().is_none(), "the ninth is turned away");
+        // One finishes its handshake (or times out): its place is free again.
+        held.pop();
+        assert!(h.take().is_some());
+    }
 
     #[test]
     fn an_older_extension_is_asked_to_reload_after_an_update() {
@@ -606,6 +663,28 @@ mod tests {
         // The version this build ships is the manifest's.
         let manifest: Value = serde_json::from_str(include_str!("../../extension/manifest.json")).unwrap();
         assert_eq!(bundled_version(), manifest["version"].as_str().unwrap());
+    }
+
+    #[test]
+    fn a_stalled_bridge_is_dropped_instead_of_hanging_the_send() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        // Connected, but never reads: its buffers fill and a blocking write would wait forever.
+        let _client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        server.set_write_timeout(Some(Duration::from_millis(200))).unwrap();
+        let mut inner = Inner::default();
+        inner.conns.insert(1, Conn { exe: "chrome.exe".into(), stream: server, version: None, incognito: None, domain: None });
+        // Loopback buffers can be large: keep sending until they're full.
+        let big = json!({ "type": "rules", "pad": "x".repeat(8 * 1024 * 1024) });
+        let started = Instant::now();
+        for _ in 0..128 {
+            broadcast(&mut inner, &big);
+            if inner.conns.is_empty() {
+                break;
+            }
+        }
+        assert!(inner.conns.is_empty(), "the stalled bridge was dropped");
+        assert!(started.elapsed() < Duration::from_secs(60), "and no send hung");
     }
 
     #[test]

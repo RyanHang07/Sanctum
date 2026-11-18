@@ -112,7 +112,7 @@ export function DaysField({ mask, onChange }: { mask: number; onChange: (m: numb
             type="button"
             aria-pressed={mask === p.mask}
             onClick={() => onChange(p.mask)}
-            className={`h-[26px] rounded-full border px-3 text-meta transition-colors duration-ui ease-ui ${
+            className={`h-control-sm rounded-full border px-3 text-meta transition-colors duration-ui ease-ui ${
               mask === p.mask ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-muted hover:text-text"
             }`}
           >
@@ -133,7 +133,7 @@ export function TitleInput({ value, onChange, onSubmit, placeholder, autoFocus =
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-      className="h-10 w-full rounded-control border border-line-input bg-raised px-3 text-[15px] font-medium text-text transition-colors duration-ui ease-ui placeholder:font-normal placeholder:text-faint hover:border-check-line focus:border-sealed"
+      className="h-control w-full rounded-control border border-line-input bg-raised px-3 text-[15px] font-medium text-text transition-colors duration-ui ease-ui placeholder:font-normal placeholder:text-muted hover:border-check-line focus:border-sealed"
     />
   );
 }

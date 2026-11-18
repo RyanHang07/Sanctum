@@ -93,7 +93,7 @@ describe("DayRuler live minutes", () => {
     expect(moment("tick-cross")).toBeUndefined();
   });
 
-  it("draws the goal tick in the second colour and says kept once it's met", () => {
+  it("draws the goal tick in the second color and says kept once it's met", () => {
     const { rerender } = render(<DayRuler minutes={100} goal={120} />);
     expect(document.querySelector('[data-kind="goal"]')).toHaveClass("bg-second");
     expect(document.querySelector('[data-kind="hour"]')).toHaveClass("bg-muted");
@@ -110,7 +110,7 @@ async function withProfiles() {
 }
 
 describe("Goal reached", () => {
-  it("plays once when the goal is met on screen, and not when it was already met", () => {
+  it("plays once when the goal is met on screen, and not when it was already met", async () => {
     setReducedMotion(false);
     act(() => useStore.setState({ focusTodayMin: 119 }));
     const { unmount } = render(<Home />);
@@ -127,28 +127,37 @@ describe("Goal reached", () => {
     render(<Home />);
     expect(document.querySelector("[data-goal-suffix]")).not.toBeNull();
     expect(moment("goal")).toBeUndefined();
+    await act(async () => {}); // Today's loads land inside act, after the motion is checked
   });
 
-  it("jumps to the kept state while the window is hidden", () => {
+  it("jumps to the kept state while the window is hidden", async () => {
     setReducedMotion(false);
     setShown(false);
     act(() => useStore.setState({ focusTodayMin: 119 }));
     render(<Home />);
     act(() => useStore.setState({ focusTodayMin: 120 }));
     expect(moment("goal")!.progress()).toBe(1);
+    await act(async () => {});
   });
 });
 
 describe("Entering focus", () => {
-  it("collapses the Enter focus fill into the seal line, then lets the track show", async () => {
+  it("draws the seal line along the bottom edge, nothing traveling, then lets the track show", async () => {
     await withProfiles();
     setReducedMotion(false);
-    render(<Home />);
+    await act(async () => void render(<Home />));
     act(() => useStore.getState().setAppState("sealed"));
     const tl = moment("enter-focus")!;
     expect(tl).toBeDefined();
-    expect(tl.labels.line).toBeCloseTo(0.38);
+    expect(tl.labels.line).toBeCloseTo(0.45);
     const line = document.querySelector<HTMLElement>("[data-seal-line]")!;
+    // It draws left to right: no offset, only its width grows.
+    act(() => void tl.seek(0.15));
+    const mid = Number(gsap.getProperty(line, "scaleX"));
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    expect(gsap.getProperty(line, "x")).toBe(0);
+    expect(gsap.getProperty(line, "y")).toBe(0);
     act(() => void tl.seek(0.3));
     expect(gsap.getProperty(line, "autoAlpha")).toBe(1);
     act(() => void tl.progress(1));
@@ -160,13 +169,13 @@ describe("Entering focus", () => {
   it("plays nothing for a session that was already running", async () => {
     await withProfiles();
     act(() => useStore.getState().setAppState("sealed"));
-    render(<Home />);
+    await act(async () => void render(<Home />));
     expect(moment("enter-focus")).toBeUndefined();
   });
 
   it("jumps to its end under reduced motion", async () => {
     await withProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     act(() => useStore.getState().setAppState("sealed"));
     expect(moment("enter-focus")!.progress()).toBe(1);
     expect(screen.getByRole("button", { name: "End early" })).toBeInTheDocument();

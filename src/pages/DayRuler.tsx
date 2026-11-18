@@ -7,7 +7,7 @@ import { majorCrossed, rulerLabel, rulerSpan, rulerTicks, type Tick } from "../s
 
 // The day ruler on Today (decision log: "Today: Ruler", motion spec §2). Focused minutes against
 // the goal: a needle and an accent fill move along ticks every 5 minutes, half hours and hours are
-// major, and the goal is one tall tick in the second colour. Each focused minute glides the needle
+// major, and the goal is one tall tick in the second color. Each focused minute glides the needle
 // and rolls the figure; a crossed half hour lights for a moment. Positions are transforms only, and
 // GSAP owns them: the runners are full-width layers moved by xPercent, so nothing is measured.
 
@@ -86,7 +86,7 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
 
       <div className="absolute inset-x-0 bottom-[22px] h-[46px]">
         {met && goal <= span ? (
-          // The goal once met: a second-colour field behind its tick, at its resting strength.
+          // The goal once met: a second-color field behind its tick, at its resting strength.
           <span
             data-goal-glow
             className="pointer-events-none absolute bottom-0 h-full w-2 -translate-x-1/2 rounded-[2px] bg-second-tint opacity-55"
@@ -114,7 +114,7 @@ export function DayRuler({ minutes, goal }: { minutes: number; goal: number }) {
         </span>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 h-[14px] font-mono text-[11px] text-muted">
+      <div className="absolute inset-x-0 bottom-0 h-[14px] font-mono text-micro text-muted">
         {labels.map((m) => (
           <span
             key={m}

@@ -5,12 +5,12 @@ import { HEADLINE } from "../pages/headlines";
 import type { HeldStats, SessionView } from "../lib/types";
 
 // Compact focus timer (SPEC 4.0.1, design/screens/MiniTimer.dc.html): 300x58, always on top,
-// draggable. Sealed colour fills left to right with progress. Text/ring must stay readable
+// draggable. Sealed color fills left to right with progress. Text/ring must stay readable
 // over both the sealed fill and the unfilled panel background across all themes.
 // Redesign (v0.4, S8): two layers of the same content, clipped at the fill's edge: `text` and
 // `text-2` over the panel, `sealed-on` over the fill (no faded sub-line). Held is a crisp mark,
-// no glow (decided 2026-11-16): the ring closes in the on-accent colour and the frame's edge
-// turns the second colour. Motion is CSS only (motion spec 12); reduced motion drops the glide.
+// no glow (decided 2026-11-16): the ring closes in the on-accent color and the frame's edge
+// turns the second color. Motion is CSS only (motion spec 12); reduced motion drops the glide.
 
 import { theme as tokens } from "../theme/tokens";
 
@@ -50,7 +50,7 @@ function Content({ progress, sub, name, remaining, onFill }: { progress: number;
         <span data-tauri-drag-region className="truncate text-meta font-medium">
           {name}
         </span>
-        <span data-tauri-drag-region className={`truncate text-[11px] ${onFill ? "" : "text-text-2"}`}>
+        <span data-tauri-drag-region className={`truncate text-micro ${onFill ? "" : "text-text-2"}`}>
           {sub}
         </span>
       </div>
@@ -71,12 +71,21 @@ export function CompactTimer() {
   const held = !!ended && !ended.broken;
 
   useEffect(() => {
-    void native.getSession().then(setSession);
+    // The first read loses to any event that lands before it: the event is newer.
+    let heard = false;
+    void native
+      .getSession()
+      .then((s) => !heard && setSession(s))
+      .catch(() => undefined);
     const offs = [
       // A fresh handler per mount: the preview bus keys handlers by identity, and StrictMode's
       // second mount would otherwise lose its subscription to the first mount's cleanup.
-      onNative<SessionView>(EVENTS.tick, (s) => setSession(s)),
+      onNative<SessionView>(EVENTS.tick, (s) => {
+        heard = true;
+        setSession(s);
+      }),
       onNative<SessionView | null>(EVENTS.session, (s) => {
+        heard = true;
         setSession(s);
         if (s) setEnded(null);
       }),
@@ -115,12 +124,12 @@ export function CompactTimer() {
       {/* Visuals clipped to unfilled (panel) area. */}
       <div aria-hidden="true" className={`${layer} text-text`} style={{ clipPath: `inset(0 0 0 ${pct}%)` }}>
         <Content progress={progress} sub={sub} name={name} remaining={remaining} onFill={false} />
-        <span className="h-[26px] w-[26px] shrink-0" />
+        <span className="h-control-sm w-control-sm shrink-0" />
       </div>
       {/* Visuals clipped to filled (sealed) area. */}
       <div aria-hidden="true" data-testid="on-fill" className={`${layer} text-sealed-on`} style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}>
         <Content progress={progress} sub={sub} name={name} remaining={remaining} onFill />
-        <span className="h-[26px] w-[26px] shrink-0" />
+        <span className="h-control-sm w-control-sm shrink-0" />
       </div>
       {/* Interactive layer (drag + button) always reachable; button color adapts to which side it's on. */}
       <div data-tauri-drag-region className="absolute inset-0 flex items-center justify-end pr-[10px]">
@@ -128,7 +137,7 @@ export function CompactTimer() {
           type="button"
           aria-label="Expand to full window"
           onClick={() => void native.showMain()}
-          className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-control transition-colors duration-ui ease-ui ${
+          className={`flex h-control-sm w-control-sm shrink-0 items-center justify-center rounded-control transition-colors duration-ui ease-ui ${
             pct > 88 ? "text-sealed-on/80 hover:bg-sealed-on/12 hover:text-sealed-on" : "text-muted hover:bg-raised hover:text-text"
           }`}
         >

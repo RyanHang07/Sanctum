@@ -29,7 +29,7 @@ export function Toast() {
             notice.action!.run();
             dismiss();
           }}
-          className="shrink-0 rounded-control px-2 py-[2px] text-body font-medium text-sealed-text transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-sealed-text-hover"
+          className="shrink-0 rounded-control px-2 py-[2px] text-body font-medium text-sealed-text transition-colors duration-ui ease-ui hover:bg-raised hover:text-sealed-text-hover"
         >
           {notice.action.label}
         </button>

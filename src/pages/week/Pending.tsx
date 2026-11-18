@@ -3,7 +3,7 @@
 // in List. Not in Month or Routines. Drag an item onto a day to give it one; drop one here to park it.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckIcon, ChevronIcon, PlusIcon } from "../../components/icons";
+import { ChevronIcon, PlusIcon } from "../../components/icons";
 import { usePlanner } from "../../state/planner";
 import { addDays, fromKey, pendingFor, todayKey, weekStart, type AgendaItem } from "../../lib/planner";
 import { parseQuickAdd } from "../../lib/quickAdd";
@@ -11,7 +11,8 @@ import { useStore } from "../../state/store";
 import type { Todo } from "../../lib/types";
 import { drag, dragProps, parkOn, todoItem } from "./drag";
 import { Fold } from "./marks";
-import { gsap, RISE_FROM, RISE_STAGGER, RISE_TO, useGSAP } from "../../lib/gsap";
+import { Check } from "../../components/controls";
+import { DUR, EASE, gsap, RISE_FROM, RISE_STAGGER, RISE_TO, useGSAP } from "../../lib/gsap";
 import { useMotion } from "../../lib/useMotion";
 
 /** The week's pending items, kept current. */
@@ -68,17 +69,8 @@ function PendingRow({ t, week, onOpen }: { t: Todo; week: string; onOpen?: (i: A
   const item = todoItem(t);
   const from = origin(t, week);
   return (
-    <div {...dragProps(item)} data-testid="pending-row" className="group flex h-8 shrink-0 cursor-grab items-center gap-[10px] rounded-control px-2 transition-colors duration-ui ease-ui hover:bg-line-soft active:cursor-grabbing">
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={false}
-        aria-label={t.title}
-        onClick={() => void toggle(item)}
-        className="box-border flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-check-line bg-transparent p-0 text-sealed-on transition-colors duration-ui ease-ui hover:border-muted"
-      >
-        {t.done ? <CheckIcon /> : null}
-      </button>
+    <div {...dragProps(item)} data-testid="pending-row" className="group flex h-8 shrink-0 cursor-grab items-center gap-[10px] rounded-control px-2 transition-colors duration-ui ease-ui hover:bg-raised active:cursor-grabbing">
+      <Check checked={false} done={!!t.done} label={t.title} onToggle={() => void toggle(item)} />
       {onOpen ? (
         <button type="button" onClick={() => onOpen(item)} className="min-w-0 grow truncate text-left text-body text-text">
           {t.title}
@@ -86,7 +78,7 @@ function PendingRow({ t, week, onOpen }: { t: Todo; week: string; onOpen?: (i: A
       ) : (
         <span className="min-w-0 grow truncate text-body text-text">{t.title}</span>
       )}
-      {from ? <span className="shrink-0 font-mono text-[11px] text-muted">{from}</span> : null}
+      {from ? <span className="shrink-0 font-mono text-micro text-muted">{from}</span> : null}
     </div>
   );
 }
@@ -118,7 +110,7 @@ function AddPending({ week, className = "" }: { week: string; className?: string
     if (ok) setTitle("");
   };
   return (
-    <label className={`focus-ring-within flex h-8 shrink-0 cursor-text items-center gap-[10px] rounded-control px-2 text-faint transition-colors duration-ui ease-ui hover:bg-line-soft ${className}`}>
+    <label className={`focus-ring-within flex h-8 shrink-0 cursor-text items-center gap-[10px] rounded-control px-2 text-muted transition-colors duration-ui ease-ui hover:bg-raised ${className}`}>
       <PlusIcon size={11} className="shrink-0" />
       <input
         aria-label="Add to pending"
@@ -129,7 +121,7 @@ function AddPending({ week, className = "" }: { week: string; className?: string
           if (e.key === "Enter") void save();
           if (e.key === "Escape") setTitle("");
         }}
-        className="focus-ring-off min-w-0 grow bg-transparent text-body text-text placeholder:text-faint"
+        className="focus-ring-off min-w-0 grow bg-transparent text-body text-text placeholder:text-muted"
       />
     </label>
   );
@@ -147,7 +139,7 @@ function Toggle({ open, count, onClick, label }: { open: boolean; count: number;
     >
       <ChevronIcon size={10} className={`transition-transform duration-ui ease-ui ${open ? "" : "-rotate-90"}`} />
       <span className="grow font-medium">Pending</span>
-      <span className="font-mono text-[11px]">{count}</span>
+      <span className="font-mono text-micro">{count}</span>
     </button>
   );
 }
@@ -165,8 +157,15 @@ export function PendingTab() {
   useGSAP(
     () => {
       if (!open || !list.current) return;
-      const rows = Array.from(list.current.children);
-      run(() => gsap.timeline({ id: "pending-cascade" }).fromTo(rows, RISE_FROM, { ...RISE_TO, stagger: RISE_STAGGER }));
+      const el = list.current;
+      const rows = Array.from(el.children);
+      // Two beats (decided 2026-11-16): the panel opens to its height, then the rows cascade in.
+      run(() =>
+        gsap
+          .timeline({ id: "pending-cascade" })
+          .fromTo(el, { height: 0 }, { height: "auto", duration: DUR.state, ease: EASE.glide, clearProps: "height" })
+          .fromTo(rows, RISE_FROM, { ...RISE_TO, stagger: RISE_STAGGER }, "-=0.06"),
+      );
     },
     { scope: list, dependencies: [open] },
   );
@@ -218,12 +217,12 @@ export function PendingBox({ week, onOpen }: { week: string; onOpen: (i: AgendaI
       {...park.props}
       aria-label="Pending"
       className={`flex min-h-0 min-w-0 flex-col gap-[2px] overflow-y-auto rounded-panel border p-[6px] [scrollbar-width:none] transition-colors duration-ui ease-ui ${
-        park.over ? "border-sealed bg-sealed-tint" : "border-line bg-panel/40"
+        park.over ? "border-sealed bg-sealed-tint" : "border-line bg-panel"
       }`}
     >
       <div className="flex items-baseline justify-between px-1 pb-1 pt-[2px]">
         <span className="text-meta font-semibold text-muted">Pending</span>
-        <span className="font-mono text-[11px] text-muted">{items.length}</span>
+        <span className="font-mono text-micro text-muted">{items.length}</span>
       </div>
       {items.map((t) => (
         <PendingRow key={t.id} t={t} week={week} onOpen={onOpen} />

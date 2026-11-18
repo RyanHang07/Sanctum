@@ -51,13 +51,17 @@ function start(): () => void {
   document.addEventListener("visibilitychange", onVisibility);
   offs.push(() => document.removeEventListener("visibilitychange", onVisibility));
   if (inTauri()) {
-    void import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
-      const w = getCurrentWindow();
-      // Minimizing resizes the window; restoring from the tray focuses it.
-      for (const on of [w.onResized(() => void check()), w.onFocusChanged(() => void check())]) {
-        void on.then((off) => (alive ? offs.push(off) : off()));
-      }
-    });
+    // A listener that fails to attach is logged; the page's own visibility still drives the answer.
+    const failed = (e: unknown) => console.error("windowShown listen", e);
+    void import("@tauri-apps/api/window")
+      .then(({ getCurrentWindow }) => {
+        const w = getCurrentWindow();
+        // Minimizing resizes the window; restoring from the tray focuses it.
+        for (const on of [w.onResized(() => void check()), w.onFocusChanged(() => void check())]) {
+          void on.then((off) => (alive ? offs.push(off) : off())).catch(failed);
+        }
+      })
+      .catch(failed);
   }
   // Tests set the answer directly; only a real page asks the window.
   if (inTauri()) void check();

@@ -112,7 +112,7 @@ export function FocusPicker<T extends string | number>({
         aria-labelledby={`${id}-label ${id}-value`}
         onClick={() => (open ? close(false) : show(selected))}
         onKeyDown={onTriggerKey}
-        className={`flex h-[52px] w-full items-center gap-2 rounded-control border bg-raised px-[14px] text-[15px] text-text transition-colors duration-ui ease-ui hover:border-check-line ${
+        className={`flex h-cta w-full items-center gap-2 rounded-control border bg-raised px-[14px] text-[15px] text-text transition-colors duration-ui ease-ui hover:border-check-line ${
           open ? "border-muted" : "border-line-input"
         } ${mono ? "font-mono font-medium" : "font-semibold"}`}
       >
@@ -139,7 +139,7 @@ export function FocusPicker<T extends string | number>({
                 aria-selected={sel}
                 tabIndex={-1}
                 onClick={() => pick(o.value)}
-                className={`flex h-[34px] w-full shrink-0 items-center gap-[10px] rounded-control px-[10px] text-left text-body transition-colors duration-ui ease-ui hover:bg-line-soft ${
+                className={`flex h-[34px] w-full shrink-0 items-center gap-[10px] rounded-control px-[10px] text-left text-body transition-colors duration-ui ease-ui hover:bg-raised ${
                   sel ? "bg-raised font-semibold text-text" : "text-text-2"
                 } ${mono ? "font-mono" : ""}`}
               >

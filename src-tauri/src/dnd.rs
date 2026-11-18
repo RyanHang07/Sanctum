@@ -4,8 +4,11 @@
 //! stop working after a Windows update; every failure is silent and Setup shows the status.
 //! The profile you had before the seal is saved, so a crash mid-seal still restores it.
 
+use crate::engine::Locked;
 use crate::{db, Shared};
 use serde::Serialize;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
 const STATE_NAME: u64 = 0x0D83_063E_A3BF_1C75;
@@ -71,13 +74,13 @@ pub fn write(_value: u32) -> bool {
 
 fn enabled(app: &AppHandle) -> bool {
     let shared = app.state::<Shared>();
-    let v = shared.db.lock().ok().and_then(|c| db::get_setting(&c, SETTING).ok().flatten());
+    let v = Some(shared.db.locked()).and_then(|c| db::get_setting(&c, SETTING).ok().flatten());
     v.as_deref() != Some("0")
 }
 
 fn save_restore(app: &AppHandle, value: Option<u32>) {
     let shared = app.state::<Shared>();
-    let Ok(conn) = shared.db.lock() else { return };
+    let conn = shared.db.locked();
     let _ = match value {
         Some(v) => db::set_setting(&conn, RESTORE, &v.to_string()),
         None => conn.execute("DELETE FROM settings WHERE key = ?1", [RESTORE]).map(|_| ()),
@@ -86,7 +89,7 @@ fn save_restore(app: &AppHandle, value: Option<u32>) {
 
 fn saved_restore(app: &AppHandle) -> Option<u32> {
     let shared = app.state::<Shared>();
-    let v = shared.db.lock().ok().and_then(|c| db::get_setting(&c, RESTORE).ok().flatten());
+    let v = Some(shared.db.locked()).and_then(|c| db::get_setting(&c, RESTORE).ok().flatten());
     v.and_then(|s| s.parse().ok())
 }
 
@@ -94,7 +97,7 @@ fn saved_restore(app: &AppHandle) -> Option<u32> {
 /// Runs off the caller's thread; the WNF calls are quick, but the database lock may not be.
 fn quiet_enabled(app: &AppHandle) -> bool {
     let shared = app.state::<Shared>();
-    let v = shared.db.lock().ok().and_then(|c| db::get_setting(&c, QUIET_SETTING).ok().flatten());
+    let v = Some(shared.db.locked()).and_then(|c| db::get_setting(&c, QUIET_SETTING).ok().flatten());
     v.as_deref() == Some("1")
 }
 
@@ -110,27 +113,61 @@ pub fn on_seal(app: &AppHandle, sealed: bool) {
     hold(app, sealed, enabled(app));
 }
 
+/// Requests to change Do not disturb, applied one at a time with the last one winning
+/// (2026-11-17). Each used to get a thread of its own, so a seal started and ended quickly could
+/// run "off" before "on" and leave it on.
+pub struct Latest {
+    seq: AtomicU64,
+    lock: Mutex<()>,
+}
+
+impl Latest {
+    pub const fn new() -> Self {
+        Latest { seq: AtomicU64::new(0), lock: Mutex::new(()) }
+    }
+    /// Takes a place in line, at request time.
+    pub fn ticket(&self) -> u64 {
+        self.seq.fetch_add(1, Ordering::SeqCst) + 1
+    }
+    /// Runs `f` unless a newer request came in since `ticket`. Never two at once.
+    pub fn run(&self, ticket: u64, f: impl FnOnce()) -> bool {
+        let _one = self.lock.locked();
+        if self.seq.load(Ordering::SeqCst) != ticket {
+            return false;
+        }
+        f();
+        true
+    }
+}
+
+static REQUESTS: Latest = Latest::new();
+
 /// Turns Do not disturb on (remembering what was there) or gives the old setting back.
 fn hold(app: &AppHandle, on: bool, wanted: bool) {
     let app = app.clone();
+    let ticket = REQUESTS.ticket();
     std::thread::spawn(move || {
-        if on {
-            if !wanted {
-                return;
-            }
-            // A resumed seal already saved the original; don't overwrite it with our own value.
-            if saved_restore(&app).is_none() {
-                let Some(before) = read() else { return };
-                if before == ALARMS_ONLY {
-                    return;
-                }
-                save_restore(&app, Some(before));
-            }
-            write(ALARMS_ONLY);
-        } else {
-            restore(&app);
-        }
+        REQUESTS.run(ticket, || apply(&app, on, wanted));
     });
+}
+
+fn apply(app: &AppHandle, on: bool, wanted: bool) {
+    if !on {
+        restore(app);
+        return;
+    }
+    if !wanted {
+        return;
+    }
+    // A resumed seal already saved the original; don't overwrite it with our own value.
+    if saved_restore(app).is_none() {
+        let Some(before) = read() else { return };
+        if before == ALARMS_ONLY {
+            return;
+        }
+        save_restore(app, Some(before));
+    }
+    write(ALARMS_ONLY);
 }
 
 /// Puts back the profile from before the seal, if Sanctum changed it (also run at startup).
@@ -162,12 +199,13 @@ pub fn dnd_status(app: AppHandle) -> Status {
 #[tauri::command]
 pub fn dnd_set_enabled(app: AppHandle, shared: State<Shared>, enabled: bool) -> Result<Status, String> {
     {
-        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let conn = shared.db.locked();
         db::set_setting(&conn, SETTING, if enabled { "1" } else { "0" }).map_err(|e| e.to_string())?;
     }
-    // Turning it off mid-seal gives notifications back now; on, it starts with the next seal.
+    // Turning it off mid-seal gives notifications back now, in line after any pending "on";
+    // on, it starts with the next seal.
     if !enabled {
-        restore(&app);
+        REQUESTS.run(REQUESTS.ticket(), || restore(&app));
     }
     Ok(dnd_status(app))
 }
@@ -175,7 +213,7 @@ pub fn dnd_set_enabled(app: AppHandle, shared: State<Shared>, enabled: bool) -> 
 #[tauri::command]
 pub fn dnd_set_quiet(app: AppHandle, shared: State<Shared>, enabled: bool) -> Result<Status, String> {
     {
-        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let conn = shared.db.locked();
         db::set_setting(&conn, QUIET_SETTING, if enabled { "1" } else { "0" }).map_err(|e| e.to_string())?;
     }
     // Inside quiet hours now: follow the switch right away.
@@ -189,6 +227,23 @@ pub fn dnd_set_quiet(app: AppHandle, shared: State<Shared>, enabled: bool) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_quick_on_then_off_ends_off_whatever_order_the_threads_run() {
+        let latest = Latest::new();
+        let state = Mutex::new("off");
+        let on = latest.ticket();
+        let off = latest.ticket();
+        // The "off" thread happens to run first; the stale "on" then does nothing.
+        assert!(latest.run(off, || *state.lock().unwrap() = "off"));
+        assert!(!latest.run(on, || *state.lock().unwrap() = "on"));
+        assert_eq!(*state.lock().unwrap(), "off");
+        // In order, the last still wins.
+        let (a, b) = (latest.ticket(), latest.ticket());
+        assert!(!latest.run(a, || *state.lock().unwrap() = "on"));
+        assert!(latest.run(b, || *state.lock().unwrap() = "on"));
+        assert_eq!(*state.lock().unwrap(), "on");
+    }
 
     /// Reads the real switch; ignored by default since it touches the machine.
     #[test]

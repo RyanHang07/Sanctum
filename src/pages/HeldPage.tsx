@@ -3,20 +3,21 @@ import { MARK_PATHS } from "../components/AnimatedMark";
 import { Button } from "../components/Button";
 import { useStore } from "../state/store";
 import { play } from "../lib/sound";
-import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
+import { DUR, EASE, RISE_FROM, RISE_STAGGER, RISE_TO, gsap, useGSAP } from "../lib/gsap";
 import { useMotion } from "../lib/useMotion";
 import { minutes } from "../lib/time";
 import type { HeldStats, SessionResult, TaskLink } from "../lib/types";
 import { usePlanner } from "../state/planner";
 import { native } from "../lib/native";
-import { CheckIcon } from "../components/icons";
+import { CheckIcon, PlusIcon } from "../components/icons";
 import { HEADLINE, brokeLine, heldLine } from "./headlines";
 import { addDays, routineDoneOn, todayKey } from "../lib/planner";
 
 // Full-page takeover when a session completes (SPEC 4.0.2, design/gate-canvas/project/Held.dc.html
-// and HeldBroken.dc.html). Stays until dismissed. A clean page on the app colour (redesign
-// 2026-11-16: no backdrop): the mark, one headline, one fact line, Done and Enter again. The
-// session review ("Add a note") opens only when asked.
+// and HeldBroken.dc.html). Stays until dismissed. A clean page on the app color (redesign
+// 2026-11-16: no backdrop) holding one card: the mark, one headline and one fact line set left,
+// a hairline, then a footer row with "Add a note" on the left and Done / Enter again on the
+// right. The session review opens inside the card, above the footer, only when asked.
 
 /** A seal's facts in one sentence: "1h of Interview Prep, 3 attempts blocked." */
 export function heldFacts(h: Pick<HeldStats, "focusMinutes" | "profileName" | "attempts">): string {
@@ -27,10 +28,10 @@ export function heldFacts(h: Pick<HeldStats, "focusMinutes" | "profileName" | "a
 
 /**
  * The held build (motion spec §5 and §6), one timeline that owns sound and motion on one clock.
- * The gate assembles, the keyhole seats, and then either two second-colour rings settle around it
- * with the chime (held), or the keyhole's colour drains out to a hollow broken outline as the
- * falling notes play (broken). The text rises in three groups. The DOM's resting state is the
- * final frame, so everything here animates from something.
+ * The gate assembles, the keyhole seats, and then either two second-color rings settle around it
+ * with the chime (held), or a crack runs down through the second-color keyhole from the nuki as
+ * the falling notes play (broken). The text and the actions rise in, and "Add a note" rises
+ * last. The DOM's resting state is the final frame, so everything here animates from something.
  */
 export function buildHeld(tl: gsap.core.Timeline, { broken }: { broken: boolean }): gsap.core.Timeline {
   tl.addLabel("build", 0)
@@ -41,11 +42,11 @@ export function buildHeld(tl: gsap.core.Timeline, { broken }: { broken: boolean 
     .from("[data-part='key']", { autoAlpha: 0, y: -5, scale: 0.7, transformOrigin: "50% 50%", duration: 0.5, ease: EASE.seat }, "key");
 
   if (broken) {
-    // The seal drains: the accent keyhole fades out, leaving its outline in the broken colour.
+    // The seal splits: a crack (pathLength 1) draws from the nuki down through the keyhole as the
+    // broken notes fall. Its dashoffset runs 1 (hidden) to 0 (drawn), the DOM's resting value.
     tl.addLabel("drain", 1.45)
       .call(() => play("broken"), [], "drain")
-      .fromTo("[data-key='sealed']", { opacity: 1 }, { opacity: 0, duration: DUR.drain, ease: "power1.inOut" }, "drain")
-      .fromTo("[data-key='drained']", { opacity: 0 }, { opacity: 1, duration: DUR.drain, ease: "power1.inOut" }, "drain");
+      .fromTo("[data-crack]", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.45, ease: EASE.settle }, "drain");
   } else {
     tl.addLabel("rings", 1.2)
       .call(() => play("held"), [], "rings")
@@ -53,27 +54,29 @@ export function buildHeld(tl: gsap.core.Timeline, { broken }: { broken: boolean 
       .fromTo("[data-ring='2']", { attr: { r: 2.6 }, opacity: 0 }, { attr: { r: 7.6 }, opacity: 0.25, duration: 1.1, ease: EASE.glide }, "rings+=0.15");
   }
   tl.addLabel("rise", 1.3);
-  ([1, 2, 3] as const).forEach((n, i) =>
-    tl.from(
-      `[data-rise='${n}']`,
-      { autoAlpha: 0, y: 10, duration: DUR.moment, ease: EASE.glide, stagger: n === 3 ? 0.05 : 0, clearProps: "transform,opacity,visibility" },
-      `rise+=${i * 0.15}`,
-    ),
+  ([1, 2] as const).forEach((n, i) =>
+    tl.from(`[data-rise='${n}']`, { autoAlpha: 0, y: 10, duration: DUR.moment, ease: EASE.glide, clearProps: "transform,opacity,visibility" }, `rise+=${i * 0.15}`),
   );
+  // The last beat: "Add a note" (and a broken seal's fix) rise in once the actions have landed.
+  tl.addLabel("note", "rise+=0.6").fromTo("[data-rise='note']", RISE_FROM, { ...RISE_TO, stagger: 0.05 }, "note");
   return tl;
 }
 
+/** The crack through a broken seal, in the mark's 26-unit box: from inside the nuki, down
+ *  through the keyhole's circle and stem to its foot. Jagged, a hairline at 72px. */
+export const CRACK_PATH = "M13.5 11L12.8 12.3L13.3 13.4L12.6 14.6L13.5 15.8L12.7 17.1L13.4 18.4L12.6 19.9L13.3 21.5L12.7 23L13.1 24";
+
 /**
  * The torii keyhole for this page, its parts tagged for the build. Path data comes from
- * MARK_PATHS (verbatim from design/logo), so the mark is never redrawn. The gate is `text`, the
- * keyhole the accent; held adds two second-colour rings at rest, broken a hollow keyhole in the
- * broken colour under the accent one (which the build fades out).
+ * MARK_PATHS (verbatim from design/logo), so the mark is never redrawn. The gate is `text`.
+ * Held: the keyhole in the accent with two second-color rings at rest. Broken: the keyhole in
+ * full in the second color, split by a crack in the card's own color so it reads as a gap.
  */
 function HeldMark({ broken }: { broken: boolean }) {
   const p = MARK_PATHS;
   const { cx, cy } = p.keyCircle;
   return (
-    <svg data-testid="held-mark" width={96} height={96} viewBox="0 0 26 26" fill="none" role="img" aria-label={broken ? "Sanctum, the seal broken" : "Sanctum"} className="shrink-0 overflow-visible">
+    <svg data-testid="held-mark" width={72} height={72} viewBox="0 0 26 26" fill="none" role="img" aria-label={broken ? "Sanctum, the seal broken" : "Sanctum"} className="shrink-0 overflow-visible">
       <g className="text-text">
         <path data-part="beam" d={p.beam} fill="currentColor" />
         <rect data-part="nuki" {...p.nuki} fill="currentColor" />
@@ -86,18 +89,24 @@ function HeldMark({ broken }: { broken: boolean }) {
           <circle data-ring="2" cx={cx} cy={cy} r={7.6} opacity={0.25} stroke="currentColor" strokeWidth={0.5} />
         </g>
       )}
-      <g data-part="key">
-        {broken ? (
-          <g data-key="drained" className="text-broken-text">
-            <circle {...p.keyCircle} stroke="currentColor" strokeWidth={0.45} />
-            <path d={p.keyStem} stroke="currentColor" strokeWidth={0.45} strokeLinejoin="round" />
-          </g>
-        ) : null}
-        <g data-key="sealed" className="text-sealed" opacity={broken ? 0 : undefined}>
-          <circle {...p.keyCircle} fill="currentColor" />
-          <path d={p.keyStem} fill="currentColor" />
-        </g>
+      <g data-part="key" data-key={broken ? "broken" : "sealed"} className={broken ? "text-second" : "text-sealed"}>
+        <circle {...p.keyCircle} fill="currentColor" />
+        <path d={p.keyStem} fill="currentColor" />
       </g>
+      {broken ? (
+        <path
+          data-crack=""
+          d={CRACK_PATH}
+          pathLength={1}
+          strokeDasharray="1 1"
+          strokeDashoffset={0}
+          className="text-panel"
+          stroke="currentColor"
+          strokeWidth={0.42}
+          strokeLinejoin="miter"
+          strokeLinecap="butt"
+        />
+      ) : null}
     </svg>
   );
 }
@@ -207,7 +216,7 @@ function WrapUp({ held, wrap, setWrap }: { held: HeldStats; wrap: Wrap; setWrap:
         onKeyDown={(e) => e.stopPropagation()}
         placeholder="Where I left off (shown next time)"
         aria-label="Where I left off"
-        className="h-9 rounded-control border border-line-input bg-raised px-3 text-body text-text placeholder:text-muted"
+        className="h-control rounded-control border border-line-input bg-raised px-3 text-body text-text placeholder:text-muted"
       />
     </div>
   );
@@ -244,7 +253,8 @@ function Parked({ sessionId }: { sessionId: number }) {
   );
 }
 
-const LINK = "h-7 rounded-control px-[10px] text-meta text-text-2 underline decoration-line-input underline-offset-[3px] transition-colors duration-ui ease-ui hover:text-text";
+/** The footer's left-hand buttons wear Done's style (decided 2026-11-16): outlined, full text. */
+const SIDE = "gap-[10px] text-text";
 
 export function HeldPage({ held }: { held: HeldStats }) {
   const today = useStore((s) => s.focusTodayMin);
@@ -252,6 +262,8 @@ export function HeldPage({ held }: { held: HeldStats }) {
   const close = useStore((s) => s.dismissHeld);
   const [wrap, setWrap] = useState<Wrap>({ result: null, rating: null, leftOff: "" });
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Closing plays out before the panel unmounts; the button already reads closed.
+  const [closing, setClosing] = useState(false);
   const reviewId = useId();
   // Saved a moment after each change, and again on the way out, so leaving any way keeps it.
   const save = (w: Wrap) => void native.focusWrap(held.sessionId, w.result, w.rating, w.leftOff.trim() || null).catch(() => undefined);
@@ -269,7 +281,7 @@ export function HeldPage({ held }: { held: HeldStats }) {
   const [streak, setStreak] = useState<number | null>(null);
   useEffect(() => {
     let live = true;
-    const t = todayKey();
+    const t = todayKey(new Date(), useStore.getState().settings.dailyResetTime);
     native
       .statsOverview(addDays(t, -6), t)
       .then((o) => live && setStreak(o.currentStreak))
@@ -296,20 +308,49 @@ export function HeldPage({ held }: { held: HeldStats }) {
     },
     { scope: root, dependencies: [held.sessionId, held.broken] },
   );
+  // "Add a note" opens like Pending (decided 2026-11-16): the space grows to its height, then
+  // what's inside cascades in. Closing is instant.
+  const reviewRef = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      const wrap = reviewRef.current;
+      const panel = wrap?.firstElementChild;
+      if (!reviewOpen || !wrap || !panel) return;
+      run(() =>
+        gsap
+          .timeline({ id: "held-review" })
+          .fromTo(wrap, { height: 0 }, { height: "auto", duration: DUR.state, ease: EASE.glide, clearProps: "height" })
+          .fromTo(Array.from(panel.children), RISE_FROM, { ...RISE_TO, stagger: RISE_STAGGER }, "-=0.06"),
+      );
+    },
+    { scope: root, dependencies: [reviewOpen] },
+  );
+  // Closing mirrors opening (decided 2026-11-16): the contents fade out, then the space folds shut.
+  const toggleReview = () => {
+    if (!reviewOpen) return setReviewOpen(true);
+    if (closing) return;
+    const wrap = reviewRef.current;
+    const panel = wrap?.firstElementChild;
+    if (!wrap || !panel) return setReviewOpen(false);
+    setClosing(true);
+    run(() =>
+      gsap
+        .timeline({
+          id: "held-review-close",
+          onComplete: () => {
+            setClosing(false);
+            setReviewOpen(false);
+          },
+        })
+        .to(Array.from(panel.children), { opacity: 0, y: -4, duration: DUR.ui, ease: EASE.exit, stagger: { each: 0.02, from: "end" } })
+        .to(wrap, { height: 0, duration: DUR.state, ease: EASE.glide }, "-=0.04"),
+    );
+  };
+
   // Hidden mid-build (minimized, sent to the tray): finish it, so it's whole when you come back.
   useEffect(() => {
     if (!shown) tlRef.current?.progress(1);
   }, [shown]);
-
-  // A scheduled break, then "Next block?" with the same profile and length (v0.3.1).
-  const takeBreak = async (m: number) => {
-    try {
-      useStore.getState().applyBreak(await native.breakStart(m, held.profileId, held.plannedMinutes));
-      dismiss();
-    } catch {
-      // A seal started meanwhile: no break to take.
-    }
-  };
 
   const enterAgain = async () => {
     const s = useStore.getState();
@@ -326,6 +367,8 @@ export function HeldPage({ held }: { held: HeldStats }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // The close dialog, when it's up over the page, owns Escape and Enter.
+      if (useStore.getState().closeDialogOpen) return;
       if (e.key === "Escape") dismiss();
       // Enter on a focused button presses that button instead.
       else if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement)) void enterAgain();
@@ -336,59 +379,58 @@ export function HeldPage({ held }: { held: HeldStats }) {
 
   return (
     <div ref={root} data-testid="held-page" data-broken={held.broken || undefined} className="relative h-full w-full overflow-hidden bg-app font-sans text-text">
-      <div className="flex h-full w-full flex-col items-center gap-7 overflow-y-auto px-10 py-8 [&>*]:shrink-0 [&>:first-child]:mt-auto [&>:last-child]:mb-auto">
-        <HeldMark broken={held.broken} />
-        <div className="flex max-w-[760px] flex-col items-center gap-[22px] text-center">
-          <div data-rise="1" className="flex flex-col items-center gap-[14px]">
-            <h1 className="headline m-0 text-[88px] leading-none tracking-[-0.04em]">{held.broken ? HEADLINE.broken : HEADLINE.held}</h1>
-            <p data-testid="held-fact" className="m-0 text-[16px] leading-normal text-text-2">
-              {line}
-            </p>
+      <div className="flex h-full w-full flex-col items-center overflow-y-auto px-10 py-8">
+        <article data-testid="held-card" className="my-auto flex w-full max-w-[680px] shrink-0 flex-col rounded-dialog border border-line bg-panel">
+          <div className="flex flex-col items-start gap-7 px-10 pb-9 pt-10">
+            <HeldMark broken={held.broken} />
+            <div data-rise="1" className="flex flex-col items-start gap-[14px] text-left">
+              <h1 className="headline m-0 text-held leading-none">{held.broken ? HEADLINE.broken : HEADLINE.held}</h1>
+              <p data-testid="held-fact" className="m-0 max-w-[520px] text-[16px] leading-normal text-text-2">
+                {line}
+              </p>
+            </div>
           </div>
-          <div data-rise="2" className="flex gap-2">
-            <Button variant="ghost" size="lg" className="gap-[10px] text-text" onClick={dismiss}>
-              Done<span className="font-mono text-[11px] text-muted">Esc</span>
-            </Button>
-            <Button variant="primary" size="lg" className="gap-[10px] px-4" onClick={() => void enterAgain()}>
-              Enter again<span aria-hidden="true" className="font-mono text-[11px] font-medium">↵</span>
-            </Button>
+          {reviewOpen ? (
+            <div ref={reviewRef} className="overflow-hidden">
+              <section id={reviewId} aria-label="Review this session" data-testid="held-review" className="flex flex-col gap-4 border-t border-line px-10 py-6">
+                {held.task ? <TaskDone task={held.task} /> : null}
+                <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
+                <Parked sessionId={held.sessionId} />
+              </section>
+            </div>
+          ) : null}
+          <div data-testid="held-footer" className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-4">
+            <div className="flex items-center gap-2">
+              <Button data-rise="note" variant="ghost" size="lg" className={SIDE} aria-expanded={reviewOpen && !closing} aria-controls={reviewId} onClick={toggleReview}>
+                <PlusIcon size={12} className={`transition-transform duration-ui ease-ui ${reviewOpen && !closing ? "rotate-45" : ""}`} />
+                Add a note
+              </Button>
+              {broke?.fix ? (
+                <Button
+                  data-rise="note"
+                  variant="ghost"
+                  size="lg"
+                  className={SIDE}
+                  onClick={() => {
+                    const tab = broke.fix!.tab;
+                    dismiss();
+                    useStore.getState().openSetup(tab);
+                  }}
+                >
+                  {broke.fix.label}
+                </Button>
+              ) : null}
+            </div>
+            <div data-rise="2" className="ml-auto flex gap-2">
+              <Button variant="ghost" size="lg" className="gap-[10px] text-text" onClick={dismiss}>
+                Done<span className="font-mono text-micro text-muted">Esc</span>
+              </Button>
+              <Button variant="primary" size="lg" className="gap-[10px] px-4" onClick={() => void enterAgain()}>
+                Enter again<span aria-hidden="true" className="font-mono text-micro font-medium">↵</span>
+              </Button>
+            </div>
           </div>
-          <div data-rise="3" className="flex items-center gap-1">
-            {broke?.fix ? (
-              <button
-                type="button"
-                className={LINK}
-                onClick={() => {
-                  const tab = broke.fix!.tab;
-                  dismiss();
-                  useStore.getState().openSetup(tab);
-                }}
-              >
-                {broke.fix.label}
-              </button>
-            ) : null}
-            <button type="button" aria-expanded={reviewOpen} aria-controls={reviewId} className={LINK} onClick={() => setReviewOpen((o) => !o)}>
-              Add a note
-            </button>
-          </div>
-        </div>
-        {reviewOpen ? (
-          <section id={reviewId} aria-label="Review this session" data-testid="held-review" className="flex w-[560px] max-w-full flex-col gap-4 rounded-panel border border-line bg-panel p-4">
-            {held.task ? <TaskDone task={held.task} /> : null}
-            <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
-            <Parked sessionId={held.sessionId} />
-            {held.broken ? null : (
-              <div data-testid="held-break" className="flex flex-wrap items-center gap-2">
-                <span className="text-meta text-muted">Take a break, distractions still closed:</span>
-                {[5, 10, 15].map((m) => (
-                  <Button key={m} variant="ghost" size="sm" className="font-mono" onClick={() => void takeBreak(m)}>
-                    {m} min
-                  </Button>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
+        </article>
       </div>
     </div>
   );

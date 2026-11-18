@@ -47,7 +47,7 @@ describe("one-click updates (v0.3)", () => {
     mockUpdates.available = { version: "0.3.0", notes: null };
     render(<AboutSection />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Check for updates" })));
-    expect(screen.getByText("Version 0.3.0 is downloaded and ready.")).toBeInTheDocument();
+    expect(screen.getByText("Version 0.3.0 is ready")).toBeInTheDocument();
     expect(useUpdate.getState().ready?.version).toBe("0.3.0");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Restart to update" })));
     expect(saveEverything).toHaveBeenCalled();

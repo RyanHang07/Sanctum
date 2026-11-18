@@ -45,7 +45,7 @@ export interface DistractionSuggestion {
   minutes: number | null;
 }
 
-/** Setup > Browser extension (src-tauri/src/browser.rs). */
+/** Setup > Browser Extension (src-tauri/src/browser.rs). */
 export interface BrowserInfo {
   name: string;
   exe: string;
@@ -517,6 +517,8 @@ export interface Recap {
   bestDayMin: number;
   mostTempting: string | null;
   sessions: number;
+  /** The week's seven days, Monday first, for the week strip. Older builds leave it out. */
+  daily?: Pick<DayStat, "date" | "status" | "focusMin">[];
 }
 
 export interface StatsOverview {
@@ -658,6 +660,10 @@ export interface GuardStatus {
   /** Times the guard brought Sanctum back mid-seal. */
   restarts: number;
   lastRestartAt: number | null;
+  /** The guard is from another Sanctum version; installing again updates it (2026-11-17). */
+  outdated?: boolean;
+  /** The guard's last problem, e.g. a hosts file it couldn't write; null once it works again. */
+  lastError?: string | null;
 }
 
 /** A newer release on GitHub (src-tauri/src/updates.rs). */
@@ -687,6 +693,12 @@ export interface JournalDay {
   doc: string | null;
   body: string;
   updatedAt: number;
+}
+
+/** A journal search hit: the page's date and a snippet around the first match. */
+export interface JournalHit {
+  date: string;
+  snippet: string;
 }
 
 export interface JournalLock {

@@ -10,7 +10,7 @@ import { CloseDialog, quitOpens } from "../components/CloseDialog";
 import { QuietPauseDialog } from "../components/QuietPauseDialog";
 import { HEADLINE, PARK_LINES, WELCOME } from "./headlines";
 import { clock } from "../lib/time";
-import { finish, moment, setReducedMotion, setShown } from "../test/motion";
+import { finish, moment, seek, setReducedMotion, setShown } from "../test/motion";
 import type { HeldStats, Intercept, SessionView } from "../lib/types";
 
 // S7 Moments (redesign v0.4.0): the held page, the intercept card, and the dialogs around a seal.
@@ -36,7 +36,7 @@ describe("the held page", () => {
     expect(page).not.toHaveTextContent("Interview Prep · 60 min");
     expect(screen.queryByRole("button", { name: "Replay" })).toBeNull();
     expect(screen.queryByTestId("held-review")).toBeNull();
-    // A clean page: the app colour, no backdrop.
+    // A clean page: the app color, no backdrop.
     expect(page).toHaveClass("bg-app");
     expect(page.className).not.toMatch(/bg-sealed|gradient|blur|shadow/);
   });
@@ -51,7 +51,8 @@ describe("the held page", () => {
     expect(add).toHaveAttribute("aria-controls", review.id);
     expect(review).toContainElement(screen.getByTestId("held-wrap"));
     expect(review).toContainElement(screen.getByTestId("held-task"));
-    expect(review).toContainElement(screen.getByTestId("held-break"));
+    // No break offer (removed 2026-11-16): Enter again does the job.
+    expect(screen.queryByTestId("held-break")).toBeNull();
     fireEvent.click(add);
     expect(screen.queryByTestId("held-review")).toBeNull();
   });
@@ -107,7 +108,7 @@ describe("the held page", () => {
     vi.restoreAllMocks();
   });
 
-  it("a broken seal drains the keyhole to a broken outline instead of ringing", () => {
+  it("a broken seal cracks the keyhole in the second color instead of ringing", () => {
     setReducedMotion(false);
     const play = vi.spyOn(sound, "play").mockImplementation(() => undefined);
     render(<HeldPage held={{ ...held, broken: true, broke: { kind: "killed", afterMin: 23 } }} />);
@@ -120,14 +121,127 @@ describe("the held page", () => {
     expect(screen.getByTestId("held-fact")).toHaveTextContent("Sanctum was closed 23 minutes in.");
     expect(play).toHaveBeenCalledWith("broken");
     expect(play).not.toHaveBeenCalledWith("held");
-    expect(Number(gsap.getProperty("[data-key='sealed']", "opacity"))).toBe(0);
-    expect(Number(gsap.getProperty("[data-key='drained']", "opacity"))).toBe(1);
-    expect(document.querySelector("[data-key='drained']")).toHaveClass("text-broken-text");
-    // No break offer after a broken seal; the fix sits beside "Add a note".
+    // The fix sits beside "Add a note"; there is no break offer.
     expect(screen.getByRole("button", { name: "Turn on Protection" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
     expect(screen.queryByTestId("held-break")).toBeNull();
     play.mockRestore();
+  });
+
+  it("fills the broken keyhole in the second color and keeps the torii in text", () => {
+    render(<HeldPage held={{ ...held, broken: true }} />);
+    const key = document.querySelector("[data-part='key']")!;
+    expect(key).toHaveAttribute("data-key", "broken");
+    expect(key).toHaveClass("text-second");
+    expect(key.querySelector("circle")).toHaveAttribute("fill", "currentColor");
+    expect(key.querySelector("path")).toHaveAttribute("fill", "currentColor");
+    expect(document.querySelector("[data-key='sealed']")).toBeNull();
+    expect(document.querySelector("[data-part='beam']")!.parentElement).toHaveClass("text-text");
+  });
+
+  it("draws the crack on the broken beat: hidden before it, whole after", () => {
+    setReducedMotion(false);
+    const play = vi.spyOn(sound, "play").mockImplementation(() => undefined);
+    render(<HeldPage held={{ ...held, broken: true }} />);
+    const crack = document.querySelector("[data-crack]")!;
+    expect(crack).toHaveAttribute("pathLength", "1");
+    // The card's own color, so it reads as a split.
+    expect(crack).toHaveClass("text-panel");
+    const tl = moment("held")!;
+    seek(tl, "drain", true);
+    expect(Number(crack.getAttribute("stroke-dashoffset"))).toBe(1);
+    seek(tl, tl.labels.drain + 0.2, true);
+    const mid = Number(crack.getAttribute("stroke-dashoffset"));
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    finish(tl);
+    expect(Number(crack.getAttribute("stroke-dashoffset"))).toBe(0);
+    play.mockRestore();
+  });
+
+  it("the crack is simply there under reduced motion", () => {
+    vi.spyOn(sound, "play").mockImplementation(() => undefined);
+    render(<HeldPage held={{ ...held, broken: true }} />);
+    expect(Number(document.querySelector("[data-crack]")!.getAttribute("stroke-dashoffset"))).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it("a held seal has no crack and keeps the accent keyhole", () => {
+    render(<HeldPage held={held} />);
+    expect(document.querySelector("[data-crack]")).toBeNull();
+    expect(document.querySelector("[data-key='sealed']")).toHaveClass("text-sealed");
+  });
+
+  it("sets the card left, with the actions right on their own row", () => {
+    render(<HeldPage held={held} />);
+    const card = screen.getByTestId("held-card");
+    expect(card).toHaveClass("bg-panel", "border-line", "rounded-dialog");
+    expect(card.querySelector("[data-rise='1']")).toHaveClass("items-start", "text-left");
+    const footer = screen.getByTestId("held-footer");
+    expect(footer).toHaveClass("justify-between");
+    expect(footer).toContainElement(screen.getByRole("button", { name: /^Done/ }));
+    expect(footer).toContainElement(screen.getByRole("button", { name: /^Enter again/ }));
+    expect(footer.querySelector("[data-rise='2']")).toHaveClass("ml-auto");
+  });
+
+  it("'Add a note' is a real button that rises in last, then opens the review", () => {
+    setReducedMotion(false);
+    vi.spyOn(sound, "play").mockImplementation(() => undefined);
+    render(<HeldPage held={held} />);
+    const add = screen.getByRole("button", { name: "Add a note" });
+    expect(add.className).not.toMatch(/underline/);
+    expect(add).toHaveAttribute("data-rise", "note");
+    const tl = moment("held")!;
+    // The last beat: after the actions start rising.
+    expect(tl.labels.note).toBeGreaterThan(tl.labels.rise + 0.15);
+    seek(tl, 0, true);
+    expect(Number(gsap.getProperty(add, "opacity"))).toBe(0);
+    seek(tl, tl.labels.note, true);
+    expect(Number(gsap.getProperty(add, "opacity"))).toBe(0);
+    finish(tl);
+    expect(Number(gsap.getProperty(add, "opacity"))).toBe(1);
+    expect(add.style.opacity).toBe("");
+    fireEvent.click(add);
+    expect(add).toHaveAttribute("aria-expanded", "true");
+    expect(add).toHaveAttribute("aria-controls", screen.getByTestId("held-review").id);
+    vi.restoreAllMocks();
+  });
+
+  it("'Add a note' wears Done's style and opens its space before its contents cascade in", () => {
+    setReducedMotion(false);
+    vi.spyOn(sound, "play").mockImplementation(() => undefined);
+    render(<HeldPage held={held} />);
+    finish(moment("held")!);
+    const add = screen.getByRole("button", { name: "Add a note" });
+    const done = screen.getByRole("button", { name: /^Done/ });
+    // Same variant and size as Done.
+    for (const c of ["border", "h-control-lg", "text-text"]) {
+      if (done.classList.contains(c)) expect(add).toHaveClass(c);
+    }
+    fireEvent.click(add);
+    const review = screen.getByTestId("held-review");
+    const tl = moment("held-review")!;
+    expect(tl).toBeDefined();
+    // The wrapper grows; it has no padding of its own, so "auto" measures the whole panel.
+    const space = review.parentElement!;
+    seek(tl, 0, true);
+    expect(gsap.getProperty(space, "height")).toBe(0);
+    expect(Number(gsap.getProperty(review.firstElementChild!, "opacity"))).toBe(0);
+    finish(tl);
+    expect(space.style.height).toBe("");
+    expect(Number(gsap.getProperty(review.firstElementChild!, "opacity"))).toBe(1);
+
+    // Closing mirrors it: the button reads closed at once, the contents fade, the space folds,
+    // and only then does the panel go.
+    fireEvent.click(add);
+    expect(add).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("held-review")).toBeInTheDocument();
+    const out = moment("held-review-close")!;
+    seek(out, out.duration() * 0.99, true);
+    expect(Number(gsap.getProperty(space, "height"))).toBeLessThan(5);
+    finish(out);
+    expect(screen.queryByTestId("held-review")).toBeNull();
+    vi.restoreAllMocks();
   });
 });
 

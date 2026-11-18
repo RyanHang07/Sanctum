@@ -1,24 +1,28 @@
-import { useEffect, useState } from "react";
-import { Section } from "./parts";
-import { TimeSelect } from "./QuietHours";
-import { MiniSelect } from "../../components/controls";
+import { useEffect, useRef, useState } from "react";
+import { BlockRow } from "./BlockRow";
+import { DayToggles, TimeSelect, windowSummary } from "./QuietHours";
+import { Segmented, Switch } from "../../components/controls";
 import { EVENTS, errorText, native, onNative } from "../../lib/native";
-import { WEEKDAYS } from "../../lib/planner";
 import { useStore } from "../../state/store";
 import type { PauseConfig, PauseStatus } from "../../lib/types";
 
-// Setup › Distractions › Pause mode (v0.3.1, decided 2026-10-30): outside seals, a flagged app or
-// site asks "Still want it?" for five seconds before it opens. A one-second pause cut how often
-// an app was opened by about 57% (Grüning et al. 2023). Opt-in; seals and quiet hours still block.
+// Setup › Distractions › Pause before opening (v0.3.1, decided 2026-10-30): outside seals, a
+// flagged app or site asks "Still want it?" for five seconds before it opens. A one-second pause
+// cut how often an app was opened by about 57% (Grüning et al. 2023). Opt-in; seals and quiet hours
+// still block. A row of When it blocks (decided 2026-11-16): the switch turns it on, opening the
+// row picks all day or set hours.
 
-const MODES: { value: PauseConfig["mode"]; label: string }[] = [
-  { value: "off", label: "Off" },
+type OnMode = Exclude<PauseConfig["mode"], "off">;
+const MODES: { value: OnMode; label: string }[] = [
   { value: "all", label: "All day" },
   { value: "hours", label: "These hours" },
 ];
 
 export function PauseModeSection() {
   const [status, setStatus] = useState<PauseStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  // The switch turns back on to the mode it last had.
+  const lastOn = useRef<OnMode>("all");
   const notice = useStore((s) => s.showNotice);
   useEffect(() => {
     void native.pauseStatus().then(setStatus, () => undefined);
@@ -27,6 +31,7 @@ export function PauseModeSection() {
   }, []);
   if (!status) return null;
   const c = status.config;
+  if (c.mode !== "off") lastOn.current = c.mode;
   const save = async (next: PauseConfig) => {
     try {
       setStatus(await native.pauseSave(next));
@@ -34,46 +39,49 @@ export function PauseModeSection() {
       notice({ lead: errorText(e) });
     }
   };
-  const hours = c.mode === "hours";
+  const on = c.mode !== "off";
+  const summary = on ? (
+    <>
+      <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${status.on ? "bg-sealed" : "bg-line-input"}`} />
+      <span className="truncate">
+        {c.mode === "all" ? "All day" : windowSummary(c)} · {status.on ? "Asking first right now" : "Not asking right now"}
+      </span>
+    </>
+  ) : (
+    <span>Off</span>
+  );
   return (
-    <Section title="Pause mode" action={<MiniSelect label="Pause mode" value={c.mode} options={MODES} onChange={(mode) => void save({ ...c, mode })} />}>
-      <div className="flex flex-col gap-3 px-[14px] py-3">
-        <p className="m-0 text-meta leading-normal text-muted">
-          Outside focus sessions, an app or site from your Distractions list asks "Still want it?" for five seconds before it opens. Go on lets it be for 15
-          minutes. Seals and quiet hours still block outright.
-        </p>
-        {hours ? (
-          <div data-testid="pause-hours" className="flex flex-col gap-3">
-            <div role="group" aria-label="Pause days" className="flex gap-1">
-              {WEEKDAYS.map((d) => {
-                const on = (c.daysMask & (1 << d.bit)) !== 0;
-                return (
-                  <button
-                    key={d.name}
-                    type="button"
-                    aria-pressed={on}
-                    aria-label={d.name}
-                    onClick={() => void save({ ...c, daysMask: c.daysMask ^ (1 << d.bit) })}
-                    className={`h-[30px] w-[30px] rounded-full border text-meta font-medium transition-colors duration-ui ease-ui ${
-                      on ? "border-sealed bg-sealed text-sealed-on hover:brightness-110" : "border-line-input text-muted hover:border-check-line hover:text-text"
-                    }`}
-                  >
-                    {d.short}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <TimeSelect label="From" value={c.start} disabled={false} onChange={(start) => void save({ ...c, start })} />
-              <TimeSelect label="Until" value={c.end} disabled={false} onChange={(end) => void save({ ...c, end })} />
-            </div>
+    <BlockRow
+      title="Pause before opening"
+      summary={summary}
+      summaryTestId="pause-status"
+      open={open}
+      onToggle={() => setOpen(!open)}
+      control={
+        <Switch
+          label="Pause before opening"
+          checked={on}
+          onChange={(v) => {
+            void save({ ...c, mode: v ? lastOn.current : "off" });
+            if (v) setOpen(true);
+          }}
+        />
+      }
+    >
+      <p className="m-0 text-meta leading-normal text-muted">
+        Outside focus sessions, an app or site from your Distractions list asks "Still want it?" for five seconds before it opens. Go on lets it be for 15
+        minutes. Seals and quiet hours still block outright.
+      </p>
+      <Segmented label="Pause mode" options={MODES} value={c.mode as OnMode} onChange={(mode) => void save({ ...c, mode })} className="self-start" />
+      {c.mode === "hours" ? (
+        <div data-testid="pause-hours" className="flex flex-col gap-3">
+          <DayToggles label="Pause days" mask={c.daysMask} onToggle={(bit) => void save({ ...c, daysMask: c.daysMask ^ (1 << bit) })} />
+          <div className="grid max-w-[360px] grid-cols-2 gap-2">
+            <TimeSelect label="From" value={c.start} disabled={false} onChange={(start) => void save({ ...c, start })} />
+            <TimeSelect label="Until" value={c.end} disabled={false} onChange={(end) => void save({ ...c, end })} />
           </div>
-        ) : null}
-        <div data-testid="pause-status" className="flex min-h-[22px] items-center gap-2 text-meta text-text-2">
-          <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${status.on ? "bg-sealed" : "bg-line-input"}`} />
-          {c.mode === "off" ? "Off" : status.on ? "Asking first right now" : "Not asking right now"}
         </div>
-      </div>
-    </Section>
+      ) : null}
+    </BlockRow>
   );
 }

@@ -1,8 +1,13 @@
 //! Local SQLite (SPEC 5.1). Migrations are embedded SQL files applied in order and tracked
 //! with `PRAGMA user_version`, so migration N is applied exactly once.
 
-use rusqlite::{params, Connection, OptionalExtension};
-use std::path::Path;
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
+/// Startup's refusal for data a newer Sanctum wrote.
+pub const NEWER: &str = "This data is from a newer Sanctum. Update Sanctum to open it.";
 
 pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0001_init", include_str!("../migrations/0001_init.sql")),
@@ -34,6 +39,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0027_weekly_review", include_str!("../migrations/0027_weekly_review.sql")),
     ("0028_routine_calendar", include_str!("../migrations/0028_routine_calendar.sql")),
     ("0029_routine_sessions", include_str!("../migrations/0029_routine_sessions.sql")),
+    ("0030_session_uptime", include_str!("../migrations/0030_session_uptime.sql")),
 ];
 
 /// Every table SPEC 5.1 requires.
@@ -60,10 +66,167 @@ pub const EXPECTED_TABLES: &[&str] = &[
 ];
 
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
-    let mut conn = Connection::open(path)?;
-    conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
+    let mut conn = connect(path)?;
     prepare(&mut conn)?;
     Ok(conn)
+}
+
+fn connect(path: &Path) -> rusqlite::Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
+    Ok(conn)
+}
+
+/// The database file and the two WAL files beside it.
+pub fn files(path: &Path) -> [PathBuf; 3] {
+    ["", "-wal", "-shm"].map(|ext| PathBuf::from(format!("{}{ext}", path.display())))
+}
+
+/// Startup's open (2026-11-17): before pending migrations run on an existing database, its files
+/// are copied to `backups` with the time `stamp`, and a failure comes back as a message that
+/// says where that copy is, instead of a panic. No copy, no migration.
+pub fn open_at_launch(path: &Path, backups: &Path, stamp: &str) -> Result<Connection, String> {
+    // 2026-11-17: data from a newer Sanctum used to open as is. Read-only first, so the file is
+    // left exactly as it was.
+    if path.exists() {
+        let peek = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+            .and_then(|c| schema_version(&c))
+            .map_err(|e| format!("Sanctum couldn't read its data at {}: {e}", path.display()))?;
+        if peek > latest_version() {
+            return Err(NEWER.into());
+        }
+    }
+    let mut conn = connect(path).map_err(|e| format!("Sanctum couldn't open its data at {}: {e}", path.display()))?;
+    let version = schema_version(&conn).map_err(|e| format!("Sanctum couldn't read its data at {}: {e}", path.display()))?;
+    if version > latest_version() {
+        return Err(NEWER.into());
+    }
+    let mut saved = None;
+    if version > 0 && version < latest_version() {
+        let dir = backups.join(format!("before v{} {stamp}", latest_version()));
+        copy_files(path, &dir).map_err(|e| {
+            format!("Sanctum needs to update its data, but couldn't back it up first ({e}), so it left it untouched. Check there's free space, then open Sanctum again.")
+        })?;
+        crate::backup::keep_newest(backups, crate::backup::KEEP, &dir, crate::backup::update_stamp);
+        saved = Some(dir);
+    }
+    prepare(&mut conn).map_err(|e| match &saved {
+        Some(dir) => format!("Sanctum couldn't update its data ({e}). A copy from before the update is in {}.", dir.display()),
+        None => format!("Sanctum couldn't set up its data ({e})."),
+    })?;
+    Ok(conn)
+}
+
+fn copy_files(path: &Path, dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    for f in files(path).iter().filter(|f| f.exists()) {
+        std::fs::copy(f, dir.join(f.file_name().unwrap_or_default()))?;
+    }
+    Ok(())
+}
+
+/// Swaps the database at `path` for a new one (Start over, Restore). `fill` puts the new file at
+/// `path` (or nothing, for a fresh one) and `setup` runs on the opened result. The old files are
+/// renamed aside first and only deleted once the new database is open; on any failure they're
+/// put back and `conn` is reopened on them (2026-11-17: it used to be left on an empty in-memory
+/// database when Windows refused to delete a file another process held open).
+pub fn replace(
+    conn: &mut Connection,
+    path: &Path,
+    fill: impl FnOnce(&Path) -> Result<(), String>,
+    setup: impl FnOnce(&Connection) -> Result<(), String>,
+) -> Result<(), String> {
+    // Close the live connection so its files can move.
+    drop(std::mem::replace(conn, Connection::open_in_memory().map_err(|e| e.to_string())?));
+    let live = files(path);
+    // A name of their own (2026-11-17): a fixed `.old` was deleted by the next replace, even when
+    // a failed put-back had left the only copy of the data there.
+    let tag = format!("{}-{}", chrono::Local::now().format("%Y%m%d%H%M%S%f"), std::process::id());
+    let aside = live.clone().map(|p| PathBuf::from(format!("{}.old-{tag}", p.display())));
+    let existed = live.clone().map(|p| p.exists());
+    let mut moved = Vec::new();
+    let result = (|| {
+        for (from, to) in live.iter().zip(&aside) {
+            if from.exists() {
+                std::fs::rename(from, to).map_err(|e| format!("{} is in use ({e})", from.display()))?;
+                moved.push((from, to));
+            }
+        }
+        fill(path)?;
+        let fresh = open(path).map_err(|e| e.to_string())?;
+        setup(&fresh)?;
+        Ok(fresh)
+    })();
+    match result {
+        Ok(fresh) => {
+            *conn = fresh;
+            for (_, old) in moved {
+                let _ = std::fs::remove_file(old);
+            }
+            Ok(())
+        }
+        Err(e) => {
+            // Whatever the failed attempt created where nothing was before.
+            for (f, _) in live.iter().zip(existed).filter(|(_, was)| !was) {
+                let _ = std::fs::remove_file(f);
+            }
+            let stuck: Vec<&PathBuf> = moved.iter().filter(|(from, old)| !put_back(old, from)).map(|(_, old)| *old).collect();
+            if stuck.is_empty() {
+                *conn = reopen(path);
+                return Err(e);
+            }
+            // The data is still aside: stay off `path` (it may hold the half-made new file) until
+            // the next start, and say where the data is.
+            *conn = empty();
+            // In `files` order, so the database itself comes first when it's among them.
+            Err(format!("{e}. Sanctum couldn't put your data back; it's kept at {}", stuck[0].display()))
+        }
+    }
+}
+
+/// Moves `old` back to `from`, waiting out a short hold (2026-11-17): the guard opens the new
+/// file for a few milliseconds each tick, and one try used to leave the data stranded aside.
+fn put_back(old: &Path, from: &Path) -> bool {
+    for i in 0..20 {
+        if i > 0 {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        match std::fs::remove_file(from) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => continue,
+        }
+        if std::fs::rename(old, from).is_ok() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Bumped each time Start over or Restore swaps the database (2026-11-17), so work that began on
+/// the old one (a calendar sync) can tell and drop its writes instead of landing in the new one.
+#[derive(Default)]
+pub struct Generation(AtomicU64);
+
+impl Generation {
+    pub fn current(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+    pub fn bump(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+/// Back on the real database; if even that fails, an empty one with the schema, so nothing
+/// queries a database without tables until the next start.
+fn reopen(path: &Path) -> Connection {
+    open(path).unwrap_or_else(|_| empty())
+}
+
+fn empty() -> Connection {
+    let mut m = Connection::open_in_memory().expect("an in-memory database always opens");
+    let _ = prepare(&mut m);
+    m
 }
 
 /// Connection setup shared by the app and the tests (which use an in-memory DB).
@@ -265,5 +428,158 @@ mod tests {
         conn.execute("DELETE FROM profiles WHERE id = ?1", [id]).unwrap();
         let left: i64 = conn.query_row("SELECT COUNT(*) FROM profile_rules", [], |r| r.get(0)).unwrap();
         assert_eq!(left, 0);
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("sanctum-db-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn note(conn: &Connection) -> Option<String> {
+        get_setting(conn, "note").ok().flatten()
+    }
+
+    #[test]
+    fn replacing_the_database_keeps_the_old_one_until_the_new_one_opens() {
+        let dir = scratch("replace");
+        let path = dir.join("s.db");
+        let mut conn = open(&path).unwrap();
+        set_setting(&conn, "note", "old").unwrap();
+        // Restore: a new file copied in, then set up.
+        let other = dir.join("other.db");
+        set_setting(&open(&other).unwrap(), "note", "new").unwrap();
+        replace(&mut conn, &path, |p| std::fs::copy(&other, p).map(|_| ()).map_err(|e| e.to_string()), |_| Ok(())).unwrap();
+        assert_eq!(note(&conn).as_deref(), Some("new"));
+        // Start over: nothing copied, a fresh database.
+        replace(&mut conn, &path, |_| Ok(()), |c| set_setting(c, "note", "fresh").map_err(|e| e.to_string())).unwrap();
+        assert_eq!(note(&conn).as_deref(), Some("fresh"));
+        let leftovers = std::fs::read_dir(&dir).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains(".old-")).count();
+        assert_eq!(leftovers, 0, "the old files are cleaned up");
+        // A failed setup puts the data back and leaves a real connection.
+        let r = replace(&mut conn, &path, |_| Ok(()), |_| Err("no".into()));
+        assert_eq!(r, Err("no".into()));
+        assert_eq!(note(&conn).as_deref(), Some("fresh"));
+        assert!(status(&conn).unwrap().ready);
+        let r = replace(&mut conn, &path, |_| Err("copy failed".into()), |_| Ok(()));
+        assert!(r.is_err());
+        assert_eq!(note(&conn).as_deref(), Some("fresh"));
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The guard (or anything else) holding the file open: Windows refuses to move it, and the
+    /// app stays on its real data.
+    #[cfg(windows)]
+    #[test]
+    fn a_database_held_open_elsewhere_is_left_as_it_was() {
+        let dir = scratch("held");
+        let path = dir.join("s.db");
+        let mut conn = open(&path).unwrap();
+        set_setting(&conn, "note", "kept").unwrap();
+        let held = Connection::open(&path).unwrap();
+        held.query_row("SELECT COUNT(*) FROM settings", [], |r| r.get::<_, i64>(0)).unwrap();
+        let r = replace(&mut conn, &path, |_| Ok(()), |_| Ok(()));
+        assert!(r.is_err());
+        assert_eq!(note(&conn).as_deref(), Some("kept"));
+        assert!(status(&conn).unwrap().ready);
+        drop(held);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The guard holding the new file while a failed replace puts the old data back: it waits
+    /// out a short hold, and a long one leaves the data under a name no later replace touches.
+    #[cfg(windows)]
+    #[test]
+    fn a_put_back_waits_for_a_held_file_and_never_loses_the_data() {
+        let dir = scratch("putback");
+        let path = dir.join("s.db");
+        let mut conn = open(&path).unwrap();
+        set_setting(&conn, "note", "mine").unwrap();
+        // Held for 150 ms, then let go: the put-back retries and lands.
+        let r = replace(&mut conn, &path, |_| Ok(()), |_| {
+            let held = Connection::open(&path).unwrap();
+            held.query_row("SELECT COUNT(*) FROM settings", [], |r| r.get::<_, i64>(0)).unwrap();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(150));
+                drop(held);
+            });
+            Err("no".into())
+        });
+        assert_eq!(r, Err("no".into()));
+        assert_eq!(note(&conn).as_deref(), Some("mine"));
+        // Held for good: the error names where the data is, and it's still there.
+        let mut held = None;
+        let e = replace(&mut conn, &path, |_| Ok(()), |_| {
+            let c = Connection::open(&path).unwrap();
+            c.query_row("SELECT COUNT(*) FROM settings", [], |r| r.get::<_, i64>(0)).unwrap();
+            held = Some(c);
+            Err("no".into())
+        })
+        .unwrap_err();
+        let kept = PathBuf::from(e.split("it's kept at ").nth(1).expect(&e));
+        assert!(kept.file_name().unwrap().to_string_lossy().starts_with("s.db.old-"), "{e}");
+        assert!(status(&conn).unwrap().ready, "a working connection, off the half-made file");
+        drop(held);
+        // The next replace doesn't touch it.
+        replace(&mut conn, &path, |_| Ok(()), |_| Ok(())).unwrap();
+        assert!(kept.exists());
+        let copy = Connection::open(&kept).unwrap();
+        assert_eq!(note(&copy).as_deref(), Some("mine"));
+        drop((conn, copy));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn data_from_a_newer_sanctum_is_refused_and_left_alone() {
+        let dir = scratch("newer");
+        let path = dir.join("s.db");
+        {
+            let c = open(&path).unwrap();
+            set_setting(&c, "note", "future").unwrap();
+            c.pragma_update(None, "user_version", (latest_version() + 1) as i64).unwrap();
+            c.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(())).unwrap();
+        }
+        let before = std::fs::read(&path).unwrap();
+        let backups = dir.join("backups");
+        assert_eq!(open_at_launch(&path, &backups, "x").err().as_deref(), Some(NEWER));
+        assert_eq!(std::fs::read(&path).unwrap(), before, "the file is untouched");
+        assert!(!backups.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn launch_backs_up_before_migrating_and_says_where() {
+        let dir = scratch("launch");
+        let path = dir.join("s.db");
+        {
+            let mut c = connect(&path).unwrap();
+            migrate_until(&mut c, 17).unwrap();
+            set_setting(&c, "note", "v17").unwrap();
+        }
+        let backups = dir.join("backups");
+        let conn = open_at_launch(&path, &backups, "stamp").unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), latest_version());
+        let saved = backups.join(format!("before v{} stamp", latest_version())).join("s.db");
+        let copy = Connection::open(&saved).unwrap();
+        assert_eq!((schema_version(&copy).unwrap(), note(&copy).as_deref()), (17, Some("v17")));
+        drop((conn, copy));
+        // Up to date: no copy.
+        let _ = std::fs::remove_dir_all(&backups);
+        drop(open_at_launch(&path, &backups, "again").unwrap());
+        assert!(!backups.exists());
+        // A migration that fails is an error that names the copy, not a panic.
+        let broken = dir.join("broken.db");
+        {
+            let mut c = connect(&broken).unwrap();
+            migrate_until(&mut c, 17).unwrap();
+            c.execute_batch("PRAGMA foreign_keys = OFF; DROP TABLE sessions;").unwrap();
+        }
+        let e = open_at_launch(&broken, &backups, "b").err().unwrap();
+        assert!(e.contains(&backups.join(format!("before v{} b", latest_version())).display().to_string()), "{e}");
+        assert!(backups.join(format!("before v{} b", latest_version())).join("broken.db").exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

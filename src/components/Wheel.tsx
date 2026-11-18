@@ -120,7 +120,7 @@ export function Wheel<T extends string | number>({
 
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <span className="px-1 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">{label}</span>
+      <span className="px-1 text-meta font-medium text-muted">{label}</span>
       <div className="relative rounded-panel border border-line-input bg-raised transition-colors duration-ui ease-ui focus-within:border-sealed hover:border-check-line">
         {/* The lock-in band. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-1 rounded-control bg-line" style={{ top: ROW / 2, height: ROW }} />
@@ -158,7 +158,7 @@ export function Wheel<T extends string | number>({
                 } ${mono ? "font-mono" : ""}`}
               >
                 <span className="max-w-full truncate leading-tight">{o.label}</span>
-                {o.sub && on ? <span className="max-w-full truncate font-sans text-[10px] font-normal text-muted">{o.sub}</span> : null}
+                {o.sub && on ? <span className="max-w-full truncate font-sans text-micro font-normal text-muted">{o.sub}</span> : null}
               </div>
             );
           })}

@@ -98,7 +98,9 @@ describe("Collapsible sidebar", () => {
     const nav = screen.getByRole("navigation", { name: "Sanctum" });
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(nav).toHaveAttribute("data-collapsed", "true");
-    expect(screen.queryByText("Sanctum")).toBeNull();
+    // The wordmark fades out where it stands (icons never move), hidden from screen readers.
+    expect(screen.getByText("Sanctum")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("Sanctum")).toHaveClass("opacity-0");
     // Tabs keep working by their accessible names and tooltips.
     fireEvent.click(screen.getByRole("button", { name: "Week" }));
     expect(useStore.getState().activeTab).toBe("week");
@@ -111,7 +113,7 @@ describe("Collapsible sidebar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
     expect(nav).not.toHaveAttribute("data-collapsed");
-    expect(screen.getByText("Sanctum")).toBeInTheDocument();
+    expect(screen.getByText("Sanctum")).not.toHaveAttribute("aria-hidden");
   });
 });
 

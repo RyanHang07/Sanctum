@@ -3,6 +3,7 @@
 //! database, restorable here. Both go under Documents\Sanctum. Sign-ins aren't in either: the
 //! refresh tokens live in Windows Credential Manager, not the database.
 
+use crate::engine::Locked;
 use crate::{classify, db, engine, Shared};
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
@@ -171,24 +172,38 @@ pub(crate) fn info(path: &Path) -> Option<FileInfo> {
     })
 }
 
+/// A read-only connection of its own for exports and backups (2026-11-17). They used to hold the
+/// app's connection, and its lock, through VACUUM INTO and the file writes, which stalled the
+/// engine tick and every command behind it. In WAL mode this reads one consistent snapshot
+/// while the app keeps writing.
+pub fn reader(path: &Path) -> rusqlite::Result<Connection> {
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+    Ok(conn)
+}
+
 #[tauri::command]
 pub async fn export_data(app: AppHandle, format: String) -> Result<FileInfo, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dir = folder(&app, "Exports")?;
         let name = format!("Sanctum export {}", stamp(chrono::Local::now()));
-        let shared = app.state::<Shared>();
-        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let mut conn = reader(&app.state::<Shared>().db_path).map_err(|e| e.to_string())?;
+        // One read transaction, so every table comes from the same moment.
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
         let path = match format.as_str() {
             "json" => {
-                let doc = export_json(&conn, crate::session::now_ms()).map_err(|e| e.to_string())?;
+                let doc = export_json(&tx, crate::session::now_ms()).map_err(|e| e.to_string())?;
+                drop(tx);
                 let path = dir.join(format!("{name}.json"));
                 std::fs::write(&path, serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
                 path
             }
             "csv" => {
+                let files = export_csv(&tx).map_err(|e| e.to_string())?;
+                drop(tx);
                 let path = dir.join(&name);
                 std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-                for (file, body) in export_csv(&conn).map_err(|e| e.to_string())? {
+                for (file, body) in files {
                     std::fs::write(path.join(file), body).map_err(|e| e.to_string())?;
                 }
                 path
@@ -206,8 +221,7 @@ pub async fn backup_create(app: AppHandle) -> Result<FileInfo, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dir = folder(&app, "Backups")?;
         let path = dir.join(format!("{BACKUP_PREFIX}{}.{BACKUP_EXT}", stamp(chrono::Local::now())));
-        let shared = app.state::<Shared>();
-        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let conn = reader(&app.state::<Shared>().db_path).map_err(|e| format!("Couldn't write the backup: {e}"))?;
         snapshot(&conn, &path).map_err(|e| format!("Couldn't write the backup: {e}"))?;
         info(&path).ok_or_else(|| "The backup didn't land.".into())
     })
@@ -226,8 +240,74 @@ pub fn backup_list(app: AppHandle) -> Result<Vec<FileInfo>, String> {
         .filter(|p| p.extension().is_some_and(|x| x == BACKUP_EXT))
         .filter_map(|p| info(&p))
         .collect();
-    list.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    list.sort_by_key(|f| std::cmp::Reverse(f.modified_at));
     Ok(list)
+}
+
+/// Safety copies of each kind kept (2026-11-17, the user's call): "Backups before updates" and
+/// the "before restore" snapshots used to pile up forever.
+pub const KEEP: usize = 3;
+
+/// "before v31 2026-11-17 093000" (a folder in Backups before updates): its time.
+pub fn update_stamp(name: &str) -> Option<chrono::NaiveDateTime> {
+    let (_, at) = name.strip_prefix("before v")?.split_once(' ')?;
+    chrono::NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H%M%S").ok()
+}
+
+/// "Sanctum backup 2026-11-17 093000 before restore.sanctum": its time. Your own backups don't
+/// match and are never pruned.
+pub fn restore_stamp(name: &str) -> Option<chrono::NaiveDateTime> {
+    let at = name.strip_prefix(BACKUP_PREFIX)?.strip_suffix(&format!(" before restore.{BACKUP_EXT}"))?;
+    chrono::NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H%M%S").ok()
+}
+
+/// Deletes all but the `keep` newest entries in `dir` whose names `stamp` reads, never `made`
+/// (the one just written, even if the clock says it's older). Links and junctions are skipped,
+/// never followed or removed. Returns how many went.
+pub fn keep_newest(dir: &Path, keep: usize, made: &Path, stamp: fn(&str) -> Option<chrono::NaiveDateTime>) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
+    let mut found: Vec<(chrono::NaiveDateTime, PathBuf)> = entries
+        .flatten()
+        .filter(|e| e.path() != made)
+        .filter(|e| std::fs::symlink_metadata(e.path()).is_ok_and(|m| !is_link(&m)))
+        .filter_map(|e| Some((stamp(&e.file_name().to_string_lossy())?, e.path())))
+        .collect();
+    found.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+    // The one just made is one of the kept.
+    let mut gone = 0;
+    for (_, p) in found.iter().skip(keep.saturating_sub(1)) {
+        let removed = if p.is_dir() { std::fs::remove_dir_all(p) } else { std::fs::remove_file(p) };
+        gone += usize::from(removed.is_ok());
+    }
+    gone
+}
+
+/// A symlink, or on Windows any reparse point (junctions included).
+fn is_link(m: &std::fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if m.file_attributes() & 0x400 != 0 {
+            return true;
+        }
+    }
+    m.file_type().is_symlink()
+}
+
+/// Settings that describe this PC's standing, not its data (2026-11-17): Start over and Restore
+/// keep them, so an older backup can't forget the partner link or give back today's emergency
+/// unlock.
+pub(crate) const CARRIED: &[&str] = &[crate::cloud::K_PARTNER_LINKED, crate::cloud::K_PARTNER_NAME, "emergency_used_at", "emergency_used_uptime"];
+
+pub(crate) fn carried_settings(conn: &rusqlite::Connection) -> Vec<(&'static str, String)> {
+    CARRIED.iter().filter_map(|k| db::get_setting(conn, k).ok().flatten().map(|v| (*k, v))).collect()
+}
+
+pub(crate) fn restore_carried(conn: &rusqlite::Connection, carried: &[(&'static str, String)]) -> Result<(), String> {
+    for (k, v) in carried {
+        db::set_setting(conn, k, v).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Replaces everything on this PC with a backup. The current data is backed up first, so a
@@ -249,32 +329,33 @@ pub async fn backup_restore(app: AppHandle, path: String) -> Result<(), String> 
         }
         check_backup(&source)?;
         let shared = app.state::<Shared>();
-        let mut conn = shared.db.lock().map_err(|e| e.to_string())?;
+        // Held for the whole restore (2026-11-17), so no seal starts part way.
+        let _claim = shared.engine.begin_start().map_err(|_| "Restoring waits until the seal ends.".to_string())?;
+        if shared.sealed() {
+            return Err("Restoring waits until the seal ends.".into());
+        }
+        let mut conn = shared.db.locked();
+        // Checked again under the database lock; with the claim held this can't deadlock.
+        if shared.engine.is_active() {
+            return Err("Restoring waits until the seal ends.".into());
+        }
+        let carried = carried_settings(&conn);
         let safety = dir.join(format!("{BACKUP_PREFIX}{} before restore.{BACKUP_EXT}", stamp(chrono::Local::now())));
         snapshot(&conn, &safety).map_err(|e| format!("Couldn't back up the current data first: {e}"))?;
-        // Swap in a throwaway connection so the live files can be replaced.
-        *conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
-        let replace = |from: &Path| -> Result<Connection, String> {
-            for ext in ["-wal", "-shm"] {
-                let p = PathBuf::from(format!("{}{ext}", shared.db_path.display()));
-                if p.exists() {
-                    std::fs::remove_file(&p).map_err(|e| e.to_string())?;
-                }
-            }
-            std::fs::copy(from, &shared.db_path).map_err(|e| e.to_string())?;
-            let c = db::open(&shared.db_path).map_err(|e| e.to_string())?;
-            classify::seed_from_catalog(&c).map_err(|e| e.to_string())?;
-            close_open_sessions(&c).map_err(|e| e.to_string())?;
-            Ok(c)
-        };
-        match replace(&source) {
-            Ok(c) => *conn = c,
-            Err(e) => {
-                // Put the data back the way it was.
-                *conn = replace(&safety)?;
-                return Err(format!("Couldn't restore that backup: {e}"));
-            }
-        }
+        keep_newest(&dir, KEEP, &safety, restore_stamp);
+        // On any failure the current data stays, and so does a real connection (db::replace).
+        db::replace(
+            &mut conn,
+            &shared.db_path,
+            |to| std::fs::copy(&source, to).map(|_| ()).map_err(|e| e.to_string()),
+            |c| {
+                restore_carried(c, &carried)?;
+                classify::seed_from_catalog(c).map_err(|e| e.to_string())?;
+                close_open_sessions(c).map(|_| ()).map_err(|e| e.to_string())
+            },
+        )
+        .map_err(|e| format!("Couldn't restore that backup: {e}"))?;
+        shared.replaced();
         drop(conn);
         engine::load_quiet(&app);
         engine::load_pause(&app);
@@ -309,6 +390,23 @@ mod tests {
         conn.execute("INSERT INTO profiles (id, name, created_at) VALUES (1, 'Deep Work', 0)", []).unwrap();
         conn.execute("INSERT INTO notes (title, body, created_at, updated_at) VALUES ('Ideas', 'one, \"two\"\nthree', 1, 2)", []).unwrap();
         conn
+    }
+
+    #[test]
+    fn start_over_and_restore_keep_the_partner_link_and_the_emergency_day() {
+        let old = fresh();
+        db::set_setting(&old, crate::cloud::K_PARTNER_LINKED, "1").unwrap();
+        db::set_setting(&old, crate::cloud::K_PARTNER_NAME, "Sam").unwrap();
+        db::set_setting(&old, "emergency_used_at", "123").unwrap();
+        db::set_setting(&old, "display_name", "Ryan").unwrap();
+        let carried = carried_settings(&old);
+        // A backup from before the partner, with no emergency used.
+        let restored = fresh();
+        restore_carried(&restored, &carried).unwrap();
+        assert_eq!(crate::cloud::remembered_partner(&restored).as_deref(), Some("Sam"));
+        assert_eq!(db::get_setting(&restored, "emergency_used_at").unwrap().as_deref(), Some("123"));
+        // Ordinary data isn't carried.
+        assert_eq!(db::get_setting(&restored, "display_name").unwrap(), None);
     }
 
     #[test]
@@ -347,6 +445,69 @@ mod tests {
         let (outcome, ended): (String, i64) = restored.query_row("SELECT outcome, ended_at FROM sessions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         assert_eq!((outcome.as_str(), ended), ("broken", 5000));
         drop(restored);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_the_three_newest_safety_copies_of_each_kind_are_kept() {
+        let dir = std::env::temp_dir().join(format!("sanctum-backup-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (updates, backups) = (dir.join("Backups before updates"), dir.join("Backups"));
+        for d in 1..=5 {
+            std::fs::create_dir_all(updates.join(format!("before v{} 2026-11-0{d} 120000", 25 + d))).unwrap();
+        }
+        std::fs::create_dir_all(&backups).unwrap();
+        for d in 1..=5 {
+            std::fs::write(backups.join(format!("Sanctum backup 2026-11-0{d} 120000 before restore.sanctum")), "x").unwrap();
+        }
+        // Your own backups and anything else in the folders are never touched.
+        std::fs::write(backups.join("Sanctum backup 2026-01-01 120000.sanctum"), "mine").unwrap();
+        std::fs::create_dir_all(updates.join("notes")).unwrap();
+        // The one just made sorts oldest (the clock went back) and is still kept.
+        let made = updates.join("before v31 2025-01-01 120000");
+        std::fs::create_dir_all(&made).unwrap();
+        assert_eq!(keep_newest(&updates, KEEP, &made, update_stamp), 3);
+        let mut left: Vec<String> = std::fs::read_dir(&updates).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        left.sort();
+        assert_eq!(left, ["before v29 2026-11-04 120000", "before v30 2026-11-05 120000", "before v31 2025-01-01 120000", "notes"]);
+        let made = backups.join("Sanctum backup 2026-11-06 120000 before restore.sanctum");
+        std::fs::write(&made, "x").unwrap();
+        assert_eq!(keep_newest(&backups, KEEP, &made, restore_stamp), 3);
+        let mut left: Vec<String> = std::fs::read_dir(&backups).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        left.sort();
+        assert_eq!(
+            left,
+            [
+                "Sanctum backup 2026-01-01 120000.sanctum",
+                "Sanctum backup 2026-11-04 120000 before restore.sanctum",
+                "Sanctum backup 2026-11-05 120000 before restore.sanctum",
+                "Sanctum backup 2026-11-06 120000 before restore.sanctum",
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A junction named like an old copy is left alone, and so is what it points at.
+    #[cfg(windows)]
+    #[test]
+    fn pruning_never_follows_a_junction() {
+        let dir = std::env::temp_dir().join(format!("sanctum-backup-junction-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (updates, target) = (dir.join("updates"), dir.join("elsewhere"));
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(target.join("precious.txt"), "keep").unwrap();
+        for d in 1..=3 {
+            std::fs::create_dir_all(updates.join(format!("before v30 2026-11-1{d} 120000"))).unwrap();
+        }
+        let link = updates.join("before v20 2020-01-01 120000");
+        let ok = std::process::Command::new("cmd").args(["/C", "mklink", "/J"]).arg(&link).arg(&target).output().unwrap().status.success();
+        assert!(ok, "mklink /J");
+        let made = updates.join("before v31 2026-11-20 120000");
+        std::fs::create_dir_all(&made).unwrap();
+        assert_eq!(keep_newest(&updates, KEEP, &made, update_stamp), 1);
+        assert!(std::fs::symlink_metadata(&link).is_ok(), "the junction stays");
+        assert!(target.join("precious.txt").exists());
+        std::fs::remove_dir(&link).unwrap();
         let _ = std::fs::remove_dir_all(&dir);
     }
 

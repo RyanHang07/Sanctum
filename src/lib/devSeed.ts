@@ -27,7 +27,11 @@ export function seedDevProfiles(): Promise<void> {
     }
     await native.setSetting("dev_seeded", "1");
     await native.setSetting("onboarded", "1");
-  })();
+  })().catch((e: unknown) => {
+    // A failed seed can be tried again on the next startup run.
+    running = null;
+    throw e;
+  });
   return running;
 }
 
@@ -60,7 +64,10 @@ export function seedDevPlanner(): Promise<void> {
     }
     await native.saveTodo({ title: "Plan the trip", dueDate: addDays(week, 7), dueTime: null, durationMin: null, profileId: null, undated: true });
     await native.setSetting("dev_seeded_planner", "1");
-  })();
+  })().catch((e: unknown) => {
+    plannerRun = null;
+    throw e;
+  });
   return plannerRun;
 }
 
@@ -68,8 +75,13 @@ export function seedDevPlanner(): Promise<void> {
  * Browser preview only (no Tauri): six weeks of sample history so Stats has something to
  * show. A real install builds it from sessions.
  */
+let statsSeeded = false;
+
 export function seedDevStats(): void {
   if (!import.meta.env.DEV || import.meta.env.MODE === "test" || inTauri()) return;
+  // Once per page: StrictMode runs startup effects twice.
+  if (statsSeeded) return;
+  statsSeeded = true;
   const today = todayKey();
   const days: Parameters<typeof mockControls.statsDays>[0] = {};
   // This week's days carry the attempts the "What tempted you" list adds up to (21).
@@ -119,14 +131,26 @@ export function seedDevStats(): void {
       ]);
     });
   }
-  mockControls.insightRecap({ week: addDays(today, -7), focusMin: 1140, previousFocusMin: 960, kept: 5, broken: 1, days: 6, bestDay: addDays(today, -5), bestDayMin: 240, mostTempting: "discord.exe", sessions: 16 });
+  mockControls.insightRecap({ week: addDays(today, -7), focusMin: 1140, previousFocusMin: 960, kept: 5, broken: 1, days: 6, bestDay: addDays(today, -5), bestDayMin: 240, mostTempting: "discord.exe", sessions: 16,
+    daily: ([[170, "kept"], [240, "kept"], [200, "kept"], [60, "broken"], [230, "kept"], [240, "kept"], [0, "rest"]] as const).map(([focusMin, status], i) => ({ date: addDays(today, -7 + i), status, focusMin })),
+  });
 }
 
 /**
  * Browser preview only (no Tauri): trackers from Tracking.dc.html with a few months of
  * entries, a weigh-in, and an evening wrap-up. A real install starts with none.
  */
-export async function seedDevTrackers(): Promise<void> {
+let seeding: Promise<void> | null = null;
+
+export function seedDevTrackers(): Promise<void> {
+  // Once per page: two callers at once both saw an empty list and seeded twice (theme audit).
+  return (seeding ??= seedTrackers().catch((e: unknown) => {
+    seeding = null;
+    throw e;
+  }));
+}
+
+async function seedTrackers(): Promise<void> {
   if (!import.meta.env.DEV || import.meta.env.MODE === "test" || inTauri()) return;
   if ((await native.listTrackers()).length) return;
   const w = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb" });

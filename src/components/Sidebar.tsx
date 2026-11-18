@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from "react";
 import pkg from "../../package.json";
 import { Mark } from "./Mark";
 import { AnimatedMark } from "./AnimatedMark";
-import { JournalIcon, LockIcon, NotesIcon, PanelIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
+import { JournalIcon, LockIcon, NotesIcon, FoldIcon, SetupIcon, StatsIcon, TodayIcon, TrackersIcon, WeekIcon } from "./icons";
 import { TABS, type AppState, type TabId, isTabLocked } from "../state/appState";
 import { useStore } from "../state/store";
 import { NARROW, useMedia } from "../lib/useMedia";
@@ -35,46 +35,64 @@ const PILL: Record<AppState, { label: string; box: string; dot: string }> = {
 
 const version = "v" + pkg.version.split(".").slice(0, 2).join(".");
 
+/** Fades what the rail hides; the sidebar's own width clips it (decided 2026-11-16). */
+const fade = (collapsed: boolean) => `transition-opacity duration-enter ease-ui ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`;
+
+/**
+ * One markup open and folded: the dot stays put (30px from the window's edge, the rail's
+ * centre), and only the label fades as the box narrows with the sidebar.
+ */
 export function StatePill({ state, meta, compact = false }: { state: AppState; meta?: string; compact?: boolean }) {
   const p = PILL[state];
   const label = meta ? `${p.label} · ${meta}` : p.label;
-  if (compact) {
-    return (
-      <div data-testid="state-pill" role="status" aria-label={label} title={label} className={`flex h-control w-full items-center justify-center rounded-control border transition-colors duration-700 ${p.box}`}>
-        <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
-      </div>
-    );
-  }
   return (
-    <div data-testid="state-pill" className={`flex h-control w-full items-center gap-[10px] rounded-control border px-[10px] transition-colors duration-700 ${p.box}`}>
+    <div
+      data-testid="state-pill"
+      role={compact ? "status" : undefined}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
+      className={`flex h-control w-full items-center gap-[10px] overflow-hidden rounded-control border px-[11px] transition-colors duration-700 ${p.box}`}
+    >
       <span className="flex w-4 shrink-0 justify-center">
         <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
       </span>
-      <span className="whitespace-nowrap text-meta font-medium">{p.label}</span>
-      {meta ? <span className="ml-auto whitespace-nowrap font-mono text-meta text-muted">{meta}</span> : null}
+      <span aria-hidden={compact || undefined} className={`flex min-w-0 grow items-center gap-[10px] ${fade(compact)}`}>
+        <span className="whitespace-nowrap text-meta font-medium">{p.label}</span>
+        {meta ? <span className="ml-auto whitespace-nowrap font-mono text-meta text-muted">{meta}</span> : null}
+      </span>
     </div>
   );
 }
 
-function CollapseButton({ collapsed, onClick, className = "" }: { collapsed: boolean; onClick: () => void; className?: string }) {
+/**
+ * The fold button. When the window is too narrow to open the sidebar (decided 2026-11-16), it
+ * fades and shrinks away, out of the tab order, and comes back the same way when there's room.
+ */
+function CollapseButton({ collapsed, onClick, hidden = false, className = "" }: { collapsed: boolean; onClick: () => void; hidden?: boolean; className?: string }) {
   const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
     <button
       type="button"
       aria-label={label}
       aria-expanded={!collapsed}
-      title={`${label} (Ctrl+B)`}
+      aria-hidden={hidden || undefined}
+      inert={hidden}
+      data-unavailable={hidden || undefined}
+      title={`${label} (Ctrl B)`}
       onClick={onClick}
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-faint transition-colors duration-ui ease-ui hover:bg-line-soft hover:text-text-2 focus-visible:text-text-2 ${className}`}
+      className={`group flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-faint transition-[color,background-color,opacity,transform] duration-state ease-glide hover:bg-raised hover:text-text-2 focus-visible:text-text-2 motion-reduce:transition-none ${
+        // Fades without shrinking, so it stays a 28x28 target at every width (M12).
+        hidden ? "pointer-events-none opacity-0" : "opacity-100"
+      } ${className}`}
     >
-      <PanelIcon className={collapsed ? "" : "rotate-180"} />
+      <FoldIcon className={collapsed ? "" : "rotate-180"} />
     </button>
   );
 }
 
 /**
  * The nav rows, with one active indicator that glides between them (motion spec §8). The
- * indicator draws the active row's background; the active icon takes the second colour
+ * indicator draws the active row's background; the active icon takes the second color
  * (decided). Under reduced motion or a hidden window it jumps. It reads the active row's
  * offsetTop, so the same code serves the 220px sidebar and the 60px rail.
  */
@@ -119,7 +137,7 @@ function NavList({ collapsed }: { collapsed: boolean }) {
           ? "text-text font-medium"
           : locked
             ? "text-locked cursor-not-allowed"
-            : "text-muted hover:bg-line-soft hover:text-text-2";
+            : "text-muted hover:bg-raised hover:text-text-2";
         const tip = locked ? `${t.label} is locked while you're sealed` : `${t.label} (${t.key})`;
         return (
           <button
@@ -128,29 +146,23 @@ function NavList({ collapsed }: { collapsed: boolean }) {
             data-nav-item={t.id}
             aria-current={on ? "page" : undefined}
             aria-disabled={locked || undefined}
+            aria-description={locked ? "Locked while sealed" : undefined}
             aria-label={collapsed ? t.label : undefined}
             title={collapsed ? tip : undefined}
             onClick={() => navigate(t.id)}
-            className={`relative flex h-control items-center gap-[10px] rounded-control text-left text-body transition-colors duration-ui ease-ui ${
-              collapsed ? "justify-center" : "px-[10px]"
-            } ${tone}`}
+            className={`relative flex h-control items-center gap-[10px] overflow-hidden rounded-control px-[12px] text-left text-body transition-colors duration-ui ease-ui ${tone}`}
           >
             <span
               data-nav-icon=""
-              className={`flex w-4 shrink-0 justify-center transition-colors duration-ui ease-ui ${on ? "text-second" : ""}`}
+              className={`flex w-4 shrink-0 justify-center transition-colors duration-ui ease-ui ${on ? "text-second [[data-scheme=light]_&]:text-second-text" : ""}`}
             >
               {TAB_ICONS[t.id]}
             </span>
-            {collapsed ? (
-              locked ? (
-                <LockIcon size={9} className="absolute bottom-[5px] right-[7px]" />
-              ) : null
-            ) : (
-              <>
-                <span className="grow whitespace-nowrap">{t.label}</span>
-                {locked ? <LockIcon /> : <span className="font-mono text-[11px] text-faint">{t.key}</span>}
-              </>
-            )}
+            {locked ? <LockIcon size={9} className={`absolute bottom-[5px] left-[30px] transition-opacity duration-enter ease-ui ${collapsed ? "opacity-100" : "opacity-0"}`} /> : null}
+            <span aria-hidden={collapsed || undefined} className={`flex min-w-0 grow items-center gap-[10px] ${fade(collapsed)}`}>
+              <span className="grow whitespace-nowrap">{t.label}</span>
+              {locked ? <LockIcon /> : <span className="font-mono text-micro text-muted">{t.key}</span>}
+            </span>
           </button>
         );
       })}
@@ -174,12 +186,12 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
     <nav
       aria-label="Sanctum"
       data-collapsed={collapsed || undefined}
-      className={`box-border flex h-full shrink-0 flex-col gap-[18px] overflow-hidden border-r border-line bg-sidebar py-4 transition-[width,padding] duration-enter ease-ui ${
-        collapsed ? "w-sidebar-rail px-[10px]" : "w-sidebar px-3"
+      className={`box-border flex h-full shrink-0 flex-col gap-[18px] overflow-hidden border-r border-line bg-sidebar px-[10px] py-4 transition-[width] duration-enter ease-ui ${
+        collapsed ? "w-sidebar-rail" : "w-sidebar"
       }`}
     >
-      <div className={`flex h-7 items-center ${collapsed ? "justify-center" : "gap-[10px] pl-2"}`}>
-        <div className={`flex min-w-0 items-center ${collapsed ? "" : "grow gap-[10px] text-text"}`}>
+      <div className="flex h-7 items-center pl-[11px]">
+        <div className="flex min-w-0 grow items-center gap-[10px] text-text">
           {sealed ? (
             <span className="flex text-text">
               <AnimatedMark size={18} mode="breathe" label="Sanctum, sealed" keyClass="text-sealed" />
@@ -187,7 +199,9 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
           ) : (
             <Mark size={18} />
           )}
-          {collapsed ? null : <span className="grow whitespace-nowrap text-[14px] font-semibold tracking-[-0.01em]">Sanctum</span>}
+          <span aria-hidden={collapsed || undefined} className={`grow whitespace-nowrap text-[14px] font-semibold tracking-[-0.01em] ${fade(collapsed)}`}>
+            Sanctum
+          </span>
         </div>
       </div>
 
@@ -198,15 +212,13 @@ export function Sidebar({ pillMeta }: { pillMeta?: string }) {
       <div className="grow" />
 
       <div
-        className={`group/sidebar-bottom mt-auto flex min-h-7 items-center text-faint ${
-          collapsed ? "justify-center" : "justify-between gap-2 px-2"
-        }`}
+        className="group/sidebar-bottom mt-auto flex min-h-7 items-center justify-between gap-2 pl-[6px] pr-2 text-faint"
       >
-        <CollapseButton collapsed={collapsed} onClick={toggle} />
+        <CollapseButton collapsed={collapsed} onClick={toggle} hidden={narrow} />
         <span
           // The rail keeps only its button: the version slides in with the expanded sidebar, not on hover.
           aria-hidden={collapsed || undefined}
-          className={`overflow-hidden whitespace-nowrap font-mono text-[11px] text-faint transition-all duration-ui ease-ui ${
+          className={`overflow-hidden whitespace-nowrap font-mono text-micro text-muted transition-all duration-ui ease-ui ${
             collapsed ? "max-w-0 opacity-0" : "max-w-[64px] opacity-100"
           }`}
         >

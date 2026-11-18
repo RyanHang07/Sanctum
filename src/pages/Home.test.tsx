@@ -1,3 +1,4 @@
+import { OPEN_IDLE } from "./headlines";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { useStore } from "../state/store";
@@ -59,7 +60,7 @@ describe("Home Today list (v0.1)", () => {
     await todo("Call mom", null);
     await todo("Dentist", "15:00");
     await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
-    render(<Home />);
+    await act(async () => void render(<Home />));
 
     const titles = (id: string) => within(screen.getByTestId(id)).getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"));
     expect(titles("routines-column")).toEqual(["Run", "Stretch", "Read"]);
@@ -86,6 +87,22 @@ describe("Home Today list (v0.1)", () => {
     await act(async () => fireEvent.keyDown(screen.getByRole("checkbox", { name: "Stretch" }), { key: "ArrowUp", altKey: true }));
     expect(titles("routines-column")).toEqual(["Stretch", "Read", "Run"]);
   });
+
+  it("keeps done tasks readable, names truncated rows, and gives small controls a 24px hit area (H3, M12, M13)", async () => {
+    const day = todayKey();
+    await native.saveTodo({ title: "A long task name that runs past the column at 700px", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    await act(async () => void render(<Home />));
+    const box = screen.getByRole("checkbox", { name: /A long task name/ });
+    expect(box).toHaveClass("h-4", "w-4", "before:h-[max(100%,24px)]", "before:w-[max(100%,24px)]");
+    const row = box.closest("[data-testid=task-row]") as HTMLElement;
+    const title = within(row).getByText(/A long task name/);
+    expect(title).toHaveAttribute("title", "A long task name that runs past the column at 700px");
+    await act(async () => fireEvent.click(box));
+    // Done: struck through, in muted (readable), never faint.
+    expect(title).toHaveClass("text-muted", "line-through");
+    expect(title).not.toHaveClass("text-faint");
+  });
 });
 
 describe("Home counters (v0.1.4)", () => {
@@ -107,7 +124,7 @@ describe("Home counters (v0.1.4)", () => {
     expect([tracker.name, tracker.unit, tracker.kind, routine!.goalAmount, routine!.noteMode]).toEqual(["Protein", "g", "number", 150, "required"]);
 
     await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
-    render(<Home />);
+    await act(async () => void render(<Home />));
     const counter = within(screen.getByTestId("routines-column")).getByTestId("counter");
     // Pinned at the top, not a checkbox row.
     expect(screen.queryByRole("checkbox", { name: "Protein" })).toBeNull();
@@ -142,7 +159,7 @@ describe("Home Pending tab (v0.1)", () => {
   it("sits folded under Today, opens, and adds an item with no day", async () => {
     const day = todayKey();
     await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
-    render(<Home />);
+    await act(async () => void render(<Home />));
     const tab = within(screen.getByTestId("day-column")).getByTestId("pending-tab");
     const toggle = within(tab).getByRole("button", { name: "Show pending" });
     expect(toggle).toHaveClass("text-muted");
@@ -161,7 +178,7 @@ describe("Home Pending tab (v0.1)", () => {
     await act(() => useStore.getState().loadProfiles());
     await native.saveTodo({ title: "Send the weekly update", dueDate: day, dueTime: null, durationMin: null, profileId: p.id });
     await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
-    render(<Home />);
+    await act(async () => void render(<Home />));
     const row = screen.getByRole("checkbox", { name: "Send the weekly update" }).closest("[data-testid=task-row]")!;
     expect(row.lastElementChild).toHaveTextContent("Light Work");
   });
@@ -172,11 +189,11 @@ describe("Home streak chip", () => {
     const { addDays, todayKey } = await import("../lib/planner");
     const t = todayKey();
     mockControls.statsDays({ [addDays(t, -2)]: { focusMin: 130 }, [addDays(t, -1)]: { focusMin: 125 } });
-    render(<Home />);
+    await act(async () => void render(<Home />));
     const chip = await screen.findByRole("button", { name: "2 day streak, 2 of the last 7 days kept, today 0m of 2h. Open Stats" });
     expect(chip.querySelectorAll("[data-status]")).toHaveLength(7);
     expect(chip.querySelectorAll('[data-status="kept"]')).toHaveLength(2);
-    // Kept is the second colour; today is the accent, filling as you focus.
+    // Kept is the second color; today is the accent, filling as you focus.
     expect(chip.querySelector('[data-status="kept"]')).toHaveClass("bg-second");
     expect(chip.querySelector("[data-today-cell]")).toHaveClass("border-sealed");
     fireEvent.click(chip);
@@ -202,13 +219,13 @@ describe("Home", () => {
     // A calm, normal-size button with the note above it.
     expect(screen.getByRole("button", { name: /Enter focus/ })).not.toContainElement(screen.getByTestId("focus-note"));
     // As tall as the pickers beside it.
-    expect(screen.getByRole("button", { name: /Enter focus/ }).className).toContain("h-[52px]");
+    expect(screen.getByRole("button", { name: /Enter focus/ }).className).toContain("h-cta");
     expect(screen.getByRole("button", { name: /Enter focus/ })).toBeEnabled();
   });
 
   it("switching profile applies its default duration", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     fireEvent.click(picker("Profile"));
     fireEvent.click(within(screen.getByRole("listbox", { name: "Profile" })).getByRole("option", { name: "Deep Work" }));
     expect(screen.queryByRole("listbox", { name: "Profile" })).toBeNull();
@@ -218,7 +235,7 @@ describe("Home", () => {
 
   it("has an empty state with Enter focus disabled when there are no profiles", async () => {
     await act(() => useStore.getState().loadProfiles());
-    render(<Home />);
+    await act(async () => void render(<Home />));
     expect(screen.queryByRole("button", { name: /Profile/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Enter focus/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Create one in Setup" }));
@@ -227,7 +244,7 @@ describe("Home", () => {
 
   it("warns which open apps will close before entering", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     // Mock backend: Discord is running and flagged.
     await waitFor(() => expect(screen.getByTestId("focus-note")).toHaveTextContent("Discord closes when you enter"));
     // A label: sentence case, readable.
@@ -236,7 +253,7 @@ describe("Home", () => {
 
   it("Enter focus seals with a real session and runs the timer", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Enter focus/ }));
     });
@@ -245,8 +262,9 @@ describe("Home", () => {
     expect(s.session?.plannedMinutes).toBe(60);
     const bar = screen.getByTestId("session-bar");
     expect(within(bar).getByRole("timer")).toHaveAccessibleName("60 min left");
-    expect(bar).toHaveTextContent("Sealed · Interview Prep · 60 min");
-    expect(bar).toHaveTextContent("0 attempts blocked");
+    // The top slot says only what the cells don't: the profile and length are in the cells.
+    expect(screen.getByTestId("sealed-slot")).toHaveTextContent(/^Sealed.*Ends .* · \d+ apps? sealed · 0 attempts blocked$/);
+    expect(bar).toHaveTextContent("Interview Prep");
     await act(async () => mockControls.fastForward(18 * 60_000 + 500));
     expect(within(bar).getByRole("timer")).toHaveAccessibleName("42 min left");
     act(() => mockControls.block("Discord"));
@@ -255,7 +273,7 @@ describe("Home", () => {
 
   it("End early opens the break-the-seal dialog", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     await act(async () => void (await useStore.getState().enterFocus()));
     fireEvent.click(screen.getByRole("button", { name: "End early" }));
     expect(useStore.getState().endEarlyOpen).toBe(true);
@@ -263,7 +281,7 @@ describe("Home", () => {
 
   it("Enter focus opens the launch set and reports it", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Enter focus/ }));
     });
@@ -275,22 +293,25 @@ describe("Home", () => {
   it("swaps the focus row for the session bar when sealed", async () => {
     await withSampleProfiles();
     act(() => useStore.getState().setAppState("sealed"));
-    render(<Home />);
+    await act(async () => void render(<Home />));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeLine("sealed"));
     expect(screen.queryByTestId("focus-row")).toBeNull();
-    expect(screen.getByTestId("session-bar")).toHaveTextContent("Sealed · Interview Prep · 60 min");
+    expect(screen.getByTestId("sealed-slot")).toHaveTextContent(/^Sealed/);
+    expect(screen.getByTestId("session-bar")).toHaveTextContent("Interview Prep");
   });
 
-  it("steps search and Customize aside while sealed or in an event, keeps the streak, and brings them back when open", () => {
+  it("steps the streak, search and Customize aside only while sealed, and brings them back after", () => {
     render(<Home />);
     const tools = screen.getByTestId("home-tools");
     expect(tools).not.toHaveAttribute("aria-hidden");
-    for (const state of ["sealed", "event"] as const) {
-      act(() => useStore.getState().setAppState(state));
-      expect(tools).toHaveAttribute("aria-hidden", "true");
-      expect(tools).toHaveClass("opacity-0");
-      expect(screen.getByTestId("streak")).toBeVisible();
-    }
+    expect(tools).toContainElement(screen.getByTestId("streak"));
+    act(() => useStore.getState().setAppState("sealed"));
+    expect(tools).toHaveAttribute("aria-hidden", "true");
+    expect(tools).toHaveClass("opacity-0");
+    // An event keeps them.
+    act(() => useStore.getState().setAppState("event"));
+    expect(tools).not.toHaveAttribute("aria-hidden");
+    expect(tools).toHaveClass("opacity-100");
     act(() => useStore.getState().setAppState("open"));
     expect(tools).not.toHaveAttribute("aria-hidden");
     expect(tools).toHaveClass("opacity-100");
@@ -299,27 +320,92 @@ describe("Home", () => {
   it("shows the event bar in an event", () => {
     act(() => useStore.getState().setAppState("event"));
     render(<Home />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeLine("event", { title: "Mock interview", until: "3:00" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(homeLine("event", { title: "Mock interview", until: "3:00p" }));
     expect(screen.getByTestId("event-bar")).toBeInTheDocument();
   });
 
   it("dismisses the empty schedule hint and brings it back from Customize", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     expect(screen.getByTestId("suggestion")).toHaveTextContent("No focus block on your schedule.");
     await act(async () => fireEvent.click(within(screen.getByTestId("suggestion")).getByRole("button", { name: "Dismiss" })));
-    expect(screen.queryByTestId("suggestion")).toBeNull();
+    // The slot stays (2026-11-17), so the row below never moves: a line for the day fills it.
+    expect(screen.getByTestId("suggestion")).toHaveAttribute("data-kind", "idle");
+    expect(OPEN_IDLE).toContain(screen.getByTestId("suggestion").textContent);
     expect(await native.getSetting("home_layout")).toContain("hint");
     fireEvent.click(screen.getByRole("button", { name: "Customize" }));
     await act(async () => fireEvent.click(screen.getByRole("switch", { name: "Show Empty schedule hint" })));
-    expect(screen.getByTestId("suggestion")).toBeInTheDocument();
+    expect(screen.getByTestId("suggestion")).toHaveTextContent("No focus block on your schedule.");
   });
 
   it("draws the Enter focus fill as its own layer, the source of the seal line", async () => {
     await withSampleProfiles();
-    render(<Home />);
+    await act(async () => void render(<Home />));
     const button = screen.getByRole("button", { name: /Enter focus/ });
     expect(button.querySelector("[data-seal-src]")).toHaveClass("bg-sealed");
     expect(screen.getByTestId("enter-label")).toHaveTextContent("Enter focus Ctrl ↵");
+  });
+});
+
+describe("Home counters stay put when reads or writes fail (C2)", () => {
+  async function counter(goal: number) {
+    const tracker = await native.saveTracker({ name: "Water", unit: "cups", kind: "number" });
+    const routine = await native.saveRoutine({ title: "Water", time: null, profileId: null, active: true, daysMask: EVERY_DAY, durationMin: null, trackerId: tracker.id, goalAmount: goal, noteMode: "off" });
+    return { tracker, routine };
+  }
+
+  it("a failed tracker load leaves a done counter checked (nothing reads an empty list as the truth)", async () => {
+    const day = todayKey();
+    const { tracker, routine } = await counter(2);
+    await native.logEntries([{ trackerId: tracker.id, value: 2, text: null }], null);
+    await native.setRoutineProgress(routine.id, day, 1);
+    const list = vi.spyOn(native, "trackerEntries").mockRejectedValue("No answer.");
+    const progress = vi.spyOn(native, "setRoutineProgress");
+    try {
+      await act(() => useTrackers.getState().load());
+      expect(useTrackers.getState().loaded).toBe(false);
+      await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+      await act(async () => void render(<Home />));
+      expect(progress).not.toHaveBeenCalled();
+      expect(usePlanner.getState().checks).toContainEqual(expect.objectContaining({ routineId: routine.id, date: day }));
+    } finally {
+      list.mockRestore();
+      progress.mockRestore();
+    }
+  });
+
+  it("a check that fails to save is tried once, not in a loop", async () => {
+    const day = todayKey();
+    const { tracker } = await counter(2);
+    await native.logEntries([{ trackerId: tracker.id, value: 3, text: null }], null);
+    await act(() => useTrackers.getState().load());
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    const progress = vi.spyOn(native, "setRoutineProgress").mockRejectedValue("The disk is busy.");
+    try {
+      await act(async () => void render(<Home />));
+      await act(async () => void (await new Promise((r) => setTimeout(r, 50))));
+      expect(progress).toHaveBeenCalledTimes(1);
+    } finally {
+      progress.mockRestore();
+    }
+  });
+});
+
+describe("Home seal preview (M11)", () => {
+  it("reads one at a time: the poll and window focus don't stack slow reads", async () => {
+    await withSampleProfiles();
+    const preview = vi.spyOn(native, "previewSeal").mockImplementation(() => new Promise<string[]>(() => undefined));
+    try {
+      await act(async () => void render(<Home />));
+      const before = preview.mock.calls.length;
+      expect(before).toBeGreaterThan(0);
+      act(() => {
+        window.dispatchEvent(new Event("focus"));
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(preview.mock.calls.length).toBe(before);
+    } finally {
+      preview.mockRestore();
+    }
   });
 });

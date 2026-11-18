@@ -8,6 +8,7 @@
 //! Locally a note keeps its token, expiry, key (so pushes continue after a restart), and the
 //! signed URL of each image already uploaded.
 
+use crate::engine::Locked;
 use crate::{cloud, session::now_ms, Shared};
 use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -85,7 +86,7 @@ fn rfc3339(ms: i64) -> String {
 
 fn with_local<T>(app: &AppHandle, f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, String> {
     let shared = app.state::<Shared>();
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     f(&conn).map_err(|e| e.to_string())
 }
 

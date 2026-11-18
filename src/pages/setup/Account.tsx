@@ -5,6 +5,7 @@ import { EVENTS, errorText, native, onNative } from "../../lib/native";
 import type { CloudStatus, PartnerStatus } from "../../lib/types";
 import { useStore } from "../../state/store";
 import { Row, Section } from "./parts";
+import { StatusLine, useCascade, type ConnectionTone } from "./status";
 
 // Setup > Account (SPEC 4.6, M6): the optional account, and the accountability partner who
 // approves early unlocks. Sanctum works fully without either.
@@ -14,12 +15,51 @@ function hoursLeft(iso: string): string {
   return h <= 1 ? "Expires within the hour" : `Expires in ${h} hours`;
 }
 
+/** Cloud status and the partner link, refreshed on every cloud event. */
+function useCloud() {
+  const [status, setStatus] = useState<CloudStatus | null>(null);
+  const [partner, setPartner] = useState<PartnerStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const s = await native.cloudStatus().catch(() => null);
+    setStatus(s);
+    if (s?.error) setError(s.error);
+    if (s?.signedIn && !s.connecting) {
+      try {
+        setPartner(await native.cloudPartner());
+        setError(null);
+      } catch (e) {
+        setError(errorText(e));
+      }
+    } else setPartner(null);
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const off = onNative(EVENTS.cloud, () => void load());
+    return () => void off.then((f) => f());
+  }, [load]);
+
+  return { status, partner, setPartner, error, setError, load };
+}
+
+export function partnerTone(p: PartnerStatus | null): ConnectionTone {
+  if (p?.partner) return "ok";
+  return p?.invite ? "attention" : "off";
+}
+
+/** For the side list's dot: a partner holds the key, an invite is open, or no partner. */
+export function usePartnerStatus(): ConnectionTone {
+  return partnerTone(useCloud().partner);
+}
+
 function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string) => void }) {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   if (status.connecting) {
     return (
-      <Row label={sentTo ? `Check ${sentTo}` : "Finish signing in in your browser"} hint={sentTo ? "Open the sign-in link on this PC. It works for 15 minutes." : undefined}>
+      <Row label={sentTo ? `Check ${sentTo}` : "Finish signing in in your browser"} hint={sentTo ? "Open the link on this PC within 15 minutes." : undefined}>
         <Button variant="quiet" size="sm" onClick={() => void native.cloudCancelSignIn()}>
           Cancel
         </Button>
@@ -36,7 +76,7 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
   };
   return (
     <div className="flex flex-col gap-2 px-[14px] py-3">
-      <p className="m-0 text-meta text-muted">Optional. An account lets a friend approve early unlocks and hear when a seal breaks. Nothing else leaves this PC.</p>
+      <span className="text-body">Sign in to add a partner</span>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => void native.cloudSignInGoogle().catch((e) => onError(errorText(e)))}>
           Continue with Google
@@ -49,7 +89,7 @@ function SignIn({ status, onError }: { status: CloudStatus; onError: (e: string)
           placeholder="you@example.com"
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void sendLink()}
-          className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
+          className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
         />
         <Button variant="ghost" size="sm" disabled={!email.trim()} onClick={() => void sendLink()}>
           Email me a link
@@ -70,12 +110,13 @@ function WeeklySummaryRow({ who }: { who: string }) {
     void native.setSetting("partner_weekly_summary", v ? "1" : "0");
   };
   return (
-    <Row label={`Send ${who} my week each Monday`} hint="Hours in focus, days kept, and the streak. Never sites or apps.">
+    <Row label={`Send ${who} my week each Monday`} hint="Totals only, never sites or apps.">
       <Switch label={`Send ${who} my week each Monday`} checked={on} onChange={toggle} />
     </Row>
   );
 }
 
+/** The partner's status line, then the rows under it: the partner or the open invite. */
 function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p: PartnerStatus) => void; onError: (e: string) => void }) {
   const sealed = useStore((s) => s.appState === "sealed");
   const [copied, setCopied] = useState(false);
@@ -94,34 +135,60 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
       })
       .catch((e) => onError(errorText(e)));
   };
+  const tone = partnerTone(p);
 
-  let partner;
+  let line;
+  let details = null;
   if (p.partner) {
     const who = p.partner.name ?? p.partner.email ?? "Your partner";
-    partner =
-      p.partner.status === "removal_requested" ? (
-        <Row label={`Waiting for ${who} to release you`} hint="Removing a partner needs their approval on their page.">
-          <Button variant="quiet" size="sm" onClick={() => run(() => native.cloudRequestRemoval(true))}>
-            Keep partner
-          </Button>
-        </Row>
-      ) : (
-        <>
-          <Row label={`Partner: ${who}`} hint={p.partner.email && p.partner.name ? p.partner.email : "Approves early unlocks and hears when a seal breaks."}>
+    if (p.partner.status === "removal_requested") {
+      line = (
+        <StatusLine
+          tone={tone}
+          testId="partner-status"
+          action={
+            <Button variant="quiet" size="sm" onClick={() => run(() => native.cloudRequestRemoval(true))}>
+              Keep partner
+            </Button>
+          }
+        >
+          Waiting for {who} to release you.
+        </StatusLine>
+      );
+    } else {
+      line = (
+        <StatusLine
+          tone={tone}
+          testId="partner-status"
+          action={
             <Button variant="quiet" size="sm" disabled={sealed} onClick={() => run(() => native.cloudRequestRemoval(false))}>
               Ask to remove
             </Button>
-          </Row>
-          <WeeklySummaryRow who={who} />
-        </>
+          }
+        >
+          {who} approves your early unlocks.
+        </StatusLine>
       );
+    }
+    details = (
+      <>
+        <Row label={`Partner: ${who}`} hint={p.partner.email && p.partner.name ? p.partner.email : undefined}>
+          <span />
+        </Row>
+        {p.partner.status === "removal_requested" ? null : <WeeklySummaryRow who={who} />}
+      </>
+    );
   } else if (p.invite) {
     const link = p.invite.link;
-    partner = (
+    line = (
+      <StatusLine tone={tone} testId="partner-status">
+        Invite open. Send your friend the link.
+      </StatusLine>
+    );
+    details = (
       <div className="flex flex-col gap-2 border-b border-line-soft px-[14px] py-3">
-        <span className="text-body">Invite link</span>
         <div className="flex items-center gap-2">
-          <span data-testid="invite-link" title={link} className="min-w-0 grow truncate rounded-control border border-line-input px-2 py-[5px] font-mono text-[11px] text-text-2">
+          <span data-testid="invite-link" title={link} className="min-w-0 grow truncate rounded-control border border-line-input px-2 py-[5px] font-mono text-meta text-text-2">
             {link}
           </span>
           <Button
@@ -148,32 +215,39 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
             value={to}
             onChange={(e) => setTo(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && emailInvite()}
-            className="h-[26px] min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
+            className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-transparent px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line focus:border-sealed"
           />
           <Button variant="ghost" size="sm" disabled={!to.trim()} onClick={emailInvite}>
             Email it
           </Button>
         </div>
-        <span className="text-[11px] text-muted">
+        <span className="text-meta text-muted">
           {emailed ? `Sent to ${emailed}. ` : ""}
-          {hoursLeft(p.invite.expiresAt)}. Works once. Your friend signs in and sets their own PIN.
+          {hoursLeft(p.invite.expiresAt)}. Works once.
         </span>
       </div>
     );
   } else {
-    partner = (
-      <Row label="Accountability partner" hint="A friend who approves early unlocks with their own PIN.">
-        <Button variant="ghost" size="sm" disabled={sealed} onClick={() => run(native.cloudCreateInvite)}>
-          Invite a partner
-        </Button>
-      </Row>
+    line = (
+      <StatusLine
+        tone={tone}
+        testId="partner-status"
+        action={
+          <Button variant="primary" size="sm" disabled={sealed} onClick={() => run(native.cloudCreateInvite)}>
+            Invite a partner
+          </Button>
+        }
+      >
+        No partner. Early unlocks need only you.
+      </StatusLine>
     );
   }
   return (
     <>
-      {partner}
+      {line}
+      {details}
       {p.partnerOf.length ? (
-        <Row label={`You're the partner for ${p.partnerOf.join(", ")}`} hint="Approve or deny their requests on the partner page.">
+        <Row label={`You're the partner for ${p.partnerOf.join(", ")}`} hint="Answer them on the partner page.">
           <span />
         </Row>
       ) : null}
@@ -203,7 +277,7 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
   };
   return (
     <>
-      <Row label="Delete account" hint="Your account, partner links, and PIN, for good. What's on this PC stays.">
+      <Row label="Delete account" hint="This PC's data stays">
         {asking ? null : (
           <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
             {sealed ? "Waits until the seal ends" : "Delete account"}
@@ -221,19 +295,19 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="h-[30px] min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
+              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
             />
             <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
               Cancel
             </Button>
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               disabled={typed.trim().toLowerCase() !== "delete" || busy || sealed}
               onClick={() => void run()}
-              className="h-[26px] rounded-control border border-broken-line bg-broken-tint px-2 text-meta font-medium text-broken-text transition-colors duration-ui ease-ui enabled:hover:border-broken disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Deleting…" : "Delete my account"}
-            </button>
+            </Button>
           </div>
           {error ? <span className="text-meta text-broken-text">{error}</span> : null}
         </div>
@@ -243,64 +317,52 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
 }
 
 export function AccountSection() {
-  const [status, setStatus] = useState<CloudStatus | null>(null);
-  const [partner, setPartner] = useState<PartnerStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const s = await native.cloudStatus().catch(() => null);
-    setStatus(s);
-    if (s?.error) setError(s.error);
-    if (s?.signedIn && !s.connecting) {
-      try {
-        setPartner(await native.cloudPartner());
-        setError(null);
-      } catch (e) {
-        setError(errorText(e));
-      }
-    } else setPartner(null);
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const off = onNative(EVENTS.cloud, () => void load());
-    return () => void off.then((f) => f());
-  }, [load]);
+  const { status, partner, setPartner, error, setError, load } = useCloud();
+  const signedIn = !!status?.signedIn && !status.connecting;
+  const rows = useCascade<HTMLDivElement>(!!status);
 
   if (!status) return null;
   if (!status.configured) {
     return (
       <Section title="Account">
-        <p className="m-0 px-[14px] py-3 text-body leading-normal text-muted">
-          Accounts and the accountability partner aren’t set up in this build. Add a Supabase project to src-tauri/.env to turn them on (docs/self-hosting.md). Everything else works without one.
-        </p>
+        <StatusLine tone="off" testId="partner-status">
+          Accounts aren’t set up in this build.
+        </StatusLine>
+        <Row label="Add a Supabase project" hint="src-tauri/.env, see docs/self-hosting.md">
+          <span />
+        </Row>
       </Section>
     );
   }
   const email = partner?.email ?? status.email;
   return (
-    <Section
-      title="Account"
-      action={
-        status.signedIn && !status.connecting ? (
-          <Button variant="quiet" size="sm" onClick={() => void native.cloudSignOut().then(() => load())}>
-            Sign out
-          </Button>
-        ) : undefined
-      }
-    >
-      {status.signedIn && !status.connecting ? (
-        <>
-          <Row label={email ? `Signed in as ${email}` : "Signed in"}>
-            <span />
-          </Row>
-          {partner ? <PartnerRows p={partner} onChange={setPartner} onError={setError} /> : null}
-          <DeleteAccount onDone={() => void load()} />
-        </>
+    <Section title="Account">
+      {signedIn ? (
+        partner ? (
+          <PartnerRows p={partner} onChange={setPartner} onError={setError} />
+        ) : (
+          <StatusLine tone="off" testId="partner-status">
+            Signed in.
+          </StatusLine>
+        )
       ) : (
-        <SignIn status={status} onError={setError} />
+        <StatusLine tone="off" testId="partner-status">
+          No partner. Early unlocks need only you.
+        </StatusLine>
       )}
-      {error ? <p className="m-0 border-t border-line-soft px-[14px] py-2 text-meta text-broken-text">{error}</p> : null}
+      <div ref={rows}>
+        {signedIn ? (
+          // Delete account lives in Your Data's danger zone, beside Start over (decided 2026-11-16).
+          <Row label={email ? `Signed in as ${email}` : "Signed in"}>
+            <Button variant="quiet" size="sm" onClick={() => void native.cloudSignOut().then(() => load())}>
+              Sign out
+            </Button>
+          </Row>
+        ) : (
+          <SignIn status={status} onError={setError} />
+        )}
+      </div>
+      {error ? <p className="m-0 border-t border-line-soft px-[14px] py-2 text-body text-broken-text">{error}</p> : null}
     </Section>
   );
 }

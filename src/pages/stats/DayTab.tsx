@@ -9,7 +9,7 @@ import type { DayView } from "../../lib/types";
 import { appLabel, CATEGORY, duration, OUTCOME } from "./parts";
 
 // Stats › Day (v0.3, decided 2026-10-29): one strip from the day's first activity to its last,
-// coloured productive / neutral / distracting, with each focus session as a band above it
+// colored productive / neutral / distracting, with each focus session as a band above it
 // (broken ones outlined). Hover a stretch to see what it was; the day's biggest apps and sites
 // are listed below.
 
@@ -92,7 +92,7 @@ export function DayTab({ date, onDate }: { date: string; onDate: (key: string) =
                   aria-label={`${s.profileName}, ${clock(s.start)} to ${clock(s.end)}, ${OUTCOME[s.outcome]}`}
                   onPointerEnter={() => setHover({ label: s.profileName, detail: `${clock(s.start)} to ${clock(s.end)} · ${OUTCOME[s.outcome]}` })}
                   onPointerLeave={() => setHover(null)}
-                  className={`absolute top-0 flex h-6 items-center overflow-hidden rounded-[4px] px-2 text-[11px] font-medium ${
+                  className={`absolute top-0 flex h-6 items-center overflow-hidden rounded-[4px] px-2 text-micro font-medium ${
                     s.outcome === "broken" ? "border border-broken bg-transparent text-broken-text" : "bg-sealed text-sealed-on"
                   }`}
                   style={{ left: x(s.start), width: w(s.start, s.end) }}
@@ -115,7 +115,7 @@ export function DayTab({ date, onDate }: { date: string; onDate: (key: string) =
                 />
               ))}
             </div>
-            <div className="relative h-4 text-[10px] text-muted" aria-hidden="true">
+            <div className="relative h-4 text-micro text-muted" aria-hidden="true">
               {hours
                 .filter((_, i) => i % step === 0)
                 .map((h) => (

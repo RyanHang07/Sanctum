@@ -7,17 +7,21 @@ import { catalogClassRules, catalogDistractions } from "./catalog";
 import type { GuardStatus, ActivitySummary, BrowserStatus, CalEvent, Distraction, DistractionSuggestion, NewDistraction, CloudStatus, LadderView, PartnerStatus, DayStatus, StatsOverview, Category, ClassRule, EventDraft, GcalCalendar, GcalStatus, Routine, RoutineCheck, RoutineDraft, Todo, TodoDraft } from "./types";
 import { addDays, fromKey, minutesOf, todayKey, weekStart } from "./planner";
 import { bus } from "./bus";
+import pkg from "../../package.json";
 import { resetMockTrackers, trackerControls, trackerHandlers } from "./mockTrackers";
 import { insightControls, insightHandlers, resetMockInsights } from "./mockInsights";
 import type { Note, NoteDraft } from "./types";
 import { dayStatus, streakAtRisk, streaks } from "./stats";
 import { DEFAULT_QUIET, QUIET_MIN_REASON, QUIET_PAUSE_MS, mockQuietStatus, quietError } from "./quiet";
 import type { BreakView, PauseConfig, QuietConfig, SessionResult, Suggestion, TaskLink } from "./types";
+import { journalJson, journalMarkdown, journalSearch } from "./mockJournal";
 
 const EV = { session: "sanctum://session", tick: "sanctum://tick", held: "sanctum://held", intercept: "sanctum://intercept", gcal: "sanctum://gcal", browser: "sanctum://browser", cloud: "sanctum://cloud" };
 
 /** The journal in the preview. */
 export const mockJournal = { days: new Map<string, { date: string; doc: string | null; body: string; updatedAt: number }>(), lock: "none" as "none" | "hello" | "pin", pin: null as string | null, unlocked: false };
+/** The last journal export the preview wrote (the app writes it to Documents\Sanctum\Exports). */
+export const mockJournalExport: { name: string | null; text: string | null } = { name: null, text: null };
 
 /** Shared notes in the preview: token -> the latest ciphertext and the image ids uploaded. */
 /** The browser preview's updates (v0.3): what a check finds, and whether one was applied. */
@@ -80,7 +84,7 @@ interface MockState {
   tempted: { what: string; kind: string; count: number }[];
   gcal: { email: string | null; lastSyncAt: number | null; calendars: GcalCalendar[]; events: CalEvent[]; unreachable?: boolean };
   browsers: BrowserStatus;
-  guard: { installed: boolean; decline: boolean; restarts: number[] };
+  guard: { installed: boolean; decline: boolean; restarts: number[]; outdated: boolean; lastError: string | null };
   notes: Note[];
   quiet: { config: QuietConfig; pausedUntil: number | null; pauses: string[] };
   backups: { name: string; path: string; bytes: number; modifiedAt: number }[];
@@ -101,7 +105,14 @@ let state: MockState;
 // Declared before resetMockBackend runs at load.
 let mockLadder: MockLadder | null = null;
 
+/** Front-end modules with their own pending work (timers, sets) to forget on a reset. */
+const resetHooks = new Set<() => void>();
+export function onMockReset(fn: () => void): void {
+  resetHooks.add(fn);
+}
+
 export function resetMockBackend() {
+  resetHooks.forEach((fn) => fn());
   if (state?.timer) clearInterval(state.timer);
   mockLadder = null;
   resetMockTrackers();
@@ -110,6 +121,7 @@ export function resetMockBackend() {
   mockExtension.theme = null;
   Object.assign(mockUpdates, { available: null, applied: false });
   Object.assign(mockJournal, { days: new Map(), lock: "none", pin: null, unlocked: false });
+  Object.assign(mockJournalExport, { name: null, text: null });
   state = {
     settings: new Map([
       ["on_login", "home"],
@@ -144,7 +156,7 @@ export function resetMockBackend() {
     pause: { config: { mode: "off", daysMask: 127, start: "09:00", end: "17:00" }, log: [] },
     brk: null,
     review: { target: null, saved: {}, suggestions: [] },
-    guard: { installed: false, decline: false, restarts: [] },
+    guard: { installed: false, decline: false, restarts: [], outdated: false, lastError: null },
     notes: [],
     quiet: { config: { ...DEFAULT_QUIET }, pausedUntil: null, pauses: [] },
     backups: [],
@@ -334,7 +346,8 @@ const handlers: Record<string, (a: any) => unknown> = {
     // A clean slate: no sample profiles, so first-run setup shows.
     state.settings.set("dev_seeded", "1");
   },
-  app_version: () => "0.1.0",
+  // The About version matches the sidebar's: both read package.json.
+  app_version: () => pkg.version,
   save_note_image: ({ data, mime }: { data: string; mime: string }) => {
     if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(mime)) throw "Use a PNG, JPEG, GIF, or WebP image.";
     const id = mockImageId++;
@@ -376,6 +389,18 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   journal_lock: () => {
     mockJournal.unlocked = false;
+  },
+  journal_search: ({ query }: { query: string }) => {
+    if (mockJournal.lock !== "none" && !mockJournal.unlocked) throw "The journal is locked.";
+    return journalSearch(mockJournal.days.values(), query);
+  },
+  journal_export: ({ format }: { format: string }) => {
+    if (format !== "md" && format !== "json") throw "Export the journal as Markdown or JSON.";
+    if (mockJournal.lock !== "none" && !mockJournal.unlocked) throw "The journal is locked.";
+    const text = format === "md" ? journalMarkdown(mockJournal.days.values()) : journalJson(mockJournal.days.values());
+    const name = `Sanctum journal ${new Date().toISOString().slice(0, 10)}.${format}`;
+    Object.assign(mockJournalExport, { name, text });
+    return { name, path: `C:\\Mock\\Documents\\Sanctum\\Exports\\${name}`, bytes: new TextEncoder().encode(text).length, modifiedAt: Date.now() };
   },
   // Sharing (v0.2): the mock keeps the latest ciphertext per token, like the server would.
   share_note: ({ id, hours, key }: { id: number; hours: number; key: string }) => {
@@ -422,11 +447,12 @@ const handlers: Record<string, (a: any) => unknown> = {
   update_install: () => {
     throw "Sanctum is up to date.";
   },
-  diagnostics: () => "Sanctum 0.1.0 (mock)",
+  diagnostics: () => `Sanctum ${pkg.version} (mock)`,
   guard_status: (): GuardStatus => guardStatus(),
   guard_install: (): GuardStatus => {
     if (state.guard.decline) throw "Windows didn't allow it. Protection needs one admin approval.";
     state.guard.installed = true;
+    state.guard.outdated = false; // installing writes this version's guard
     return guardStatus();
   },
   guard_uninstall: (): GuardStatus => {
@@ -982,7 +1008,7 @@ function guardStatus(): GuardStatus {
   const g = state.guard;
   const on = g.installed && !!state.session;
   const blocked = state.distractions.filter((d) => d.kind === "site" && !d.value.includes("/") && !d.allow.length).length;
-  return { installed: g.installed, running: g.installed, hostsBlocked: on ? blocked : 0, restarts: g.restarts.length, lastRestartAt: g.restarts.at(-1) ?? null };
+  return { installed: g.installed, running: g.installed, hostsBlocked: on ? blocked : 0, restarts: g.restarts.length, lastRestartAt: g.restarts.at(-1) ?? null, outdated: g.installed && g.outdated, lastError: g.installed ? g.lastError : null };
 }
 
 function statsOverview(from: string, to: string): StatsOverview {
@@ -1202,8 +1228,10 @@ export const mockControls = {
     bus.emit("sanctum://tamper", { kind, detail });
   },
   /** Protection: the next install is declined at the UAC prompt, or the guard brought Sanctum back. */
-  guard(patch: { decline?: boolean; restartedAt?: number }) {
+  guard(patch: { decline?: boolean; restartedAt?: number; outdated?: boolean; lastError?: string | null }) {
     if (patch.decline !== undefined) state.guard.decline = patch.decline;
+    if (patch.outdated !== undefined) state.guard.outdated = patch.outdated;
+    if (patch.lastError !== undefined) state.guard.lastError = patch.lastError;
     if (patch.restartedAt) state.guard.restarts.push(patch.restartedAt);
   },
   /** The extension connects (or drops) in a browser. */

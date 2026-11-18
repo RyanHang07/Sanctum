@@ -22,7 +22,7 @@ function Tool({ label, active, onRun, children }: { label: string; active?: bool
       onMouseDown={(e) => e.preventDefault()}
       onClick={onRun}
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-meta transition-colors duration-ui ease-ui ${
-        active ? "bg-raised text-text" : "text-muted hover:bg-line-soft hover:text-text"
+        active ? "bg-raised text-text" : "text-muted hover:bg-raised/60 hover:text-text"
       }`}
     >
       {children}
@@ -60,14 +60,14 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
       <span className="flex items-center" role="group" aria-label="Text size">
         <Tool label="Smaller text" onRun={() => step(-1)}>
           <span className="font-semibold">A</span>
-          <span className="text-[9px]">−</span>
+          <span className="text-micro">−</span>
         </Tool>
-        <span aria-live="polite" aria-label={`Text size ${size}`} className="w-7 text-center font-mono text-[11px] text-text-2">
+        <span aria-live="polite" aria-label={`Text size ${size}`} className="w-7 text-center font-mono text-micro text-text-2">
           {size}
         </span>
         <Tool label="Larger text" onRun={() => step(1)}>
           <span className="text-[15px] font-semibold">A</span>
-          <span className="text-[9px]">+</span>
+          <span className="text-micro">+</span>
         </Tool>
       </span>
       <Divider />
@@ -92,7 +92,7 @@ export function NoteToolbar({ editor, size, onSize }: { editor: Editor; size: nu
         <ToolIcon name="bullets" />
       </Tool>
       <Tool label="Numbered list" active={on.numbers} onRun={() => run((c) => c.toggleOrderedList())}>
-        <span className="font-mono text-[11px]">1.</span>
+        <span className="font-mono text-micro">1.</span>
       </Tool>
       <Tool label="Checklist" active={on.tasks} onRun={() => run((c) => c.toggleTaskList())}>
         <ToolIcon name="checklist" />

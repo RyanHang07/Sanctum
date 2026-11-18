@@ -41,6 +41,10 @@ const pending = new Map<number, ReturnType<typeof setTimeout>>();
 /** A shared note's edits reach its link this long after typing pauses. */
 const PUSH_MS = 1500;
 const pushes = new Map<number, ReturnType<typeof setTimeout>>();
+/** Each note's saves run one after another, so an older one can't land after a newer one. */
+const chains = new Map<number, Promise<void>>();
+/** Notes edited while a load was in flight: the load keeps their local version. */
+let touched: Set<number> | null = null;
 
 function sorted(list: Note[]): Note[] {
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id);
@@ -51,8 +55,16 @@ function fail(e: unknown) {
 }
 
 export const useNotes = create<NotesStore>()((set, get) => {
-  async function save(id: number) {
+  function save(id: number): Promise<void> {
     pending.delete(id);
+    const chain = (chains.get(id) ?? Promise.resolve()).then(() => write(id));
+    chains.set(id, chain);
+    void chain.finally(() => chains.get(id) === chain && chains.delete(id));
+    return chain;
+  }
+
+  /** Saves the note as it is when its turn comes (the latest typing). */
+  async function write(id: number) {
     const n = get().notes.find((x) => x.id === id);
     if (!n) return;
     try {
@@ -76,13 +88,22 @@ export const useNotes = create<NotesStore>()((set, get) => {
     },
 
     load: async () => {
+      const edited = new Set<number>();
+      touched = edited;
       try {
-        const [notes, size] = await Promise.all([native.listNotes(), native.getSetting("note_font_size").catch(() => null)]);
+        const [fetched, size] = await Promise.all([native.listNotes(), native.getSetting("note_font_size").catch(() => null)]);
         const fontSize = Number(size);
+        // Typing that landed while this read was in flight wins over the read.
+        const local = get().notes;
+        const kept = fetched.map((n) => (edited.has(n.id) ? (local.find((x) => x.id === n.id) ?? n) : n));
+        const extra = local.filter((x) => !fetched.some((n) => n.id === x.id));
+        const notes = edited.size || extra.length ? sorted([...kept, ...extra]) : fetched;
         set({ notes, loaded: true, openId: get().openId ?? notes[0]?.id ?? null, ...(fontSize >= 10 && fontSize <= 30 ? { fontSize } : {}) });
       } catch (e) {
         set({ loaded: true });
         fail(e);
+      } finally {
+        if (touched === edited) touched = null;
       }
     },
 
@@ -104,6 +125,7 @@ export const useNotes = create<NotesStore>()((set, get) => {
     },
 
     edit: (id, patch) => {
+      touched?.add(id);
       set({ notes: get().notes.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
       clearTimeout(pending.get(id));
       pending.set(id, setTimeout(() => void save(id), SAVE_MS));
@@ -165,7 +187,9 @@ export const useNotes = create<NotesStore>()((set, get) => {
     flush: async () => {
       const ids = [...pending.keys()];
       for (const id of ids) clearTimeout(pending.get(id));
-      await Promise.all(ids.map(save));
+      ids.forEach(save);
+      // Waits on saves already running too (quitting, reloading).
+      await Promise.all([...chains.values()]);
     },
 
     pin: async (id, pinned) => {

@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { AppShell } from "./AppShell";
+import { CommandBar, commandsFor } from "./CommandBar";
+import { Setup } from "../pages/Setup";
 import { useStore } from "../state/store";
 import { usePlanner } from "../state/planner";
 import { resetMockBackend } from "../lib/mockBackend";
@@ -73,5 +75,38 @@ describe("Command bar", () => {
     expect(bar.getByRole("option", { name: /Break the seal/ })).toBeInTheDocument();
     expect(bar.queryByRole("option", { name: /Enter focus:/ })).toBeNull();
     await act(() => native.emergencyUnlock("test cleanup"));
+  });
+});
+
+describe("Command bar names and structure", () => {
+  it("names each Setup section exactly as Setup's list does", async () => {
+    render(<Setup />);
+    await act(async () => void (await new Promise((r) => setTimeout(r, 0))));
+    const names = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"));
+    const setup = commandsFor("").filter((c) => c.group === "Setup").map((c) => c.label);
+    expect(setup).toEqual(names.map((n) => `Setup › ${n}`));
+  });
+
+  it("groups its options under labeled groups, says the count, and keeps hints readable", async () => {
+    useStore.setState({ commandOpen: true });
+    render(<CommandBar />);
+    const list = screen.getByRole("listbox", { name: "Commands" });
+    const groups = within(list).getAllByRole("group");
+    expect(groups.length).toBeGreaterThan(1);
+    for (const g of groups) {
+      const header = document.getElementById(g.getAttribute("aria-labelledby")!)!;
+      expect(g).toHaveAccessibleName(header.textContent!);
+      expect(within(g).getAllByRole("option").length).toBeGreaterThan(0);
+    }
+    expect(within(list).getByRole("group", { name: "Setup" })).toBeInTheDocument();
+    const count = screen.getByTestId("command-count");
+    expect(count).toHaveAttribute("aria-live", "polite");
+    expect(count).toHaveTextContent(`${within(list).getAllByRole("option").length} results`);
+
+    await act(async () => fireEvent.change(screen.getByRole("combobox"), { target: { value: "your data" } }));
+    expect(count).toHaveTextContent(/^\d+ results?$/);
+
+    // Esc and the hints read in muted, never faint.
+    expect(screen.getByRole("dialog", { name: "Command bar" }).innerHTML).not.toContain("text-faint");
   });
 });

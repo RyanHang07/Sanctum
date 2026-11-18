@@ -1,8 +1,11 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Home } from "./Home";
 import { HeldPage } from "./HeldPage";
 import { brokeLine, planLine } from "./headlines";
-import { ParkCard, PauseCard } from "../windows/Intercept";
+import { InterceptWindow, ParkCard, PauseCard } from "../windows/Intercept";
+import { bus } from "../lib/bus";
+import { EVENTS } from "../lib/native";
+import type { Intercept } from "../lib/types";
 import { PauseModeSection } from "./setup/PauseMode";
 import { ProfileDetail } from "./setup/ProfileDetail";
 import { WeekTargetRow } from "./setup/WeekTarget";
@@ -71,23 +74,16 @@ describe("routines on Google Calendar", () => {
 });
 
 describe("parking a thought", () => {
-  it("says so on the sealed card when another app holds Ctrl Alt P", async () => {
-    const spy = vi.spyOn(native, "focusParkHotkey").mockResolvedValue("HotKey already registered");
+  it("isn't a field on Today's sealed card: that's for notes after the seal (2026-11-17)", async () => {
     render(<Home />);
     await act(() => useStore.getState().enterFocus());
-    expect(await within(screen.getByTestId("park")).findByText("Ctrl Alt P is taken by another app")).toBeInTheDocument();
-    spy.mockRestore();
+    expect(screen.queryByTestId("park")).toBeNull();
+    expect(screen.queryByLabelText("Park a thought for later")).toBeNull();
   });
 
-  it("from Home while sealed: a task for today, then kept, moved, or dropped on the held page", async () => {
-    render(<Home />);
+  it("parked while sealed: a task for today, then kept, moved, or dropped on the held page", async () => {
     await act(() => useStore.getState().enterFocus());
-    const park = within(screen.getByTestId("park"));
-    for (const t of ["Email Alex", "Look up the lab hours"]) {
-      fireEvent.change(park.getByLabelText("Park a thought for later"), { target: { value: t } });
-      await act(async () => fireEvent.submit(screen.getByTestId("park")));
-    }
-    expect(useStore.getState().notice?.lead).toBe("Parked.");
+    for (const t of ["Email Alex", "Look up the lab hours"]) await act(async () => void (await native.focusPark(t)));
     const sessionId = useStore.getState().session!.id;
     const items = await todayItems();
     expect(items.filter((t) => t.parkedFrom === sessionId).map((t) => t.title)).toEqual(["Email Alex", "Look up the lab hours"]);
@@ -112,6 +108,24 @@ describe("parking a thought", () => {
     await act(async () => fireEvent.submit(screen.getByRole("dialog", { name: "Park a thought" })));
     expect(screen.getByRole("status")).toHaveTextContent("Parked.");
     expect((await todayItems()).find((t) => t.title === "Buy printer ink")?.parkedFrom).toBe(useStore.getState().session!.id);
+  });
+
+  it("a new intercept isn't hidden by the last card's Parked beat (M13)", async () => {
+    await act(() => useStore.getState().enterFocus());
+    const hide = vi.spyOn(native, "interceptHide");
+    render(<InterceptWindow />);
+    const park = { kind: "park", label: "" } as unknown as Intercept;
+    await act(async () => bus.emit(EVENTS.intercept, park));
+    fireEvent.change(screen.getByLabelText("The thought"), { target: { value: "Buy printer ink" } });
+    await act(async () => fireEvent.submit(screen.getByRole("dialog", { name: "Park a thought" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Parked.");
+    // Another Ctrl Alt P before the beat ends: a fresh card, and it stays.
+    await act(async () => bus.emit(EVENTS.intercept, park));
+    expect(screen.getByLabelText("The thought")).toHaveValue("");
+    await act(async () => void (await new Promise((r) => setTimeout(r, 1100))));
+    expect(hide).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Park a thought" })).toBeInTheDocument();
+    hide.mockRestore();
   });
 
   it("keeps a thought parked after the seal ends, as a plain task", async () => {
@@ -153,6 +167,7 @@ describe("after a break", () => {
   it("says what broke it plainly, with the fix", () => {
     expect(brokeLine({ kind: "extension", afterMin: 34 })).toEqual({ line: "A browser ran without the extension 34 minutes in.", fix: { label: "Check the extension", tab: "browser" } });
     expect(brokeLine({ kind: "shutdown", afterMin: 1 }).line).toBe("The PC went off 1 minute in. Restarts fit best between seals.");
+    expect(brokeLine({ kind: "shutdown", afterMin: 0 }).line).toBe("The PC went off in its first minute. Restarts fit best between seals.");
     expect(brokeLine({ kind: "clock", afterMin: 5 }).fix).toBeNull();
     render(<HeldPage held={{ sessionId: 9, profileId: 1, profileName: "Study", plannedMinutes: 60, focusMinutes: 30, attempts: 0, broken: true, broke: { kind: "killed", afterMin: 12 } }} />);
     expect(screen.getByTestId("held-page")).toHaveTextContent("Sanctum was closed 12 minutes in.");
@@ -164,12 +179,12 @@ describe("after a break", () => {
 describe("pause mode", () => {
   it("is off until you pick a mode, and validates the hours", async () => {
     render(<PauseModeSection />);
-    const mode = await screen.findByRole("combobox", { name: "Pause mode" });
+    const toggle = await screen.findByRole("switch", { name: "Pause before opening" });
     expect(screen.getByTestId("pause-status")).toHaveTextContent("Off");
-    await act(async () => fireEvent.change(mode, { target: { value: "all" } }));
+    await act(async () => fireEvent.click(toggle));
     expect(await native.pauseStatus()).toMatchObject({ config: { mode: "all" }, on: true });
     expect(screen.getByTestId("pause-status")).toHaveTextContent("Asking first right now");
-    await act(async () => fireEvent.change(mode, { target: { value: "hours" } }));
+    await act(async () => fireEvent.click(within(screen.getByRole("group", { name: "Pause mode" })).getByRole("button", { name: "These hours" })));
     expect(screen.getByTestId("pause-hours")).toBeInTheDocument();
     await act(async () => fireEvent.change(screen.getByRole("combobox", { name: "Until" }), { target: { value: "09:00" } }));
     expect(useStore.getState().notice?.lead).toBe("Pause hours need a start and an end that differ.");
@@ -194,16 +209,14 @@ describe("pause mode", () => {
 });
 
 describe("a break after a seal", () => {
-  it("starts from the held page, shows on Home, and offers the next block when it ends", async () => {
+  // The held page no longer offers a break (2026-11-16); one already running still shows.
+  it("a running break shows on Home and offers the next block when it ends", async () => {
     await act(() => useStore.getState().enterFocus());
     const profileId = useStore.getState().session!.profileId;
     await act(async () => mockControls.fastForward(60 * 60_000));
     const held = useStore.getState().held!;
-    const { unmount } = render(<HeldPage held={held} />);
-    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
-    await act(async () => fireEvent.click(within(screen.getByTestId("held-break")).getByRole("button", { name: "10 min" })));
-    unmount();
-    expect(useStore.getState().held).toBeNull();
+    act(() => useStore.getState().dismissHeld());
+    await act(async () => useStore.getState().applyBreak(await native.breakStart(10, profileId, held.plannedMinutes)));
     render(<Home />);
     expect(screen.getByTestId("break-bar")).toHaveTextContent("Break");
     expect(screen.queryByTestId("focus-row")).toBeNull();
@@ -229,22 +242,17 @@ describe("a break after a seal", () => {
 describe("the week, reviewed", () => {
   const recap = { week: "2026-10-19", focusMin: 680, previousFocusMin: 560, kept: 5, broken: 1, days: 6, bestDay: "2026-10-20", bestDayMin: 240, mostTempting: "discord.exe", sessions: 12 };
 
-  it("the Monday card keeps your answers and this week's target", async () => {
+  it("the recap dialog keeps one thing to change, and leaves the target to Setup", async () => {
     useRecap.setState({ recap });
     render(<RecapNotice />);
-    const card = within(screen.getByRole("region", { name: "Last week" }));
-    const target = await card.findByLabelText("This week's target, in hours");
-    // A new install starts at the daily goal for five days: 2h x 5.
-    await waitFor(() => expect(target).toHaveValue(10));
-    expect(card.getByText(/the target is your recent average/)).toBeInTheDocument();
-    fireEvent.change(card.getByLabelText("What worked?"), { target: { value: "Mornings, phone in the other room" } });
-    fireEvent.change(card.getByLabelText("What will you change?"), { target: { value: "Start before 9" } });
-    fireEvent.change(target, { target: { value: "12.5" } });
-    await act(async () => fireEvent.click(card.getByRole("button", { name: "Save" })));
-    expect(mockControls.reviewState().saved[Object.keys(mockControls.reviewState().saved)[0]!]).toEqual({ worked: "Mornings, phone in the other room", change: "Start before 9" });
-    expect((await native.reviewWeekTarget()).targetMin).toBe(750);
+    const dialog = within(screen.getByRole("dialog", { name: "Last week" }));
+    expect(dialog.queryByLabelText(/target/i)).toBeNull();
+    fireEvent.change(dialog.getByLabelText("One thing to change this week"), { target: { value: "Start before 9" } });
+    await act(async () => fireEvent.click(dialog.getByRole("button", { name: "Save" })));
+    expect(Object.values(mockControls.reviewState().saved)).toEqual([{ worked: null, change: "Start before 9" }]);
     expect(useStore.getState().notice?.rest).toBe("It's on today's journal page too.");
     expect(useRecap.getState().recap).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("Stats shows the week against its target, Home doesn't; Setup changes it or goes back to the average", async () => {

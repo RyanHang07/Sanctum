@@ -8,6 +8,7 @@ pub mod oauth;
 pub mod secret;
 pub mod sync;
 
+use crate::engine::Locked;
 use crate::{db, planner, Shared};
 use api::{Api, ApiError};
 use oauth::AuthError;
@@ -59,12 +60,12 @@ impl State {
     }
 
     pub fn wake(&self) {
-        *self.wake.lock().unwrap() = true;
+        *self.wake.locked() = true;
         self.cv.notify_all();
     }
 
     fn sleep(&self) {
-        let guard = self.wake.lock().unwrap();
+        let guard = self.wake.locked();
         let (mut woken, _) = self.cv.wait_timeout_while(guard, POLL, |w| !*w).unwrap();
         *woken = false;
     }
@@ -88,26 +89,39 @@ fn shared(app: &AppHandle) -> tauri::State<'_, Shared> {
     app.state::<Shared>()
 }
 
+thread_local! {
+    /// The database generation this thread's sync pass started on (2026-11-17). A pass that
+    /// outlives Start over or Restore used to write the old calendar ids into the new data.
+    static CYCLE: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+
+/// A sync pass may touch the database only while it's still the one the pass started on.
+fn same_data(started: Option<u64>, now: u64) -> Result<(), Fail> {
+    match started {
+        Some(g) if g != now => Err(Fail::Replaced),
+        _ => Ok(()),
+    }
+}
+
 fn with_conn<T>(app: &AppHandle, f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, Fail> {
     let s = shared(app);
-    let conn = s.db.lock().map_err(|e| Fail::Other(e.to_string()))?;
+    let conn = s.db.locked();
+    // Checked under the lock the swap holds, so nothing lands after it.
+    same_data(CYCLE.get(), s.db_generation.current())?;
     f(&conn).map_err(|e| Fail::Other(e.to_string()))
 }
 
 pub fn status(app: &AppHandle) -> Status {
     let s = shared(app);
-    let (email, reconnect, last) = s
-        .db
-        .lock()
-        .map(|c| {
-            (
-                db::get_setting(&c, sync::K_ACCOUNT).ok().flatten(),
-                db::get_setting(&c, sync::K_RECONNECT).ok().flatten().is_some(),
-                db::get_setting(&c, sync::K_LAST_SYNC).ok().flatten().and_then(|v| v.parse().ok()),
-            )
-        })
-        .unwrap_or((None, false, None));
-    let error = s.gcal.error.lock().unwrap().clone();
+    let (email, reconnect, last) = {
+        let c = s.db.locked();
+        (
+            db::get_setting(&c, sync::K_ACCOUNT).ok().flatten(),
+            db::get_setting(&c, sync::K_RECONNECT).ok().flatten().is_some(),
+            db::get_setting(&c, sync::K_LAST_SYNC).ok().flatten().and_then(|v| v.parse::<i64>().ok()),
+        )
+    };
+    let error = s.gcal.error.locked().clone();
     Status {
         configured: oauth::configured(),
         connected: email.is_some(),
@@ -135,6 +149,8 @@ pub fn queue(shared: &Shared, conn: &Connection, job: Job) {
 enum Fail {
     /// The refresh token is gone: the user has to sign in again.
     Reconnect,
+    /// Start over or Restore swapped the database mid-pass: nothing more is written.
+    Replaced,
     Api(ApiError),
     Other(String),
 }
@@ -149,6 +165,7 @@ impl std::fmt::Display for Fail {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Fail::Reconnect => write!(f, "{}", AuthError::Revoked),
+            Fail::Replaced => write!(f, "Sanctum's data was replaced during the sync."),
             Fail::Api(e) => write!(f, "{e}"),
             Fail::Other(e) => write!(f, "{e}"),
         }
@@ -162,7 +179,7 @@ fn http() -> Client {
 /// A live access token, refreshed from the stored refresh token when it's about to expire.
 fn access_token(app: &AppHandle, http: &Client) -> Result<String, Fail> {
     let s = shared(app);
-    if let Some((t, exp)) = s.gcal.access.lock().unwrap().clone() {
+    if let Some((t, exp)) = s.gcal.access.locked().clone() {
         if exp > Instant::now() + Duration::from_secs(60) {
             return Ok(t);
         }
@@ -173,7 +190,7 @@ fn access_token(app: &AppHandle, http: &Client) -> Result<String, Fail> {
     };
     match oauth::refresh(http, &refresh) {
         Ok(tok) => {
-            *s.gcal.access.lock().unwrap() = Some((tok.access_token.clone(), Instant::now() + Duration::from_secs(tok.expires_in)));
+            *s.gcal.access.locked() = Some((tok.access_token.clone(), Instant::now() + Duration::from_secs(tok.expires_in)));
             Ok(tok.access_token)
         }
         Err(AuthError::Revoked) => {
@@ -194,7 +211,7 @@ fn with_api<T>(app: &AppHandle, f: impl Fn(&Api) -> Result<T, Fail>) -> Result<T
     for attempt in 0..2 {
         let api = Api::new(&http, access_token(app, &http)?);
         match f(&api) {
-            Err(Fail::Api(ApiError::Unauthorized)) if attempt == 0 => *shared(app).gcal.access.lock().unwrap() = None,
+            Err(Fail::Api(ApiError::Unauthorized)) if attempt == 0 => *shared(app).gcal.access.locked() = None,
             other => return other,
         }
     }
@@ -205,13 +222,15 @@ pub fn spawn(app: AppHandle) {
     std::thread::Builder::new()
         .name("sanctum-gcal".into())
         .spawn(move || loop {
-            run_cycle(&app);
+            crate::engine::guarded("sanctum-gcal", || run_cycle(&app));
             shared(&app).gcal.sleep();
         })
         .expect("spawn gcal thread");
 }
 
 fn run_cycle(app: &AppHandle) {
+    // A pass that panicked never got to clear it.
+    CYCLE.set(None);
     let ready = with_conn(app, |c| {
         Ok(sync::connected(c) && db::get_setting(c, sync::K_RECONNECT)?.is_none())
     })
@@ -222,16 +241,20 @@ fn run_cycle(app: &AppHandle) {
     let st = &shared(app).gcal;
     st.syncing.store(true, Ordering::SeqCst);
     emit(app);
+    CYCLE.set(Some(shared(app).db_generation.current()));
     let result = with_api(app, |api| cycle(app, api));
-    *st.error.lock().unwrap() = match &result {
+    // Still under the pass's generation, so a swap since leaves the new data alone.
+    let landed = result.is_ok() && with_conn(app, |c| db::set_setting(c, sync::K_LAST_SYNC, &crate::session::now_ms().to_string())).is_ok();
+    CYCLE.set(None);
+    *st.error.locked() = match &result {
         Ok(changed) => {
-            let _ = with_conn(app, |c| db::set_setting(c, sync::K_LAST_SYNC, &crate::session::now_ms().to_string()));
-            if *changed {
+            if *changed && landed {
                 let _ = app.emit(PLANNER_EVENT, ());
             }
             None
         }
-        Err(Fail::Reconnect) => None,
+        // The next pass runs on the new data (the swap wakes it).
+        Err(Fail::Reconnect | Fail::Replaced) => None,
         Err(e) => Some(e.to_string()),
     };
     st.syncing.store(false, Ordering::SeqCst);
@@ -295,7 +318,7 @@ fn push(app: &AppHandle, api: &Api, sanctum: &str, tz: &str) -> Result<(), Fail>
     for (ids, job) in with_conn(app, sync::pending)? {
         match push_job(app, api, sanctum, tz, &job) {
             // Offline, signed out, or a stale token: keep the job and stop for now.
-            Err(e @ (Fail::Api(ApiError::Offline | ApiError::Unauthorized) | Fail::Reconnect)) => return Err(e),
+            Err(e @ (Fail::Api(ApiError::Offline | ApiError::Unauthorized) | Fail::Reconnect | Fail::Replaced)) => return Err(e),
             // Google refused this one; drop it so it can't block the rest.
             Err(e) => eprintln!("gcal: dropped {job:?}: {e}"),
             Ok(()) => {}
@@ -396,7 +419,7 @@ fn pull(app: &AppHandle, api: &Api, sanctum: &str) -> Result<bool, Fail> {
 fn refresh_windows(app: &AppHandle, api: &Api) -> Result<(), Fail> {
     let (today, calendars, own) = with_conn(app, |c| Ok((sync::today(c), sync::selected_calendars(c)?, sync::own_event_ids(c)?)))?;
     let mut windows = vec![(sync::add_days(&today, -WINDOW_BACK), sync::add_days(&today, WINDOW_AHEAD))];
-    windows.extend(shared(app).gcal.windows.lock().unwrap().iter().cloned());
+    windows.extend(shared(app).gcal.windows.locked().iter().cloned());
     for cal in &calendars {
         for (from, to) in &windows {
             let (Some(min), Some(max)) = (sync::local_rfc3339(from, "00:00"), sync::local_rfc3339(&sync::add_days(to, 1), "00:00")) else { continue };
@@ -437,7 +460,7 @@ fn connect(app: &AppHandle) -> Result<Status, String> {
         return Err("Already connecting. Finish signing in in your browser.".into());
     }
     st.cancel.store(false, Ordering::SeqCst);
-    *st.error.lock().unwrap() = None;
+    *st.error.locked() = None;
     emit(app);
     let result = sign_in(app);
     st.connecting.store(false, Ordering::SeqCst);
@@ -461,7 +484,7 @@ fn sign_in(app: &AppHandle) -> Result<(), String> {
     let refresh = tokens.refresh_token.clone().ok_or("Google didn't grant offline access. Try again.")?;
     secret::save(&refresh)?;
     let email = tokens.id_token.as_deref().and_then(oauth::email_from_id_token).unwrap_or_else(|| "Google account".into());
-    *shared(app).gcal.access.lock().unwrap() = Some((tokens.access_token, Instant::now() + Duration::from_secs(tokens.expires_in)));
+    *shared(app).gcal.access.locked() = Some((tokens.access_token, Instant::now() + Duration::from_secs(tokens.expires_in)));
     with_conn(app, |c| {
         let first = !sync::connected(c);
         db::set_setting(c, sync::K_ACCOUNT, &email)?;
@@ -485,9 +508,9 @@ pub fn sign_out(app: &AppHandle) -> Result<Status, String> {
     }
     secret::clear();
     let st = &shared(app).gcal;
-    *st.access.lock().unwrap() = None;
-    *st.error.lock().unwrap() = None;
-    st.windows.lock().unwrap().clear();
+    *st.access.locked() = None;
+    *st.error.locked() = None;
+    st.windows.locked().clear();
     with_conn(app, sync::forget_account).map_err(err)?;
     emit(app);
     Ok(status(app))
@@ -537,7 +560,7 @@ pub fn gcal_events(app: AppHandle, from: String, to: String) -> Result<Vec<sync:
     let (events, today) = with_conn(&app, |c| Ok((sync::list_events(c, &from, &to)?, sync::today(c)))).map_err(err)?;
     let covered = from >= sync::add_days(&today, -WINDOW_BACK) && to <= sync::add_days(&today, WINDOW_AHEAD);
     let st = &shared(&app).gcal;
-    let mut windows = st.windows.lock().unwrap();
+    let mut windows = st.windows.locked();
     if !covered && !windows.contains(&(from.clone(), to.clone())) {
         windows.push((from, to));
         if windows.len() > 4 {
@@ -646,4 +669,21 @@ pub fn gcal_open(app: AppHandle, url: String) -> Result<(), String> {
         return Err("That isn't a Google Calendar link.".into());
     }
     app.opener().open_url(url, None::<&str>).map_err(|_| "Couldn't open your browser.".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_sync_pass_stops_writing_once_the_data_is_swapped() {
+        let generation = db::Generation::default();
+        let started = Some(generation.current());
+        assert!(same_data(started, generation.current()).is_ok());
+        // Commands (no pass running on their thread) are never held back.
+        assert!(same_data(None, generation.current()).is_ok());
+        generation.bump();
+        assert!(matches!(same_data(started, generation.current()), Err(Fail::Replaced)));
+        assert!(same_data(None, generation.current()).is_ok());
+    }
 }

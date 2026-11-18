@@ -24,6 +24,7 @@ describe("sound styles", () => {
   it("picks a style per cue in Setup and saves it, with the volume", async () => {
     render(<SoundsSection />);
     const section = within(screen.getByRole("region", { name: "Sounds" }));
+    fireEvent.click(section.getByRole("button", { name: "Each sound" }));
     const enter = within(section.getByRole("group", { name: "Enter focus sound" }));
     expect(enter.getByRole("button", { name: "Deep" })).toHaveAttribute("aria-pressed", "true");
     await act(async () => fireEvent.click(enter.getByRole("button", { name: "Latch" })));

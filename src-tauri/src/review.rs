@@ -10,6 +10,7 @@
 //!   suggestions come from your own history: the length you finish, the hours you keep, and
 //!   when temptation comes.
 
+use crate::engine::Locked;
 use crate::session::{self, now_ms};
 use crate::stats::{self, Days};
 use crate::{db, journal, Shared};
@@ -155,7 +156,7 @@ pub fn summary_line(r: &crate::insights::Recap, streak: i64) -> String {
 pub fn maybe_send_summary(app: &AppHandle) {
     let shared = app.state::<Shared>();
     let line = {
-        let Ok(conn) = shared.db.lock() else { return };
+        let conn = shared.db.locked();
         if db::get_setting(&conn, PARTNER_KEY).ok().flatten().as_deref() != Some("1") {
             return;
         }
@@ -302,14 +303,14 @@ fn capitalize(s: &str) -> String {
 #[tauri::command]
 pub fn review_week_target(shared: State<Shared>) -> Result<WeekTarget, String> {
     let running = shared.engine.view().map(|v| v.elapsed_ms).unwrap_or(0);
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let today = Days::load(&conn).of(now_ms());
     week_target(&conn, today, running).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn review_set_week_target(shared: State<Shared>, minutes: Option<i64>) -> Result<(), String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     set_week_target(&conn, minutes)
 }
 
@@ -323,7 +324,7 @@ pub struct Saved {
 /// The Monday card's answers: kept for the week, and in today's journal page when it's open.
 #[tauri::command]
 pub fn review_save(shared: State<Shared>, week: String, worked: Option<String>, change: Option<String>) -> Result<Saved, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let now = now_ms();
     save_review(&conn, &week, worked.as_deref(), change.as_deref(), now)?;
     let today = Days::load(&conn).of(now).format("%Y-%m-%d").to_string();
@@ -333,7 +334,7 @@ pub fn review_save(shared: State<Shared>, week: String, worked: Option<String>, 
 
 #[tauri::command]
 pub fn review_suggestions(shared: State<Shared>) -> Result<Vec<Suggestion>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     suggestions(&conn, session::now_ms()).map_err(|e| e.to_string())
 }
 
@@ -425,6 +426,7 @@ mod tests {
             best_day_min: 0,
             most_tempting: Some("discord.exe".into()),
             sessions: 12,
+            daily: vec![],
         };
         let line = summary_line(&r, 4);
         assert_eq!(line, "11h 20m in focus over 12 sessions, 5 of 6 days kept, 1 with a broken seal, a 4-day streak");

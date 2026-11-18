@@ -50,6 +50,19 @@ export const XIcon = ({ size = 12, className }: P) => (
 export const ChevronRightIcon = ({ size = 12, className }: P) => (
   <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
 );
-export const PanelIcon = ({ size = 14, className }: P) => (
-  <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M9.5 4.5v15" /></svg>
+/**
+ * A fold button's icon (2026-11-17): the panel, plus a chevron that shows on hover or keyboard
+ * focus of the parent `group` and points the way a click goes (right opens, left closes; rotate
+ * the whole icon 180° for "close"). Without hover it's the plain panel.
+ */
+export const FoldIcon = ({ size = 14, className }: P) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M9.5 4.5v15" />
+    <path
+      data-fold-hint=""
+      d="M13.5 9.5l2.5 2.5-2.5 2.5"
+      className="-translate-x-[1.5px] opacity-0 transition-[opacity,transform] duration-enter ease-glide group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none"
+    />
+  </svg>
 );

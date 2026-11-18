@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MOMENT_DIALOG } from "./dialogFrame";
 import { Button, Kbd } from "./Button";
+import { Check, useDialogFocus } from "./controls";
 import { XIcon } from "./icons";
 import { play } from "../lib/sound";
 import { useTrackers } from "../state/trackers";
@@ -27,14 +29,14 @@ function Stepper({ t, value, step, onChange }: { t: Tracker; value: number | nul
   const [text, setText] = useState(value === null ? "" : num(value));
   useEffect(() => setText(value === null ? "" : num(value)), [value]);
   const nudge = (d: number) => onChange(Math.round(((value ?? 0) + d) * 10) / 10);
-  const side = "flex h-8 w-8 items-center justify-center bg-raised text-text-2 transition-colors duration-ui ease-ui hover:bg-line hover:text-text";
+  const side = "flex h-control w-8 items-center justify-center bg-raised text-text-2 transition-colors duration-ui ease-ui hover:bg-line hover:text-text";
   return (
     <div className="flex shrink-0 items-center overflow-hidden rounded-control border border-line-input">
       <button type="button" aria-label={`Decrease ${t.name}`} onClick={() => nudge(-step)} className={side}>
         −
       </button>
       {/* The field opts out of its own ring; its box draws it, inset so the stepper's edge doesn't clip it. */}
-      <label className="focus-ring-within flex h-8 w-[84px] items-center justify-center gap-1 [outline-offset:-2px]!">
+      <label className="focus-ring-within flex h-control w-[84px] items-center justify-center gap-1 [outline-offset:-2px]!">
         <input
           aria-label={t.name}
           inputMode="decimal"
@@ -47,7 +49,7 @@ function Stepper({ t, value, step, onChange }: { t: Tracker; value: number | nul
           }}
           className="focus-ring-off w-[52px] bg-transparent text-right font-mono text-[15px] font-medium text-text placeholder:text-muted"
         />
-        {t.unit ? <span className="font-mono text-[11px] text-muted">{t.unit}</span> : null}
+        {t.unit ? <span className="font-mono text-micro text-muted">{t.unit}</span> : null}
       </label>
       <button type="button" aria-label={`Increase ${t.name}`} onClick={() => nudge(step)} className={side}>
         +
@@ -104,7 +106,7 @@ const YES_NO = [
 ] as const;
 const ONE_TO_TEN = Array.from({ length: 10 }, (_, i) => ({ label: String(i + 1), value: i + 1 }));
 
-/** The last week as a 72 x 24 line, with the goal dashed in the second colour. */
+/** The last week as a 72 x 24 line, with the goal dashed in the second color. */
 function Spark({ vals, goal }: { vals: number[]; goal: number | null }) {
   const s = goalSpark(vals, goal);
   if (!s) return null;
@@ -154,7 +156,8 @@ function TrackerRow({ t, history, draft, onChange }: { t: Tracker; history: Trac
 /** Today's open items and tomorrow's top 3 (the check-in's goal review). */
 function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => void }) {
   const { routines, todos, checks, toggle, saveTodo, ensure } = usePlanner();
-  const today = todayKey();
+  const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
+  const today = todayKey(new Date(), dailyResetTime);
   const tomorrow = addDays(today, 1);
   useEffect(() => void ensure(today, tomorrow), [ensure, today, tomorrow]);
   const items = useMemo(() => agendaFor([today], routines, todos, checks)[today] ?? [], [routines, todos, checks, today]);
@@ -171,16 +174,13 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
         <span className="label">{open.length ? "Still open today" : moved.length ? "Everything open moved to tomorrow" : "Nothing left open today"}</span>
         {open.map((i) => (
           <div key={i.key} className="flex h-7 items-center gap-2">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={false}
-              aria-label={`Done: ${i.title}${i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? ` (${(i.sessionsDone ?? 0) + 1} of ${i.sessionsTarget})` : ""}`}
-              onClick={() => void toggle(i)}
-              className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-line-input transition-colors duration-ui ease-ui hover:border-sealed"
+            <Check
+              checked={false}
+              label={`Done: ${i.title}${i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? ` (${(i.sessionsDone ?? 0) + 1} of ${i.sessionsTarget})` : ""}`}
+              onToggle={() => void toggle(i)}
             />
             <span className="min-w-0 grow truncate text-body">{i.title}</span>
-            {i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? <span className="shrink-0 font-mono text-[11px] text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
+            {i.kind === "routine" && (i.sessionsTarget ?? 1) > 1 ? <span className="shrink-0 font-mono text-micro text-muted">{i.sessionsDone ?? 0}/{i.sessionsTarget}</span> : null}
             {i.kind === "todo" ? (
               <Button variant="quiet" size="sm" onClick={() => void move(i)}>
                 Tomorrow
@@ -198,7 +198,7 @@ function GoalReview({ top, setTop }: { top: string[]; setTop: (t: string[]) => v
             value={v}
             placeholder={`${n + 1}.`}
             onChange={(e) => setTop(top.map((x, k) => (k === n ? e.target.value : x)))}
-            className="h-8 rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
+            className="h-control rounded-control border border-line-input bg-raised px-3 text-body text-text transition-colors duration-ui ease-ui placeholder:text-muted hover:border-check-line"
           />
         ))}
       </div>
@@ -268,8 +268,8 @@ export function CheckinDialog() {
   useEffect(() => {
     if (!prompt) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-      else if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement)) void submit();
+      // Escape and Tab are the dialog frame's (useDialogFocus).
+      if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLButtonElement)) void submit();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -279,16 +279,10 @@ export function CheckinDialog() {
   const title = scheduled ? scheduled.checkin.name : "Log entry";
 
   return (
-    <div className="fixed inset-0 z-40 animate-fade-in bg-scrim">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="absolute left-1/2 top-14 flex max-h-[calc(100%-112px)] w-[480px] max-w-[calc(100%-32px)] -translate-x-1/2 animate-rise-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-dialog"
-      >
+    <CheckinFrame label={title} onClose={close}>
         <div data-checkin-head className={`flex shrink-0 items-start justify-between border-b pb-3 pl-[18px] pr-4 pt-4 ${scrolled ? "border-line" : "border-transparent"}`}>
           <div className="flex flex-col gap-1">
-            <h1 className="m-0 font-headline text-[18px] font-bold tracking-[-0.02em] text-text">{title}</h1>
+            <h1 className="headline m-0 text-moment-compact">{title}</h1>
             <span className="text-meta text-muted">
               {scheduled ? (
                 <>
@@ -344,6 +338,18 @@ export function CheckinDialog() {
             <Kbd onFill>↵</Kbd>
           </Button>
         </div>
+    </CheckinFrame>
+  );
+}
+
+/** The scrim and dialog box: focus moves in, Tab stays inside, Escape closes, focus goes back. */
+function CheckinFrame({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useDialogFocus(box, onClose);
+  return (
+    <div className="fixed inset-0 z-40 animate-fade-in bg-scrim">
+      <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} className={`${MOMENT_DIALOG} outline-none`}>
+        {children}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Suggestions } from "./Suggestions";
 import { Button } from "../../components/Button";
 import { ChevronRightIcon } from "../../components/icons";
@@ -16,14 +16,14 @@ import type { DayStat, StatsOverview, PauseSummary, WeekTarget } from "../../lib
 import { SessionsTab } from "./SessionsTab";
 import { ActivityTab } from "./ActivityTab";
 import { DayTab } from "./DayTab";
-import { DAY_NOTE, DayChart, FocusRuler, KeptMark } from "./Ruler";
+import { DAY_NOTE, DayChart, FocusRuler } from "./Ruler";
 
 // Stats (SPEC 4.9, 4.10): the streak, focus by day against the goal, what tempted you, and
 // where the time went.
 // v0.3 (decided 2026-10-29): tabs. Overview is the page as it was; Sessions, Activity, and Day
 // go deeper (SessionsTab, ActivityTab, DayTab).
 // v0.4 (redesign, ProtoStats.dc.html): the Ruler direction. Bars are "Focused" in the accent, a
-// kept day carries a second-colour mark, the daily goal is a dashed second-colour line, and a day's
+// kept day carries a second-color mark, the daily goal is a dashed second-color line, and a day's
 // details show in one fixed spot on hover or keyboard focus. No best-day mark (decided).
 
 const RANGES: readonly SegmentOption<StatsRange>[] = [
@@ -73,7 +73,8 @@ function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSumm
 function cellClass(d: DayStat, goal: number): string {
   switch (d.status) {
     case "kept":
-      return `border-transparent ${["", "bg-heat-1", "bg-heat-2", "bg-heat-3"][shade(d.focusMin, goal)]}`;
+      // Level 1 is near the panel (1.3:1), so it carries the line-input edge to read as filled.
+      return ["border-transparent", "border-transparent bg-heat-1", "border-transparent bg-heat-2", "border-transparent bg-heat-3"][shade(d.focusMin, goal)]!;
     case "broken":
       return "border-broken bg-broken-tint";
     case "missed":
@@ -132,11 +133,11 @@ function Heatmap({
               } ${d.status === "future" ? "cursor-default" : ""}`}
             >
               <span className="flex w-full items-center justify-between">
-                <span className={`font-mono text-[11px] ${quiet ? "text-muted" : "text-text"}`}>{fromKey(d.date).getDate()}</span>
+                <span className={`font-mono text-micro ${quiet ? "text-muted" : "text-text"}`}>{fromKey(d.date).getDate()}</span>
                 {d.status === "kept" ? <DayDot day={d} /> : null}
-                {note ? <span className={`text-[10px] ${d.status === "broken" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>{note}</span> : null}
+                {note ? <span className={`text-micro ${d.status === "broken" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>{note}</span> : null}
               </span>
-              {d.focusMin > 0 ? <span className="font-mono text-[11px] text-text-2">{minutes(d.focusMin)}</span> : null}
+              {d.focusMin > 0 ? <span className="font-mono text-micro text-text">{minutes(d.focusMin)}</span> : null}
             </button>
           );
         })}
@@ -179,7 +180,7 @@ function Legend({ o, active, month }: { o: StatsOverview; active: DayStat | null
       >
         Focused
       </Key>
-      <Key swatch={month ? <span className="h-[7px] w-[7px] rounded-full bg-second" /> : <KeptMark className="block w-[10px]" />}>Kept</Key>
+      {month ? <Key swatch={<span className="h-[7px] w-[7px] rounded-full bg-second" />}>Kept</Key> : null}
       <Key swatch={<span className={`${box} border border-line-input bg-raised`} />}>Missed</Key>
       <Key swatch={<span className={`${box} border-[1.5px] border-sealed bg-sealed-tint`} />}>Today</Key>
       {has("broken") ? <Key swatch={<span className={`${box} border border-broken bg-broken-tint`} />}>Broken</Key> : null}
@@ -205,7 +206,7 @@ function TemptedPanel({ o }: { o: StatsOverview }) {
             <div key={`${t.what}-${t.kind}`} className="flex flex-col gap-[6px] px-[14px] py-[6px]">
               <span className="flex items-baseline gap-2">
                 <span className="min-w-0 truncate text-body font-medium text-text">{temptedLabel(t.what, apps)}</span>
-                <span className="text-[11px] text-muted">{TEMPTED_KIND[t.kind] ?? t.kind}</span>
+                <span className="text-micro text-muted">{TEMPTED_KIND[t.kind] ?? t.kind}</span>
                 <span className="ml-auto font-mono text-meta text-text-2">{t.count}</span>
               </span>
               <span className="h-1 overflow-hidden rounded-[2px] bg-raised">
@@ -223,7 +224,7 @@ function TimePanel({ o }: { o: StatsOverview }) {
   const parts = [
     { label: "Productive", min: o.productiveMin, color: "bg-sealed" },
     { label: "Neutral", min: o.neutralMin, color: "bg-check-line" },
-    { label: "Distracting", min: o.distractingMin, color: "bg-broken" },
+    { label: "Distracting", min: o.distractingMin, color: "bg-second" },
     { label: "Idle", min: o.idleMin, color: "bg-line-input" },
   ];
   const total = parts.reduce((a, p) => a + p.min, 0);
@@ -298,12 +299,19 @@ function Overview({ onOpenDay }: { onOpenDay: (key: string) => void }) {
   }, []);
   const current = range === "week" ? from <= today && today <= to : addMonths(anchor, 0) === addMonths(today, 0);
 
+  // Paging fast: only the latest range's answers land.
+  const gen = useRef(0);
   const load = useCallback(() => {
+    const g = ++gen.current;
+    const latest = () => g === gen.current;
     void native
       .statsOverview(from, to)
-      .then(setO)
-      .catch(() => setO(null));
-    void native.pauseSummary(from, to).then(setPaused, () => setPaused(null));
+      .then((v) => latest() && setO(v))
+      .catch(() => latest() && setO(null));
+    void native.pauseSummary(from, to).then(
+      (v) => latest() && setPaused(v),
+      () => latest() && setPaused(null),
+    );
   }, [from, to]);
   useEffect(() => {
     load();

@@ -3,11 +3,11 @@ import { RETIRED, finishTheme } from "./finish";
 import { SANCTUM_DARK, type Palette, type Theme } from "./palette";
 
 // The themes (v0.3, decided 2026-10-29): Sanctum Dark (the design tokens) and twelve more, each
-// built from its own published colours. A theme names its surfaces, text, accent (which
-// becomes the sealed colour), event and broken colours, and the four lights of each mesh
+// built from its own published colors. A theme names its surfaces, text, accent (which
+// becomes the sealed color), event and broken colors, and the four lights of each mesh
 // (held: sealed and the held page; ember: in an event). The rest (tints, lines, accent text,
 // text on the accent) is derived so every theme clears the same contrast bar (themes.test.ts).
-// Colours only: fonts, spacing, and the mark never change with the theme.
+// Colors only: fonts, spacing, and the mark never change with the theme.
 
 interface Base {
   id: string;
@@ -23,7 +23,7 @@ interface Base {
   text2: string;
   muted: string;
   faint: string;
-  /** The theme's accent: the sealed colour. */
+  /** The theme's accent: the sealed color. */
   accent: string;
   event: string;
   broken: string;

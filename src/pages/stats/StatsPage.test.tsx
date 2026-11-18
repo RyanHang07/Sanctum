@@ -59,15 +59,14 @@ describe("Stats", () => {
     const chart = within(region);
     const days = region.querySelectorAll("[data-day]");
     expect(days).toHaveLength(7);
-    // Kept days, and only they, carry the second-colour mark.
+    // Kept days are solid accent bars, with no cap over them (2026-11-17).
     const kept = region.querySelectorAll('[data-bar][data-status="kept"]');
-    expect(region.querySelectorAll("[data-bar] [data-kept-mark]")).toHaveLength(kept.length);
-    for (const m of region.querySelectorAll("[data-bar] [data-kept-mark]")) expect(m).toHaveClass("bg-second");
+    expect(region.querySelectorAll("[data-kept-mark]")).toHaveLength(0);
     for (const b of kept) expect(b).toHaveClass("bg-sealed");
-    // The target: a dashed second-colour line named for the daily goal.
+    // The target: a dashed second-color line named for the daily goal.
     expect(chart.getByTestId("stats-target")).toHaveClass("border-dashed", "border-second");
     expect(chart.getByText("2h a day")).toHaveClass("text-second-text");
-    // The axis: hour ticks in the second colour, quarter hours in the line colour.
+    // The axis: hour ticks in the second color, quarter hours in the line color.
     const axis = chart.getByTestId("stats-axis");
     for (const t of axis.querySelectorAll('[data-tick="major"]')) expect(t).toHaveClass("bg-second");
     for (const t of axis.querySelectorAll('[data-tick="minor"]')) expect(t).toHaveClass("bg-line");
@@ -144,8 +143,10 @@ describe("Stats", () => {
     expect(region.querySelectorAll("[data-day]").length % 7).toBe(0);
     // Early in a month, the broken day is in the previous one.
     if (addDays(todayKey(), -2).slice(0, 7) === todayKey().slice(0, 7)) expect(heat.getByLabelText(/seal broken/)).toBeInTheDocument();
-    // Kept days get the second-colour dot; the target line is the week's alone.
+    // Kept days get the second-color dot; the target line is the week's alone.
     for (const d of region.querySelectorAll('[data-testid="day-dot"]')) expect(d).toHaveAttribute("data-status", "kept");
+    // The lightest heat level reads on the panel by its own fill (heat-1 is 2:1 in every theme), no edge.
+    for (const c of region.querySelectorAll(".bg-heat-1")) expect(c).not.toHaveClass("border-line-input");
     expect(heat.queryByTestId("stats-target")).toBeNull();
     // Days in the month are buttons with their details, on focus as on hover.
     const todayCell = heat.getByRole("button", { name: /^Today:/ });
@@ -163,5 +164,27 @@ describe("Stats", () => {
     const o = await native.statsOverview(todayKey(), todayKey());
     expect(o.days[0]!.status).toBe("today");
     expect(o.days[0]!.sessions).toBe(1);
+  });
+});
+
+describe("Stats paging (M3)", () => {
+  it("shows the latest range when an older read lands after it", async () => {
+    seed();
+    const real = native.statsOverview;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const spy = vi.spyOn(native, "statsOverview").mockImplementationOnce(async (from, to) => {
+      await held;
+      return real(from, to);
+    });
+    render(<StatsPage />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Previous week" })));
+    await screen.findByTestId("stats-summary");
+    await act(async () => release());
+    const start = weekStart(todayKey());
+    const days = [...screen.getByRole("region", { name: "Focus by day" }).querySelectorAll<HTMLElement>("[data-day]")].map((d) => d.dataset.day!);
+    expect(days.length).toBe(7);
+    for (const d of days) expect(d < start).toBe(true);
+    spy.mockRestore();
   });
 });

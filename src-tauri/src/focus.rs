@@ -9,6 +9,7 @@
 //!   2011): Ctrl Alt P parks it as a task for today. "Where I left off" eases the restart
 //!   (attention residue, Leroy 2009) and shows at the next seal of the same task or profile.
 
+use crate::engine::Locked;
 use crate::session::{self, TaskLink};
 use crate::{gcal, planner, stats, Shared};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -134,7 +135,7 @@ pub struct Prep {
 /// The profile's plan, and where you left off on this profile and task.
 #[tauri::command]
 pub fn focus_prepare(shared: State<Shared>, profile_id: i64, task: Option<TaskLink>) -> Result<Prep, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     let plan = profile_plan(&conn, profile_id).map_err(|e| e.to_string())?;
     let left_off = left_off(&conn, task.as_ref(), Some(profile_id)).map_err(|e| e.to_string())?;
     Ok(Prep { plan, left_off })
@@ -143,7 +144,7 @@ pub fn focus_prepare(shared: State<Shared>, profile_id: i64, task: Option<TaskLi
 /// Parks a thought during the seal (the hotkey card, Home, the tray panel, the extension).
 #[tauri::command]
 pub fn focus_set_plan(shared: State<Shared>, profile_id: i64, plan: Option<String>) -> Result<Option<String>, String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     set_profile_plan(&conn, profile_id, plan.as_deref()).map_err(|e| e.to_string())
 }
 
@@ -156,7 +157,7 @@ pub fn park_now(app: &AppHandle, text: &str) -> Result<planner::Todo, String> {
     let shared = app.state::<Shared>();
     let id = shared.engine.session_ids().map(|s| s.0);
     let todo = {
-        let conn = shared.db.lock().map_err(|e| e.to_string())?;
+        let conn = shared.db.locked();
         let today = stats::Days::load(&conn).of(session::now_ms()).format("%Y-%m-%d").to_string();
         let t = park(&conn, id, text, &today)?;
         gcal::queue(&shared, &conn, gcal::sync::Job::Todo(t.id));
@@ -168,7 +169,7 @@ pub fn park_now(app: &AppHandle, text: &str) -> Result<planner::Todo, String> {
 
 #[tauri::command]
 pub fn focus_wrap(shared: State<Shared>, session_id: i64, result: Option<String>, rating: Option<i64>, left_off: Option<String>) -> Result<(), String> {
-    let conn = shared.db.lock().map_err(|e| e.to_string())?;
+    let conn = shared.db.locked();
     wrap(&conn, session_id, result.as_deref(), rating, left_off.as_deref())
 }
 
@@ -188,7 +189,7 @@ pub fn on_seal(app: &AppHandle, sealed: bool) {
                 crate::engine::show_park(app);
             }
         });
-        *PARK_FAILED.lock().unwrap() = result.err().map(|e| e.to_string());
+        *PARK_FAILED.locked() = result.err().map(|e| e.to_string());
     } else if !sealed && registered {
         let _ = gs.unregister(PARK_SHORTCUT);
     }
@@ -197,7 +198,7 @@ pub fn on_seal(app: &AppHandle, sealed: bool) {
 /// None while Ctrl Alt P works; otherwise why it doesn't.
 #[tauri::command]
 pub fn focus_park_hotkey() -> Option<String> {
-    PARK_FAILED.lock().unwrap().clone()
+    PARK_FAILED.locked().clone()
 }
 
 #[cfg(test)]

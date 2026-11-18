@@ -5,7 +5,7 @@ import type { DayStat, DayStatus } from "../lib/types";
 // Streak marks under each day in Week (Week.dc.html) and a dot in Month (SPEC 4.10).
 
 const STYLE: Partial<Record<DayStatus, { label: string; dot: string; box: string }>> = {
-  // Kept is the second colour everywhere (decision log 2026-11-15); in progress stays the accent.
+  // Kept is the second color everywhere (decision log 2026-11-15); in progress stays the accent.
   kept: { label: "Kept", dot: "bg-second", box: "border-second-line bg-second-tint" },
   broken: { label: "Broken", dot: "bg-broken", box: "border-broken-line bg-broken-tint" },
   missed: { label: "Missed", dot: "bg-check-line", box: "border-line-input" },
@@ -26,7 +26,7 @@ export function StreakMark({ day }: { day: DayStat | undefined }) {
   const s = day ? STYLE[day.status] : undefined;
   if (!day || !s) return null;
   return (
-    <div data-testid="streak-mark" data-status={day.status} className={`mx-1 flex h-5 shrink-0 items-center gap-[6px] rounded-[4px] border px-[6px] text-[11px] text-text ${s.box}`}>
+    <div data-testid="streak-mark" data-status={day.status} className={`mx-1 flex h-5 shrink-0 items-center gap-[6px] rounded-[4px] border px-[6px] text-micro text-text ${s.box}`}>
       <span className={`h-[6px] w-[6px] shrink-0 rounded-full ${s.dot}`} />
       <span className="truncate">{markLabel(day)}</span>
     </div>

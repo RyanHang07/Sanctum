@@ -23,8 +23,39 @@ export async function flushJournal(): Promise<void> {
   if (save) await save();
 }
 
+/** A page the lock refused to save: held here and saved once the journal unlocks. */
+export interface HeldPage {
+  date: string;
+  doc: string | null;
+  body: string;
+}
+let held: HeldPage | null = null;
+
+/** Keeps a page the lock refused, to save after unlocking. */
+export function holdLockedPage(page: HeldPage) {
+  held = page;
+}
+
+/** The refused page for a day, if one is waiting (the editor opens on it rather than the saved one). */
+export function heldPage(date: string): HeldPage | null {
+  return held?.date === date ? held : null;
+}
+
+/** Saves the refused page, now that the journal is open. Kept on a failure, and said. */
+async function saveHeld(): Promise<void> {
+  const page = held;
+  if (!page) return;
+  try {
+    await native.journalSave(page.date, page.doc, page.body);
+    if (held === page) held = null;
+  } catch (e) {
+    useStore.getState().showNotice({ lead: errorText(e) });
+  }
+}
+
 export interface JournalStore {
   setup: JournalSetup;
+  /** null: not known (the status didn't load). Treated as locked; the page offers a retry. */
   lock: JournalLock | null;
   loaded: boolean;
   load: () => Promise<void>;
@@ -34,6 +65,8 @@ export interface JournalStore {
   unlockHello: () => Promise<string | null>;
   /** Locks it again (leaving the Journal, hiding Sanctum, or idle). */
   relock: () => void;
+  /** A save came back "locked": show the lock now and re-read the status. */
+  lockedOut: () => void;
 }
 
 function parse(raw: string | null): JournalSetup {
@@ -72,7 +105,10 @@ export const useJournal = create<JournalStore>()((set, get) => ({
 
   unlockPin: async (pin) => {
     try {
-      set({ lock: await native.journalUnlockPin(pin) });
+      const lock = await native.journalUnlockPin(pin);
+      // A page the lock refused lands before the page opens again.
+      if (lock.unlocked) await saveHeld();
+      set({ lock });
       return null;
     } catch (e) {
       return errorText(e);
@@ -82,6 +118,7 @@ export const useJournal = create<JournalStore>()((set, get) => ({
   unlockHello: async () => {
     try {
       const lock = await native.journalUnlockHello();
+      if (lock.unlocked) await saveHeld();
       set({ lock });
       return lock.unlocked ? null : "Windows Hello didn't confirm it was you.";
     } catch (e) {
@@ -95,6 +132,15 @@ export const useJournal = create<JournalStore>()((set, get) => ({
     set({ lock: { ...lock, unlocked: false } });
     // The last words typed land before the lock does.
     void flushJournal().finally(() => native.journalLock().catch(() => undefined));
+  },
+
+  lockedOut: () => {
+    const lock = get().lock;
+    if (lock) set({ lock: { ...lock, unlocked: false } });
+    void native
+      .journalStatus()
+      .then((l) => set({ lock: l }))
+      .catch(() => undefined);
   },
 }));
 

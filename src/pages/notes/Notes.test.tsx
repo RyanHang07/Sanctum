@@ -63,7 +63,7 @@ describe("old plain notes become documents (v0.2)", () => {
 describe("Notes page", () => {
   it("edits blocks, saves the document and its text, and searches the text", async () => {
     render(<NotesPage />);
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    await act(async () => fireEvent.click((await screen.findAllByRole("button", { name: "New note" }))[0]!));
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Groceries" } });
     const editor = editorOf();
     await act(async () => {
@@ -83,7 +83,7 @@ describe("Notes page", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "New note" })));
     await act(async () => void editorOf().chain().focus().insertContent("Book: Piranesi").run());
     await act(() => useNotes.getState().flush());
-    const list = within(screen.getByRole("complementary", { name: "All notes" }));
+    const list = within(screen.getByRole("navigation"));
     expect(list.getAllByRole("button").map((b) => b.textContent)).toEqual([expect.stringContaining("Book: Piranesi"), expect.stringContaining("Groceries")]);
     fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "milk" } });
     expect(list.getAllByRole("button")).toHaveLength(1);
@@ -101,7 +101,7 @@ describe("Notes page", () => {
 
   it("moves a block with Alt+Down, and makes tables and callouts from the menu's commands", async () => {
     render(<NotesPage />);
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    await act(async () => fireEvent.click((await screen.findAllByRole("button", { name: "New note" }))[0]!));
     const editor = editorOf();
     await act(async () => {
       editor.chain().focus().insertContent("first").enter().insertContent("second").run();
@@ -119,7 +119,7 @@ describe("Notes page", () => {
 
   it("has a toolbar: text size for every note (saved), and formats on the selection", async () => {
     render(<NotesPage />);
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    await act(async () => fireEvent.click((await screen.findAllByRole("button", { name: "New note" }))[0]!));
     const tools = within(screen.getByRole("toolbar", { name: "Note tools" }));
     const sized = () => (document.querySelector(".note-editor") as HTMLElement).style.getPropertyValue("--note-size");
     expect(sized()).toBe("14px");
@@ -136,7 +136,7 @@ describe("Notes page", () => {
 
   it("draws the block tools as line icons, not text glyphs (v0.4)", async () => {
     render(<NotesPage />);
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    await act(async () => fireEvent.click((await screen.findAllByRole("button", { name: "New note" }))[0]!));
     const tools = within(screen.getByRole("toolbar", { name: "Note tools" }));
     for (const name of ["Bulleted list", "Checklist", "Table", "Image", "Callout"]) {
       const b = tools.getByRole("button", { name });
@@ -156,7 +156,7 @@ describe("Notes page", () => {
 
   it("takes images: stored by Sanctum, referenced in the note, shown from the store", async () => {
     render(<NotesPage />);
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Write a note" })));
+    await act(async () => fireEvent.click((await screen.findAllByRole("button", { name: "New note" }))[0]!));
     const png = new File([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], "whiteboard.png", { type: "image/png" });
     await act(async () => void (await insertImages(editorOf(), [png])));
     const img = screen.getByLabelText("Note text").querySelector("img")!;
@@ -184,16 +184,30 @@ describe("Notes page", () => {
     const a = await native.saveNote({ title: "Old idea", body: "x" });
     await native.saveNote({ title: "New idea", body: "y" });
     render(<NotesPage />);
-    const list = within(await screen.findByRole("complementary", { name: "All notes" }));
+    await screen.findByRole("complementary", { name: "All notes" });
+    const list = within(screen.getByRole("navigation"));
     expect(list.getAllByRole("button")[0]).toHaveTextContent("New idea");
     await act(async () => fireEvent.click(list.getByRole("button", { name: /Old idea/ })));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pin to top" })));
     expect(list.getAllByRole("button")[0]).toHaveTextContent("Old idea");
+    screen.getByRole("button", { name: "Delete note" }).focus();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Delete note" })));
-    const dialog = await screen.findByRole("dialog", { name: "Delete note" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete this note" });
+    expect(within(dialog).getByRole("heading")).toHaveTextContent("Delete this note");
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: /^Delete$/ })));
     await waitFor(() => expect(list.queryByRole("button", { name: /Old idea/ })).toBeNull());
+    // The Delete button went with the note: focus lands on New note, not the page body.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "New note" })));
     await waitFor(async () => expect((await native.listNotes()).map((n) => n.id)).not.toContain(a.id));
+  });
+});
+
+describe("an empty note", () => {
+  it("previews as Empty note in the list", async () => {
+    await native.saveNote({ title: "Blank", body: "" });
+    render(<NotesPage />);
+    const list = within(await screen.findByRole("navigation"));
+    expect(await list.findByText("Empty note")).toBeInTheDocument();
   });
 });
 
@@ -206,8 +220,10 @@ describe("the notes list folds away for focus", () => {
     await act(async () => void (await useNotes.getState().create()));
     render(<NotesPage />);
     const hide = await screen.findByRole("button", { name: "Hide notes list" });
-    expect(screen.getByRole("complementary", { name: "All notes" })).not.toHaveAttribute("inert");
+    const list = document.getElementById("notes-list")!;
+    expect(list).not.toHaveAttribute("inert");
     fireEvent.click(hide);
+    expect(list).toHaveAttribute("inert");
     expect(screen.getByRole("button", { name: "Show notes list" })).toHaveAttribute("aria-expanded", "false");
     await waitFor(async () => expect(await native.getSetting("notes_list_hidden")).toBe("1"));
   });

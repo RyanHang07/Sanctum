@@ -5,18 +5,23 @@ import { launchNotice, useStore } from "../state/store";
 import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
 import { sampleProfiles } from "../lib/catalog";
+import { GOAL_MINUTES } from "./setup/options";
+import { minutes } from "../lib/time";
 
 const initial = useStore.getState();
 
 async function renderSetup(seed = true) {
   if (seed) for (const d of sampleProfiles()) await native.createProfile(d);
   await act(() => useStore.getState().loadProfiles());
-  return render(
+  const view = render(
     <>
       <Setup />
       <Toast />
     </>,
   );
+  // The side list's status reads (protection, browser, partner, calendar) land inside act.
+  await act(async () => void (await new Promise((r) => setTimeout(r, 0))));
+  return view;
 }
 
 const profile = (name: string) => useStore.getState().profiles.find((p) => p.name === name)!;
@@ -35,24 +40,27 @@ describe("Setup overview", () => {
     const row = within(list).getByRole("button", { name: /Interview Prep/ });
     expect(row).toHaveTextContent("DSA practice");
     expect(row).toHaveTextContent("60 min");
-    expect(screen.getByText("What each kind of work opens, and how long it runs.")).toBeInTheDocument();
+    expect(screen.getByText("What each kind of work opens.")).toBeInTheDocument();
   });
 
   it("shows one section at a time from the list, each saying what it's for", async () => {
     await renderSetup(false);
     const expected: [string, string, string][] = [
-      ["Protection", "Keeps Sanctum open", "Protection"],
+      ["Goals", "Your daily goal and streak.", "Goal and streak"],
+      ["App Guard", "Blocks sites and reopens Sanctum.", "Protection"],
+      ["Browser Extension", "Seals sites and tabs.", "Browser Extension"],
+      ["Partner", "A friend who holds the key.", "Account"],
       ["Calendar", "Two-way sync with Google Calendar.", "Google Calendar"],
-      ["Browser", "The extension that seals sites and tabs.", "Browser extension"],
-      ["Partner", "a friend who holds the key", "Account"],
-      ["General", "how the app behaves", "About"],
+      ["Sound and Alerts", "Sounds and notifications.", "Do not disturb"],
+      ["Behavior", "How Sanctum starts and closes.", "About"],
+      ["Your Data", "Export, back up, or erase.", "Danger Zone"],
     ];
     for (const [tab, blurb, region] of expected) {
       await openTab(tab);
       expect(screen.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
       const panel = within(screen.getByRole("tabpanel", { name: tab }));
       expect(panel.getAllByRole("heading", { level: 2, name: tab })[0]).toBeInTheDocument();
-      expect(panel.getByText(new RegExp(blurb, "i"))).toBeInTheDocument();
+      expect(panel.getByText(blurb)).toBeInTheDocument();
       expect(await panel.findByRole("region", { name: region })).toBeInTheDocument();
     }
     // Distractions no longer carries Protection.
@@ -62,19 +70,22 @@ describe("Setup overview", () => {
 
   it("shows an empty state without profiles", async () => {
     await renderSetup(false);
-    expect(screen.getByText("No profiles yet. Onboarding sets them up, or create one now.")).toBeInTheDocument();
+    expect(screen.getByText("No profiles yet.")).toBeInTheDocument();
   });
 
   it("New profile creates one and opens it", async () => {
     await renderSetup(false);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "New profile" })));
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("New profile");
+    // It opens inside Setup's column, the name as the section heading.
+    expect(await screen.findByRole("heading", { level: 2, name: "New profile" })).toBeInTheDocument();
     expect(screen.getByLabelText("Profile name")).toHaveValue("New profile");
   });
 
   it("saves preferences", async () => {
     await renderSetup(false);
-    await openTab("General");
+    await openTab("Behavior");
+    // On login says Today, the screen's name.
+    expect(within(screen.getByLabelText("On login")).getByRole("option", { name: "Open Today" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("On login"), { target: { value: "tray" } });
     fireEvent.change(screen.getByLabelText("Close button"), { target: { value: "tray" } });
     fireEvent.click(screen.getByRole("switch", { name: "Go compact when focus starts" }));
@@ -83,9 +94,9 @@ describe("Setup overview", () => {
     expect(await native.getSetting("compact_on_focus")).toBe("1");
   });
 
-  it("updates the day reset time from General preferences", async () => {
+  it("updates the day reset time from Goals", async () => {
     await renderSetup(false);
-    await openTab("General");
+    await openTab("Goals");
     const field = screen.getByLabelText("Day resets at");
     fireEvent.change(field, { target: { value: "05:30" } });
     await act(async () => fireEvent.blur(field));
@@ -96,7 +107,7 @@ describe("Setup overview", () => {
 describe("Profile detail", () => {
   async function openDeepWork() {
     await renderSetup();
-    fireEvent.click(screen.getByRole("button", { name: /Deep Work/ }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Deep Work/ })));
     return profile("Deep Work");
   }
 
@@ -138,7 +149,18 @@ describe("Profile detail", () => {
     expect(seals.getByText("Discord, youtube.com")).toBeInTheDocument();
     await act(async () => fireEvent.click(seals.getByRole("button", { name: "Edit distractions" })));
     expect(useStore.getState().setupTab).toBe("distractions");
-    expect(screen.getByRole("region", { name: "Apps" })).toHaveTextContent("Discord");
+    expect(screen.getByRole("region", { name: "What Sanctum blocks" })).toHaveTextContent("Discord");
+  });
+
+  it("names each seal once, and the Add a URL field has no stray key mark", async () => {
+    await native.addDistraction({ kind: "app", value: "discord.exe", label: "Discord" });
+    await native.addDistraction({ kind: "site", value: "discord.com", label: "Discord" });
+    await act(() => useStore.getState().loadDistractions());
+    await openDeepWork();
+    const seals = within(screen.getByRole("region", { name: "Seals" }));
+    expect(seals.getByTestId("seal-names")).toHaveTextContent(/^Discord$/);
+    const opens = screen.getByRole("region", { name: "Opens" });
+    expect(opens).not.toHaveTextContent("↵");
   });
 
   it("marks apps that aren't installed and shows a lettered tile for them", async () => {
@@ -189,7 +211,9 @@ describe("Profile detail", () => {
   it("deletes after confirming", async () => {
     const p = await openDeepWork();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    const dialog = screen.getByRole("dialog", { name: "Delete Deep Work" });
+    // A confirm before something that can't be undone: an alertdialog with a declarative title.
+    const dialog = screen.getByRole("alertdialog", { name: "Delete Deep Work" });
+    expect(within(dialog).getByRole("heading", { level: 1 })).toHaveTextContent("This deletes Deep Work.");
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Delete" })));
     expect(useStore.getState().profiles.some((x) => x.id === p.id)).toBe(false);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Setup");
@@ -209,10 +233,12 @@ describe("Distractions", () => {
     await renderSetup(false);
     await openTab("Distractions");
   }
+  const blocks = () => within(screen.getByRole("region", { name: "What Sanctum blocks" }));
+  const rows = () => screen.queryAllByTestId("distraction-row").map((r) => r.textContent);
 
-  it("flags sites, links, and keywords from one field, and apps from the picker", async () => {
+  it("adds sites, links, keywords and apps from one field, and apps from the picker, into one list", async () => {
     await openDistractions();
-    const field = screen.getByLabelText("Flag a site, link, or keyword");
+    const field = screen.getByLabelText("Add an app, site, link or keyword");
     fireEvent.change(field, { target: { value: "https://www.twitch.tv/" } });
     expect(screen.getByText("Site or link ↵")).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
@@ -221,18 +247,20 @@ describe("Distractions", () => {
     fireEvent.change(field, { target: { value: "Shorts" } });
     expect(screen.getByText("Keyword ↵")).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
+    fireEvent.change(field, { target: { value: "discord.exe" } });
+    expect(screen.getByText("App ↵")).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
     expect(field).toHaveValue("");
-    const sites = within(screen.getByRole("region", { name: "Sites and links" }));
-    expect(sites.getByText("twitch.tv")).toBeInTheDocument();
-    expect(sites.getByText("reddit.com/r/all")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Keywords" })).getByText("shorts")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add an app" }));
-    const dialog = await screen.findByRole("dialog", { name: "Flag an app" });
+    fireEvent.click(screen.getByRole("button", { name: "Pick an app" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add an app" });
     await act(async () => fireEvent.click(await within(dialog).findByRole("option", { name: /Steam/ })));
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(within(screen.getByRole("region", { name: "Apps" })).getByText("Steam")).toBeInTheDocument();
+
+    // One list, each row tagged with its kind and its detail.
+    expect(rows()).toEqual(["AppDiscorddiscord.exe", "AppSteamsteam.exe", "Keywordshortsin any title", "Sitereddit.com/r/allAllow a page", "Sitetwitch.tvAllow a page"]);
     expect(useStore.getState().distractions.map((d) => `${d.kind}:${d.value}`)).toEqual([
+      "app:discord.exe",
       "app:steam.exe",
       "keyword:shorts",
       "site:reddit.com/r/all",
@@ -240,21 +268,60 @@ describe("Distractions", () => {
     ]);
   });
 
-  it("flags from your week and from common distractions", async () => {
+  it("filters the list by kind, with counts", async () => {
+    await native.addDistraction({ kind: "app", value: "discord.exe", label: "Discord" });
+    await native.addDistraction({ kind: "site", value: "youtube.com" });
+    await native.addDistraction({ kind: "site", value: "x.com" });
+    await act(() => useStore.getState().loadDistractions());
     await openDistractions();
-    const week = within(await screen.findByRole("region", { name: "From your week" }));
-    expect(week.getByText("League of Legends")).toBeInTheDocument();
-    expect(week.getByText("3h 4m")).toBeInTheDocument();
-    await act(async () => fireEvent.click(week.getByRole("button", { name: "Flag League of Legends" })));
-    expect(within(screen.getByRole("region", { name: "Apps" })).getByText("League of Legends")).toBeInTheDocument();
-    await waitFor(() => expect(week.queryByText("League of Legends")).toBeNull());
-
-    const common = within(screen.getByRole("region", { name: "Common distractions" }));
-    await act(async () => fireEvent.click(common.getByRole("button", { name: "Flag YouTube" })));
-    expect(within(screen.getByRole("region", { name: "Sites and links" })).getByText("YouTube")).toBeInTheDocument();
+    const filter = within(blocks().getByRole("group", { name: "Show" }));
+    expect(filter.getByRole("button", { name: "All 3" })).toHaveAttribute("aria-pressed", "true");
+    await act(async () => fireEvent.click(filter.getByRole("button", { name: "Sites 2" })));
+    expect(rows()).toEqual(["Sitex.comAllow a page", "Siteyoutube.comAllow a page"]);
+    await act(async () => fireEvent.click(filter.getByRole("button", { name: "Apps 1" })));
+    expect(rows()).toEqual(["AppDiscorddiscord.exe"]);
+    await act(async () => fireEvent.click(filter.getByRole("button", { name: "Keywords 0" })));
+    expect(rows()).toEqual([]);
+    expect(blocks().getByText(/Keywords block any window or tab/)).toBeInTheDocument();
   });
 
-  it("keeps pages under a flagged site open, and unflags", async () => {
+  it("suggests from your week first, then common distractions, in one row of chips", async () => {
+    await openDistractions();
+    const suggested = within(await screen.findByRole("group", { name: "Suggested" }));
+    const chips = suggested.getAllByTestId("suggestion").map((c) => c.textContent);
+    expect(chips.slice(0, 3)).toEqual(["League of Legends3h 4m last week", "reddit.com1h 36m last week", "Spotify41m last week"]);
+    await act(async () => fireEvent.click(suggested.getByRole("button", { name: "Add League of Legends" })));
+    expect(blocks().getByText("League of Legends")).toBeInTheDocument();
+    await waitFor(() => expect(suggested.queryByRole("button", { name: "Add League of Legends" })).toBeNull());
+
+    // A common distraction adds everything it covers.
+    await act(async () => fireEvent.click(suggested.getByRole("button", { name: "Add YouTube" })));
+    expect(blocks().getAllByText("YouTube").length).toBeGreaterThan(0);
+    expect(useStore.getState().distractions.some((d) => d.kind === "site" && d.value === "youtube.com")).toBe(true);
+  });
+
+  it("dismisses a suggestion and remembers it", async () => {
+    await openDistractions();
+    const suggested = within(await screen.findByRole("group", { name: "Suggested" }));
+    await act(async () => fireEvent.click(suggested.getByRole("button", { name: "Dismiss Spotify" })));
+    expect(suggested.queryByRole("button", { name: "Add Spotify" })).toBeNull();
+    await waitFor(async () => expect(JSON.parse((await native.getSetting("distraction_suggestions_dismissed"))!)).toMatchObject({ "app:spotify.exe": { minutes: 41 } }));
+  });
+
+  it("keeps a suggestion dismissed three days ago away no longer", async () => {
+    const old = Date.now() - 3 * 24 * 60 * 60_000 - 1000;
+    const recent = Date.now() - 60_000;
+    await native.setSetting(
+      "distraction_suggestions_dismissed",
+      JSON.stringify({ "app:spotify.exe": { at: old, minutes: 41 }, "app:leagueclient.exe": { at: recent, minutes: 184 } }),
+    );
+    await openDistractions();
+    const suggested = within(await screen.findByRole("group", { name: "Suggested" }));
+    expect(suggested.getByRole("button", { name: "Add Spotify" })).toBeInTheDocument();
+    expect(suggested.queryByRole("button", { name: "Add League of Legends" })).toBeNull();
+  });
+
+  it("keeps pages under a flagged site open, and removes", async () => {
     await native.addDistraction({ kind: "site", value: "youtube.com" });
     await act(() => useStore.getState().loadDistractions());
     await openDistractions();
@@ -268,7 +335,7 @@ describe("Distractions", () => {
     expect(screen.getByText("youtube.com/@mitocw")).toBeInTheDocument();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Stop allowing youtube.com/@mitocw" })));
     expect(screen.queryByText("youtube.com/@mitocw")).toBeNull();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Unflag youtube.com" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Remove youtube.com" })));
     expect(useStore.getState().distractions).toEqual([]);
   });
 
@@ -278,11 +345,227 @@ describe("Distractions", () => {
     await openDistractions();
     act(() => useStore.getState().setAppState("sealed"));
     expect(screen.getByText(/Removing waits until the seal ends/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Unflag Discord" })).toBeDisabled();
-    const field = screen.getByLabelText("Flag a site, link, or keyword");
+    expect(screen.getByRole("button", { name: "Remove Discord" })).toBeDisabled();
+    const field = screen.getByLabelText("Add an app, site, link or keyword");
     fireEvent.change(field, { target: { value: "reddit.com" } });
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
     expect(useStore.getState().distractions).toHaveLength(2);
+  });
+
+  it("says when it blocks: always in focus sessions, quiet hours and pause open to edit", async () => {
+    await act(() => useStore.getState().loadQuiet());
+    await openDistractions();
+    const when = within(screen.getByRole("region", { name: "When it blocks" }));
+    const focus = within(when.getByRole("region", { name: "During focus sessions" }));
+    expect(focus.getByText("Always")).toBeInTheDocument();
+    expect(focus.queryByRole("switch")).toBeNull();
+
+    const quiet = within(when.getByRole("region", { name: "Quiet hours" }));
+    expect(quiet.getByTestId("quiet-status")).toHaveTextContent("Off");
+    expect(quiet.queryByRole("group", { name: "Quiet days" })).toBeNull();
+    const toggle = quiet.getByRole("button", { name: /Quiet hours/, expanded: false });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(quiet.getByRole("group", { name: "Quiet days" })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(quiet.queryByRole("group", { name: "Quiet days" })).toBeNull();
+
+    const pause = within(await when.findByRole("region", { name: "Pause before opening" }));
+    expect(pause.getByTestId("pause-status")).toHaveTextContent("Off");
+    await act(async () => fireEvent.click(pause.getByRole("switch", { name: "Pause before opening" })));
+    // Turning it on opens it, to pick all day or set hours.
+    expect(pause.getByRole("group", { name: "Pause mode" })).toBeInTheDocument();
+    expect(pause.getByTestId("pause-status")).toHaveTextContent("All day · Asking first right now");
+  });
+});
+
+describe("Setup's list", () => {
+  it("is one vertical tablist: one Tab stop, arrows, Home and End, each tab controlling the panel", async () => {
+    await renderSetup(false);
+    const tabs = screen.getAllByRole("tab");
+    const panel = screen.getByRole("tabpanel");
+    expect(tabs.filter((t) => t.tabIndex === 0)).toEqual([screen.getByRole("tab", { name: "Profiles" })]);
+    for (const t of tabs) expect(t).toHaveAttribute("aria-controls", panel.id);
+    // The group headers sit outside the tab semantics.
+    const list = screen.getByRole("tablist", { name: "Setup" });
+    for (const h of Array.from(list.querySelectorAll(".label"))) expect(h).toHaveAttribute("role", "presentation");
+
+    const key = (k: string) => act(async () => fireEvent.keyDown(document.activeElement!, { key: k }));
+    tabs[0]!.focus();
+    await key("ArrowDown");
+    expect(screen.getByRole("tab", { name: "Distractions" })).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Distractions" }));
+    expect(screen.getByRole("tab", { name: "Distractions" }).tabIndex).toBe(0);
+    expect(screen.getByRole("tab", { name: "Profiles" }).tabIndex).toBe(-1);
+    await key("End");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Your Data" }));
+    await key("ArrowDown");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Profiles" }));
+    await key("ArrowUp");
+    expect(screen.getByRole("tab", { name: "Your Data" })).toHaveAttribute("aria-selected", "true");
+    await key("Home");
+    expect(screen.getByRole("tab", { name: "Profiles" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("narrows the list when the page is about 800px or less", async () => {
+    await renderSetup(false);
+    const nav = screen.getByRole("navigation", { name: "Setup sections" });
+    expect(nav.className).toContain("w-[184px]");
+    expect(nav.className).toContain("@max-[800px]/setup:w-[136px]");
+    // The query is on Setup's own width (a container), not the window's.
+    let el: HTMLElement | null = nav;
+    while (el && !el.classList.contains("@container/setup")) el = el.parentElement;
+    expect(el).not.toBeNull();
+  });
+
+  it("never repeats a section's name as its first box's title, and keeps the box's actions", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    for (const [tab, action] of [
+      ["Profiles", "New profile"],
+      ["Browser Extension", null],
+      ["Trackers", "New tracker"],
+      ["Behavior", "Run setup again"],
+      ["Your Data", "Open folder"],
+    ] as const) {
+      await openTab(tab);
+      const panel = within(screen.getByRole("tabpanel", { name: tab }));
+      const box = await panel.findByRole("region", { name: tab });
+      expect(panel.getAllByRole("heading", { name: tab })).toHaveLength(1);
+      expect(within(box).queryByRole("heading", { name: tab })).toBeNull();
+      if (action) expect(within(within(box).getByTestId("section-actions")).getByRole("button", { name: action })).toBeInTheDocument();
+    }
+  });
+
+  it("groups the sections into Focus, Protection, Tracking, and App, in order", async () => {
+    await renderSetup(false);
+    const nav = within(screen.getByRole("navigation", { name: "Setup sections" }));
+    expect(nav.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
+      "Profiles",
+      "Distractions",
+      "Goals",
+      "App Guard",
+      "Browser Extension",
+      "Partner",
+      "Trackers",
+      "Activity",
+      "Calendar",
+      "Appearance",
+      "Sound and Alerts",
+      "Behavior",
+      "Your Data",
+    ]);
+    const headers = Array.from(screen.getByRole("navigation", { name: "Setup sections" }).querySelectorAll(".label")).map((h) => h.textContent);
+    expect(headers).toEqual(["Focus", "Protection", "Tracking", "App"]);
+    // General is gone; its settings live in Goals, Sound and Alerts, Behavior, and Your Data.
+    expect(nav.queryByRole("tab", { name: "General" })).toBeNull();
+  });
+
+  it("counts the lists beside their names", async () => {
+    await renderSetup();
+    const profiles = screen.getByRole("tab", { name: "Profiles" });
+    expect(within(profiles).getByTestId("nav-count")).toHaveTextContent(String(useStore.getState().profiles.length));
+    // No count where there's nothing to count.
+    expect(within(screen.getByRole("tab", { name: "Distractions" })).queryByTestId("nav-count")).toBeNull();
+  });
+
+  it("puts a dot only on a connection that needs something", async () => {
+    await renderSetup(false);
+    const browser = screen.getByRole("tab", { name: "Browser Extension" });
+    // The extension isn't connected in Comet yet: the second color, and a description for readers.
+    await waitFor(() => expect(browser).toHaveAttribute("data-attention", "true"));
+    const dot = browser.querySelector("[data-tone]")!;
+    expect(dot).toHaveAttribute("data-tone", "attention");
+    expect(dot).toHaveClass("bg-second");
+    expect(browser).toHaveAttribute("aria-description", "Needs attention");
+    // Off and fine stay quiet.
+    for (const name of ["Profiles", "Partner", "Calendar"]) expect(screen.getByRole("tab", { name }).querySelector("[data-tone]")).toBeNull();
+  });
+});
+
+describe("General, split", () => {
+  it("Goals holds the goal and streak; Behavior holds startup and About; Sound and Alerts holds Do not disturb", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    await openTab("Goals");
+    let panel = within(screen.getByRole("tabpanel", { name: "Goals" }));
+    expect(panel.getByLabelText("Daily focus goal")).toBeInTheDocument();
+    // The same goal list first run offers.
+    expect(within(panel.getByLabelText("Daily focus goal")).getAllByRole("option").map((o) => o.textContent)).toEqual(GOAL_MINUTES.map(minutes));
+    expect(panel.getByRole("group", { name: "Rest days" })).toBeInTheDocument();
+    expect(panel.queryByLabelText("On login")).toBeNull();
+
+    await openTab("Behavior");
+    panel = within(screen.getByRole("tabpanel", { name: "Behavior" }));
+    expect(panel.getByLabelText("On login")).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "Run setup again" })).toBeInTheDocument();
+    expect(await panel.findByRole("region", { name: "About" })).toBeInTheDocument();
+    expect(panel.queryByRole("region", { name: "Sounds" })).toBeNull();
+
+    await openTab("Sound and Alerts");
+    panel = within(screen.getByRole("tabpanel", { name: "Sound and Alerts" }));
+    expect(panel.getByRole("region", { name: "Sounds" })).toBeInTheDocument();
+    expect(await panel.findByRole("switch", { name: "Do not disturb while sealed" })).toBeInTheDocument();
+    expect(panel.queryByRole("region", { name: "Your Data" })).toBeNull();
+  });
+
+  it("keeps every hint short and readable", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    for (const tab of ["Goals", "Sound and Alerts", "Behavior", "Your Data"]) {
+      await openTab(tab);
+      const panel = screen.getByRole("tabpanel", { name: tab });
+      await waitFor(() => expect(panel.querySelectorAll("section").length).toBeGreaterThan(0));
+      expect(panel.innerHTML).not.toMatch(/text-\[1[01]px\]/);
+    }
+  });
+
+  it("sets one style for every sound, with each sound in a fold", async () => {
+    await act(() => useStore.getState().loadSettings());
+    await renderSetup(false);
+    await openTab("Sound and Alerts");
+    const sounds = within(screen.getByRole("region", { name: "Sounds" }));
+    // The defaults differ per cue, so no one style is pressed.
+    const every = within(sounds.getByRole("group", { name: "Every sound" }));
+    expect(every.getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true")).toHaveLength(0);
+    expect(sounds.queryByRole("group", { name: "Enter focus sound" })).toBeNull();
+    await act(async () => fireEvent.click(every.getByRole("button", { name: "Latch" })));
+    expect(Object.values(useStore.getState().settings.soundStyles)).toEqual(Array(6).fill("latch"));
+    expect(every.getByRole("button", { name: "Latch" })).toHaveAttribute("aria-pressed", "true");
+
+    const fold = sounds.getByRole("button", { name: "Each sound" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(fold);
+    expect(fold).toHaveAttribute("aria-expanded", "true");
+    const enter = within(sounds.getByRole("group", { name: "Enter focus sound" }));
+    await act(async () => fireEvent.click(enter.getByRole("button", { name: "Deep" })));
+    expect(useStore.getState().settings.soundStyles.enter).toBe("deep");
+    expect(every.getAllByRole("button").filter((b) => b.getAttribute("aria-pressed") === "true")).toHaveLength(0);
+  });
+});
+
+describe("Your Data's danger zone", () => {
+  it("ends Your Data, with Start over and Delete account together", async () => {
+    await native.cloudSignInEmail("me@example.com");
+    await renderSetup(false);
+    await openTab("Your Data");
+    const panel = screen.getByRole("tabpanel", { name: "Your Data" });
+    const zone = await within(panel).findByRole("region", { name: "Danger Zone" });
+    const sections = Array.from(panel.querySelectorAll("section"));
+    expect(sections.at(-1)).toBe(zone);
+    expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["Your Data", "Danger Zone"]);
+    const start = within(zone).getByRole("button", { name: "Start over" });
+    const del = await within(zone).findByRole("button", { name: "Delete account" });
+    expect(start.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("leaves Delete account out while signed out", async () => {
+    await renderSetup(false);
+    await openTab("Your Data");
+    const zone = within(await screen.findByRole("region", { name: "Danger Zone" }));
+    expect(zone.getByRole("button", { name: "Start over" })).toBeInTheDocument();
+    await act(async () => undefined);
+    expect(zone.queryByRole("button", { name: "Delete account" })).toBeNull();
   });
 });
 
@@ -291,19 +574,23 @@ describe("Account", () => {
     await renderSetup(false);
     await openTab("Partner");
     const account = within(await screen.findByRole("region", { name: "Account" }));
-    expect(account.getByText(/Optional. An account lets a friend/)).toBeInTheDocument();
+    expect(account.getByTestId("partner-status")).toHaveTextContent("No partner. Early unlocks need only you.");
+    expect(account.getByText("Sign in to add a partner")).toBeInTheDocument();
     fireEvent.change(account.getByLabelText("Email for a sign-in link"), { target: { value: "me@example.com" } });
     await act(async () => fireEvent.click(account.getByRole("button", { name: "Email me a link" })));
     expect(await account.findByText("Signed in as me@example.com")).toBeInTheDocument();
 
-    await act(async () => fireEvent.click(account.getByRole("button", { name: "Invite a partner" })));
+    await act(async () => fireEvent.click(within(account.getByTestId("partner-status")).getByRole("button", { name: "Invite a partner" })));
+    expect(account.getByTestId("partner-status")).toHaveTextContent("Invite open.");
     expect(account.getByTestId("invite-link")).toHaveTextContent("/invite/");
     expect(account.getByText(/Expires in 48 hours/)).toBeInTheDocument();
 
     await act(async () => mockControls.partnerJoins("alex@example.com", "Alex"));
     expect(await account.findByText("Partner: Alex")).toBeInTheDocument();
+    expect(account.getByTestId("partner-status")).toHaveTextContent("Alex approves your early unlocks.");
+    expect(account.getByTestId("partner-status")).toHaveAttribute("data-tone", "ok");
     await act(async () => fireEvent.click(account.getByRole("button", { name: "Ask to remove" })));
-    expect(account.getByText("Waiting for Alex to release you")).toBeInTheDocument();
+    expect(account.getByTestId("partner-status")).toHaveTextContent("Waiting for Alex to release you.");
     await act(async () => fireEvent.click(account.getByRole("button", { name: "Keep partner" })));
     expect(account.getByText("Partner: Alex")).toBeInTheDocument();
 
@@ -316,7 +603,7 @@ describe("Streak settings", () => {
   it("saves the daily goal and rest days", async () => {
     await act(() => useStore.getState().loadSettings());
     await renderSetup(false);
-    await openTab("General");
+    await openTab("Goals");
     fireEvent.change(screen.getByLabelText("Daily focus goal"), { target: { value: "90" } });
     const rest = within(screen.getByRole("group", { name: "Rest days" }));
     fireEvent.click(rest.getByRole("button", { name: "Sat" }));
@@ -328,7 +615,7 @@ describe("Streak settings", () => {
 
   it("the weekly recap switch starts off and turns the card on", async () => {
     await renderSetup(false);
-    await openTab("General");
+    await openTab("Goals");
     const sw = await screen.findByRole("switch", { name: "Weekly recap" });
     expect(sw).toHaveAttribute("aria-checked", "false");
     fireEvent.click(sw);
@@ -340,7 +627,7 @@ describe("Streak settings", () => {
 describe("Start with Windows (v0.1.4)", () => {
   it("shows Windows' startup switch and changes it", async () => {
     await renderSetup(false);
-    await openTab("General");
+    await openTab("Behavior");
     const sw = await screen.findByRole("switch", { name: "Start with Windows" });
     await waitFor(() => expect(sw).toHaveAttribute("aria-checked", "true"));
     await act(async () => fireEvent.click(sw));
@@ -366,26 +653,29 @@ describe("Email the invite", () => {
   });
 });
 
-describe("Browser extension", () => {
+describe("Browser Extension", () => {
   it("shows setup steps until a browser connects, then its status", async () => {
     await renderSetup(false);
-    await openTab("Browser");
-    const section = within(await screen.findByRole("region", { name: "Browser extension" }));
+    await openTab("Browser Extension");
+    const section = within(await screen.findByRole("region", { name: "Browser Extension" }));
     expect(section.getByText("Comet")).toBeInTheDocument();
     expect(section.queryByText("Edge")).toBeNull(); // not installed
     expect(section.getAllByText("Extension not loaded.")).toHaveLength(2);
+    expect(section.getByTestId("browser-status")).toHaveTextContent(/^Not connected in Comet and .+\. Sites aren’t blocked there yet./);
+    expect(section.getByTestId("browser-status")).toHaveAttribute("data-tone", "attention");
     expect(section.getByTestId("extension-dir")).toHaveTextContent("extension");
 
     await act(async () => mockControls.extension("comet.exe", { connected: true, incognito: false }));
-    expect(await section.findByText(/Not allowed in private windows/)).toBeInTheDocument();
+    expect(await section.findByText("v0.1.0 · Off in private windows")).toBeInTheDocument();
     expect(section.queryByTestId("extension-dir")).toBeNull();
-    fireEvent.click(section.getByRole("button", { name: "Load in another browser" }));
+    fireEvent.click(section.getByRole("button", { name: "Show steps" }));
     expect(section.getByTestId("extension-dir")).toBeInTheDocument();
 
     await act(async () => mockControls.extension("comet.exe", { incognito: true }));
-    expect(await section.findByText("v0.1.0 · Seals sites and keywords")).toBeInTheDocument();
+    expect(await section.findByText("v0.1.0")).toBeInTheDocument();
     await act(async () => mockControls.extension("comet.exe", { connected: false, missing: true }));
-    expect(await section.findByText(/Its windows stay minimized/)).toBeInTheDocument();
+    expect(await section.findByText("Extension removed. Its windows stay minimized.")).toBeInTheDocument();
+    expect(section.getByTestId("browser-status")).toHaveTextContent("Removed from Comet.");
   });
 });
 

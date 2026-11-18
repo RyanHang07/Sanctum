@@ -1,4 +1,5 @@
-﻿import { act, fireEvent, render, screen, within } from "@testing-library/react";
+﻿import { onTestFinished } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { DEFAULT_PREFS, resolve, useTheme } from "./theme";
 import { AppearanceSection } from "../pages/setup/Appearance";
 import { native } from "../lib/native";
@@ -72,18 +73,33 @@ describe("themes (v0.3)", () => {
 
     // Themes only list once you type, and run as a pick.
     expect(commandsFor("").some((c) => c.id.startsWith("theme:"))).toBe(false);
+    // Following Windows (light here), only light themes list: a dark one would change nothing you see.
+    expect(useTheme.getState().theme.scheme).toBe("light");
+    expect(commandsFor("dracula").some((c) => c.label === "Theme: Dracula")).toBe(false);
+    const latte = commandsFor("latte").find((c) => c.label === "Theme: Catppuccin Latte")!;
+    await act(async () => void (await latte.run()));
+    expect(useTheme.getState().theme.name).toBe("Catppuccin Latte");
+    // With one fixed theme, every theme lists, since any of them shows at once.
+    await act(() => useTheme.getState().setFollow(false));
     const dracula = commandsFor("dracula").find((c) => c.label === "Theme: Dracula")!;
     await act(async () => void (await dracula.run()));
-    expect(useTheme.getState().prefs.dark).toBe("dracula");
+    expect(useTheme.getState().prefs.fixed).toBe("dracula");
   });
 
 
   it("Setup › Appearance previews on hover and keeps a theme on click", async () => {
+    // Windows in dark mode, so following it lists the dark themes.
+    const real = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("dark"), media: q, addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia;
+    onTestFinished(() => {
+      window.matchMedia = real;
+    });
     await act(() => useTheme.getState().load());
     render(<AppearanceSection />);
     const darkGroup = within(screen.getByRole("radiogroup", { name: "Theme in dark mode" }));
     expect(darkGroup.getByRole("radio", { name: "Sanctum Dark" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radiogroup", { name: "Theme in light mode" })).toBeInTheDocument();
+    // Windows is dark here, so only the dark list shows (2026-11-17).
+    expect(screen.queryByRole("radiogroup", { name: "Theme in light mode" })).toBeNull();
 
     const before = shown();
     fireEvent.pointerEnter(darkGroup.getByRole("radio", { name: "Nord" }));

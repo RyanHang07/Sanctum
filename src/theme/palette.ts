@@ -1,8 +1,8 @@
 import tokens from "../../design/tokens.json";
 import extra from "./extra.json";
 
-// Themes (v0.3): every colour the app draws with is a CSS variable, `--s-<name>`, set on <html>
-// at start-up and whenever the theme changes. Tailwind's colours (src/theme/tokens.ts) point at
+// Themes (v0.3): every color the app draws with is a CSS variable, `--s-<name>`, set on <html>
+// at start-up and whenever the theme changes. Tailwind's colors (src/theme/tokens.ts) point at
 // these variables, so `bg-app` or `text-sealed` follows the theme with no component changes.
 // A palette is one theme's value for each name. Sanctum Dark is design/tokens.json itself
 // (plus src/theme/extra.json), so the design files stay the source of truth for the default.
@@ -10,7 +10,7 @@ import extra from "./extra.json";
 /** camelCase -> kebab-case, so `textHover` becomes `text-hover`. */
 export const kebab = (s: string) => s.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
 
-/** Every colour as a flat name: `sealed` (the DEFAULT), `sealed-text-hover`, `held-1`… */
+/** Every color as a flat name: `sealed` (the DEFAULT), `sealed-text-hover`, `held-1`… */
 function flatten(groups: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(groups)) {
@@ -45,14 +45,14 @@ export const SANCTUM_DARK: Theme = { id: "sanctum-dark", name: "Sanctum Dark", s
 
 export const cssVar = (key: string) => `--s-${key}`;
 
-/** Puts a theme's colours on <html> (and its scheme, so scrollbars and inputs match). */
+/** Puts a theme's colors on <html> (and its scheme, so scrollbars and inputs match). */
 export function applyTheme(theme: Theme, root: HTMLElement = document.documentElement) {
-  // Every colour lands in the same frame (styles.css turns transitions off meanwhile).
+  // Every color lands in the same frame (styles.css turns transitions off meanwhile).
   root.classList.add("theme-switching");
   for (const key of KEYS) root.style.setProperty(cssVar(key), theme.palette[key] ?? DARK[key]!);
   root.style.colorScheme = theme.scheme;
   root.dataset.theme = theme.id;
   root.dataset.scheme = theme.scheme;
-  // Two frames: the new colours paint, then fades come back for everything else.
+  // Two frames: the new colors paint, then fades come back for everything else.
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
 }

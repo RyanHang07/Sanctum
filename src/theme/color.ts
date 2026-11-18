@@ -1,5 +1,5 @@
-// Colour arithmetic for themes (v0.3): mixing, and WCAG contrast, so each theme's derived
-// colours (tints, lines, accent text) are worked out rather than hand-picked, and a test can
+// Color arithmetic for themes (v0.3): mixing, and WCAG contrast, so each theme's derived
+// colors (tints, lines, accent text) are worked out rather than hand-picked, and a test can
 // hold every theme to the same contrast bar.
 
 type Rgb = [number, number, number];

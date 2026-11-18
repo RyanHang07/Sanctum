@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { DataSection } from "./Data";
 import { Toast } from "../../components/Toast";
 import { native } from "../../lib/native";
-import { resetMockBackend } from "../../lib/mockBackend";
+import { mockJournalExport, resetMockBackend } from "../../lib/mockBackend";
 import { useStore } from "../../state/store";
 
 const initial = useStore.getState();
@@ -11,7 +11,7 @@ beforeEach(() => {
   useStore.setState(initial, true);
 });
 
-describe("Your data", () => {
+describe("Your Data", () => {
   it("exports, backs up, and restores after a confirmation", async () => {
     const reload = vi.fn();
     render(
@@ -20,7 +20,7 @@ describe("Your data", () => {
         <Toast />
       </>,
     );
-    const section = within(screen.getByRole("region", { name: "Your data" }));
+    const section = within(screen.getByRole("region", { name: "Your Data" }));
     await act(async () => fireEvent.click(section.getByRole("button", { name: "JSON" })));
     expect(screen.getByRole("status")).toHaveTextContent("Exported.");
     expect(section.getByText(/Saved Sanctum export/)).toBeInTheDocument();
@@ -32,6 +32,31 @@ describe("Your data", () => {
     expect(list.getByText(/What's here now is backed up first/)).toBeInTheDocument();
     await act(async () => fireEvent.click(list.getByRole("button", { name: "Restore it" })));
     expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("exports the journal as Markdown or JSON, and asks for an unlock while locked", async () => {
+    await native.journalSave("2026-11-01", null, "First page.");
+    render(
+      <>
+        <DataSection reload={vi.fn()} />
+        <Toast />
+      </>,
+    );
+    const section = within(screen.getByRole("region", { name: "Your Data" }));
+    expect(section.getByText("Unlock it first")).toBeInTheDocument();
+    await act(async () => fireEvent.click(section.getByRole("button", { name: "Journal as Markdown" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Exported.");
+    expect(mockJournalExport.text).toBe("## Sunday, November 1, 2026\n\nFirst page.\n");
+    await act(async () => fireEvent.click(section.getByRole("button", { name: "Journal as JSON" })));
+    expect(JSON.parse(mockJournalExport.text!)[0]).toMatchObject({ date: "2026-11-01", body: "First page." });
+    expect(section.getByRole("button", { name: `Show ${mockJournalExport.name}` })).toBeInTheDocument();
+
+    await native.journalSetLock("pin", "4821");
+    await native.journalLock();
+    mockJournalExport.text = null;
+    await act(async () => fireEvent.click(section.getByRole("button", { name: "Journal as Markdown" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Unlock the journal to export it.");
+    expect(mockJournalExport.text).toBeNull();
   });
 
   it("restoring waits while sealed", async () => {

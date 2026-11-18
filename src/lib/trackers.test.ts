@@ -11,8 +11,8 @@ describe("tracker values", () => {
     expect(formatValue(tracker({ kind: "bool" }), entry(1, 0))).toBe("Yes");
     expect(formatValue(tracker({ kind: "scale" }), entry(7, 0))).toBe("7 / 10");
     expect(formatValue(tracker({ kind: "text" }), entry(null, 0, "Slept well"))).toBe("Slept well");
-    expect(trackerMeta(tracker())).toBe("Number · chart + table");
-    expect(trackerMeta(tracker({ kind: "text", display: "table" }))).toBe("Text · list");
+    expect(trackerMeta(tracker())).toBe("Number, chart and table");
+    expect(trackerMeta(tracker({ kind: "text", display: "table" }))).toBe("Text, list");
   });
 
   it("describes change, in points for percentages", () => {
@@ -50,7 +50,7 @@ describe("chart geometry", () => {
     expect(g.grid).toHaveLength(3);
   });
 
-  it("keeps scales on 1 to 10 and centres a single point", () => {
+  it("keeps scales on 1 to 10 and centers a single point", () => {
     const g = chartGeometry([entry(5, 0)], null, "scale");
     expect(g.grid[0]!.label).toBe("10.0");
     expect(g.grid[2]!.label).toBe("1.0");

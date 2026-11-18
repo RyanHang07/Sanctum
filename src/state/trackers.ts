@@ -46,6 +46,11 @@ async function attempt<T>(fn: () => Promise<T>): Promise<T | null> {
 
 const bySort = (a: Tracker, b: Tracker) => a.sort - b.sort || a.id - b.id;
 
+/** Only the latest load sets state. */
+let loadGen = 0;
+/** Bumped by every local change; a load that spans one reads again rather than drop it. */
+let edits = 0;
+
 export const useTrackers = create<TrackersStore>()((set, get) => ({
   trackers: [],
   checkins: [],
@@ -55,17 +60,26 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
   next: null,
 
   load: async () => {
-    const [trackers, checkins, entries] = await Promise.all([
-      native.listTrackers(),
-      native.listCheckins(),
-      native.trackerEntries(0, Date.now() + 86_400_000),
-    ]).catch(() => [[], [], []] as [Tracker[], Checkin[], TrackerEntry[]]);
+    const gen = ++loadGen;
+    const seen = edits;
+    let data: [Tracker[], Checkin[], TrackerEntry[]];
+    try {
+      data = await Promise.all([native.listTrackers(), native.listCheckins(), native.trackerEntries(0, Date.now() + 86_400_000)]);
+    } catch {
+      // Not loaded: nothing reads an empty list as the truth (a counter routine would uncheck).
+      return;
+    }
+    if (gen !== loadGen) return;
+    // Something was logged or changed meanwhile: read again, so it isn't dropped.
+    if (seen !== edits) return get().load();
+    const [trackers, checkins, entries] = data;
     set({ trackers, checkins, entries, loaded: true });
     void get().refreshNext();
   },
 
   saveTracker: async (d) => {
     const t = await attempt(() => native.saveTracker(d));
+    if (t) edits++;
     if (t) set({ trackers: [...get().trackers.filter((x) => x.id !== t.id), t].sort(bySort) });
     return t;
   },
@@ -73,6 +87,7 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
   deleteTracker: async (id) => {
     const ok = await attempt(() => native.deleteTracker(id).then(() => true));
     if (ok) {
+      edits++;
       set({
         trackers: get().trackers.filter((t) => t.id !== id),
         entries: get().entries.filter((e) => e.trackerId !== id),
@@ -88,6 +103,7 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
   saveCheckin: async (c) => {
     const saved = await attempt(() => native.saveCheckin(c));
     if (saved) {
+      edits++;
       set({ checkins: [...get().checkins.filter((x) => x.id !== saved.id), saved].sort((a, b) => a.time.localeCompare(b.time) || a.id - b.id) });
       void get().refreshNext();
     }
@@ -97,6 +113,7 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
   deleteCheckin: async (id) => {
     const ok = await attempt(() => native.deleteCheckin(id).then(() => true));
     if (ok) {
+      edits++;
       set({ checkins: get().checkins.filter((c) => c.id !== id) });
       void get().refreshNext();
     }
@@ -105,13 +122,19 @@ export const useTrackers = create<TrackersStore>()((set, get) => ({
 
   log: async (items, checkinId = null) => {
     const made = await attempt(() => native.logEntries(items, checkinId));
-    if (made) set({ entries: [...get().entries, ...made] });
+    if (made) {
+      edits++;
+      set({ entries: [...get().entries, ...made] });
+    }
     return !!made;
   },
 
   deleteEntry: async (id) => {
     const ok = await attempt(() => native.deleteTrackerEntry(id).then(() => true));
-    if (ok) set({ entries: get().entries.filter((e) => e.id !== id) });
+    if (ok) {
+      edits++;
+      set({ entries: get().entries.filter((e) => e.id !== id) });
+    }
   },
 
   openLog: () => set({ prompt: { kind: "manual" } }),

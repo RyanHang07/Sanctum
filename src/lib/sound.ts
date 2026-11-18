@@ -1,4 +1,4 @@
-// Sound cues (SPEC 4.0.2, 8). All on by default; Setup › General › Sounds turns them off, sets
+// Sound cues (SPEC 4.0.2, 8). All on by default; Setup › Sound and Alerts turns them off, sets
 // the volume, and picks a style per cue (decided 2026-09-30: audition all, choose per cue).
 // Synthesized with Web Audio so nothing is bundled: bell partials for chimes, filtered noise
 // for latches and knocks, filtered saws for deep swells, all through a short synthetic room.

@@ -2,7 +2,7 @@ import type { Broke } from "../lib/types";
 import type { AppState } from "../state/appState";
 
 // The words on the moments (SPEC 4.0, design/README.md headline rule). A headline is one plain
-// sentence in Schibsted Grotesk: one weight, one colour, no italic payoff, no question. Every
+// sentence in Schibsted Grotesk: one weight, one color, no italic payoff, no question. Every
 // headline in the app comes from here. Each moment has a few lines, so it doesn't read the same
 // every day. Picks are seeded (by the day, the session), never random per render, so a line holds
 // still while you look at it.
@@ -43,6 +43,23 @@ export const SEALED: readonly string[] = [
 
 /** Sealed, the last few minutes. */
 export const FINISHING: readonly string[] = ["Finish the last stretch clean.", "Almost there, so don’t drift now.", "Make the last minutes count."];
+
+/** The weekly recap dialog, picked by the week. */
+export const RECAP: readonly string[] = ["Last week is on the record.", "Last week is closed, and this is what it held.", "A new week starts from what the last one built."];
+
+/** Today's top slot once the daily goal is kept, nothing else scheduled: one a day (2026-11-17). */
+export const OPEN_DONE: readonly string[] = [
+  "Today's goal is kept. Take a break, or keep going.",
+  "The day's work is done. Rest is earned, and more is welcome.",
+  "Goal kept for today. Step away, or push on.",
+];
+
+/** Today's top slot with nothing scheduled and the hint dismissed: one a day (2026-11-17). */
+export const OPEN_IDLE: readonly string[] = [
+  "The next block starts when you do.",
+  "One sealed block moves the day forward.",
+  "Pick a profile and begin.",
+];
 
 /** Under "Sanctum held." (a fact line, not part of the headline). */
 export const HELD: readonly string[] = [
@@ -124,7 +141,8 @@ export const HEADLINE = {
   journalLocked: "The journal is locked.",
   journalSetup: "A page a day, yours alone.",
   journalPrompts: "Choose what a page asks.",
-  journalLock: "Choose whether it locks.",
+  /** A render error: the window's or one page's fallback. */
+  screenBroke: "Something broke on this screen.",
 } as const;
 
 /** Onboarding step titles. */
@@ -252,7 +270,7 @@ export function brokeFix(kind: string): { label: string; tab: "protection" | "br
 }
 
 export function brokeLine(b: Broke): { line: string; fix: { label: string; tab: "protection" | "browser" } | null } {
-  const at = b.afterMin === 1 ? "1 minute in" : `${b.afterMin} minutes in`;
+  const at = b.afterMin < 1 ? "in its first minute" : b.afterMin === 1 ? "1 minute in" : `${b.afterMin} minutes in`;
   switch (b.kind) {
     case "shutdown":
       return { line: `The PC went off ${at}. Restarts fit best between seals.`, fix: null };

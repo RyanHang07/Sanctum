@@ -4,6 +4,7 @@
 //! v0.3: on a light taskbar the mark is drawn in the dark ink of design/logo's light-background
 //! mark (sanctum-mark-light.svg), following Windows' setting as it changes.
 
+use crate::engine::Locked;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{
@@ -157,7 +158,7 @@ pub fn themed_window_icon(accent: Option<[u8; 3]>) -> Option<(Vec<u8>, u32, u32)
 pub fn set_theme(app: &AppHandle, accent: Option<String>) {
     let next = accent.as_deref().and_then(parse_hex);
     {
-        let mut cur = ACCENT.lock().unwrap();
+        let mut cur = ACCENT.locked();
         if *cur == next { return; }
         *cur = next;
     }
@@ -203,32 +204,35 @@ pub fn spawn_pulse(app: AppHandle) {
             let mut pulsing = false;
             loop {
                 std::thread::sleep(Duration::from_millis(PULSE_MS / PULSE_FRAMES as u64));
-                let Some(shared) = app.try_state::<Shared>() else { continue };
-                let sealed = shared.sealed();
-                let Some(tray) = app.tray_by_id(TRAY_ID) else { continue };
-                let cur_accent = *ACCENT.lock().unwrap();
-                let check = tick % TASKBAR_EVERY == 0;
-                let now_light = if check { taskbar_light() } else { light.unwrap_or(false) };
-                if light != Some(now_light) || accent != cur_accent || base.is_empty() {
-                    light = Some(now_light);
-                    accent = cur_accent;
-                    let themed = recolor_keyhole(dark_base.as_raw(), accent);
-                    base = if now_light { for_light_taskbar(&themed) } else { themed };
-                    frames = (0..PULSE_FRAMES).map(|f| fade_keyhole(&base, breath(f, PULSE_FRAMES))).collect();
-                    if !sealed {
-                        let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
+                // One bad frame (2026-11-17) must not stop the pulse for good.
+                crate::engine::guarded("sanctum-tray-pulse", || {
+                    let Some(shared) = app.try_state::<Shared>() else { return };
+                    let sealed = shared.sealed();
+                    let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
+                    let cur_accent = *ACCENT.locked();
+                    let check = tick % TASKBAR_EVERY == 0;
+                    let now_light = if check { taskbar_light() } else { light.unwrap_or(false) };
+                    if light != Some(now_light) || accent != cur_accent || base.is_empty() {
+                        light = Some(now_light);
+                        accent = cur_accent;
+                        let themed = recolor_keyhole(dark_base.as_raw(), accent);
+                        base = if now_light { for_light_taskbar(&themed) } else { themed };
+                        frames = (0..PULSE_FRAMES).map(|f| fade_keyhole(&base, breath(f, PULSE_FRAMES))).collect();
+                        if !sealed {
+                            let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
+                        }
                     }
-                }
-                tick += 1;
-                if sealed {
-                    let _ = tray.set_icon(Some(Image::new_owned(frames[i].clone(), w, h)));
-                    i = (i + 1) % PULSE_FRAMES;
-                    pulsing = true;
-                } else if pulsing {
-                    let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
-                    pulsing = false;
-                    i = 0;
-                }
+                    tick += 1;
+                    if sealed {
+                        let _ = tray.set_icon(Some(Image::new_owned(frames[i].clone(), w, h)));
+                        i = (i + 1) % PULSE_FRAMES;
+                        pulsing = true;
+                    } else if pulsing {
+                        let _ = tray.set_icon(Some(Image::new_owned(base.clone(), w, h)));
+                        pulsing = false;
+                        i = 0;
+                    }
+                });
             }
         })
         .expect("tray pulse thread");
@@ -285,7 +289,7 @@ pub fn hide_panel(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(PANEL) {
         if w.is_visible().unwrap_or(false) {
             let _ = w.hide();
-            *LAST_BLUR_HIDE.lock().unwrap() = Some(Instant::now());
+            *LAST_BLUR_HIDE.locked() = Some(Instant::now());
         }
     }
 }
@@ -325,8 +329,7 @@ fn toggle_panel(app: &AppHandle, at: PhysicalPosition<f64>) {
         return;
     }
     let just_hidden = LAST_BLUR_HIDE
-        .lock()
-        .unwrap()
+        .locked()
         .is_some_and(|t| t.elapsed() < Duration::from_millis(250));
     if just_hidden {
         return;

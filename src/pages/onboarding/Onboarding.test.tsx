@@ -5,6 +5,8 @@ import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { useTheme } from "../../state/theme";
 import { ONBOARDING } from "../headlines";
+import { AWAY_MINUTES, GOAL_MINUTES } from "../setup/options";
+import { minutes } from "../../lib/time";
 import { finish, moment, setReducedMotion } from "../../test/motion";
 
 const initial = useStore.getState();
@@ -60,8 +62,17 @@ describe("Onboarding", () => {
     expect(screen.getByText("Also: reddit.com, shorts")).toBeInTheDocument();
     await next();
 
-    // Goals.
+    // Goals: the same lists Setup offers, and Activity's word for away.
+    const goals = within(screen.getByRole("radiogroup", { name: "Daily focus goal" })).getAllByRole("radio");
+    expect(goals.map((r) => r.textContent)).toEqual(GOAL_MINUTES.map(minutes));
+    const away = within(screen.getByRole("radiogroup", { name: "Count you as away after" })).getAllByRole("radio");
+    expect(away.map((r) => r.textContent)).toEqual(AWAY_MINUTES.map((m) => `${m} min`));
+    expect(screen.queryByText(/idle/i)).toBeNull();
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "Daily focus goal" })).getByRole("radio", { name: "1h 30m" }));
+    // A picked chip shows it with the full accent border, not only a tint.
+    const picked = within(screen.getByRole("radiogroup", { name: "Daily focus goal" })).getByRole("radio", { name: "1h 30m" });
+    expect(picked.className).toMatch(/(^|\s)border-sealed(\s|$)/);
+    expect(picked.className).not.toContain("border-sealed-line");
     fireEvent.click(screen.getByRole("button", { name: "Sun" }));
     await next();
 
@@ -76,7 +87,7 @@ describe("Onboarding", () => {
     // Calendar and Browser can be skipped.
     expect(screen.getByRole("button", { name: "Connect Google Calendar" })).toBeInTheDocument();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Skip" })));
-    expect(await screen.findByRole("region", { name: "Browser extension" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Browser Extension" })).toBeInTheDocument();
     await next();
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(ONBOARDING.done);
@@ -144,5 +155,40 @@ describe("Onboarding", () => {
     expect(Number(body.style.opacity)).toBeLessThan(1);
     finish(tl);
     expect(body.style.opacity).toBe("1");
+  });
+});
+
+describe("Onboarding's last step (H1)", () => {
+  async function toLast() {
+    useStore.setState({ onboarding: true });
+    render(<Onboarding />);
+    // Step through to the end (Skip-able steps are just continued).
+    for (let i = 0; i < 7; i++) await next();
+    expect(screen.getByRole("button", { name: /Start using Sanctum/ })).toBeInTheDocument();
+  }
+
+  it("finishes once when Enter and the button both fire", async () => {
+    await toLast();
+    const create = vi.spyOn(native, "createProfile");
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Enter" });
+      fireEvent.click(screen.getByRole("button", { name: /Start using Sanctum/ }));
+      fireEvent.keyDown(window, { key: "Enter" });
+    });
+    const names = create.mock.calls.map((c) => c[0].name);
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names).size).toBe(names.length);
+    expect((await native.listProfiles()).length).toBe(names.length);
+    create.mockRestore();
+  });
+
+  it("says why when finishing fails, and stays to try again", async () => {
+    await toLast();
+    const list = vi.spyOn(native, "listProfiles").mockRejectedValueOnce("The database is busy.");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Start using Sanctum/ })));
+    expect(screen.getByRole("alert")).toHaveTextContent("The database is busy.");
+    expect(useStore.getState().onboarding).toBe(true);
+    expect(screen.getByRole("button", { name: /Start using Sanctum/ })).toBeEnabled();
+    list.mockRestore();
   });
 });

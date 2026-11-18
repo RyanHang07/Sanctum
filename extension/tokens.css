@@ -54,8 +54,18 @@
   --radius-panel: 8px;
   --radius-dialog: 12px;
   --control-h: 32px;
+  --control-h-sm: 26px;
+  --cta-h: 52px;
   --row-h: 38px;
   --sidebar-w: 220px;
+
+  /* Type scale: page title 20/600, body 13, meta 12, micro 11 (chips, axes, kbd). Headlines (Schibsted 700):
+     moment 28, moment-dialog 22, moment-compact 18, held 64. */
+  --text-micro: 11px;
+  --text-moment: 28px;
+  --text-moment-dialog: 22px;
+  --text-moment-compact: 18px;
+  --text-held: 64px;
 }
 
 /* Moments only: Home headline, sealed dialogs, held dialog, onboarding titles. One plain sentence:

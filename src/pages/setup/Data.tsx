@@ -3,10 +3,13 @@ import { Button } from "../../components/Button";
 import { Row, Section } from "./parts";
 import { errorText, native } from "../../lib/native";
 import { useStore } from "../../state/store";
-import type { FileInfo } from "../../lib/types";
+import type { CloudStatus, FileInfo } from "../../lib/types";
+import { DeleteAccount } from "./Account";
+import { StartOverRows } from "./About";
 
-// Setup › General › Your data (v0.1): export what you've logged to read elsewhere, back up the
-// whole database, and restore a backup. Everything lands in Documents\Sanctum.
+// Setup › Your Data (v0.1): export what you've logged to read elsewhere, back up the whole
+// database, and restore a backup. Everything lands in Documents\Sanctum. The danger zone
+// (start over, delete the account) closes the section, together and last.
 
 function size(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -22,6 +25,7 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
   const sealed = useStore((s) => s.appState === "sealed");
   const notice = useStore((s) => s.showNotice);
   const [last, setLast] = useState<FileInfo | null>(null);
+  const [lastJournal, setLastJournal] = useState<FileInfo | null>(null);
   const [backups, setBackups] = useState<FileInfo[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -49,6 +53,20 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
       setLast(f);
       notice({ lead: "Exported.", rest: f.name });
     });
+  // The journal stays out of the general export: it's its own file, and only while unlocked.
+  const exportJournal = async (format: "md" | "json") => {
+    setBusy(`journal-${format}`);
+    try {
+      const f = await native.journalExport(format);
+      setLastJournal(f);
+      notice({ lead: "Exported.", rest: f.name });
+    } catch (e) {
+      const text = errorText(e);
+      notice({ lead: /locked/i.test(text) ? "Unlock the journal to export it." : text });
+    } finally {
+      setBusy(null);
+    }
+  };
   const backUp = () =>
     run("backup", async () => {
       const f = await native.backupCreate();
@@ -63,14 +81,15 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
 
   return (
     <Section
-      title="Your data"
+      title="Your Data"
+      titled={false}
       action={
         <Button variant="quiet" size="sm" onClick={() => void native.dataReveal("").catch(() => undefined)}>
           Open folder
         </Button>
       }
     >
-      <Row label="Export" hint={last ? `Saved ${last.name}` : "Sessions, tasks, trackers, notes, and activity, to Documents\\Sanctum\\Exports"}>
+      <Row label="Export" hint={last ? `Saved ${last.name}` : "Everything you've logged"}>
         {last ? (
           <Button variant="quiet" size="sm" onClick={() => void native.dataReveal(last.path).catch(() => undefined)}>
             Show
@@ -83,7 +102,20 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
           CSV
         </Button>
       </Row>
-      <Row label="Back up" hint="The whole database, restorable here. Sign-ins aren't included.">
+      <Row label="Export the journal" hint="Unlock it first">
+        {lastJournal ? (
+          <Button variant="quiet" size="sm" aria-label={`Show ${lastJournal.name}`} onClick={() => void native.dataReveal(lastJournal.path).catch(() => undefined)}>
+            Show
+          </Button>
+        ) : null}
+        <Button variant="ghost" size="sm" aria-label="Journal as Markdown" disabled={busy !== null} onClick={() => void exportJournal("md")}>
+          Markdown
+        </Button>
+        <Button variant="ghost" size="sm" aria-label="Journal as JSON" disabled={busy !== null} onClick={() => void exportJournal("json")}>
+          JSON
+        </Button>
+      </Row>
+      <Row label="Back up" hint="Everything but sign-ins">
         <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void backUp()}>
           {busy === "backup" ? "Backing up…" : "Back up now"}
         </Button>
@@ -97,7 +129,7 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
                   {when(b.modifiedAt)}
                   {b.name.includes("before restore") ? " · before a restore" : ""}
                 </span>
-                <span className="shrink-0 font-mono text-[11px] text-muted">{size(b.bytes)}</span>
+                <span className="shrink-0 font-mono text-meta text-muted">{size(b.bytes)}</span>
                 {confirm === b.path ? null : (
                   <Button variant="quiet" size="sm" aria-label={`Restore ${b.name}`} disabled={sealed || busy !== null} onClick={() => setConfirm(b.path)}>
                     {sealed ? "Waits for the seal" : "Restore"}
@@ -119,6 +151,23 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
           ))}
         </div>
       ) : null}
+    </Section>
+  );
+}
+
+/**
+ * The danger zone: Start over and Delete account, side by side at the very end of Your Data.
+ * Delete account shows only while this PC is signed in.
+ */
+export function DangerZone({ reload = () => window.location.reload() }: { reload?: () => void }) {
+  const [cloud, setCloud] = useState<CloudStatus | null>(null);
+  const load = () => void native.cloudStatus().then(setCloud, () => setCloud(null));
+  useEffect(load, []);
+  const signedIn = !!cloud?.configured && !!cloud.signedIn && !cloud.connecting;
+  return (
+    <Section title="Danger Zone" className="border-broken-line">
+      <StartOverRows reload={reload} />
+      {signedIn ? <DeleteAccount onDone={load} /> : null}
     </Section>
   );
 }

@@ -69,7 +69,7 @@ export const sealRatio = (elapsedMs: number, remainingMs: number) => {
 /**
  * The seal's ruler along the card's top edge: an accent fill to now, a needle, and ticks as on
  * Today's day ruler (minors in line-input, majors in muted). Majors already passed are the accent:
- * it's the seal's progress, so none of it is the second colour, and nothing glows. The fill and
+ * it's the seal's progress, so none of it is the second color, and nothing glows. The fill and
  * needle rest at now; the card's timeline plays them in from the start.
  */
 function SealRuler({ elapsedMs, remainingMs }: { elapsedMs: number; remainingMs: number }) {
@@ -141,7 +141,7 @@ export function SealedAppCard({ p, onBack, onBreak }: { p: Payload; onBack: () =
       <SealRuler elapsedMs={p.elapsedMs} remainingMs={p.remainingMs} />
       <div className="flex flex-col gap-[14px] px-[22px] pb-[18px] pt-[22px]">
         <div className="flex flex-col gap-[6px]">
-          <h1 className="headline m-0 text-[24px]">{HEADLINE.stays(p.label)}</h1>
+          <h1 className="headline m-0 text-moment-dialog">{HEADLINE.stays(p.label)}</h1>
           <p className="m-0 text-body leading-normal text-text-2">
             {minutesIn(p.elapsedMs)} minutes into {p.profileName}, <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to
             go. {overlayLine(`${p.label}:${p.attempts}`, clock(Date.now() + p.remainingMs), { attempts: p.attempts, remainingMs: p.remainingMs })}
@@ -191,7 +191,7 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
   return (
     <div role="alertdialog" aria-label={headline} className="flex w-[420px] animate-fade-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-toast">
       <div className="flex flex-col gap-[6px] px-[22px] pb-[18px] pt-[22px]">
-        <h1 className="headline m-0 text-[24px]">{headline}</h1>
+        <h1 className="headline m-0 text-moment-dialog">{headline}</h1>
         <p className="m-0 text-body leading-normal text-text-2">
           {left ? (
             <>
@@ -229,7 +229,7 @@ export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => vo
     >
       <div className="flex flex-col gap-[14px] px-[22px] pb-[18px] pt-[22px]">
         <div className="flex flex-col gap-[6px]">
-          <h1 className="headline m-0 text-[24px]">{HEADLINE.waits(p.label, until)}</h1>
+          <h1 className="headline m-0 text-moment-dialog">{HEADLINE.waits(p.label, until)}</h1>
           <p className="m-0 text-body leading-normal text-text-2">
             {onBreak ? "A break is for your eyes and legs. Your Distractions list waits too. " : `${pick(QUIET_LINES, p.endsAt ?? 0)} `}
             <span className="font-mono text-text">{countdown(p.remainingMs)}</span> to go.
@@ -275,7 +275,7 @@ export function WelcomeCard({ p }: { p: Payload }) {
   const line = welcome(p.endsAt ?? p.idleMs ?? 0);
   return (
     <div role="status" className="flex w-[372px] animate-rise-in flex-col gap-1 rounded-panel border border-sealed-line bg-panel px-4 py-3 shadow-toast">
-      <span className="headline text-[16px]">{line}</span>
+      <span className="headline text-moment-compact">{line}</span>
       {was ? <span className="truncate text-meta text-text-2">You were in {was}.</span> : null}
       <span className="text-meta text-muted">
         <span className="font-mono text-text-2">{minutes((p.idleMs ?? 0) / 60_000)}</span> idle · seal extended to{" "}
@@ -291,13 +291,16 @@ export function ParkCard({ onDone }: { onDone: () => void }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<"typing" | "parked" | "failed">("typing");
   const [line] = useState(() => pick(PARK_LINES, Date.now()));
+  // The "Parked." beat before hiding: stopped if the card goes first (a new intercept came).
+  const done = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(done.current), []);
   const park = async () => {
     const t = text.trim();
     if (!t) return onDone();
     try {
       await native.focusPark(t);
       setState("parked");
-      setTimeout(onDone, PARKED_MS);
+      done.current = setTimeout(onDone, PARKED_MS);
     } catch {
       setState("failed");
     }
@@ -313,7 +316,7 @@ export function ParkCard({ onDone }: { onDone: () => void }) {
       onKeyDown={(e) => e.key === "Escape" && onDone()}
       className="flex w-[372px] animate-rise-in flex-col gap-2 rounded-panel border border-sealed-line bg-panel px-4 py-3 shadow-toast"
     >
-      <span className="headline text-[16px]">{line}</span>
+      <span className="headline text-moment-compact">{line}</span>
       <input
         autoFocus
         value={text}
@@ -322,7 +325,7 @@ export function ParkCard({ onDone }: { onDone: () => void }) {
         onChange={(e) => setText(e.target.value)}
         placeholder="The thought, as a task for later"
         aria-label="The thought"
-        className="h-8 rounded-control border border-line-input bg-raised px-3 text-body text-text placeholder:text-muted"
+        className="h-control rounded-control border border-line-input bg-raised px-3 text-body text-text placeholder:text-muted"
       />
       <span role="status" className="text-meta text-muted">
         {state === "parked" ? "Parked. It's on today's list." : state === "failed" ? "Couldn't park it. Try again from Home." : "Enter parks it · Esc closes"}
@@ -334,14 +337,21 @@ export function ParkCard({ onDone }: { onDone: () => void }) {
 /** The always-on-top intercept window. Rust sizes and positions it per kind. */
 export function InterceptWindow() {
   const [payload, setPayload] = useState<Payload | null>(null);
+  /** Counts arrivals: each one is a fresh card, even with the same payload. */
+  const [arrival, setArrival] = useState(0);
 
   useEffect(() => {
-    void native.getSetting("sounds").then((v) => setSoundsEnabled(v !== "0"));
+    // Unread, sounds keep their default.
+    void native
+      .getSetting("sounds")
+      .then((v) => setSoundsEnabled(v !== "0"))
+      .catch((e: unknown) => console.error("intercept sounds", e));
     const off = onNative<Payload>(EVENTS.intercept, (p) => {
       setPayload(p);
+      setArrival((n) => n + 1);
       if (p.kind !== "welcome" && p.kind !== "park" && p.kind !== "pause") play("blocked");
     });
-    return () => void off.then((f) => f());
+    return () => void off.then((f) => f()).catch((e: unknown) => console.error("intercept listen", e));
   }, []);
 
   useEffect(() => {
@@ -349,7 +359,7 @@ export function InterceptWindow() {
     const t = setTimeout(
       () => {
         setPayload(null);
-        void native.interceptHide();
+        native.interceptHide().catch((e: unknown) => console.error("interceptHide", e));
       },
       payload.kind === "welcome" ? WELCOME_MS : payload.plan ? PLAN_NUDGE_MS : NUDGE_MS,
     );
@@ -357,21 +367,23 @@ export function InterceptWindow() {
   }, [payload]);
 
   if (!payload) return null;
+  // This window has no notices; a failed call is logged (Rust hides the window either way).
+  const logged = (what: string) => (e: unknown) => console.error(what, e);
   const back = () => {
     setPayload(null);
-    void native.interceptReturn();
+    native.interceptReturn().catch(logged("interceptReturn"));
   };
   const breakSeal = () => {
     setPayload(null);
-    void native.interceptBreak();
+    native.interceptBreak().catch(logged("interceptBreak"));
   };
   const pauseQuiet = () => {
     setPayload(null);
-    void native.interceptQuietPause();
+    native.interceptQuietPause().catch(logged("interceptQuietPause"));
   };
   const hide = () => {
     setPayload(null);
-    void native.interceptHide();
+    native.interceptHide().catch(logged("interceptHide"));
   };
   const answerPause = (goOn: boolean) => {
     setPayload(null);
@@ -382,7 +394,7 @@ export function InterceptWindow() {
       {payload.kind === "pause" ? (
         <PauseCard key={payload.endsAt ?? 0} p={payload} onAnswer={answerPause} />
       ) : payload.kind === "park" ? (
-        <ParkCard key={payload.endsAt ?? 0} onDone={hide} />
+        <ParkCard key={arrival} onDone={hide} />
       ) : payload.kind === "title" ? (
         <TitleNudge p={payload} />
       ) : payload.kind === "welcome" ? (

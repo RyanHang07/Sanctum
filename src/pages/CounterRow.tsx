@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../components/Button";
+import { CheckMark } from "../components/controls";
 import { Odometer } from "../components/Odometer";
-import { CheckIcon, ChevronIcon, XIcon } from "../components/icons";
+import { ChevronIcon, XIcon } from "../components/icons";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
 import { useStore } from "../state/store";
@@ -14,7 +16,7 @@ import type { Routine } from "../lib/types";
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 const inputClass =
-  "h-[26px] min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-faint focus:border-sealed";
+  "h-control-sm min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted focus:border-sealed";
 
 export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routine }) {
   const loaded = useTrackers((s) => s.loaded);
@@ -32,9 +34,15 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The routine's check follows the total (only today's, once entries have loaded).
+  // The routine's check follows the total (only today's, once entries have loaded). Each change
+  // is tried once: a toggle that fails rolls the check back, and must not try again in a loop.
+  const synced = useRef<string | null>(null);
   useEffect(() => {
-    if (loaded && item.date === todayKey(new Date(), dailyResetTime) && met !== item.done) void usePlanner.getState().toggle(item);
+    if (!loaded || item.date !== todayKey(new Date(), dailyResetTime) || met === item.done) return;
+    const want = `${item.id}:${item.date}:${met}`;
+    if (synced.current === want) return;
+    synced.current = want;
+    void usePlanner.getState().toggle(item);
   }, [loaded, met, item, dailyResetTime]);
 
   const needsNote = routine.noteMode === "required";
@@ -53,26 +61,21 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
   return (
     <div data-testid="counter" data-done={met || undefined} className="flex flex-col gap-[6px] border-b border-line-soft px-[14px] py-[10px]">
       <div className="flex items-center gap-[10px]">
-        <span
-          aria-hidden="true"
-          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] text-sealed-on ${met ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line"}`}
-        >
-          {met ? <CheckIcon /> : null}
-        </span>
+        <CheckMark done={met} />
         <span className={`min-w-0 grow truncate text-body ${met ? "text-text-2" : "text-text"}`}>{item.title}</span>
         <button
           type="button"
           aria-expanded={open}
           aria-label={`${item.title}: ${fmt(total)} of ${fmt(goal)}${unit}. ${open ? "Hide" : "Show"} today's entries`}
           onClick={() => setOpen(!open)}
-          className="flex shrink-0 items-center gap-[6px] rounded-control px-1 font-mono text-[11px] text-muted transition-colors duration-ui ease-ui hover:text-text-2"
+          className="flex shrink-0 items-center gap-[6px] rounded-control px-1 font-mono text-micro text-muted transition-colors duration-ui ease-ui hover:text-text-2"
         >
           <Odometer text={fmt(Math.round(total * 10) / 10)} className={met ? "text-second-text" : "text-text-2"} /> / {fmt(goal)}
           {unit}
           <ChevronIcon size={9} className={`transition-transform duration-ui ease-ui ${open ? "" : "-rotate-90"}`} />
         </button>
       </div>
-      {/* The fill tracks the total (a transform, never a width); at the goal its end mark is the second colour. */}
+      {/* The fill tracks the total (a transform, never a width); at the goal its end mark is the second color. */}
       <div className="relative ml-[26px] h-1 rounded-full bg-line">
         <div
           data-counter-fill
@@ -107,17 +110,17 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
         ) : (
           <span className="grow" />
         )}
-        <button type="submit" className="h-[26px] shrink-0 rounded-control bg-sealed px-3 text-meta font-medium text-sealed-on transition-[filter] duration-ui ease-ui hover:brightness-110">
+        <Button type="submit" variant="primary" size="sm" className="px-3">
           Add
-        </button>
+        </Button>
       </form>
       {error ? <p className="m-0 ml-[26px] text-meta text-broken-text">{error}</p> : null}
       {open ? (
         <ul aria-label={`${item.title} today`} className="m-0 ml-[26px] flex list-none flex-col gap-[2px] p-0">
-          {entries.length === 0 ? <li className="text-meta text-faint">Nothing logged today.</li> : null}
+          {entries.length === 0 ? <li className="text-meta text-muted">Nothing logged today.</li> : null}
           {entries.map((e) => (
             <li key={e.id} className="group flex items-center gap-2 text-meta">
-              <span className="w-[54px] shrink-0 font-mono text-faint">{clock(e.loggedAt)}</span>
+              <span className="w-[54px] shrink-0 font-mono text-muted">{clock(e.loggedAt)}</span>
               <span className="shrink-0 font-mono text-text-2">
                 {(e.value ?? 0) > 0 ? "+" : ""}
                 {fmt(e.value ?? 0)}

@@ -36,7 +36,7 @@ describe("tracker chart rulers", () => {
     expect(goalText({ kind: "scale", goal: 7, unit: "" }, "up")).toBe("Goal 7 of 10");
   });
 
-  it("gives days at goal a taller second-colour tick and label, and counts them", () => {
+  it("gives days at goal a taller second-color tick and label, and counts them", () => {
     const list = [entry(4, 7.1), entry(2, 8.2), entry(1, 6.9), entry(0, 8)];
     const c = trackerChart({ kind: "number", goal: 8 }, list, "7D", "up", NOW);
     // Seven days, three minor ticks between each.

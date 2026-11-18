@@ -5,6 +5,7 @@
 //! token only in memory. Everything else goes through PostgREST and Edge Functions as the
 //! signed-in user, so row-level security decides what this app can see.
 
+use crate::engine::Locked;
 use crate::gcal::{oauth, secret};
 use crate::Shared;
 use reqwest::blocking::{Client, RequestBuilder};
@@ -47,12 +48,15 @@ pub struct State {
     connecting: AtomicBool,
     cancel: AtomicBool,
     error: Mutex<Option<String>>,
+    /// Held while the refresh token is spent (2026-11-17): Supabase rotates it, so two refreshes
+    /// at once used to send the same token twice, get a 400, and sign the user out.
+    refreshing: Mutex<()>,
 }
 
 impl State {
     pub fn new() -> Self {
         let http = Client::builder().timeout(Duration::from_secs(20)).build().expect("http client");
-        State { http, session: Mutex::new(None), connecting: AtomicBool::new(false), cancel: AtomicBool::new(false), error: Mutex::new(None) }
+        State { http, session: Mutex::new(None), connecting: AtomicBool::new(false), cancel: AtomicBool::new(false), error: Mutex::new(None), refreshing: Mutex::new(()) }
     }
 }
 
@@ -83,7 +87,7 @@ fn error_text(res: reqwest::blocking::Response) -> String {
 
 fn store(state: &State, t: TokenReply) -> Result<(), String> {
     secret::save_to(TARGET, &t.refresh_token)?;
-    *state.session.lock().unwrap() = Some(Session {
+    *state.session.locked() = Some(Session {
         access: t.access_token,
         expires: Instant::now() + Duration::from_secs(t.expires_in.saturating_sub(60)),
         user_id: t.user.id,
@@ -92,20 +96,39 @@ fn store(state: &State, t: TokenReply) -> Result<(), String> {
     Ok(())
 }
 
+/// Runs `refresh` at most once at a time. A caller that waited re-checks `cached` first, since
+/// the refresh it waited on has usually answered it.
+fn single_flight<T, E>(lock: &Mutex<()>, cached: impl Fn() -> Option<T>, refresh: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    if let Some(t) = cached() {
+        return Ok(t);
+    }
+    let _one = lock.locked();
+    if let Some(t) = cached() {
+        return Ok(t);
+    }
+    refresh()
+}
+
+fn cached_session(state: &State) -> Option<(String, String)> {
+    state.session.locked().as_ref().filter(|s| Instant::now() < s.expires).map(|s| (s.access.clone(), s.user_id.clone()))
+}
+
 /// A fresh access token and the user id, refreshing (and rotating) the stored token as needed.
 fn session(state: &State) -> Result<(String, String), String> {
-    if let Some(s) = state.session.lock().unwrap().as_ref().filter(|s| Instant::now() < s.expires) {
-        return Ok((s.access.clone(), s.user_id.clone()));
-    }
+    single_flight(&state.refreshing, || cached_session(state), || refresh_session(state))
+}
+
+fn refresh_session(state: &State) -> Result<(String, String), String> {
     let Some(refresh) = secret::load_from(TARGET) else { return Err("Sign in first.".into()) };
     let res = with_key(state.http.post(format!("{URL}/auth/v1/token?grant_type=refresh_token")))
         .json(&json!({ "refresh_token": refresh }))
         .send()
         .map_err(|_| "Can't reach Sanctum's server.".to_string())?;
     if res.status().as_u16() == 400 || res.status().as_u16() == 401 {
-        // Revoked or rotated away: signed out.
+        // Revoked or rotated away: signed out. The remembered partner (settings) stays, so a
+        // seal running now still treats the partner as linked.
         secret::clear_at(TARGET);
-        *state.session.lock().unwrap() = None;
+        *state.session.locked() = None;
         return Err("Your sign-in expired. Sign in again.".into());
     }
     if !res.status().is_success() {
@@ -113,7 +136,7 @@ fn session(state: &State) -> Result<(String, String), String> {
     }
     let t: TokenReply = res.json().map_err(|e| e.to_string())?;
     store(state, t)?;
-    let s = state.session.lock().unwrap();
+    let s = state.session.locked();
     let s = s.as_ref().unwrap();
     Ok((s.access.clone(), s.user_id.clone()))
 }
@@ -260,7 +283,7 @@ fn sign_in(app: &AppHandle, method: Method) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
     store(state, t)?;
     // The name on Home becomes the name your partner sees.
-    let name = shared.db.lock().ok().and_then(|c| crate::db::get_setting(&c, "display_name").ok().flatten()).filter(|n| !n.trim().is_empty());
+    let name = Some(shared.db.locked()).and_then(|c| crate::db::get_setting(&c, "display_name").ok().flatten()).filter(|n| !n.trim().is_empty());
     if let Some(name) = name {
         let (_, me) = session(state)?;
         if let Ok((req, _)) = authed(state, state.http.patch(format!("{URL}/rest/v1/profiles_user?id=eq.{me}"))) {
@@ -284,13 +307,13 @@ pub struct Status {
 }
 
 fn status_of(state: &State) -> Status {
-    let session = state.session.lock().unwrap();
+    let session = state.session.locked();
     Status {
         configured: configured(),
         signed_in: configured() && (session.is_some() || secret::load_from(TARGET).is_some()),
         email: session.as_ref().and_then(|s| s.email.clone()),
         connecting: state.connecting.load(Ordering::SeqCst),
-        error: state.error.lock().unwrap().clone(),
+        error: state.error.locked().clone(),
     }
 }
 
@@ -361,10 +384,64 @@ fn partner_status(state: &State) -> Result<PartnerStatus, String> {
     Ok(out)
 }
 
-/// The linked partner's name, or None when there's none (or you're signed out or offline).
-pub fn partner_name(app: &AppHandle) -> Option<String> {
-    let status = partner_status(&app.state::<Shared>().cloud).ok()?;
-    status.partner.map(|p| p.name.or(p.email).unwrap_or_else(|| "your partner".into()))
+/// Settings that remember the partner link between lookups (2026-11-17), so being offline or
+/// signed out never reads as "no partner". Protected from set_setting/get_setting.
+pub const K_PARTNER_LINKED: &str = "partner_linked";
+pub const K_PARTNER_NAME: &str = "partner_name";
+
+/// What a partner lookup found.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PartnerLookup {
+    /// The server says a partner is linked (active, or a removal they haven't approved yet).
+    Linked(String),
+    /// The server says there's no partner, or this build has no accounts.
+    None,
+    /// The server couldn't be asked (offline, signed out, an error): use what was remembered.
+    Unknown(String),
+}
+
+fn partner_label(p: &Partner) -> String {
+    p.name.clone().or(p.email.clone()).unwrap_or_else(|| "your partner".into())
+}
+
+/// Saves what the server just said about the partner link.
+pub fn remember_partner(conn: &rusqlite::Connection, status: &PartnerStatus) {
+    let (linked, name) = match &status.partner {
+        Some(p) => ("1", partner_label(p)),
+        None => ("0", String::new()),
+    };
+    let _ = crate::db::set_setting(conn, K_PARTNER_LINKED, linked);
+    let _ = crate::db::set_setting(conn, K_PARTNER_NAME, &name);
+}
+
+/// The partner the last good lookup found, if one was linked.
+pub fn remembered_partner(conn: &rusqlite::Connection) -> Option<String> {
+    let get = |k: &str| crate::db::get_setting(conn, k).ok().flatten();
+    (get(K_PARTNER_LINKED).as_deref() == Some("1")).then(|| get(K_PARTNER_NAME).filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "your partner".into()))
+}
+
+/// Who the partner is, three ways (2026-11-17: offline or signed out used to read as no partner,
+/// so level 3 ended the seal at once, against SPEC 4.0.3). A good answer is remembered.
+pub fn partner_lookup(app: &AppHandle) -> PartnerLookup {
+    if !configured() {
+        return PartnerLookup::None;
+    }
+    let shared = app.state::<Shared>();
+    match partner_status(&shared.cloud) {
+        Ok(status) => {
+            remember_partner(&shared.db.locked(), &status);
+            status.partner.as_ref().map_or(PartnerLookup::None, |p| PartnerLookup::Linked(partner_label(p)))
+        }
+        Err(e) => PartnerLookup::Unknown(e),
+    }
+}
+
+/// Saves a good partner answer before handing it back.
+fn known(shared: &Shared, status: Result<PartnerStatus, String>) -> Result<PartnerStatus, String> {
+    if let Ok(s) = &status {
+        remember_partner(&shared.db.locked(), s);
+    }
+    status
 }
 
 /// Level 3 with a partner: files the request and emails them. Returns its id.
@@ -432,14 +509,14 @@ fn start_sign_in(app: AppHandle, method: Method) -> Result<Status, String> {
         return Err("Already signing in.".into());
     }
     state.cancel.store(false, Ordering::SeqCst);
-    *state.error.lock().unwrap() = None;
+    *state.error.locked() = None;
     let status = status_of(state);
     let handle = app.clone();
     std::thread::spawn(move || {
         let result = sign_in(&handle, method);
         let state = &handle.state::<Shared>().cloud;
         state.connecting.store(false, Ordering::SeqCst);
-        *state.error.lock().unwrap() = result.err();
+        *state.error.locked() = result.err();
         emit(&handle);
     });
     emit(&app);
@@ -465,8 +542,15 @@ pub fn cloud_cancel_sign_in(shared: TauriState<Shared>) {
     shared.cloud.cancel.store(true, Ordering::SeqCst);
 }
 
+/// Never while sealed (2026-11-17), like deleting the account: the partner is part of the seal.
 #[tauri::command]
 pub async fn cloud_sign_out(app: AppHandle) -> Result<Status, String> {
+    {
+        let shared = app.state::<Shared>();
+        if shared.sealed() || shared.engine.is_active() {
+            return Err("Signing out waits until the seal ends.".into());
+        }
+    }
     tauri::async_runtime::spawn_blocking(move || sign_out(&app)).await.map_err(|e| e.to_string())
 }
 
@@ -482,10 +566,12 @@ pub async fn cloud_delete_account(app: AppHandle) -> Result<Status, String> {
         let state = &app.state::<Shared>().cloud;
         let (req, _) = authed(state, state.http.post(format!("{URL}/functions/v1/account-delete")))?;
         send(req.json(&json!({ "confirm": "delete" })))?;
+        // The partner links went with the account.
+        remember_partner(&app.state::<Shared>().db.locked(), &PartnerStatus::default());
         // The session died with the account; just clear what this PC kept.
         secret::clear_at(TARGET);
-        *state.session.lock().unwrap() = None;
-        *state.error.lock().unwrap() = None;
+        *state.session.locked() = None;
+        *state.error.locked() = None;
         emit(&app);
         Ok(status_of(state))
     })
@@ -502,14 +588,18 @@ pub fn sign_out(app: &AppHandle) -> Status {
         }
     }
     secret::clear_at(TARGET);
-    *state.session.lock().unwrap() = None;
-    *state.error.lock().unwrap() = None;
+    *state.session.locked() = None;
+    *state.error.locked() = None;
     emit(app);
     status_of(state)
 }
 
-fn blocking<T: Send + 'static>(app: AppHandle, f: impl FnOnce(&State) -> Result<T, String> + Send + 'static) -> tauri::async_runtime::JoinHandle<Result<T, String>> {
-    tauri::async_runtime::spawn_blocking(move || f(&app.state::<Shared>().cloud))
+/// Runs a partner call off the main thread; a good answer is remembered (`known`).
+fn blocking(app: AppHandle, f: impl FnOnce(&State) -> Result<PartnerStatus, String> + Send + 'static) -> tauri::async_runtime::JoinHandle<Result<PartnerStatus, String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let shared = app.state::<Shared>();
+        known(&shared, f(&shared.cloud))
+    })
 }
 
 #[tauri::command]
@@ -586,6 +676,47 @@ mod tests {
             parse_callback("GET /auth/callback?s=abc&error=access_denied&error_description=Email+link+is+invalid HTTP/1.1", "abc"),
             Callback::Failed("Email link is invalid".into())
         );
+    }
+
+    #[test]
+    fn refreshes_run_one_at_a_time() {
+        let lock = Mutex::new(());
+        let token: Mutex<Option<u32>> = Mutex::new(None);
+        let refreshes = std::sync::atomic::AtomicU32::new(0);
+        let barrier = std::sync::Barrier::new(8);
+        std::thread::scope(|s| {
+            for _ in 0..8 {
+                s.spawn(|| {
+                    barrier.wait();
+                    let got: Result<u32, ()> = single_flight(&lock, || *token.locked(), || {
+                        // Spends the (rotating) refresh token: only one caller may.
+                        let n = refreshes.fetch_add(1, Ordering::SeqCst) + 1;
+                        std::thread::sleep(Duration::from_millis(50));
+                        *token.locked() = Some(n);
+                        Ok(n)
+                    });
+                    assert_eq!(got, Ok(1));
+                });
+            }
+        });
+        assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn the_partner_link_is_remembered_between_lookups() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::prepare(&mut conn).unwrap();
+        assert_eq!(remembered_partner(&conn), None);
+        let linked = PartnerStatus { partner: Some(Partner { name: Some("Sam".into()), status: "active".into(), ..Default::default() }), ..Default::default() };
+        remember_partner(&conn, &linked);
+        assert_eq!(remembered_partner(&conn).as_deref(), Some("Sam"));
+        // A removal the partner hasn't approved is still a link.
+        let pending = PartnerStatus { partner: Some(Partner { email: Some("sam@x.org".into()), status: "removal_requested".into(), ..Default::default() }), ..Default::default() };
+        remember_partner(&conn, &pending);
+        assert_eq!(remembered_partner(&conn).as_deref(), Some("sam@x.org"));
+        // Only a good answer of "none" clears it.
+        remember_partner(&conn, &PartnerStatus::default());
+        assert_eq!(remembered_partner(&conn), None);
     }
 
     #[test]

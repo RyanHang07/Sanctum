@@ -1,31 +1,30 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/Button";
-import { Dialog, Segmented, TabPanel } from "../../components/controls";
+import { Check, Dialog, Segmented, TabPanel } from "../../components/controls";
 import { HEADLINE } from "../headlines";
 import { useJournal } from "../../state/journal";
 import { PRESETS, THEMES, type JournalSetup as Setup } from "../../lib/journalPrompts";
 import type { JournalLock } from "../../lib/types";
 
 // The journal's own setup (v0.2), separate from the app's first-run setup. The first time, it
-// IS the Journal page (no dialog over a placeholder); leaving before the end starts it over next
-// time, and finishing opens today's page. Later, "Journal settings" opens the same steps in a
-// dialog to change prompts or the lock.
+// IS the Journal page (no dialog over a placeholder): one screen, the lock, because it's the one
+// choice that can't wait until after you've written (2026-11-17; prompts start from a starter set
+// and change later). Finishing opens today's page. "Journal settings" is one scrolling dialog:
+// the prompts, then the lock, saved together; "Change prompts" opens it at the prompts.
 
-type Step = "welcome" | "prompts" | "lock";
 const THEME_TABS = "journal-themes";
-const PER_DAY = [
-  { value: 0, label: "All of them" },
-  { value: 1, label: "1 a day" },
-  { value: 2, label: "2 a day" },
-  { value: 3, label: "3 a day" },
-  { value: 4, label: "4 a day" },
-];
 
-export function JournalSetup({ onClose, first }: { onClose: () => void; first: boolean }) {
+/** What the lock does and doesn't do, said plainly: in the lock step and on the lock screen. The
+ *  backend refuses pages while locked; the database file holds them the way it holds notes. */
+export const PROTECTION = "The lock keeps out people at this PC. Pages aren't encrypted on disk.";
+
+export function JournalSetup({ onClose, first, at }: { onClose: () => void; first: boolean; at?: "prompts" }) {
   const { setup, lock, saveSetup, setLock } = useJournal();
-  const [step, setStep] = useState<Step>(first ? "welcome" : "prompts");
+  const promptsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (at === "prompts") promptsRef.current?.scrollIntoView?.({ block: "start" });
+  }, [at]);
   const [picked, setPicked] = useState<string[]>(setup.prompts);
-  const [perDay, setPerDay] = useState(setup.perDay);
   const [theme, setTheme] = useState(THEMES[0]!.id);
   const [kind, setKind] = useState<JournalLock["lock"]>(lock?.lock ?? "none");
   const [pin, setPin] = useState("");
@@ -44,7 +43,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
       if (kind !== (lock?.lock ?? "none") || (kind === "pin" && pin)) {
         if (!(await setLock(kind, kind === "pin" ? pin : undefined))) return;
       }
-      const next: Setup = { done: true, prompts: picked, perDay };
+      const next: Setup = { ...setup, done: true, prompts: picked };
       await saveSetup(next);
       // First time: the page takes over with today; later: the dialog closes.
       if (!first) onClose();
@@ -57,21 +56,11 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
     <>
       {/* Scrolls on a short window so the buttons below always show. */}
       <div className={`flex flex-col gap-4 overflow-y-auto px-6 pb-5 pt-6 ${first ? "min-h-0" : "max-h-[calc(100vh-170px)]"}`}>
-        {step === "welcome" ? (
-          <>
-            <h1 className="headline m-0 text-[24px]">{HEADLINE.journalSetup}</h1>
-            <p className="m-0 text-body leading-relaxed text-text-2">
-              One page for each day, with what the day held at the top: focus, tasks, counters, and how you felt. It stays on this PC, is never shared or synced, and you can write in it while sealed.
-            </p>
-            <p className="m-0 text-meta text-muted">Two quick choices: what it asks you, and whether it locks. Both change any time from Journal settings.</p>
-          </>
-        ) : null}
-
-        {step === "prompts" ? (
-          <>
+        {!first ? (
+          <div ref={promptsRef} data-testid="journal-prompts" className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h2 className="headline m-0 text-[18px]">{HEADLINE.journalPrompts}</h2>
-              <span className="text-meta text-muted">Pick any number. Each day draws from your picks, so it doesn't read the same every day. Or pick none for a blank page.</span>
+              <h2 className="m-0 text-body font-semibold text-text">{HEADLINE.journalPrompts}</h2>
+              <span className="text-meta text-muted">Pages open blank. Each day offers one of your picks above the page, to use or pass on. Pick none and it offers nothing.</span>
             </div>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Quick picks">
               {PRESETS.map((x) => {
@@ -82,10 +71,10 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
                     type="button"
                     aria-pressed={on}
                     onClick={() => preset(x.prompts)}
-                    className={`rounded-control border px-3 py-[6px] text-left text-meta transition-colors duration-ui ease-ui ${on ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-text-2 hover:bg-line-soft"}`}
+                    className={`rounded-control border px-3 py-[6px] text-left text-meta transition-colors duration-ui ease-ui ${on ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-text-2 hover:bg-raised"}`}
                   >
                     <span className="block font-medium">{x.label}</span>
-                    <span className="block text-[11px] text-muted">{x.blurb}</span>
+                    <span className="block text-micro text-muted">{x.blurb}</span>
                   </button>
                 );
               })}
@@ -103,7 +92,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
                   label: (
                     <>
                       {t.label}
-                      {n ? <span className="ml-[6px] font-mono text-[10px] text-sealed-text">{n}</span> : null}
+                      {n ? <span className="ml-[6px] font-mono text-micro text-sealed-text">{n}</span> : null}
                     </>
                   ),
                 };
@@ -112,55 +101,74 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
             <TabPanel base={THEME_TABS} value={shown.id} className="flex flex-col gap-1 rounded-control">
               <span className="text-meta text-muted">{shown.blurb}</span>
               {shown.prompts.map((x) => (
-                <label key={x.id} className="flex cursor-pointer items-start gap-[10px] rounded-control px-2 py-[6px] hover:bg-line-soft">
-                  <input type="checkbox" checked={picked.includes(x.id)} onChange={() => toggle(x.id)} className="mt-[3px] accent-sealed" />
+                <label key={x.id} className="flex cursor-pointer items-start gap-[10px] rounded-control px-2 py-[6px] hover:bg-raised">
+                  <Check checked={picked.includes(x.id)} onToggle={() => toggle(x.id)} className="mt-px" />
                   <span className="text-body text-text">{x.text}</span>
                 </label>
               ))}
             </TabPanel>
-            <label className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-2">Each day shows</span>
-              <select aria-label="Prompts a day" value={perDay} onChange={(e) => setPerDay(Number(e.target.value))} className="h-control cursor-pointer rounded-control border border-line-input bg-raised px-2 text-body text-text">
-                {PER_DAY.map((x) => (
-                  <option key={x.value} value={x.value}>
-                    {x.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
+          </div>
         ) : null}
 
-        {step === "lock" ? (
-          <>
+        <div className={`flex flex-col gap-4 ${first ? "" : "border-t border-line pt-4"}`}>
+            {/* First run sits under the page's own title, so its headline is the second level. */}
+            {first ? <h2 className="headline m-0 text-moment-dialog">{HEADLINE.journalSetup}</h2> : null}
+            {/* One heading, one line (2026-11-17): what the lock does and doesn't do. */}
             <div className="flex flex-col gap-1">
-              <h2 className="headline m-0 text-[18px]">{HEADLINE.journalLock}</h2>
-              <span className="text-meta text-muted">It locks again when you leave the Journal, hide Sanctum, or step away for 5 minutes. It keeps people at this PC out; the pages aren't encrypted on disk.</span>
+              {first ? (
+                <h3 className="m-0 text-body font-semibold text-text">Lock Your Journal (Optional)</h3>
+              ) : (
+                <h2 className="m-0 text-body font-semibold text-text">Lock Your Journal (Optional)</h2>
+              )}
+              <span data-testid="journal-protection" className="text-meta text-muted">{PROTECTION}</span>
             </div>
+            {/* A radiogroup of cards (M8): each card is the radio, with a 16px dot in place of the native one. */}
             <div role="radiogroup" aria-label="Lock" className="flex flex-col gap-2">
               {[
                 { value: "none" as const, label: "No lock", blurb: "Opens straight away." },
                 { value: "hello" as const, label: "Windows Hello", blurb: lock?.helloAvailable ? "Face, fingerprint, or your Windows PIN." : "Not set up on this PC." },
                 { value: "pin" as const, label: "A journal PIN", blurb: "4 to 8 digits, just for the journal." },
-              ].map((x) => (
-                <label
-                  key={x.value}
-                  className={`flex items-start gap-[10px] rounded-control border px-3 py-2 ${x.value === "hello" && !lock?.helloAvailable ? "opacity-50" : "cursor-pointer"} ${kind === x.value ? "border-sealed bg-sealed-tint" : "border-line-input"}`}
-                >
-                  <input
-                    type="radio"
-                    name="journal-lock"
-                    checked={kind === x.value}
-                    disabled={x.value === "hello" && !lock?.helloAvailable}
-                    onChange={() => setKind(x.value)}
-                    className="mt-[3px] accent-sealed"
-                  />
-                  <span className="flex flex-col">
-                    <span className="text-body text-text">{x.label}</span>
-                    <span className="text-meta text-muted">{x.blurb}</span>
-                  </span>
-                </label>
-              ))}
+              ].map((x, i, all) => {
+                const on = kind === x.value;
+                const off = x.value === "hello" && !lock?.helloAvailable;
+                // Roving tab stop: the chosen card, or the first one when none is.
+                const stop = on || (!all.some((y) => y.value === kind) && i === 0);
+                const move = (dir: 1 | -1) => {
+                  const live = all.filter((y) => !(y.value === "hello" && !lock?.helloAvailable));
+                  const at = live.findIndex((y) => y.value === x.value);
+                  const next = live[(at + dir + live.length) % live.length]!;
+                  setKind(next.value);
+                  requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-lock-card="${next.value}"]`)?.focus());
+                };
+                return (
+                  <button
+                    key={x.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    aria-disabled={off || undefined}
+                    data-lock-card={x.value}
+                    tabIndex={stop ? 0 : -1}
+                    onClick={() => !off && setKind(x.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown" || e.key === "ArrowRight") (e.preventDefault(), move(1));
+                      if (e.key === "ArrowUp" || e.key === "ArrowLeft") (e.preventDefault(), move(-1));
+                    }}
+                    className={`flex items-start gap-[10px] rounded-control border px-3 py-2 text-left transition-colors duration-ui ease-ui ${off ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-check-line"} ${on ? "border-sealed! bg-sealed-tint" : "border-line-input"}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-px box-border flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${on ? "border border-sealed bg-sealed" : "border-[1.5px] border-check-line"}`}
+                    >
+                      {on ? <span className="h-[6px] w-[6px] rounded-full bg-sealed-on" /> : null}
+                    </span>
+                    <span className="flex flex-col">
+                      <span className="text-body text-text">{x.label}</span>
+                      <span className="text-meta text-muted">{x.blurb}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             {kind === "pin" ? (
               <div className="grid grid-cols-2 gap-3">
@@ -168,35 +176,14 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
                 <input aria-label="PIN again" type="password" inputMode="numeric" autoComplete="new-password" placeholder="Again" value={again} onChange={(e) => setAgain(e.target.value.replace(/\D/g, "").slice(0, 8))} className="h-control rounded-control border border-line-input bg-raised px-2 font-mono text-body text-text" />
               </div>
             ) : null}
-          </>
-        ) : null}
+        </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-6 py-3">
-        {first ? <span className="text-meta text-muted">{step === "welcome" ? "1" : step === "prompts" ? "2" : "3"} of 3</span> : null}
+        {first ? <span className="text-meta text-muted">Change it any time in Journal settings.</span> : null}
         <span className="grow" />
-        {step === "prompts" && first ? (
-          <Button variant="ghost" onClick={() => setStep("welcome")}>
-            Back
-          </Button>
-        ) : null}
-        {step === "lock" ? (
-          <Button variant="ghost" onClick={() => setStep("prompts")}>
-            Back
-          </Button>
-        ) : null}
-        {step === "welcome" ? (
-          <Button variant="primary" onClick={() => setStep("prompts")}>
-            Set it up
-          </Button>
-        ) : step === "prompts" ? (
-          <Button variant="primary" onClick={() => setStep("lock")}>
-            Next
-          </Button>
-        ) : (
-          <Button variant="primary" disabled={busy || !pinOk} onClick={() => void finish()}>
-            {first ? "Open today" : "Save"}
-          </Button>
-        )}
+        <Button variant="primary" disabled={busy || !pinOk} onClick={() => void finish()}>
+          {first ? "Start writing" : "Save"}
+        </Button>
       </div>
     </>
   );
@@ -206,7 +193,7 @@ export function JournalSetup({ onClose, first }: { onClose: () => void; first: b
       {body}
     </section>
   ) : (
-    <Dialog label="Journal setup" onClose={onClose} width={560} top={48}>
+    <Dialog label="Journal settings" onClose={onClose} width={560} top={48}>
       {body}
     </Dialog>
   );

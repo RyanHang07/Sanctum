@@ -1,3 +1,4 @@
+import { onTestFinished } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { AppearanceSection } from "./Appearance";
 import { TrackersTab } from "./Trackers";
@@ -9,7 +10,7 @@ import { resetMockBackend } from "../../lib/mockBackend";
 import { native } from "../../lib/native";
 import { themeById } from "../../theme/themes";
 
-// The second-colour redesign in Setup (S6): Appearance's pairs, lists and scroll, the General
+// The second-color redesign in Setup (S6): Appearance's pairs, lists and scroll, the General
 // goal tick, Setup's sentence-case nav, and the tracker time picker following the theme.
 
 const initial = useStore.getState();
@@ -24,14 +25,28 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+/** Windows in dark or light mode, as prefers-color-scheme reports it. */
+function windowsMode(dark: boolean) {
+  const real = window.matchMedia;
+  window.matchMedia = ((q: string) => ({
+    matches: q.includes("prefers-color-scheme: dark") ? dark : false,
+    media: q,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  })) as unknown as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = real;
+  };
+}
+
 const radioNames = (group: string) => within(screen.getByRole("radiogroup", { name: group })).getAllByRole("radio").map((r) => r.getAttribute("aria-label"));
 
 describe("Setup › Appearance", () => {
   it("lists Catppuccin Latte with the light themes and leaves out the retired copies", async () => {
-    await act(() => useTheme.getState().load());
+    await act(() => useTheme.getState().setPrefs({ follow: false, dark: "sanctum-dark", light: "sanctum-light", fixed: "sanctum-dark" }));
     render(<AppearanceSection />);
-    const dark = radioNames("Theme in dark mode");
-    const light = radioNames("Theme in light mode");
+    const dark = radioNames("Dark themes");
+    const light = radioNames("Light themes");
     expect(light).toContain("Catppuccin Latte");
     expect(dark).not.toContain("Catppuccin Latte");
     for (const name of [...dark, ...light]) expect(name).not.toMatch(/Catppuccin (Frappe|Macchiato) Light/);
@@ -39,13 +54,40 @@ describe("Setup › Appearance", () => {
   });
 
   it("marks Latte chosen when the saved light theme is a retired Catppuccin copy", async () => {
+    const restore = windowsMode(false);
     await act(() => useTheme.getState().setPrefs({ follow: true, dark: "sanctum-dark", light: "catppuccin-frappe-light", fixed: "sanctum-dark" }));
     render(<AppearanceSection />);
     const light = within(screen.getByRole("radiogroup", { name: "Theme in light mode" }));
     expect(light.getByRole("radio", { name: "Catppuccin Latte" })).toHaveAttribute("aria-checked", "true");
+    restore();
   });
 
-  it("shows each theme's accent and second colour, in the row and in the preview", async () => {
+  it("following Windows, lists only the mode Windows is in; one fixed theme lists both, current first", async () => {
+    const restoreDark = windowsMode(true);
+    await act(() => useTheme.getState().setPrefs({ follow: true, dark: "sanctum-dark", light: "sanctum-light", fixed: "sanctum-dark" }));
+    const { unmount } = render(<AppearanceSection />);
+    expect(screen.getByRole("radiogroup", { name: "Theme in dark mode" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Theme in light mode" })).toBeNull();
+    unmount();
+    restoreDark();
+
+    const restore = windowsMode(false);
+    await act(() => useTheme.getState().setPrefs({ follow: true, dark: "sanctum-dark", light: "sanctum-light", fixed: "sanctum-dark" }));
+    const second = render(<AppearanceSection />);
+    expect(screen.getByRole("radiogroup", { name: "Theme in light mode" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Theme in dark mode" })).toBeNull();
+    second.unmount();
+    restore();
+
+    await act(() => useTheme.getState().setPrefs({ follow: false, dark: "sanctum-dark", light: "sanctum-light", fixed: "sanctum-light" }));
+    render(<AppearanceSection />);
+    const groups = screen.getAllByRole("radiogroup").map((g) => g.getAttribute("aria-label"));
+    expect(groups).toEqual(["Light themes", "Dark themes"]);
+  });
+
+  it("shows each theme's accent and second color, in the row and in the preview", async () => {
+    const restore = windowsMode(true);
+    onTestFinished(restore);
     await act(() => useTheme.getState().load());
     render(<AppearanceSection />);
     const dark = within(screen.getByRole("radiogroup", { name: "Theme in dark mode" }));
@@ -59,7 +101,7 @@ describe("Setup › Appearance", () => {
     expect(card).toHaveTextContent("Nord");
     expect(card).toHaveTextContent("Dark");
     expect(card).toHaveTextContent(`Accent${theme.palette.sealed}`);
-    expect(card).toHaveTextContent(`Second colour${theme.palette.second}`);
+    expect(card).toHaveTextContent(`Second color${theme.palette.second}`);
     fireEvent.blur(nord);
     expect(document.querySelector("[data-theme-preview]")).toBeNull();
   });
@@ -84,10 +126,10 @@ describe("Setup › Appearance", () => {
   });
 });
 
-describe("Setup › General and the nav", () => {
-  it("puts the goal tick in the second colour beside the daily goal", async () => {
-    useStore.setState({ setupTab: "general" });
-    render(<Setup />);
+describe("Setup › Goals and the nav", () => {
+  it("puts the goal tick in the second color beside the daily goal", async () => {
+    useStore.setState({ setupTab: "goals" });
+    await act(async () => void render(<Setup />));
     const goal = screen.getByRole("combobox", { name: "Daily focus goal" });
     const tick = goal.closest("label")!.parentElement!.querySelector("[data-goal-tick]")!;
     expect(tick).toHaveAttribute("aria-hidden", "true");
@@ -97,7 +139,7 @@ describe("Setup › General and the nav", () => {
 
   it("labels the nav groups in sentence case, readable, and swaps tabs without a page fade", () => {
     render(<Setup />);
-    const header = screen.getByText("Connections");
+    const header = screen.getByText("Tracking");
     expect(header).toHaveClass("label");
     expect(header.className).not.toMatch(/uppercase|text-faint/);
     expect(screen.getByRole("tabpanel").className).not.toContain("page-in");

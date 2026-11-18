@@ -51,7 +51,7 @@ export function Suggestions() {
         <div key={s.line} className="flex flex-col gap-1 border-t border-line-soft pt-2 first-of-type:border-t-0 first-of-type:pt-0">
           <span className="text-meta text-text-2">{s.line}</span>
           {used.includes(s.line) ? (
-            <span className="text-[11px] text-muted">Done.</span>
+            <span className="text-micro text-muted">Done.</span>
           ) : (
             <Button variant="quiet" size="sm" className="-ml-2 self-start" onClick={() => void use(s)}>
               {label(s)}

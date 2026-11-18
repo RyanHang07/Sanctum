@@ -22,17 +22,21 @@ export interface Command {
   run: () => unknown;
 }
 
+// The same names as Setup's list, so a section is called one thing everywhere.
 const SETUP_TABS: { id: SetupTab; label: string }[] = [
   { id: "profiles", label: "Profiles" },
   { id: "distractions", label: "Distractions" },
-  { id: "protection", label: "Protection" },
-  { id: "trackers", label: "Trackers and check-ins" },
+  { id: "goals", label: "Goals" },
+  { id: "protection", label: "App Guard" },
+  { id: "browser", label: "Browser Extension" },
+  { id: "partner", label: "Partner" },
+  { id: "trackers", label: "Trackers" },
   { id: "tracking", label: "Activity" },
   { id: "calendar", label: "Calendar" },
-  { id: "browser", label: "Browser extension" },
-  { id: "partner", label: "Account and partner" },
-  { id: "appearance", label: "Appearance and themes" },
-  { id: "general", label: "General" },
+  { id: "appearance", label: "Appearance" },
+  { id: "sounds", label: "Sound and Alerts" },
+  { id: "behaviour", label: "Behavior" },
+  { id: "data", label: "Your Data" },
 ];
 
 /** Every command for the current state; `query` adds the ones that act on typed text. */
@@ -87,7 +91,7 @@ export function commandsFor(query: string): Command[] {
   });
   out.push({ id: "sidebar", group: "App", label: s.settings.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar", hint: "Ctrl B", run: () => s.toggleSidebar() });
   if (!sealed) out.push({ id: "onboarding", group: "App", label: "Run setup again", run: () => s.openOnboarding() });
-  // Your data (v0.1): the same as Setup › General, one keystroke away.
+  // Your Data (v0.1): the same as Setup › Your Data, one keystroke away.
   const saved = (lead: string) => (f: { name: string }) => s.showNotice({ lead, rest: f.name });
   const failed = (e: unknown) => s.showNotice({ lead: errorText(e) });
   out.push({ id: "backup", group: "App", label: "Back up now", run: () => native.backupCreate().then(saved("Backed up."), failed) });
@@ -108,7 +112,9 @@ export function commandsFor(query: string): Command[] {
   const text = query.trim();
   const q = text.toLowerCase();
   if (q)
-    for (const t of THEMES)
+    // Following Windows, only themes for the mode it's in now, as Setup › Appearance lists them
+    // (2026-11-17): a theme for the other mode would change nothing you could see.
+    for (const t of THEMES.filter((t) => !th.prefs.follow || t.scheme === th.theme.scheme))
       out.push({ id: `theme:${t.id}`, group: "Appearance", label: `Theme: ${t.name}`, hint: t.id === th.theme.id ? "Now" : undefined, run: () => th.pick(t.id) });
   const matched = q ? out.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q)) : out;
   // Notes whose title or text match, when you've typed something.
@@ -181,7 +187,10 @@ export function CommandBar() {
   const run = (c: Command | undefined) => {
     if (!c) return;
     close();
-    void c.run();
+    // A command that fails says why; the bar is already closed.
+    void Promise.resolve()
+      .then(() => c.run())
+      .catch((e: unknown) => useStore.getState().showNotice({ lead: errorText(e) }));
   };
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -199,7 +208,13 @@ export function CommandBar() {
     }
   };
 
-  let lastGroup = "";
+  // Consecutive commands of one group sit under its header, as a labeled group in the list.
+  const groups: { name: string; items: { c: Command; i: number }[] }[] = [];
+  commands.forEach((c, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.name === c.group) last.items.push({ c, i });
+    else groups.push({ name: c.group, items: [{ c, i }] });
+  });
   return (
     <div className="fixed inset-0 z-40 animate-fade-in bg-scrim" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div
@@ -222,18 +237,19 @@ export function CommandBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKey}
-            className="focus-ring-off min-w-0 grow bg-transparent text-[14px] text-text placeholder:text-faint"
+            className="focus-ring-off min-w-0 grow bg-transparent text-[14px] text-text placeholder:text-muted"
           />
-          <span className="font-mono text-[11px] text-faint">Esc</span>
+          <span className="font-mono text-micro text-muted">Esc</span>
         </label>
         <div ref={list} id="command-list" role="listbox" aria-label="Commands" className="min-h-0 overflow-y-auto py-1">
-          {commands.map((c, i) => {
-            const header = c.group !== lastGroup ? c.group : null;
-            lastGroup = c.group;
-            return (
-              <div key={c.id}>
-                {header ? <div className="label px-4 pb-1 pt-2">{header}</div> : null}
+          {groups.map((g, gi) => (
+            <div key={`${g.name}-${gi}`} role="group" aria-labelledby={`command-group-${gi}`}>
+              <div id={`command-group-${gi}`} role="presentation" className="label px-4 pb-1 pt-2">
+                {g.name}
+              </div>
+              {g.items.map(({ c, i }) => (
                 <div
+                  key={c.id}
                   id={`command-${c.id}`}
                   data-index={i}
                   role="option"
@@ -243,13 +259,17 @@ export function CommandBar() {
                   className={`mx-1 flex h-9 cursor-pointer items-center gap-3 rounded-control px-3 text-body ${i === active ? "bg-raised text-text" : "text-text-2"}`}
                 >
                   <span className="min-w-0 grow truncate">{c.label}</span>
-                  {c.hint ? <span className="shrink-0 font-mono text-[11px] text-faint">{c.hint}</span> : null}
+                  {c.hint ? <span className="shrink-0 font-mono text-micro text-muted">{c.hint}</span> : null}
                 </div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          ))}
           {!commands.length ? <p className="m-0 px-4 py-3 text-body text-muted">Nothing matches.</p> : null}
         </div>
+        {/* How many commands match, said to screen readers as you type. */}
+        <p data-testid="command-count" aria-live="polite" aria-atomic="true" className="sr-only">
+          {`${commands.length} ${commands.length === 1 ? "result" : "results"}`}
+        </p>
       </div>
     </div>
   );

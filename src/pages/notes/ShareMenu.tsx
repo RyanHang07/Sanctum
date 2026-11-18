@@ -93,7 +93,7 @@ export function ShareMenu({ n }: { n: Note }) {
             <>
               <span className="text-meta text-muted">Anyone with this link can read the note until {until(live.expiresAt)}. Edits show up there as you type.</span>
               <div className="flex gap-2">
-                <input aria-label="Share link" readOnly value={live.url} onFocus={(e) => e.currentTarget.select()} className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-2 font-mono text-[11px] text-text-2" />
+                <input aria-label="Share link" readOnly value={live.url} onFocus={(e) => e.currentTarget.select()} className="h-control min-w-0 grow rounded-control border border-line-input bg-raised px-2 font-mono text-micro text-text-2" />
                 <Button
                   variant="primary"
                   onClick={() =>

@@ -152,7 +152,7 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect(reload).toHaveBeenCalledOnce();
   });
 
-  it("paints its pages in the theme, plain colours only, with the right mark (v0.3)", async () => {
+  it("paints its pages in the theme, plain colors only, with the right mark (v0.3)", async () => {
     // @ts-expect-error: plain JS module
     const { applyTheme } = await import("../../extension/theme.js");
     const root = document.documentElement;
