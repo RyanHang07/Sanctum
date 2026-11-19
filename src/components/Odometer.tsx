@@ -14,6 +14,9 @@ const isDigit = (c: string) => c >= "0" && c <= "9";
  *  can't stretch the line it sits in. */
 const COL = "inline-block h-[1em] overflow-hidden [mask-image:linear-gradient(transparent,black_22%,black_78%,transparent)]";
 const CELL = "block h-[1em] leading-none";
+/** A letter or space beside the digits: the same 1em hidden inline-block, so its baseline is its
+ *  bottom edge too and every character in a figure sits on one line. */
+const CHAR = "inline-block h-[1em] overflow-hidden leading-none";
 
 function Column({ col, digit, direction }: { col: number; digit: number; direction: Direction }) {
   return (
@@ -34,13 +37,15 @@ function Column({ col, digit, direction }: { col: number; digit: number; directi
 function Figure({ text, direction, which }: { text: string; direction: Direction; which: "new" | "old" }) {
   let col = 0;
   return (
-    <span data-figure={which} className="inline-flex [grid-area:1/1]">
+    // Inline, not flex (2026-11-18): as flex items the columns took their baseline from the first
+    // digit of the shifted strip, and the figure sat a line below the words beside it.
+    <span data-figure={which} className="whitespace-nowrap [grid-area:1/1]">
       {Array.from(text).map((c, i) =>
         isDigit(c) ? (
           <Column key={i} col={col++} digit={Number(c)} direction={direction} />
         ) : (
-          <span key={i} className={CELL}>
-            {c === " " ? " " : c}
+          <span key={i} className={CHAR}>
+            {c ===" " ? " " : c}
           </span>
         ),
       )}
@@ -119,7 +124,7 @@ export function Odometer({
   );
 
   return (
-    <span ref={root} data-odo className={`relative inline-grid align-[-0.1em] tabular-nums leading-none ${className}`}>
+    <span ref={root} data-odo className={`relative inline-grid align-[-0.2em] tabular-nums leading-none ${className}`}>
       <span className="sr-only">{text}</span>
       <span aria-hidden="true" className="inline-grid">
         {shown.old != null ? <Figure key={`old:${shown.old}`} text={shown.old} direction={direction} which="old" /> : null}
