@@ -9,7 +9,7 @@ import hero from "../../../docs/screenshots/sanctum.webp";
 import overlay from "../../../docs/screenshots/blocked-overlay.png";
 import extension from "../../../docs/screenshots/extension-blocked.png";
 import approve from "../../../docs/screenshots/partner-approve.png";
-import week from "../../../docs/screenshots/week.png";
+import today from "../../../docs/screenshots/today.png";
 import notes from "../../../docs/screenshots/notes.png";
 import journal from "../../../docs/screenshots/journal.png";
 import stats from "../../../docs/screenshots/stats.png";
@@ -76,7 +76,7 @@ export function Home() {
         <img
           className="shot hero-shot"
           src={hero}
-          alt="Entering focus: the seal closes, Discord is caught and sent back, and the session ends with Sanctum held."
+          alt="Entering focus: the seal line draws along the card, Discord is caught and sent back, and the session ends with Sanctum held."
           decoding="async"
         />
       </section>
@@ -100,7 +100,7 @@ export function Home() {
         title="It holds even when you don't."
         media={
           <div className="stack-shots">
-            <Shot src={overlay} alt="Discord stays sealed: the overlay a blocked app gets" />
+            <Shot src={overlay} alt="Discord stays sealed: the overlay a blocked app gets, with the seal ruler and Back to Figma" />
             <Shot src={extension} alt="youtube.com stays sealed: the extension's blocked page" className="offset" />
           </div>
         }
@@ -121,7 +121,7 @@ export function Home() {
         id="partner"
         label="Leaving early"
         title="Someone else holds the key."
-        media={<Shot src={approve} alt="The partner's approve page on a phone: the reason, time left, a PIN, Deny or Approve" className="phone" />}
+        media={<Shot src={approve} alt="The partner's approve page on a phone: the reason, time left in whole minutes, a PIN, then Deny or Approve" className="phone" />}
       >
         <p data-rise="">Getting out early is a climb, not a button.</p>
         <ol className="ladder">
@@ -149,7 +149,7 @@ export function Home() {
         </A>
       </Feature>
 
-      <Feature label="Your day" title="The plan sits next to the button." media={<Shot src={week} alt="Week: seven days of routines, tasks, and calendar events" />}>
+      <Feature label="Your day" title="The plan sits next to the button." media={<Shot src={today} alt="Today: focused minutes on the day ruler against the goal tick, the next block in the top slot, and Next up under the list" />}>
         <p data-rise="">Today measures your focused minutes on a ruler, with your goal as one tall tick.</p>
         <ul className="ticks" data-rise="">
           <li>One fixed top slot holds the next focus block or the task you linked.</li>
@@ -168,7 +168,7 @@ export function Home() {
         media={
           <div className="stack-shots">
             <Shot src={notes} alt="Notes: a block note with bullets and a checklist" />
-            <Shot src={journal} alt="Journal: today's page under its prompt" className="offset" />
+            <Shot src={journal} alt="Journal: today's page under its evening prompts" className="offset" />
           </div>
         }
       >
@@ -192,7 +192,7 @@ export function Home() {
         media={
           <div className="stack-shots">
             <Shot src={stats} alt="Stats: the week on a ruler against the daily goal, and where time went" />
-            <Shot src={trackers} alt="Trackers: weight, sleep, and mood charts" className="offset" />
+            <Shot src={trackers} alt="Trackers: weight, sleep, and mood charts on rulers" className="offset" />
           </div>
         }
       >

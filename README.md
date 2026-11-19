@@ -15,7 +15,7 @@ A focus app for Windows that actually holds. Pick what you're working on, enter 
 ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0B0D12)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)
 
-<img src="docs/screenshots/sanctum.webp" width="880" alt="Entering focus: the seal closes, Discord is caught and sent back, and the session ends with Sanctum held." />
+<img src="docs/screenshots/sanctum.webp" width="880" alt="Entering focus: the seal line draws along the card, Discord is caught and sent back, and the session ends with Sanctum held." />
 
 </div>
 
@@ -41,11 +41,11 @@ Pick a profile and a length and press **Enter focus**. Sanctum closes the apps y
 
 | Open | Sealed |
 |---|---|
-| <img src="docs/screenshots/home-open.png" alt="Home, Open: the focus row with profile and length wheels, Enter focus, and today's list" /> | <img src="docs/screenshots/home-sealed.jpg" alt="Home, Sealed: the cobalt gradient, time left, Compact and End early" /> |
+| <img src="docs/screenshots/home-open.png" alt="Today, Open: the day ruler under the headline, the next block in the top slot, the Profile and Length pickers, Enter focus, and today's list with Next up" /> | <img src="docs/screenshots/home-sealed.jpg" alt="Today, Sealed: the Sealed chip and the session's facts in the top slot, time left in whole minutes, End early and Compact" /> |
 
 | In event | Sanctum held |
 |---|---|
-| <img src="docs/screenshots/home-event.jpg" alt="Home, In event: a calendar meeting in coral, with Queue focus at its end" /> | <img src="docs/screenshots/held.jpg" alt="The Sanctum held page after a completed session" /> |
+| <img src="docs/screenshots/home-event.jpg" alt="Today, In event: a calendar meeting in the tinted chip with its time range, the minutes left, and Queue focus at its end" /> | <img src="docs/screenshots/held.jpg" alt="Sanctum held: the torii keyhole gate, one line of what was kept, and Add a note, Done, and Enter again" /> |
 
 When a session ends, the **Sanctum held** page shows what you kept in one line: minutes in focus and attempts blocked. Add a note on how it went if you like, then Done or Enter again. Link a session to a task first, and it offers to check it off.
 
@@ -55,29 +55,29 @@ Open something you flagged and it closes, with a note that sends you back to wha
 
 | The app overlay | The browser extension |
 |---|---|
-| <img src="docs/screenshots/blocked-overlay.png" alt="Discord stays sealed: the overlay a blocked app gets" /> | <img src="docs/screenshots/extension-blocked.png" alt="youtube.com stays sealed: the extension's blocked page" /> |
+| <img src="docs/screenshots/blocked-overlay.png" alt="Discord stays sealed: the overlay a blocked app gets, with the seal ruler, Break the seal, and Back to Figma" /> | <img src="docs/screenshots/extension-blocked.png" alt="youtube.com stays sealed: the extension's blocked page, with the time left, your own if-tempted plan, and a field to park a thought" /> |
 
 ### Out of the way while you work
 
 A compact timer floats over your work (Ctrl M), and the tray panel starts a session or checks off a task without opening the window.
 
 <p align="center">
-  <img src="docs/screenshots/compact.png" width="420" alt="The compact timer, mid-session" />
+  <img src="docs/screenshots/compact.png" width="420" alt="The compact timer, mid-session: the profile, minutes left, and the countdown" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/tray.png" width="300" alt="The tray panel: profile, length, Enter focus, and up next today" />
+  <img src="docs/screenshots/tray.png" width="300" alt="The tray panel: the profile and length pickers, Enter focus, and up next today" />
 </p>
 
 ### Plan the week
 
 Routines and one-time tasks, synced two ways with Google Calendar. Tag a block with a profile and Home suggests it when it starts. Drag items between days, or edit a whole recurring series.
 
-<img src="docs/screenshots/week.png" alt="Week: seven days of routines, tasks, and calendar events, with each day's streak mark" />
+<img src="docs/screenshots/week.png" alt="Week: seven days with each day's kept or missed mark, focused minutes, routines, and tasks" />
 
 ### See where the time went
 
 Streaks, focus against your daily goal, what tempted you most, and how your time split between productive, neutral, and distracting. Tabs go deeper: **Sessions** keeps every session for good, with what was blocked and how it ended (export it as CSV); **Activity** shows time by app and by site, and one click calls any of them productive or distracting, everywhere or in one profile; **Day** lays out a day as a timeline under its focus sessions. Turn on the weekly recap (Setup › Goals; off by default) and each Monday a short dialog shows last week as a strip of bars, one per day.
 
-<img src="docs/screenshots/stats.png" alt="Stats: streaks, daily focus against the goal, what tempted you, and where time went" />
+<img src="docs/screenshots/stats.png" alt="Stats: streaks, the week on a ruler against the goal, daily focus against the target line, what tempted you, and where time went" />
 
 ### Make it yours
 
@@ -89,25 +89,25 @@ Custom trackers (numbers, yes/no, 1 to 10, or text) with charts and scheduled ch
 
 | Trackers | Notes |
 |---|---|
-| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, sleep, and mood charts" /> | <img src="docs/screenshots/notes.png" alt="Notes: a block note with bullets and a checklist, and the toolbar" /> |
+| <img src="docs/screenshots/trackers.png" alt="Trackers: weight, sleep, and mood charts on rulers, with the entries below" /> | <img src="docs/screenshots/notes.png" alt="Notes: a block note with bullets and a checklist, and the toolbar" /> |
 
-<img src="docs/screenshots/journal.png" alt="Journal: the day's strip, its focus and mood card, and a page under the evening prompts" />
+<img src="docs/screenshots/journal.png" alt="Journal: the strip of days, today's focus and mood card, and a page written under the evening prompts" />
 
 ### An accountability partner, on their phone
 
 Invite a friend. When you ask to leave early, they get an email and answer from a phone-first page with their PIN. They also hear when a seal breaks. The partner is optional, and everything else works without an account.
 
 <p align="center">
-  <img src="docs/screenshots/partner-approve.png" width="300" alt="The partner's approve page on a phone: the reason, time left, a PIN, Approve or Deny" />
+  <img src="docs/screenshots/partner-approve.png" width="300" alt="The partner's approve page on a phone: the reason, time left in whole minutes, a PIN, then Deny or Approve" />
 </p>
 
 ### Set it up once
 
 Setup is grouped into Focus, Protection, Tracking, and App. One Distractions list for apps, sites, links, and keywords; **quiet hours** that block it on a schedule; **App Guard**, a Windows service that blocks sites in every browser and reopens Sanctum if it's closed; and the details: Do Not Disturb while sealed, sounds, export, and backups.
 
-| Distractions and quiet hours | App Guard |
+| Distractions | App Guard |
 |---|---|
-| <img src="docs/screenshots/setup-distractions.png" alt="Setup, Distractions: apps, sites, and keywords, with quiet hours" /> | <img src="docs/screenshots/setup-protection.png" alt="Setup, Protection: the guard service" /> |
+| <img src="docs/screenshots/setup-distractions.png" alt="Setup, Focus, Distractions: one list of apps, sites, and keywords, with suggestions and when it blocks" /> | <img src="docs/screenshots/setup-protection.png" alt="Setup, Protection, App Guard: Sanctum reopens if closed while sealed, and sites are blocked in every browser" /> |
 
 ---
 

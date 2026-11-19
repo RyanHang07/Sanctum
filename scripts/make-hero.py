@@ -1,7 +1,7 @@
 """The README's hero animation from what scripts/screenshots.mjs records (docs/screenshots/frames).
 
-Open -> Enter focus -> the seal fades in -> a sealed app is caught -> Sanctum held -> back to
-Open. Animated WebP, not GIF: full color, so the gradients stay smooth instead of banding.
+Open -> Enter focus -> the seal line draws -> a sealed app is caught -> Sanctum held -> back to
+Open. Animated WebP, not GIF: full color, so the faint arches and fades stay smooth instead of banding.
 The slow-motion clips are re-timed to a steady 30 fps and every cut is a cross-fade.
 Run after `npm run screenshots` (it calls this):  python scripts/make-hero.py
 """
@@ -54,9 +54,10 @@ def main() -> None:
     build = clip("held")
 
     # The overlay a sealed app gets, over the dimmed sealed screen, as it sits on a desktop.
+    # Shot at 2x (screenshots.mjs SCALE); the main window is 1120 wide, so it scales the same.
     overlay = Image.open(FRAMES / "overlay.png").convert("RGBA")
-    scale = WIDTH / 1120
-    overlay = overlay.resize((round(480 * scale), round(290 * scale)), Image.LANCZOS)
+    scale = WIDTH / (1120 * 2)
+    overlay = overlay.resize((round(overlay.width * scale), round(overlay.height * scale)), Image.LANCZOS)
     caught = ImageEnhance.Brightness(sealed).enhance(0.55)
     caught.paste(overlay, ((caught.width - overlay.width) // 2, (caught.height - overlay.height) // 2), overlay)
 

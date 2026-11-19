@@ -186,10 +186,11 @@ describe("the home page says what v0.4.0 does", () => {
     await act(async () => {
       fireEvent.click(within(bar).getByRole("link", { name: "Docs" }));
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "How Sanctum works." }, { timeout: 5000 })).toBeInTheDocument();
+    // The docs page loads its guides on demand; under a full parallel run that takes a while.
+    expect(await screen.findByRole("heading", { level: 1, name: "How Sanctum works." }, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.getByRole("banner")).toBe(bar);
     expect(within(bar).getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "page");
-  });
+  }, 20_000);
 });
 
 describe("the GitHub star button beside Download", () => {
