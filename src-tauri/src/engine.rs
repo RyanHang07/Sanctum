@@ -824,23 +824,25 @@ pub fn load_pause(app: &AppHandle) {
 fn pause_tick(app: &AppHandle, now: i64) {
     let shared = app.state::<Shared>();
     let engine = &shared.engine;
-    if !engine.pause.locked().on(now) {
+    // Left unanswered, the card turns the app back: it's closed, as "Not now" would. A card that
+    // outlived pause mode's hours, or went stale while quiet hours held the engine, is let go
+    // instead (2026-11-21): closing the app hours later would cost unsaved work.
+    let on = engine.pause.locked().on(now);
+    let expired = engine.pause.locked().expire(now, on);
+    match expired {
+        pause::Expired::Close(w) => {
+            let _ = pause::log(&shared.db.locked(), &w.exe, "app", "turned_back", now);
+            hide_intercept(app);
+            engine.blocker.locked().close_exe(&w.exe);
+            return;
+        }
+        pause::Expired::Drop(_) => hide_intercept(app),
+        pause::Expired::Keep => {}
+    }
+    if !on {
         return;
     }
     track_foreground(&shared);
-    // Left unanswered, the card turns the app back: it's closed, as "Not now" would. Before, the
-    // card let go after two minutes and the app stayed open behind it.
-    let expired = {
-        let mut p = engine.pause.locked();
-        let gone = p.pending.as_ref().is_some_and(|w| pause::unanswered(w, now));
-        if gone { p.pending.take() } else { None }
-    };
-    if let Some(w) = expired {
-        let _ = pause::log(&shared.db.locked(), &w.exe, "app", "turned_back", now);
-        hide_intercept(app);
-        engine.blocker.locked().close_exe(&w.exe);
-        return;
-    }
     let Some(fg) = winutil::foreground() else { return };
     if fg.pid == std::process::id() {
         return;
@@ -1018,15 +1020,16 @@ fn session_sweep(app: &AppHandle) -> Option<Intercept> {
         session::record_attempt(&conn, id, exe, kind, now).ok()
     };
     let session = engine.active.locked().as_ref().map(|a| a.id);
+    // What's in front before anything goes down: an app that couldn't be closed counts only then.
+    let front = winutil::foreground().map(|f| f.pid);
     // What couldn't be closed (usually run as administrator) still can't be used: its windows go
-    // back down every pass, and it gets the card like anything else (2026-11-20). It used to be
-    // skipped, which left it open beside the seal.
+    // back down every pass (2026-11-20). It used to be skipped, which left it open beside the seal.
     for b in &blocked {
         if !b.left.is_empty() {
             winutil::minimize_windows_of(&b.left);
         }
     }
-    for b in blocked.iter().filter(|b| b.closed || !b.left.is_empty()) {
+    for b in blocked.iter().filter(|b| is_attempt(b.closed, &b.left, front)) {
         // Closed every time; logged and shown once per ATTEMPT_EVERY_MS.
         if !session.is_some_and(|id| engine.kills.locked().counts(id, &b.exe, now)) {
             continue;
@@ -1050,6 +1053,13 @@ fn session_sweep(app: &AppHandle) -> Option<Intercept> {
         }
     }
     intercept
+}
+
+/// Whether a blocked app counts as an attempt (logged, and the card shown): it was just closed,
+/// or it couldn't be closed and you brought it to the front (2026-11-21). One sitting in the tray
+/// is kept down without a card every 30 seconds or a padded attempt count.
+fn is_attempt(closed: bool, left: &[u32], front: Option<u32>) -> bool {
+    closed || front.is_some_and(|pid| left.contains(&pid))
 }
 
 /// How often the watcher looks for new processes.
@@ -1228,6 +1238,19 @@ fn complete(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_app_that_cant_be_closed_counts_only_when_brought_forward() {
+        // Closed: always an attempt.
+        assert!(is_attempt(true, &[], None));
+        // Left running (run as administrator), sitting in the tray: kept down, not counted.
+        assert!(!is_attempt(false, &[40, 41], None));
+        assert!(!is_attempt(false, &[40, 41], Some(7)));
+        // Brought to the front: an attempt, and the card.
+        assert!(is_attempt(false, &[40, 41], Some(41)));
+        // Nothing caught.
+        assert!(!is_attempt(false, &[], Some(41)));
+    }
 
     #[test]
     fn an_app_that_keeps_respawning_counts_once_every_30_seconds() {

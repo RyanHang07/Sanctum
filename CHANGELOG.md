@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.2 (2026-11-21)
+
+Stability fixes from an audit of v0.4.1.
+
+- **A pause card never closes an app hours later.** A card still waiting when Pause mode's hours ended, or one left over while quiet hours held things, is now let go; only a card just past its minute closes its app.
+- **An app that can't be closed no longer pops the card every 30 seconds.** It's still kept minimized through the seal, but it counts as an attempt (and shows the card) only when you bring it to the front.
+- **Quitting keeps a note window's last typing.** Quit asks every note window to save and close first, waiting up to 3 seconds, then exits.
+- **Closing a note window waits 3 seconds for its save,** like the main window, instead of 1.5.
+- **Dragging a note window doesn't write to the database on every step.** Its place is kept in memory and saved once, when it closes.
+
 ## v0.4.1 (2026-11-20)
 
 Fixes from using v0.4.0 every day, a look at tomorrow from Today, and notes in their own window.
