@@ -121,7 +121,7 @@ function RemoveDialog({ onClose }: { onClose: () => void }) {
           Cancel
         </Button>
         <Button
-          variant="primary"
+          variant="danger"
           disabled={busy}
           onClick={() => {
             setBusy(true);
@@ -160,7 +160,7 @@ export function ConnectionsSection() {
             <Button variant="ghost" size="sm" onClick={() => void disconnect()}>
               Disconnect
             </Button>
-            <Button variant="quiet" size="sm" className="ml-auto" onClick={() => setRemoving(true)}>
+            <Button variant="danger-plain" size="sm" className="ml-auto" onClick={() => setRemoving(true)}>
               Remove Sanctum calendar
             </Button>
           </div>

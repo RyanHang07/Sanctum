@@ -55,7 +55,7 @@ describe("extension popup", () => {
     expect(style).toMatch(/\.end-tick \{[^}]*background: var\(--sealed\)/);
   });
 
-  it("is neutral when open, with a plain one-sentence title in the headline font", async () => {
+  it("is green when open, with a plain one-sentence title in the headline font", async () => {
     page("popup.html");
     await run("popup.js", { rules: null, connected: false });
     expect(document.body.dataset.state).toBe("open");
@@ -64,7 +64,9 @@ describe("extension popup", () => {
     expect($("conn").textContent).toBe("Sanctum isn't running");
     const style = css("popup.css");
     expect(style).toMatch(/\.title \{[^}]*font-family: var\(--font-headline\)/);
-    expect(style).not.toMatch(/var\(--open\)|var\(--faint\)|var\(--second/);
+    // Open is the app's enabled green (2026-11-20), with the default green before a theme arrives.
+    expect(style).toMatch(/\.pill \.dot \{[^}]*background: var\(--ok, var\(--open\)\)/);
+    expect(style).not.toMatch(/var\(--faint\)|var\(--second/);
   });
 
   it("hides the end tick when the seal has no end time", async () => {

@@ -52,3 +52,14 @@ export function readable(c: string, bgs: string[], ratio: number, toward: string
 
 /** Whichever of `light` and `dark` reads better on `bg`. */
 export const onColor = (bg: string, light: string, dark: string) => (contrast(light, bg) >= contrast(dark, bg) ? light : dark);
+
+/** Any palette value as #RRGGBB for a color input (rgba drops its alpha). */
+export function toHex(v: string | undefined): string {
+  if (!v) return "#000000";
+  const s = v.trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toUpperCase();
+  if (/^#[0-9a-f]{3}$/i.test(s)) return `#${[...s.slice(1)].map((c) => c + c).join("")}`.toUpperCase();
+  const m = s.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i);
+  if (m) return `#${m.slice(1, 4).map((n) => Math.min(255, Number(n)).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+  return "#000000";
+}

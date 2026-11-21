@@ -126,15 +126,21 @@ impl State {
     /// Whether an app in front should be paused now: flagged, not allowed, not already waiting.
     pub fn should_pause(&mut self, exe: &str, now: i64) -> bool {
         self.allowed.retain(|_, until| *until > now);
-        // A card left unanswered for two minutes lets go, so nothing stays stuck behind it.
-        if self.pending.as_ref().is_some_and(|p| now - p.at > 120_000) {
-            self.pending = None;
-        }
+        // An unanswered card is answered by the engine after UNANSWERED_MS (see `unanswered`).
         !self.allowed.contains_key(exe) && !self.pending.as_ref().is_some_and(|p| p.exe == exe)
     }
     pub fn allow(&mut self, exe: &str, now: i64) {
         self.allowed.insert(exe.to_string(), now + ALLOW_MS);
     }
+}
+
+/// How long a card waits for an answer before it answers "Not now" itself and the app is
+/// closed (2026-11-20). It used to let go after two minutes, leaving the app open behind it.
+pub const UNANSWERED_MS: i64 = 60_000;
+
+/// Whether the waiting card has gone unanswered too long.
+pub fn unanswered(p: &Pending, now: i64) -> bool {
+    now - p.at > UNANSWERED_MS
 }
 
 /// Go on is ready once the wait is over.
@@ -158,6 +164,16 @@ pub fn status(s: &State) -> Status {
 mod tests {
     use super::*;
     use crate::db;
+
+    #[test]
+    fn a_card_left_unanswered_answers_itself_after_a_minute() {
+        let p = Pending { exe: "discord.exe".into(), pids: vec![1], at: 1_000 };
+        assert!(!unanswered(&p, 1_000 + UNANSWERED_MS));
+        assert!(unanswered(&p, 1_000 + UNANSWERED_MS + 1));
+        // While it waits, the same app isn't paused twice (the engine keeps it down instead).
+        let mut s = State { pending: Some(p), ..Default::default() };
+        assert!(!s.should_pause("discord.exe", 1_000 + 5 * UNANSWERED_MS));
+    }
 
     #[test]
     fn modes_and_validation() {

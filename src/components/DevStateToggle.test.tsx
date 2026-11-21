@@ -4,8 +4,11 @@ import { useStore } from "../state/store";
 import { useRecap } from "../state/recap";
 import { useTrackers } from "../state/trackers";
 import { resetMockBackend } from "../lib/mockBackend";
+import { useUpdate } from "../state/update";
+import { Toast } from "./Toast";
+import { HEADLINE } from "../pages/headlines";
 
-const initial = { store: useStore.getState(), recap: useRecap.getState(), trackers: useTrackers.getState() };
+const initial = { store: useStore.getState(), recap: useRecap.getState(), trackers: useTrackers.getState(), update: useUpdate.getState() };
 
 beforeEach(() => {
   resetMockBackend();
@@ -13,6 +16,7 @@ beforeEach(() => {
   useStore.setState(initial.store, true);
   useRecap.setState(initial.recap, true);
   useTrackers.setState(initial.trackers, true);
+  useUpdate.setState(initial.update, true);
 });
 
 describe("dev tools", () => {
@@ -41,6 +45,74 @@ describe("dev tools", () => {
     expect(screen.getByText("Mini timer · 300×58")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close Mini timer" }));
     expect(screen.queryByText("Mini timer · 300×58")).toBeNull();
+  });
+
+  it("shows the tray panel at its real size", async () => {
+    render(<DevStateToggle />);
+    fireEvent.click(screen.getByRole("button", { name: "Show dev tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tray panel" }));
+    expect(screen.getByText("Tray panel · 340×440")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Sanctum tray panel" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Tray panel" }));
+    expect(screen.queryByRole("region", { name: "Sanctum tray panel" })).toBeNull();
+  });
+
+  it("shows the notices, one click each, and they dismiss", () => {
+    render(
+      <>
+        <DevStateToggle />
+        <Toast />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show dev tools" }));
+    const tools = within(screen.getByLabelText("Dev tools"));
+
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Notice" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Saved.");
+    act(() => fireEvent.click(screen.getByRole("status")));
+    expect(screen.queryByRole("status")).toBeNull();
+
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Notice with action" })));
+    act(() => fireEvent.click(screen.getByRole("button", { name: "Undo" })));
+    expect(useStore.getState().notice).toBeNull();
+
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Locked tab" })));
+    expect(screen.getByRole("status")).toHaveTextContent("Week is locked while you're sealed.");
+
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Long error" })));
+    expect(screen.getByRole("status")).toHaveTextContent("database file is locked");
+
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Update ready" })));
+    expect(useUpdate.getState().ready).toMatchObject({ version: "0.4.1" });
+    act(() => fireEvent.click(tools.getByRole("button", { name: "Update ready" })));
+    expect(useUpdate.getState().later).toBe("0.4.1");
+  });
+
+  it("shows the error fallbacks without taking the app down", () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<DevStateToggle />);
+    fireEvent.click(screen.getByRole("button", { name: "Show dev tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Window error" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mini timer error" }));
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(screen.getAllByText(HEADLINE.screenBroke)).toHaveLength(2);
+    expect(screen.getByLabelText("Dev tools")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Window error" }));
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    quiet.mockRestore();
+  });
+
+  it("shows the intercept cards one at a time", () => {
+    render(<DevStateToggle />);
+    fireEvent.click(screen.getByRole("button", { name: "Show dev tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sealed app" }));
+    expect(screen.getByRole("alertdialog", { name: "Discord is sealed" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Title nudge" }));
+    expect(screen.queryByRole("alertdialog", { name: "Discord is sealed" })).toBeNull();
+    expect(screen.getByText("“reddit” stays sealed.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pause mode" }));
+    fireEvent.click(screen.getByRole("button", { name: /Not now/ }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   describe("extension pages", () => {

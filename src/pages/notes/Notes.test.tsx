@@ -219,12 +219,12 @@ describe("the notes list folds away for focus", () => {
     const { native } = await import("../../lib/native");
     await act(async () => void (await useNotes.getState().create()));
     render(<NotesPage />);
-    const hide = await screen.findByRole("button", { name: "Hide notes list" });
+    const hide = await screen.findByRole("button", { name: "Collapse notes sidebar" });
     const list = document.getElementById("notes-list")!;
     expect(list).not.toHaveAttribute("inert");
     fireEvent.click(hide);
     expect(list).toHaveAttribute("inert");
-    expect(screen.getByRole("button", { name: "Show notes list" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Expand notes sidebar" })).toHaveAttribute("aria-expanded", "false");
     await waitFor(async () => expect(await native.getSetting("notes_list_hidden")).toBe("1"));
   });
 });

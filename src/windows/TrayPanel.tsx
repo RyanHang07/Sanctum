@@ -19,7 +19,7 @@ import type { NextCheckin, Profile, Routine, RoutineCheck, SessionView, Todo } f
 // Redesign (v0.4, S8): the sealed timer is accent text on the panel (`sealed-text`, never
 // `sealed-on`, which is for text on the accent fill). The seal reads as a ruler: the accent fill
 // is progress, and the scale's ticks are neutral (minor in `line`, quarter hours in `muted`),
-// because the second color marks only goals and kept days. Open is neutral: a hollow dot.
+// because the second color marks only goals and kept days. Open is the enabled green (2026-11-20).
 // Motion is CSS only (motion spec 12): the fill glides, and reduced motion drops the glide.
 
 /** The seal's scale: a tick every 5 minutes, a major one every quarter hour. */
@@ -227,7 +227,7 @@ export function TrayPanel() {
             sealed ? "border-sealed-line bg-sealed-tint text-text" : "border-line-input text-text-2"
           }`}
         >
-          <span data-testid="state-dot" className={`box-border h-[6px] w-[6px] rounded-full ${sealed ? "bg-sealed" : "border-[1.5px] border-muted"}`} />
+          <span data-testid="state-dot" className={`box-border h-[6px] w-[6px] rounded-full ${sealed ? "bg-sealed" : "bg-ok"}`} />
           {sealed ? "Sealed" : "Open"}
         </span>
         <button

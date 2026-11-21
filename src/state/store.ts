@@ -49,6 +49,10 @@ export interface Settings {
   onLogin: OnLogin;
   displayName: string;
   compactOnFocus: boolean;
+  /** Today's list gets a Today | Tomorrow switch (2026-11-20). Off by default. */
+  tomorrowTab: boolean;
+  /** "HH:MM": the Tomorrow tab's mark counts items before this time; null marks anything. */
+  tomorrowMarkBefore: string | null;
   sounds: boolean;
   /** 0 to 100. */
   soundVolume: number;
@@ -165,6 +169,8 @@ export interface Store {
   setCloseAction: (a: CloseAction) => void;
   setOnLogin: (v: OnLogin) => void;
   setCompactOnFocus: (v: boolean) => void;
+  setTomorrowTab: (v: boolean) => void;
+  setTomorrowMarkBefore: (v: string | null) => void;
   setSounds: (v: boolean) => void;
   setSoundVolume: (v: number) => void;
   setSoundStyle: (cue: Cue, style: Style) => void;
@@ -340,6 +346,8 @@ export const useStore = create<Store>()((set, get) => {
       onLogin: "home",
       displayName: "",
       compactOnFocus: false,
+      tomorrowTab: false,
+      tomorrowMarkBefore: null,
       sounds: true,
       soundVolume: 70,
       soundStyles: { ...DEFAULT_STYLES },
@@ -396,6 +404,8 @@ export const useStore = create<Store>()((set, get) => {
     setCloseAction: (closeAction) => change({ closeAction }, "close_action", closeAction),
     setOnLogin: (onLogin) => change({ onLogin }, "on_login", onLogin),
     setCompactOnFocus: (compactOnFocus) => change({ compactOnFocus }, "compact_on_focus", compactOnFocus ? "1" : "0"),
+    setTomorrowTab: (tomorrowTab) => change({ tomorrowTab }, "tomorrow_tab", tomorrowTab ? "1" : "0"),
+    setTomorrowMarkBefore: (tomorrowMarkBefore) => change({ tomorrowMarkBefore }, "tomorrow_mark_before", tomorrowMarkBefore ?? ""),
 
     setSoundVolume: (soundVolume) =>
       change({ soundVolume }, "sound_volume", String(soundVolume), (s) => setSoundVolume(s.soundVolume / 100)),
@@ -465,7 +475,7 @@ export const useStore = create<Store>()((set, get) => {
     setActivitySetting: (key, value) => change({ [key]: value }, SETTING_KEYS[key], String(value)),
 
     loadSettings: async () => {
-      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw, resetTime] = await Promise.all([
+      const [close, onLogin, name, compact, sounds, goal, idle, retention, passive, priv, collapsed, layout, weekView, rest, volume, soundStyleRaw, resetTime, tomorrowTab, markBefore] = await Promise.all([
         native.getSetting("close_action"),
         native.getSetting("on_login"),
         native.getSetting("display_name"),
@@ -483,6 +493,8 @@ export const useStore = create<Store>()((set, get) => {
         native.getSetting("sound_volume"),
         native.getSetting("sound_styles"),
         native.getSetting("daily_reset_time"),
+        native.getSetting("tomorrow_tab"),
+        native.getSetting("tomorrow_mark_before"),
       ]);
       setSoundsEnabled(sounds !== "0");
       const soundVolume = volume === null || volume === undefined || Number.isNaN(Number(volume)) ? 70 : Math.min(100, Math.max(0, Number(volume)));
@@ -495,6 +507,8 @@ export const useStore = create<Store>()((set, get) => {
           onLogin: onLogin === "tray" ? "tray" : "home",
           displayName: name ?? "",
           compactOnFocus: compact === "1",
+          tomorrowTab: tomorrowTab === "1",
+          tomorrowMarkBefore: /^([01]\d|2[0-3]):[0-5]\d$/.test(markBefore ?? "") ? markBefore! : null,
           sounds: sounds !== "0",
           dailyGoalMin: Number(goal) || 120,
           restDaysMask: Number(rest) || 0,
@@ -518,7 +532,15 @@ export const useStore = create<Store>()((set, get) => {
       if (starting || !profile || s.appState !== "open" || s.session) return false;
       starting = true;
       try {
-        const session = await native.startSession(profile.id, s.durationMin, s.focusTask);
+        // A block that's on now, with its profile and length still in the pickers, is that
+        // item's session even without a click on it (2026-11-20): it can be checked off after.
+        const sug = s.suggestion;
+        const scheduled =
+          !s.focusTask && sug && sug.state === "now" && (sug.item.kind === "todo" || sug.item.kind === "routine") && !sug.item.done &&
+          s.focusOverrideKey !== sug.item.key && s.selectedProfileId === sug.profileId && s.durationMin === sug.minutes
+            ? { kind: sug.item.kind, id: sug.item.id, date: sug.item.date, title: sug.item.title }
+            : null;
+        const session = await native.startSession(profile.id, s.durationMin, s.focusTask ?? scheduled);
         // The plan stays (the profile remembers it); the goal is this seal's alone.
         set({ focusTask: null, focusLeftOff: null });
         get().applySession(session);

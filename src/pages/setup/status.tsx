@@ -8,9 +8,12 @@ import { useMotion } from "../../lib/useMotion";
 /** ok: working. attention: set up, but something needs doing. off: not set up. */
 export type ConnectionTone = "ok" | "attention" | "off";
 
-/** Fine is neutral; needing something is the second color; off is a hollow ring. */
+/**
+ * Working is green (ok), needing something is red (danger), both 2026-11-20; off (not set up) is a
+ * hollow ring. The app's Open state uses the same green.
+ */
 export function StatusDot({ tone }: { tone: ConnectionTone }) {
-  const look = tone === "ok" ? "bg-muted" : tone === "attention" ? "bg-second" : "border border-line-input";
+  const look = tone === "ok" ? "bg-ok" : tone === "attention" ? "bg-danger" : "border border-line-input";
   return <span aria-hidden="true" data-tone={tone} className={`h-2 w-2 shrink-0 rounded-full ${look}`} />;
 }
 

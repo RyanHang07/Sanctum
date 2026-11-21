@@ -188,6 +188,18 @@ describe("extension worker after a restart (v0.1.3)", () => {
     expect([...d]).toEqual([0xff, 0x67, 0x67, 255, 0x15, 0x14, 0x1b, 255, 0, 0, 0, 0]);
   });
 
+  it("draws the torii white in a dark theme and in the theme's dark ink in a light one (2026-11-20)", async () => {
+    const fake = fakeChrome({ connectFails: true });
+    await boot(fake);
+    // @ts-expect-error: plain JS module
+    const { toriiInk } = await import("../../extension/background.js");
+    // A dark theme with a light accent: its sealed-on is near-black, but the arch stays white.
+    expect(toriiInk({ scheme: "dark", palette: { sealed: "#FF8A6B", "sealed-on": "#15141B" } })).toBe("#FFFFFF");
+    expect(toriiInk({ scheme: "light", palette: { sealed: "#2F5BFF", "sealed-on": "#0B0D12" } })).toBe("#0B0D12");
+    expect(toriiInk({ scheme: "light", palette: {} })).toBe("#FFFFFF");
+    expect(toriiInk(undefined)).toBe("#FFFFFF");
+  });
+
   it("the blocked page's Open re-syncs before navigating", async () => {
     const fake = fakeChrome({ connectFails: true });
     await boot(fake);

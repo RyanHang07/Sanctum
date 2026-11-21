@@ -9,11 +9,16 @@ import { useNow } from "../lib/useNow";
 import { native } from "../lib/native";
 import { profileNote } from "../lib/rules";
 import { BUTTON_SIZES, Button, Kbd } from "../components/Button";
-import { Check, HIT, Switch } from "../components/controls";
+import { Check, HIT, Switch, useSlidingIndicator } from "../components/controls";
 import { Odometer } from "../components/Odometer";
 import { QuickAddField } from "../components/QuickAdd";
 import { PendingTab } from "./week/Pending";
+import { TomorrowList, cutoffLabel, marked, useDayTab, useTomorrowItems } from "./Tomorrow";
+import { useSwap } from "../lib/useSwap";
+import { FADE_WHEN_MORE, useMoreBelow } from "../lib/useMoreBelow";
 import { EventMark } from "./week/marks";
+import { canMove, drag as dayDrag, moveTo } from "./week/drag";
+import { ItemEditor, selectProps, selectable, useClearSelection, useSelectedKey } from "./itemSelect";
 import { CounterRow } from "./CounterRow";
 import { Glide } from "../lib/motion";
 import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
@@ -24,7 +29,7 @@ import { FocusPicker } from "./FocusPicker";
 import { BREAK_TIPS, homeLine, OPEN_DONE, OPEN_IDLE, pick } from "./headlines";
 import { SAMPLE_EVENT } from "./placeholders";
 import { countdown, joinNames, minutes } from "../lib/time";
-import { blockTimes, canReorder, moveId, msUntilReset, nextUp, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
+import { addDays, blockTimes, canReorder, moveId, msUntilReset, nextUp, openFirst, shortTime, todayKey, type AgendaItem, type Suggestion } from "../lib/planner";
 import type { DayStat, StatsOverview, TaskLink } from "../lib/types";
 
 /** A moment as the Today list writes its times: "2:30p" (one format across Today). */
@@ -198,7 +203,12 @@ function SuggestedCard({ s }: { s: Suggestion | null }) {
   }
   const profile = profiles.find((p) => p.id === s.profileId);
   const applied = selected === s.profileId && duration === s.minutes;
-  const use = () => useStore.setState({ selectedProfileId: s.profileId, durationMin: s.minutes, focusOverrideKey: null });
+  // Using a block is choosing its item: the session is for it, so it can be checked off after.
+  const use = () => {
+    useStore.setState({ selectedProfileId: s.profileId, durationMin: s.minutes, focusOverrideKey: null });
+    const i = s.item;
+    if (i.kind === "todo" || i.kind === "routine") useStore.getState().setFocusTask({ kind: i.kind, id: i.id, date: i.date, title: i.title });
+  };
   return (
     <div data-testid="suggestion" data-kind={s.state} className={`${SLOT} ${s.state === "now" ? "border-sealed bg-sealed-tint" : "border-line-input bg-raised"}`}>
       <span className={`${CHIP} ${s.state === "now" ? "bg-sealed text-sealed-on" : "bg-line text-text-2"}`}>{s.state === "now" ? "Now" : "Next"}</span>
@@ -405,8 +415,12 @@ function SessionBar() {
             <Button size="cell" onClick={openEndEarly} className="w-full text-text-2!">
               End early
             </Button>
-            <Button size="cell" onClick={() => void native.showCompact()} className="w-full text-text-2!">
-              Compact<Kbd>Ctrl M</Kbd>
+            {/* The shortcut shows only while the button has room for it (2026-11-20). */}
+            <Button size="cell" onClick={() => void native.showCompact()} className="@container w-full text-text-2!">
+              Compact
+              <span data-testid="compact-kbd" className="hidden @[150px]:inline">
+                <Kbd>Ctrl M</Kbd>
+              </span>
             </Button>
           </div>
         </div>
@@ -542,26 +556,48 @@ function useNowKey(items: AgendaItem[]): string | null {
 function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; current: boolean; linked: boolean; canLink: boolean; tag?: string; drag: DragKit }) {
   const toggle = usePlanner((s) => s.toggle);
   const movable = canReorder(t);
+  // In the tabs view, a one-time item can also be dropped on the other day's tab.
+  const crossDay = useStore((s) => s.settings.tomorrowTab) && canMove(t);
   const over = drag.over?.key === t.key ? drag.over.after : null;
+  const selected = useSelectedKey() === t.key;
+  const sel = selectProps(t, selected);
+  // A one-time item drags only once it's selected (2026-11-20): a stray press-and-move on
+  // another row does nothing. Routines aren't selected; they reorder as before.
+  const held = selected || !selectable(t);
+  const grabbable = (movable || crossDay) && held;
   return (
     <div
       data-now={current || undefined}
       data-testid="task-row"
       data-key={t.key}
-      draggable={movable || undefined}
+      draggable={grabbable || undefined}
+      {...sel}
       onKeyDown={(e) => {
+        sel.onKeyDown?.(e);
         // Alt+Up / Alt+Down: the keyboard way to drag.
         if (!movable || !e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
         e.preventDefault();
         drag.nudge(t, e.key === "ArrowUp" ? -1 : 1);
       }}
-      onDragStart={movable ? (e) => drag.start(e, t) : undefined}
-      onDragEnd={drag.end}
+      onDragStart={(e) => {
+        if (!held) return void e.preventDefault();
+        // Also the shared drag, so the other day's tab can take it (2026-11-20).
+        if (crossDay) dayDrag.item = t;
+        if (movable) drag.start(e, t);
+        else if (crossDay) {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", t.title);
+        }
+      }}
+      onDragEnd={() => {
+        dayDrag.item = null;
+        drag.end();
+      }}
       onDragOver={(e) => drag.overRow(e, t)}
       onDrop={(e) => drag.drop(e, t)}
-      className={`group relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-raised ${
-        current || linked ? "border-l-sealed bg-sealed-tint" : "border-l-transparent"
-      } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
+      className={`group @container relative flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-raised ${
+        current || linked ? "border-l-sealed bg-sealed-tint" : selected ? "border-l-text-2 bg-raised" : "border-l-transparent"
+      } ${grabbable && movable ? "cursor-grab active:cursor-grabbing" : grabbable ? "cursor-grab" : ""} ${drag.dragging === t.key ? "opacity-40" : ""}`}
     >
       {over !== null ? <span aria-hidden="true" className={`pointer-events-none absolute inset-x-[14px] h-[2px] rounded-full bg-sealed ${over ? "bottom-0" : "top-0"}`} /> : null}
       {(() => {
@@ -578,7 +614,7 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
               onToggle={() => void toggle(t)}
             />
             <span title={t.title} className={`min-w-0 grow truncate text-body transition-colors duration-ui ease-ui ${t.done ? "text-muted line-through" : "text-text"}`}>{t.title}</span>
-            {multi ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] font-mono text-micro text-muted">{t.sessionsDone ?? 0}/{t.sessionsTarget}</span> : null}
+            {multi ? <span className="hidden shrink-0 rounded-[4px] @[220px]:inline border border-line-input px-[6px] py-[1px] font-mono text-micro text-muted">{t.sessionsDone ?? 0}/{t.sessionsTarget}</span> : null}
           </>
         );
       })()}
@@ -590,16 +626,17 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
           aria-pressed={linked}
           aria-label={linked ? `Unlink ${t.title}` : `Focus on ${t.title}`}
           onClick={() => useStore.getState().setFocusTask(linked ? null : { kind: t.kind as TaskLink["kind"], id: t.id, date: t.date, title: t.title, profileId: t.profileId })}
-          className={`${HIT} flex h-5 shrink-0 items-center rounded-[4px] px-[7px] text-micro font-medium transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
+          className={`${HIT} hidden h-5 shrink-0 items-center rounded-[4px] px-[7px] text-micro font-medium @[340px]:flex transition-[opacity,color,background-color] duration-ui ease-ui focus-visible:opacity-100 ${
             linked ? "bg-sealed text-sealed-on" : "border border-line-input text-text-2 opacity-0 hover:text-text group-hover:opacity-100"
           }`}
         >
           {linked ? "For focus" : "Focus"}
         </button>
       ) : null}
-      {tag ? <span className="flex h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-micro text-text-2">{tag}</span> : null}
+      {/* Narrow rows give the title the room: Focus goes first, then the type, then the time (2026-11-20). */}
+      {tag ? <span className="hidden h-5 shrink-0 items-center rounded-[4px] border border-line-input px-[7px] text-micro text-text-2 @[300px]:flex">{tag}</span> : null}
       {/* No time, no time column: the tag sits at the far right. */}
-      {t.time ? <span className="w-[46px] shrink-0 text-right font-mono text-micro text-muted">{shortTime(t.time)}</span> : null}
+      {t.time ? <span className="hidden w-[46px] shrink-0 text-right font-mono text-micro text-muted @[220px]:block">{shortTime(t.time)}</span> : null}
     </div>
   );
 }
@@ -607,13 +644,18 @@ function TaskRow({ t, current, linked, canLink, tag, drag }: { t: AgendaItem; cu
 function EventRow({ t, now, tag }: { t: AgendaItem; now: number; tag?: string }) {
   const times = blockTimes(t);
   const past = times ? times.endsAt <= now : false;
+  const selected = useSelectedKey() === t.key;
   return (
-    <div data-kind="event" className="flex h-row shrink-0 items-center gap-[10px] border-l-2 border-l-transparent px-[14px]">
+    <div
+      data-kind="event"
+      {...selectProps(t, selected)}
+      className={`@container flex h-row shrink-0 items-center gap-[10px] border-l-2 px-[14px] transition-colors duration-ui ease-ui hover:bg-raised ${selected ? "border-l-text-2 bg-raised" : "border-l-transparent"}`}
+    >
       <EventMark size={16} />
       <span title={t.title} className={`min-w-0 grow truncate text-body ${past ? "text-muted" : "text-text-2"}`}>{t.title}</span>
-      {tag ? <span className="shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] text-micro text-text-2">{tag}</span> : null}
-      <span title={t.event?.calendarName ?? "Calendar"} className="max-w-[120px] shrink-0 truncate text-micro text-muted">{t.event?.calendarName ?? "Calendar"}</span>
-      <span className="w-[46px] shrink-0 text-right font-mono text-micro text-muted">{t.time ? shortTime(t.time) : "all day"}</span>
+      {tag ? <span className="hidden shrink-0 rounded-[4px] border border-line-input px-[6px] py-[1px] text-micro text-text-2 @[300px]:inline">{tag}</span> : null}
+      <span title={t.event?.calendarName ?? "Calendar"} className="hidden max-w-[120px] shrink-0 truncate @[340px]:inline text-micro text-muted">{t.event?.calendarName ?? "Calendar"}</span>
+      <span className="hidden w-[46px] shrink-0 text-right font-mono text-micro text-muted @[220px]:block">{t.time ? shortTime(t.time) : "all day"}</span>
     </div>
   );
 }
@@ -643,6 +685,22 @@ function useReorder(items: readonly AgendaItem[], save: (moved: AgendaItem, targ
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     return e.clientY > r.top + r.height / 2;
   };
+  // A row dropped on the other day's tab leaves the list mid-drag, so its own dragend never
+  // comes and it would stay dimmed when it returns (2026-11-20). Any drag's end clears it.
+  useEffect(() => {
+    if (!dragging) return;
+    const clear = () => {
+      held.current = null;
+      setDragging(null);
+      setOver(null);
+    };
+    window.addEventListener("dragend", clear, true);
+    window.addEventListener("drop", clear);
+    return () => {
+      window.removeEventListener("dragend", clear, true);
+      window.removeEventListener("drop", clear);
+    };
+  }, [dragging]);
   return {
     dragging: dragging?.key ?? null,
     over,
@@ -684,6 +742,99 @@ function useReorder(items: readonly AgendaItem[], save: (moved: AgendaItem, targ
   };
 }
 
+/**
+ * The tabs variant's header (2026-11-20): Today and Tomorrow as the column's own headings, body
+ * size, with one underline that slides to the picked day. Tomorrow carries a second-color dot
+ * when anything is before noon, from either tab. Each tab takes a dropped item and moves it to
+ * its day.
+ */
+function DayTabs({ tab, onTab, today, todayDate, tomorrow }: { tab: "today" | "tomorrow"; onTab: (t: "today" | "tomorrow") => void; today: AgendaItem[]; todayDate: string; tomorrow: string }) {
+  const next = useTomorrowItems(tomorrow);
+  const before = useStore((s) => s.settings.tomorrowMarkBefore);
+  // The dot: anything open tomorrow, or (with a cutoff) what starts before it.
+  const morning = next.filter((i) => marked(i, before)).length;
+  const what = before === null ? "planned" : `before ${cutoffLabel(before)}`;
+  const shown = (tab === "today" ? today : next).filter((i) => i.kind !== "event");
+  const root = useRef<HTMLDivElement>(null);
+  const line = useRef<HTMLSpanElement>(null);
+  useSlidingIndicator(root, line, tab);
+  // The dot bumps and settles when tomorrow gains something (a day reset, an item added), so the
+  // change is noticed; it sits still on first paint (2026-11-20). Reduced motion: it just appears.
+  const dot = useRef<HTMLSpanElement>(null);
+  const seen = useRef(morning);
+  const { run } = useMotion(root);
+  // Tomorrow's first load isn't news: until it's in, the dot just takes its place.
+  const ready = usePlanner((s) => s.loaded && !!s.range && s.range[1] >= tomorrow);
+  const settled = useRef(ready);
+  useEffect(() => {
+    const was = seen.current;
+    seen.current = morning;
+    // The render that brings the first load in counts as first paint too.
+    const first = !settled.current;
+    // Once in, a later reload (a new tomorrow at the reset) is news.
+    settled.current ||= ready;
+    if (first || !dot.current || morning <= was) return;
+    const from = was === 0 ? 0 : 1;
+    run(() =>
+      gsap
+        .timeline({ id: "tomorrow-dot" })
+        .fromTo(dot.current, { scale: from }, { scale: 1.6, duration: DUR.ui, ease: EASE.ui })
+        .to(dot.current, { scale: 1, duration: DUR.state, ease: EASE.glide, clearProps: "transform" }),
+    );
+  }, [morning, ready]);
+  const [over, setOver] = useState<"today" | "tomorrow" | null>(null);
+  const dateOf = (d: "today" | "tomorrow") => (d === "today" ? todayDate : tomorrow);
+  const fits = (d: "today" | "tomorrow") => !!dayDrag.item && canMove(dayDrag.item) && dayDrag.item.date !== dateOf(d);
+  const tabFor = (d: "today" | "tomorrow", label: string) => (
+    <button
+      key={d}
+      type="button"
+      role="tab"
+      aria-selected={tab === d}
+      data-indicator-item={d}
+      onClick={() => onTab(d)}
+      onDragOver={(e) => {
+        if (!fits(d)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (over !== d) setOver(d);
+      }}
+      onDragLeave={() => setOver(null)}
+      onDrop={(e) => {
+        const item = dayDrag.item;
+        setOver(null);
+        if (!item || !fits(d)) return;
+        e.preventDefault();
+        dayDrag.item = null;
+        void moveTo(item, dateOf(d));
+      }}
+      className={`relative flex h-10 items-center gap-[6px] rounded-t-control px-[6px] text-body font-semibold transition-colors duration-ui ease-ui ${
+        tab === d ? "text-text" : "text-muted hover:text-text-2"
+      } ${over === d ? "bg-sealed-tint text-text" : ""}`}
+    >
+      {label}
+      {d === "tomorrow" && morning ? (
+        <span ref={dot} data-tomorrow-dot aria-hidden="true" title={`${morning} ${what}`} className="h-[6px] w-[6px] rounded-full bg-second" />
+      ) : null}
+      {d === "tomorrow" && morning ? <span className="sr-only">, {morning} {what}</span> : null}
+    </button>
+  );
+  return (
+    <div className="flex h-10 shrink-0 items-stretch gap-2 px-[8px]">
+      <div ref={root} role="tablist" aria-label="Day" className="relative flex items-stretch gap-1">
+        {/* The underline: a 2px bar that slides under the picked day. */}
+        <span ref={line} aria-hidden="true" className="pointer-events-none absolute bottom-[-1px] left-0 !h-[2px] rounded-full bg-sealed opacity-0" />
+        {tabFor("today", "Today")}
+        {tabFor("tomorrow", "Tomorrow")}
+      </div>
+      <span className="grow" />
+      <span className="flex items-center pr-[6px] font-mono text-meta text-muted">
+        {shown.filter((t) => t.done).length}/{shown.length}
+      </span>
+    </div>
+  );
+}
+
 function ColumnHead({ title, items, first }: { title: string; items: AgendaItem[]; first?: ReactNode }) {
   const tasks = items.filter((i) => i.kind !== "event");
   return (
@@ -704,6 +855,24 @@ function ColumnHead({ title, items, first }: { title: string; items: AgendaItem[
  */
 function TodayPanel({ strip }: { strip: boolean }) {
   const all = useTodayAgenda();
+  const dayList = useRef<HTMLDivElement>(null);
+  const dayMore = useMoreBelow(dayList);
+  const routinesList = useRef<HTMLDivElement>(null);
+  const routinesMore = useMoreBelow(routinesList);
+  // Tomorrow on Today (a setting, off by default, 2026-11-20): Today | Tomorrow on the list's
+  // header; the list swaps like a screen.
+  const tomorrowTab = useStore((s) => s.settings.tomorrowTab);
+  const dayTab = useDayTab((s) => s.tab);
+  const setDayTab = (tab: "today" | "tomorrow") => useDayTab.setState({ tab });
+  // Only the dev panel bumps this, to replay the reset refresh without waiting for it.
+  const resets = useDayTab((s) => s.resets);
+  const tab = tomorrowTab ? dayTab : "today";
+  // The day itself is part of the key: at the reset time, tomorrow becomes today and both lists
+  // refresh with the same fade and rise (2026-11-20), instead of changing under you.
+  const listDay = todayKey(new Date(useNow(30_000)), useStore.getState().settings.dailyResetTime);
+  const { ref: daySwap, shown: shownKey } = useSwap<string>(`${tab}|${listDay}|${resets}`, "day-swap");
+  const shownTab = shownKey.split("|")[0] as "today" | "tomorrow";
+  const { ref: routinesSwap } = useSwap<string>(`${listDay}|${resets}`, "routines-reset");
   const routineList = usePlanner((s) => s.routines);
   const routines = useMemo(() => openFirst(all.filter((i) => i.kind === "routine")), [all]);
   // Counters (v0.1.4) sit at the top of Routines, in routine order; the rest list below.
@@ -727,6 +896,7 @@ function TodayPanel({ strip }: { strip: boolean }) {
   const resetMs = msUntilReset(new Date(now), dailyResetTime);
   const routinesTitle = resetMs <= 60 * 60_000 ? `Routines reset in ${Math.max(1, Math.ceil(resetMs / 60_000))}m` : "Routines";
 
+  useClearSelection();
   const routineDrag = useReorder(listed, (moved, target, after) => {
     const ids = [...usePlanner.getState().routines].sort((a, b) => a.sort - b.sort || a.id - b.id).map((r) => r.id);
     void usePlanner.getState().reorderRoutines(moveId(ids, moved.id, target.id, after));
@@ -777,12 +947,30 @@ function TodayPanel({ strip }: { strip: boolean }) {
           }
         />
         <div className="border-l border-line">
-          <ColumnHead title="Today" items={day} />
+          {tomorrowTab ? (
+            <DayTabs
+              tab={dayTab}
+              onTab={setDayTab}
+              today={day}
+              todayDate={todayKey(new Date(), dailyResetTime)}
+              tomorrow={addDays(todayKey(new Date(), dailyResetTime), 1)}
+            />
+          ) : (
+            <ColumnHead title="Today" items={day} />
+          )}
         </div>
       </div>
       {collapsed ? null : (
         <div className="grid min-h-0 grow grid-cols-2">
-          <div data-testid="routines-column" className="flex min-h-0 flex-col overflow-y-auto py-1">
+          <div
+            ref={(el) => {
+              routinesList.current = el;
+              routinesSwap.current = el;
+            }}
+            data-testid="routines-column"
+            data-more={routinesMore || undefined}
+            className={`flex min-h-0 flex-col overflow-y-auto pb-3 pt-1 ${FADE_WHEN_MORE}`}
+          >
             {routines.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-muted">No routines today.</p> : null}
             {counters.map((t) => (
               <Glide key={t.key}>
@@ -791,23 +979,36 @@ function TodayPanel({ strip }: { strip: boolean }) {
             ))}
             {listed.map((t) => row(t, routineDrag))}
           </div>
-          <div data-testid="day-column" className="flex min-h-0 flex-col border-l border-line">
-            <QuickAddField
-              date={todayKey(new Date(), dailyResetTime)}
-              label="Add a task for today"
-              placeholder="Add a task for today"
-              prefix={<PlusIcon className="shrink-0 text-faint" />}
-              className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-raised"
-            />
-            <div className="flex min-h-0 grow flex-col overflow-y-auto py-1">
-              {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-muted">Nothing else planned today.</p> : null}
-              {day.map((t) => row(t, dayDrag))}
+          <div data-testid="day-column" data-more={dayMore || undefined} className="group/day flex min-h-0 flex-col border-l border-line">
+            <div ref={daySwap} data-testid="day-swap" className="flex min-h-0 grow flex-col">
+              {shownTab === "today" ? (
+                <QuickAddField
+                  date={todayKey(new Date(), dailyResetTime)}
+                  label="Add a task for today"
+                  placeholder="Add a task for today"
+                  prefix={<PlusIcon className="shrink-0 text-faint" />}
+                  className="flex h-[38px] shrink-0 cursor-text items-center gap-[10px] border-b border-line px-[14px] transition-colors duration-ui ease-ui hover:bg-raised"
+                />
+              ) : null}
+              {/* With more below than fits, the list fades out at its foot and the dividers under it
+                  step aside (2026-11-20), so a tight column keeps its room and still says so. */}
+              <div ref={dayList} data-more={dayMore || undefined} className={`flex min-h-0 grow flex-col overflow-y-auto pb-3 pt-1 ${FADE_WHEN_MORE}`}>
+                {shownTab === "tomorrow" ? (
+                  <TomorrowList date={addDays(todayKey(new Date(), dailyResetTime), 1)} />
+                ) : (
+                  <>
+                    {day.length === 0 ? <p className="m-0 px-[14px] py-3 text-meta text-muted">Nothing else planned today.</p> : null}
+                    {day.map((t) => row(t, dayDrag))}
+                  </>
+                )}
+              </div>
             </div>
             <PendingTab />
           </div>
         </div>
       )}
       {strip && !collapsed ? <NextUpStrip /> : null}
+      <ItemEditor />
     </section>
   );
 }

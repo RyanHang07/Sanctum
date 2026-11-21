@@ -52,7 +52,8 @@ describe("a session for a task (v0.1)", () => {
     expect(held.task?.title).toBe("Write the essay");
     render(<HeldPage held={held} />);
     const page = within(screen.getByTestId("held-page"));
-    fireEvent.click(page.getByRole("button", { name: "Add a note" }));
+    // Offered on the card itself, without opening Add a note (2026-11-20).
+    expect(page.queryByTestId("held-review")).toBeNull();
     await act(async () => fireEvent.click(page.getByRole("button", { name: "Mark Write the essay done" })));
     expect(page.getByTestId("held-task")).toHaveTextContent("Write the essay is done");
     expect((await native.listTodos(todayKey(), todayKey())).find((t) => t.id === todo.id)?.done).toBe(true);
@@ -78,5 +79,60 @@ describe("a session for a task (v0.1)", () => {
       })),
     );
     expect(useStore.getState().session?.task?.title).toBe("Write the essay");
+  });
+
+  /** A block on now for the essay, from the setup's profile. */
+  const block = (todo: { id: number; title: string; dueDate: string; profileId: number | null }, state: "now" | "next" = "now") => ({
+    item: { key: `todo:${todo.id}`, kind: "todo" as const, id: todo.id, title: todo.title, date: todo.dueDate, time: null, durationMin: 30, profileId: todo.profileId, done: false, order: 0 },
+    state,
+    startsAt: Date.now(),
+    endsAt: Date.now() + 30 * 60_000,
+    profileId: todo.profileId!,
+    minutes: 30,
+  });
+
+  it("Enter focus during a block that's on now makes that item the session's task", async () => {
+    await setup();
+    const todo = usePlanner.getState().todos[0]!;
+    act(() => useStore.getState().applySuggestion(block(todo)));
+    await act(async () => void (await useStore.getState().enterFocus()));
+    expect(useStore.getState().session?.task).toMatchObject({ kind: "todo", id: todo.id, title: "Write the essay" });
+  });
+
+  it("but not once you picked another profile or length yourself", async () => {
+    await setup();
+    const todo = usePlanner.getState().todos[0]!;
+    act(() => useStore.getState().applySuggestion(block(todo)));
+    act(() => {
+      useStore.getState().setDuration(45);
+      useStore.getState().markManualFocus();
+    });
+    await act(async () => void (await useStore.getState().enterFocus()));
+    expect(useStore.getState().session?.task ?? null).toBeNull();
+  });
+
+  it("Use on a block links its item, so the session can check it off", async () => {
+    await setup();
+    const todo = usePlanner.getState().todos[0]!;
+    act(() => useStore.setState({ selectedProfileId: useStore.getState().profiles[0]!.id, durationMin: 15 }));
+    act(() => useStore.getState().applySuggestion(block(todo, "next")));
+    render(<Home />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /^Use / })));
+    expect(useStore.getState().focusTask).toMatchObject({ kind: "todo", id: todo.id });
+    expect(screen.getByTestId("focus-task")).toHaveTextContent("Write the essay");
+  });
+
+  it("answering Done in How it went checks the task off too", async () => {
+    const { todo } = await setup();
+    render(<Home />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Focus on Write the essay" })));
+    await act(async () => void (await useStore.getState().enterFocus()));
+    await act(async () => mockControls.fastForward(24 * 60 * 60_000));
+    render(<HeldPage held={useStore.getState().held!} />);
+    const page = within(screen.getByTestId("held-page"));
+    fireEvent.click(page.getByRole("button", { name: "Add a note" }));
+    await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
+    expect((await native.listTodos(todayKey(), todayKey())).find((t) => t.id === todo.id)?.done).toBe(true);
+    expect(page.getByTestId("held-task")).toHaveTextContent("Write the essay is done");
   });
 });

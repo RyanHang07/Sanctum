@@ -3,7 +3,7 @@ import { Button } from "../../components/Button";
 import { Check, Dialog, Segmented, TabPanel } from "../../components/controls";
 import { HEADLINE } from "../headlines";
 import { useJournal } from "../../state/journal";
-import { PRESETS, THEMES, type JournalSetup as Setup } from "../../lib/journalPrompts";
+import { THEMES, type JournalSetup as Setup } from "../../lib/journalPrompts";
 import type { JournalLock } from "../../lib/types";
 
 // The journal's own setup (v0.2), separate from the app's first-run setup. The first time, it
@@ -32,7 +32,6 @@ export function JournalSetup({ onClose, first, at }: { onClose: () => void; firs
   const [busy, setBusy] = useState(false);
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  const preset = (ids: string[]) => setPicked((p) => (ids.every((id) => p.includes(id)) ? p.filter((x) => !ids.includes(x)) : [...p, ...ids.filter((id) => !p.includes(id))]));
   const pinOk = kind !== "pin" || (/^\d{4,8}$/.test(pin) && pin === again) || (lock?.lock === "pin" && !pin && !again);
   const shown = THEMES.find((t) => t.id === theme)!;
 
@@ -58,48 +57,31 @@ export function JournalSetup({ onClose, first, at }: { onClose: () => void; firs
       <div className={`flex flex-col gap-4 overflow-y-auto px-6 pb-5 pt-6 ${first ? "min-h-0" : "max-h-[calc(100vh-170px)]"}`}>
         {!first ? (
           <div ref={promptsRef} data-testid="journal-prompts" className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="m-0 text-body font-semibold text-text">{HEADLINE.journalPrompts}</h2>
-              <span className="text-meta text-muted">Pages open blank. Each day offers one of your picks above the page, to use or pass on. Pick none and it offers nothing.</span>
-            </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Quick picks">
-              {PRESETS.map((x) => {
-                const on = x.prompts.every((id) => picked.includes(id));
-                return (
-                  <button
-                    key={x.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => preset(x.prompts)}
-                    className={`rounded-control border px-3 py-[6px] text-left text-meta transition-colors duration-ui ease-ui ${on ? "border-sealed bg-sealed-tint text-text" : "border-line-input text-text-2 hover:bg-raised"}`}
-                  >
-                    <span className="block font-medium">{x.label}</span>
-                    <span className="block text-micro text-muted">{x.blurb}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Scannable (2026-11-20): a heading, four short tabs, the prompts. No quick picks or
+                blurbs; the page itself says how a prompt is offered ("Try: ..."). */}
+            <h2 className="m-0 text-body font-semibold text-text">{HEADLINE.journalPrompts}</h2>
             <Segmented
               label="Themes"
               panels={THEME_TABS}
               value={theme}
               onChange={setTheme}
-              className="flex-wrap self-start"
+              className="self-start"
               options={THEMES.map((t) => {
                 const n = t.prompts.filter((x) => picked.includes(x.id)).length;
                 return {
                   value: t.id,
                   label: (
                     <>
-                      {t.label}
-                      {n ? <span className="ml-[6px] font-mono text-micro text-sealed-text">{n}</span> : null}
+                      <span className="whitespace-nowrap">
+                        {t.label}
+                        {n ? <span className="ml-[6px] font-mono text-micro text-sealed-text">{n}</span> : null}
+                      </span>
                     </>
                   ),
                 };
               })}
             />
             <TabPanel base={THEME_TABS} value={shown.id} className="flex flex-col gap-1 rounded-control">
-              <span className="text-meta text-muted">{shown.blurb}</span>
               {shown.prompts.map((x) => (
                 <label key={x.id} className="flex cursor-pointer items-start gap-[10px] rounded-control px-2 py-[6px] hover:bg-raised">
                   <Check checked={picked.includes(x.id)} onToggle={() => toggle(x.id)} className="mt-px" />

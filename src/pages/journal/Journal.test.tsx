@@ -181,6 +181,10 @@ describe("journal page (v0.2)", () => {
     expect(setup.getByRole("button", { name: "Save" })).toBeInTheDocument();
     const themes = setup.getByRole("tablist", { name: "Themes" });
     const tabs = within(themes).getAllByRole("tab");
+    // Four short tabs and the prompts: no quick picks, no blurbs (2026-11-20).
+    expect(tabs.map((t) => t.textContent?.replace(/\d+$/, ""))).toEqual(["Plan", "Reflect", "Feelings", "Focus"]);
+    expect(setup.queryByRole("group", { name: "Quick picks" })).toBeNull();
+    expect(setup.queryByText(/Pages open blank/)).toBeNull();
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     fireEvent.click(tabs[1]!);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");

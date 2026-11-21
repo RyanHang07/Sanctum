@@ -6,11 +6,15 @@ Today (Ctrl 1) is the focus card and the day's list together. Under the headline
 
 The list holds routines, one-time tasks, and calendar events. Add a task with Enter, check it off, and link it to a session. **Next up**, at the foot of the list, counts down to the next timed item. Items with no day yet, and undone ones from earlier days, wait in **Pending**, here and in Week. **Customize** hides or shows the list, Next up, the streak, and the empty-schedule hint.
 
+Click a one-time task or event to select it; a selected item drags, to reorder it or onto another day. Double-click it (or press Enter on the selected one) to edit or delete it. Routines reorder by dragging and are edited in Week.
+
+**Tomorrow on Today** (Setup › Behavior, off by default) turns the list's heading into **Today | Tomorrow** tabs. Tomorrow's items check off there and drag between the tabs, and a dot on the Tomorrow tab says something is planned. **Mark tomorrow** can limit the dot to what starts before a time you pick.
+
 **Quick add** understands plain words: `mock interview thu 3pm`, `read 90m @study`, `weigh every mon thu`, `stretch daily`. A repeat makes a routine instead of a one-time item.
 
 ## Week
 
-Week (Ctrl 2) shows seven days of tasks and events, with each day's routines folded under a **Routines** row at the top. Click a day's row to open it. Open days stay open as you switch tabs, and going to a different week starts them all closed. Drag items between days. Routines have their own view, and **Month** shows the whole month with each day's progress. Kept days carry a dot in the theme's second color, missed days a hollow ring.
+Week (Ctrl 2) shows seven days of tasks and events, with each day's routines folded under a **Routines** row at the top. Click a day's row to open it. Open days stay open as you switch tabs, and going to a different week starts them all closed. Drag items between days, in the grid or in **List**, where each day's routines fold the same way. Routines have their own view, and **Month** shows the whole month with each day's progress. Kept days carry a dot in the theme's second color, missed days a hollow ring.
 
 ## Google Calendar
 

@@ -12,7 +12,7 @@ The strip at the top moves between days; each day carries its kept or missed mar
 
 ## Prompts
 
-A new page opens blank, with one prompt above it: "Try: …". **Use it** puts the prompt on the page as a small heading to write under, and **Another** offers the next. A new journal starts from a starter set of prompts; **Change prompts** on the same line picks your own, by theme (productivity, reflection, gratitude, and more) or from quick picks like evening reflection.
+A new page opens blank, with one prompt above it: "Try: …". **Use it** puts the prompt on the page as a small heading to write under, and **Another** offers the next. A new journal starts from a starter set of prompts; **Change prompts** on the same line picks your own, from four tabs: Plan, Reflect, Feelings, and Focus.
 
 ## Looking back
 

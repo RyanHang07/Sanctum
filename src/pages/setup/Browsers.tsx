@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../components/Button";
-import { EVENTS, native, onNative } from "../../lib/native";
+import { EVENTS, errorText, native, onNative } from "../../lib/native";
+import { useStore } from "../../state/store";
+import { useTheme } from "../../state/theme";
 import type { BrowserInfo, BrowserStatus } from "../../lib/types";
 import { Row, Section } from "./parts";
-import { listNames, StatusDot, StatusLine, useCascade, type ConnectionTone } from "./status";
+import { StatusDot, useCascade, type ConnectionTone } from "./status";
 
 // Setup > Browser Extension (4b): which browsers have the extension, and how to load it.
 // Sites and title keywords seal inside the browser only through the extension.
@@ -27,13 +29,14 @@ function useBrowsers(): BrowserStatus | null {
 /** Browsers on this PC, or with the extension talking to Sanctum. */
 const present = (s: BrowserStatus) => s.browsers.filter((b) => b.installed || b.connected);
 
+/** Green once any browser is connected; red while browsers are found but none is (2026-11-20). */
 export function browserTone(s: BrowserStatus | null): ConnectionTone {
   const list = s ? present(s) : [];
   if (!list.length) return "off";
-  return list.every((b) => b.connected && !b.missing && b.incognito !== false) ? "ok" : "attention";
+  return list.some((b) => b.connected && !b.missing) ? "ok" : "attention";
 }
 
-/** For the side list's dot: every browser connected, one needing something, or none found. */
+/** For the side list's dot: green with one browser connected, red with none, a ring with no browser. */
 export function useBrowserStatus(): ConnectionTone {
   return browserTone(useBrowsers());
 }
@@ -46,10 +49,11 @@ export function browserHint(b: BrowserInfo): string {
 }
 
 function BrowserRow({ b }: { b: BrowserInfo }) {
-  const tone: ConnectionTone = b.connected && !b.missing && b.incognito !== false ? "ok" : b.connected || b.missing ? "attention" : "off";
+  // Each browser says itself: green connected, red not (2026-11-20). Private windows off shows in the hint.
+  const tone: ConnectionTone = b.connected && !b.missing ? "ok" : "attention";
   return (
     <Row label={b.name} hint={browserHint(b)}>
-      <span className="flex shrink-0 items-center gap-[6px] text-body text-text-2">
+      <span className={`flex shrink-0 items-center gap-[6px] text-body ${tone === "ok" ? "text-ok-text" : "text-text-2"}`}>
         <StatusDot tone={tone} />
         {b.connected ? "Connected" : "Not connected"}
       </span>
@@ -91,16 +95,23 @@ function Steps({ status }: { status: BrowserStatus }) {
   );
 }
 
-/** One sentence for the whole set, worst first: removed, then not loaded, then private windows. */
-function summary(list: BrowserInfo[]): string {
-  const names = (f: (b: BrowserInfo) => boolean) => listNames(list.filter(f).map((b) => b.name));
-  const missing = names((b) => !!b.missing);
-  if (missing) return `Removed from ${missing}. Its windows stay minimized.`;
-  const off = names((b) => !b.connected);
-  if (off) return `Not connected in ${off}. Sites aren’t blocked there yet.`;
-  const incognito = names((b) => b.incognito === false);
-  if (incognito) return `Private windows in ${incognito} aren’t covered.`;
-  return `Connected in ${names(() => true)}.`;
+function ExtensionIntro({ open, onToggle }: { open: boolean; onToggle?: () => void }) {
+  const scheme = useTheme((s) => s.theme.scheme);
+  const guide = () => void native.openSite("docs/extension", scheme).catch((e) => useStore.getState().showNotice({ lead: errorText(e) }));
+  return (
+    <div data-testid="extension-intro" className="flex min-h-12 items-center gap-[10px] border-b border-line-soft px-[14px] py-2">
+      <span className="min-w-0 grow text-body text-text-2">Seals sites and keyword tabs inside your browser.</span>
+      <Button variant="ghost" size="sm" onClick={guide}>
+        How to use it
+      </Button>
+      {/* With nothing connected the steps stay open: they are the next step. */}
+      {onToggle ? (
+        <Button variant="quiet" size="sm" onClick={onToggle}>
+          {open ? "Hide steps" : "Show steps"}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 /** In Setup the section is already named Browser Extension, so the box drops its title; first run keeps it. */
@@ -112,32 +123,15 @@ export function BrowsersSection({ titled = false }: { titled?: boolean } = {}) {
 
   if (!status) return null;
   const list = present(status);
-  const tone = browserTone(status);
   const anyConnected = list.some((b) => b.connected);
   const open = showSteps ?? !anyConnected;
   const toggle = () => setShowSteps(!open);
 
-  let action;
-  if (tone === "attention" && !open) {
-    action = (
-      <Button variant="primary" size="sm" onClick={toggle}>
-        {anyConnected ? "Show steps" : "Install the extension"}
-      </Button>
-    );
-  } else if (anyConnected) {
-    // With nothing connected the steps stay open: they are the next step.
-    action = (
-      <Button variant="quiet" size="sm" onClick={toggle}>
-        {open ? "Hide steps" : "Load in another browser"}
-      </Button>
-    );
-  }
-
   return (
     <Section title="Browser Extension" titled={titled}>
-      <StatusLine tone={tone} testId="browser-status" action={action}>
-        {list.length ? summary(list) : "No supported browser found."}
-      </StatusLine>
+      {/* What it is and where to read more, in place of a status line (2026-11-20): each
+          browser below carries its own green or red dot. */}
+      <ExtensionIntro open={open} onToggle={anyConnected ? toggle : undefined} />
       <div ref={rows}>
         {list.length === 0 ? (
           <Row label="Comet, Chrome, Edge, and Brave work">

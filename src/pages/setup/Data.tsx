@@ -142,7 +142,7 @@ export function DataSection({ reload = () => window.location.reload() }: { reloa
                   <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>
                     Cancel
                   </Button>
-                  <Button variant="primary" size="sm" disabled={busy !== null} onClick={() => void restore(b.path)}>
+                  <Button variant="danger" size="sm" disabled={busy !== null} onClick={() => void restore(b.path)}>
                     {busy === b.path ? "Restoring…" : "Restore it"}
                   </Button>
                 </div>
@@ -165,7 +165,7 @@ export function DangerZone({ reload = () => window.location.reload() }: { reload
   useEffect(load, []);
   const signedIn = !!cloud?.configured && !!cloud.signedIn && !cloud.connecting;
   return (
-    <Section title="Danger Zone" className="border-broken-line">
+    <Section title="Danger Zone" className="border-danger-line">
       <StartOverRows reload={reload} />
       {signedIn ? <DeleteAccount onDone={load} /> : null}
     </Section>

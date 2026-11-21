@@ -171,6 +171,78 @@ export function resetMockBackend() {
       ],
     },
   };
+  mockNoteWindows.clear();
+  if (noteWindowPoll) clearInterval(noteWindowPoll);
+  noteWindowPoll = null;
+  seedNoteCopy();
+}
+
+// Notes in their own window, in the preview (2026-11-20). The app opens a Tauri window; here a
+// pop-up opens on the same page at #/note/<id>. The mock backend lives per page, so the pop-up
+// has its own mock data: it starts with a copy of the note (handed over in localStorage). Each
+// save, pin and delete is relayed to the other windows over a BroadcastChannel, which apply it
+// to their copy and send sanctum://notes, as the app does between its windows (2026-11-20).
+/** id -> the pop-up, or null in tests (jsdom opens no windows). */
+const mockNoteWindows = new Map<number, Window | null>();
+let noteWindowPoll: ReturnType<typeof setInterval> | null = null;
+const NOTE_COPY = "sanctum-mock-note-";
+const noteWindowIds = () => [...mockNoteWindows.keys()].sort((a, b) => a - b);
+const emitNoteWindows = () => bus.emit("sanctum://note-windows", noteWindowIds());
+
+/** This page's window label, as the app would name it: note-<id> in a pop-up, else main. */
+const mockLabel = () => {
+  const id = typeof window === "undefined" ? undefined : /^#\/note\/(\d+)$/.exec(window.location.hash)?.[1];
+  return id ? `note-${id}` : "main";
+};
+
+export const MOCK_NOTES_CHANNEL = "sanctum-mock-notes";
+type NoteNews = { kind: "saved" | "created" | "pinned" | "deleted"; id: number; note?: Note; from: string };
+const relay = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(MOCK_NOTES_CHANNEL);
+const tell = (news: Omit<NoteNews, "from">) => relay?.postMessage({ ...news, from: mockLabel() });
+if (relay) {
+  // Never what keeps a test run (Node) alive.
+  (relay as unknown as { unref?: () => void }).unref?.();
+  relay.onmessage = (e: MessageEvent<NoteNews>) => {
+    const { kind, id, note, from } = e.data;
+    // A pop-up holds only its own note; the main window holds them all.
+    if (mockLabel() !== "main" && mockLabel() !== `note-${id}`) return;
+    if (kind === "deleted") state.notes = state.notes.filter((n) => n.id !== id);
+    else if (note) {
+      state.notes = [...state.notes.filter((n) => n.id !== id), note];
+      state.nextId = Math.max(state.nextId, id + 1);
+    }
+    bus.emit("sanctum://notes", { id, kind, from });
+  };
+}
+
+/** A pop-up closed by hand is noticed here (no Destroyed event in a browser). */
+function watchNoteWindows() {
+  noteWindowPoll ??= setInterval(() => {
+    let changed = false;
+    for (const [id, w] of mockNoteWindows) {
+      if (w?.closed) changed = mockNoteWindows.delete(id) || changed;
+    }
+    if (changed) emitNoteWindows();
+    if (![...mockNoteWindows.values()].some(Boolean) && noteWindowPoll) {
+      clearInterval(noteWindowPoll);
+      noteWindowPoll = null;
+    }
+  }, 500);
+}
+
+/** In a note pop-up: the note its opener handed over. */
+function seedNoteCopy() {
+  if (typeof window === "undefined") return;
+  const id = Number(/^#\/note\/(\d+)$/.exec(window.location.hash)?.[1]);
+  if (!id) return;
+  try {
+    const n = JSON.parse(localStorage.getItem(NOTE_COPY + id) ?? "null") as Note | null;
+    if (!n || n.id !== id) return;
+    state.notes.push(n);
+    state.nextId = Math.max(state.nextId, id + 1);
+  } catch {
+    // nothing handed over: the window says the note is gone
+  }
 }
 resetMockBackend();
 
@@ -321,16 +393,19 @@ const handlers: Record<string, (a: any) => unknown> = {
       const n = state.notes.find((x) => x.id === draft.id);
       if (!n) throw "That note no longer exists.";
       Object.assign(n, { title: draft.title.slice(0, 200), body: draft.body, updatedAt: now }, draft.doc != null ? { doc: draft.doc } : {});
+      tell({ kind: "saved", id: n.id, note: clone(n) });
       return clone(n);
     }
     const n: Note = { id: state.nextId++, title: draft.title.slice(0, 200), body: draft.body, doc: draft.doc ?? null, pinned: false, createdAt: now, updatedAt: now };
     state.notes.push(n);
+    tell({ kind: "created", id: n.id, note: clone(n) });
     return clone(n);
   },
   pin_note: ({ id, pinned }: { id: number; pinned: boolean }) => {
     const n = state.notes.find((x) => x.id === id);
     if (!n) throw "That note no longer exists.";
     n.pinned = pinned;
+    tell({ kind: "pinned", id, note: clone(n) });
     return clone(n);
   },
   delete_note: ({ id }: { id: number }) => {
@@ -338,7 +413,41 @@ const handlers: Record<string, (a: any) => unknown> = {
     const n = state.notes.find((x) => x.id === id);
     if (n?.share) mockShares.delete(/\/n\/([0-9a-f]+)#/.exec(n.share.url)![1]!);
     state.notes = state.notes.filter((n) => n.id !== id);
+    tell({ kind: "deleted", id });
+    // Its window closes with it.
+    if (mockNoteWindows.has(id)) handlers.note_window_close!({ id });
   },
+  note_window_open: ({ id }: { id: number }) => {
+    const n = state.notes.find((x) => x.id === id);
+    if (!n) throw "That note no longer exists.";
+    if (mockNoteWindows.has(id)) {
+      const w = mockNoteWindows.get(id);
+      if (!w?.closed) return void w?.focus();
+    }
+    let w: Window | null = null;
+    if (import.meta.env.MODE !== "test") {
+      try {
+        localStorage.setItem(NOTE_COPY + id, JSON.stringify(n));
+      } catch {
+        // no storage: the pop-up opens on an empty mock
+      }
+      w = window.open(`/#/note/${id}`, `note-${id}`, "width=560,height=640");
+      if (!w) throw "Allow pop-ups for this page to open a note in its own window.";
+      watchNoteWindows();
+    }
+    mockNoteWindows.set(id, w);
+    emitNoteWindows();
+  },
+  note_window_close: ({ id }: { id: number }) => {
+    // Called from the pop-up itself: it closes, a beat later so its last relayed news (a save,
+    // or the delete) has left before the page goes.
+    if (window.location.hash === `#/note/${id}`) return void setTimeout(() => window.close(), 150);
+    const w = mockNoteWindows.get(id);
+    if (!mockNoteWindows.delete(id)) return;
+    w?.close();
+    emitNoteWindows();
+  },
+  note_window_list: () => noteWindowIds(),
   reset_all: ({ force }: { force?: boolean }) => {
     if (state.session) throw "Starting over waits until the seal ends.";
     if (state.gcal.email && state.gcal.unreachable && !force) throw "calendar-stuck: Google can't be reached.";
@@ -348,6 +457,13 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   // The About version matches the sidebar's: both read package.json.
   app_version: () => pkg.version,
+  // The app opens the site's page in your browser; the preview opens it in a new tab (same pages
+  // as the app's list in updates.rs, 2026-11-20).
+  open_site: ({ page, scheme }: { page: string; scheme: string }) => {
+    const p = page.replace(/^\/+|\/+$/g, "");
+    if (!["privacy", "terms", "legal", "docs", "docs/extension", "changelog", "partner"].includes(p)) throw "That page isn't on Sanctum's site.";
+    if (import.meta.env.MODE !== "test") window.open(`https://sanctum-desktop.vercel.app/${p}?theme=${scheme === "light" ? "light" : "dark"}`, "_blank", "noopener");
+  },
   save_note_image: ({ data, mime }: { data: string; mime: string }) => {
     if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(mime)) throw "Use a PNG, JPEG, GIF, or WebP image.";
     const id = mockImageId++;

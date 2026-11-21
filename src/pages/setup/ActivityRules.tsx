@@ -156,7 +156,7 @@ function RuleRow({
               {CATEGORY[c].label}
             </button>
           ))}
-          <Button variant="quiet" size="sm" aria-label={`Remove ${r.pattern}`} onClick={onRemove}>
+          <Button variant="danger-plain" size="sm" aria-label={`Remove ${r.pattern}`} onClick={onRemove}>
             Remove
           </Button>
         </div>

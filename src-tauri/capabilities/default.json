@@ -1,18 +1,20 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main, tray panel, and compact timer windows",
+  "description": "Permissions for the main, tray panel, compact timer, intercept, and note windows",
   "windows": [
     "main",
     "tray-panel",
     "compact",
-    "intercept"
+    "intercept",
+    "note-*"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:allow-set-theme",
     "core:window:allow-set-background-color",
+    "core:window:allow-set-title",
     "autostart:default"
   ]
 }

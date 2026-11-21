@@ -17,6 +17,7 @@ mod unlock;
 mod updates;
 mod launcher;
 mod notes;
+mod note_windows;
 mod focus;
 mod pause;
 mod review;
@@ -812,6 +813,7 @@ pub fn run() {
                 update: updates::Ready::default(),
                 db_generation: db::Generation::default(),
             });
+            app.manage(note_windows::Open::default());
             // Windows are created here, not by Tauri, so no page can call a command before
             // Shared is managed (that panics inside WebView2 and aborts the app).
             for cfg in app.config().app.windows.clone() {
@@ -851,6 +853,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| match (window.label(), event) {
+            // A note in its own window (2026-11-20): saved place, closing, and the open list.
+            (label, _) if note_windows::id_of(label).is_some() => note_windows::on_event(window, event),
             ("main", WindowEvent::CloseRequested { api, .. }) => {
                 api.prevent_close();
                 let app = window.app_handle();
@@ -921,6 +925,9 @@ pub fn run() {
             notes::save_note,
             notes::pin_note,
             notes::delete_note,
+            note_windows::note_window_open,
+            note_windows::note_window_close,
+            note_windows::note_window_list,
             updates::update_check,
             startup::startup_status,
             startup::set_startup,

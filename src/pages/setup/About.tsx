@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Fold } from "../week/marks";
 import { Button } from "../../components/Button";
 import { Row, Section } from "./parts";
 import { errorText, native } from "../../lib/native";
@@ -130,6 +131,11 @@ export function StartOverRows({ reload = () => window.location.reload() }: { rel
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [stuck, setStuck] = useState(false);
+  // The field stays mounted inside the fold, so it's focused when the fold opens.
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (asking && !stuck) field.current?.focus();
+  }, [asking, stuck]);
   const run = async (force = false) => {
     setBusy(true);
     try {
@@ -146,14 +152,18 @@ export function StartOverRows({ reload = () => window.location.reload() }: { rel
     <>
       <Row label="Erase everything on this PC" hint="Then setup runs again">
         {asking ? null : (
-          <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
+          <Button variant="danger-quiet" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
             {sealed ? "Waits until the seal ends" : "Start over"}
           </Button>
         )}
       </Row>
-      {stuck ? (
+      {/* Each step folds open and shut (2026-11-20), and says what it does in a few short lines. */}
+      <Fold open={stuck}>
         <div className="flex flex-col gap-2 border-t border-line-soft px-[14px] py-3">
-          <span className="text-meta text-text-2">Sanctum couldn’t remove its calendar from Google, so nothing is erased yet. Erase anyway leaves that calendar in Google for you to delete.</span>
+          <div className="flex flex-col gap-1 text-meta">
+            <span className="text-text">Couldn’t reach Google. Nothing is erased yet.</span>
+            <span className="text-muted">Erase anyway leaves Sanctum’s calendar in Google for you to delete.</span>
+          </div>
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => (setStuck(false), setAsking(false), setTyped(""))}>
               Cancel
@@ -161,43 +171,40 @@ export function StartOverRows({ reload = () => window.location.reload() }: { rel
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => (setStuck(false), void run())}>
               Try again
             </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              disabled={busy || sealed}
-              onClick={() => void run(true)}
-            >
+            <Button variant="danger" size="sm" disabled={busy || sealed} onClick={() => void run(true)}>
               {busy ? "Erasing…" : "Erase anyway"}
             </Button>
           </div>
         </div>
-      ) : asking ? (
-        <div className="flex flex-col gap-2 border-t border-line-soft px-[14px] py-3">
-          <span className="text-meta text-text-2">
-            Erases profiles, history, notes, and settings here, and Sanctum’s calendar in Google. Your account, partner, and Protection stay. This can’t be undone. Type <span className="font-mono text-text">{CONFIRM}</span> to confirm.
+      </Fold>
+      <Fold open={asking && !stuck}>
+        <div className="flex flex-col gap-3 border-t border-line-soft px-[14px] py-3">
+          <dl className="m-0 grid grid-cols-[56px_1fr] gap-x-3 gap-y-1 text-meta">
+            <dt className="text-danger-text">Erases</dt>
+            <dd className="m-0 text-text-2">Profiles, history, notes, settings, Sanctum’s Google calendar</dd>
+            <dt className="text-muted">Keeps</dt>
+            <dd className="m-0 text-text-2">Your account, partner, Protection</dd>
+          </dl>
+          <span className="text-meta text-muted">
+            Can’t be undone. Type <span className="font-mono text-text">{CONFIRM}</span> to confirm.
           </span>
           <div className="flex items-center gap-2">
             <input
+              ref={field}
               aria-label="Type start over to confirm"
-              autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
+              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-danger"
             />
             <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
               Cancel
             </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              disabled={typed.trim().toLowerCase() !== CONFIRM || busy || sealed}
-              onClick={() => void run()}
-            >
+            <Button variant="danger" size="sm" disabled={typed.trim().toLowerCase() !== CONFIRM || busy || sealed} onClick={() => void run()}>
               {busy ? "Erasing…" : "Erase and start over"}
             </Button>
           </div>
         </div>
-      ) : null}
+      </Fold>
     </>
   );
 }

@@ -221,12 +221,17 @@ describe("Week: list view and header", () => {
     await act(async () => void render(<WeekPage />));
     fireEvent.click(view("List"));
     const thursday = screen.getByRole("region", { name: "Thursday list" });
+    // Routines fold under one row with how many are done that day; it opens on a click.
+    const fold = within(thursday).getByRole("button", { name: "Routines, 0 of 1 done" });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(fold).toHaveTextContent("0/1");
+    fireEvent.click(fold);
+    expect(fold).toHaveAttribute("aria-expanded", "true");
     const rows = within(thursday).getAllByRole("checkbox").map((c) => [c.getAttribute("aria-label"), c.closest("[data-kind]")!.getAttribute("data-kind")]);
     expect(rows).toEqual([
       ["Reply to emails", "todo"],
       ["Weigh", "routine"],
     ]);
-    expect(thursday).toHaveTextContent("Repeat");
     // Section headers at 13px, like Today and Stats; long titles keep their full text in a tooltip.
     expect(within(thursday).getByRole("heading", { level: 2 })).toHaveClass("text-body");
     expect(within(thursday).getByRole("button", { name: "Reply to emails" })).toHaveAttribute("title", "Reply to emails");
@@ -235,6 +240,31 @@ describe("Week: list view and header", () => {
     fireEvent.focus(within(screen.getByRole("region", { name: "Saturday list" })).getByLabelText("Add a to-do on Saturday"));
     await quickAdd("Sheets laundry");
     expect(within(screen.getByRole("region", { name: "Saturday list" })).getByRole("checkbox", { name: "Sheets laundry" })).toBeInTheDocument();
+  });
+
+  it("drags a one-time item to another day in the list; routines stay put", async () => {
+    await setup();
+    await act(async () => {
+      await usePlanner.getState().saveRoutine({ title: "Weigh", daysMask: 0b0010010, time: "08:00", durationMin: null, profileId: null, active: true });
+      await usePlanner.getState().saveTodo({ title: "Reply to emails", dueDate: "2026-10-01", dueTime: null, durationMin: null, profileId: null });
+    });
+    await act(async () => void render(<WeekPage />));
+    fireEvent.click(view("List"));
+    const thursday = screen.getByRole("region", { name: "Thursday list" });
+    const friday = screen.getByRole("region", { name: "Friday list" });
+    fireEvent.click(within(thursday).getByRole("button", { name: /^Routines/ }));
+    expect(within(thursday).getByRole("checkbox", { name: "Weigh" }).closest("[data-kind]")).not.toHaveAttribute("draggable");
+    const row = within(thursday).getByRole("checkbox", { name: "Reply to emails" }).closest("[data-kind]")!;
+    expect(row).toHaveAttribute("draggable", "true");
+    const dataTransfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
+    await act(async () => {
+      fireEvent.dragStart(row, { dataTransfer });
+      fireEvent.dragOver(friday, { dataTransfer });
+    });
+    expect(friday).toHaveAttribute("data-drop", "true");
+    await act(async () => void fireEvent.drop(friday, { dataTransfer }));
+    expect(within(screen.getByRole("region", { name: "Friday list" })).getByRole("checkbox", { name: "Reply to emails" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Thursday list" })).queryByRole("checkbox", { name: "Reply to emails" })).toBeNull();
   });
 
   it("collects unfinished one-time items from past days under Pending", async () => {
@@ -515,9 +545,15 @@ describe("Quick add popover", () => {
       durationMin: 90,
       profileId: profileId("Interview Prep"),
     });
-    // Stays open and clears for the next one; Esc closes.
-    expect(within(panel).getByLabelText("Quick add")).toHaveValue("");
-    fireEvent.keyDown(within(panel).getByLabelText("Quick add"), { key: "Escape" });
+    // Added: the panel closes, so the day shows the new item.
+    expect(screen.queryByRole("dialog", { name: "Quick add" })).toBeNull();
+    // Enter adds and closes too; Esc closes without adding.
+    fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: "Add to Wednesday" }));
+    await quickAdd("Call the bank");
+    expect(usePlanner.getState().todos.some((t) => t.title === "Call the bank")).toBe(true);
+    expect(screen.queryByRole("dialog", { name: "Quick add" })).toBeNull();
+    fireEvent.click(within(screen.getByRole("region", { name: "Wednesday, September 30" })).getByRole("button", { name: "Add to Wednesday" }));
+    fireEvent.keyDown(within(screen.getByRole("dialog", { name: "Quick add" })).getByLabelText("Quick add"), { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Quick add" })).toBeNull();
   });
 

@@ -8,7 +8,7 @@ import { DUR, EASE, gsap } from "../../lib/gsap";
 import { useMotion } from "../../lib/useMotion";
 import { DayDot, DayMark, EventMark, Fold, whenOf, type When } from "./marks";
 import { EventDialog, OneTimeDialog, RepeatGlyph, RoutineDialog } from "./editors";
-import { drag, dragProps, moveTo } from "./drag";
+import { canMove, drag, dragProps, moveTo } from "./drag";
 import { PendingBox, PendingSection, PendingStrip } from "./Pending";
 import { NARROW, useMedia } from "../../lib/useMedia";
 import { QuickAddField, QuickAddPanel } from "../../components/QuickAdd";
@@ -174,13 +174,38 @@ function DayMinutes({ when, stat }: { when: When; stat?: DayStat }) {
   );
 }
 
+/** A day as a drop target: a one-time item (or a single-day event) dropped here moves to it. */
+function useDayDrop(date: string) {
+  const [over, setOver] = useState(false);
+  const accepts = () => drag.item !== null && (drag.item.date !== date || !!drag.item.undated);
+  const props = {
+    "data-drop": over || undefined,
+    onDragOver: (e: React.DragEvent) => {
+      if (!accepts()) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      setOver(true);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setOver(false);
+      const item = drag.item;
+      drag.item = null;
+      if (item) void moveTo(item, date);
+    },
+  };
+  return { over, props };
+}
+
 /** One day. `fixed`: a cell in the two-row grid, which doesn't widen on hover. */
 function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: string; items: AgendaItem[]; today: string; stat?: DayStat; onOpen: (i: AgendaItem) => void; fixed?: boolean }) {
   const [adding, setAdding] = useState<HTMLElement | null>(null);
-  const [over, setOver] = useState(false);
+  const { over, props: drop } = useDayDrop(date);
   const d = fromKey(date);
   const when = whenOf(date, today);
-  const accepts = () => drag.item !== null && (drag.item.date !== date || !!drag.item.undated);
   const routines = items.filter((i) => i.kind === "routine");
   // Events first, then the rest in their order.
   const rest = items.filter((i) => i.kind === "event").concat(items.filter((i) => i.kind !== "routine" && i.kind !== "event"));
@@ -188,23 +213,7 @@ function DayColumn({ date, items, today, stat, onOpen, fixed = false }: { date: 
     <section
       aria-label={d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
       data-when={when}
-      data-drop={over || undefined}
-      onDragOver={(e) => {
-        if (!accepts()) return;
-        e.preventDefault();
-        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-        setOver(true);
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const item = drag.item;
-        drag.item = null;
-        if (item) void moveTo(item, date);
-      }}
+      {...drop}
       className={`group/day ${over ? "outline-2 -outline-offset-2 outline-dashed outline-sealed" : ""} flex min-h-0 min-w-0 flex-col gap-[10px] overflow-y-auto overflow-x-hidden rounded-panel border px-[10px] py-[14px] [scrollbar-width:none] transition-[flex-grow,opacity] duration-enter ease-ui ${fixed ? "" : "flex-[1_1_0%] hover:flex-[2.6_1_0%] focus-within:flex-[2.6_1_0%] group-hover/week:opacity-60 hover:opacity-100! focus-within:opacity-100!"} ${
         when === "today" ? "border-sealed bg-panel" : when === "future" ? "border-line bg-app" : "border-line bg-panel"
       }`}
@@ -406,7 +415,9 @@ function ListRow({ item, when, meta, onOpen }: { item: AgendaItem; when: When; m
     <div
       data-kind={item.kind}
       data-state={item.kind === "event" ? undefined : item.done ? "done" : slipped ? "slipped" : "open"}
-      className="group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-raised"
+      // One-time items drag to another day here too (2026-11-20); routines stay on their days.
+      {...dragProps(item)}
+      className={`group flex h-[30px] items-center gap-[10px] rounded-control px-1 transition-colors duration-ui ease-ui hover:bg-raised ${canMove(item) ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {item.kind === "event" ? (
         // An event has no box: nothing to tick.
@@ -447,14 +458,53 @@ function QuickAdd({ date, label }: { date: string; label: string }) {
   );
 }
 
+/** A day's routines in the list, folded under one row with how many are done (2026-11-20). */
+function ListRoutines({ date, when, items, onOpen }: { date: string; when: When; items: AgendaItem[]; onOpen: (i: AgendaItem) => void }) {
+  // Shares the Week view's open days, so a day opened in one is open in the other.
+  const open = useStore((s) => s.weekRoutinesOpen.includes(date));
+  const toggle = useStore((s) => s.toggleWeekRoutines);
+  const done = items.filter((i) => i.done).length;
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={`Routines, ${done} of ${items.length} done`}
+        onClick={() => toggle(date)}
+        className="flex h-[30px] w-full items-center gap-[10px] rounded-control px-1 text-left text-meta text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text-2"
+      >
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <ChevronRightIcon size={8} className={`transition-transform duration-ui ease-ui ${open ? "rotate-90" : ""}`} />
+        </span>
+        <span>Routines</span>
+        <RepeatGlyph className="h-[10px] w-[10px] shrink-0" />
+        <span className="grow" />
+        <span className="shrink-0 font-mono text-micro">
+          {done}/{items.length}
+        </span>
+      </button>
+      <Fold open={open}>
+        {items.map((i) => (
+          <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
+        ))}
+      </Fold>
+    </div>
+  );
+}
+
 function DayList({ date, items, when, onOpen }: { date: string; items: AgendaItem[]; when: When; onOpen: (i: AgendaItem) => void }) {
   const d = fromKey(date);
   const today = when === "today";
   const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
   const once = items.filter((i) => i.kind !== "routine");
   const repeats = items.filter((i) => i.kind === "routine");
+  const { over, props: drop } = useDayDrop(date);
   return (
-    <section aria-label={`${weekday} list`} className="mb-6 break-inside-avoid">
+    <section
+      aria-label={`${weekday} list`}
+      {...drop}
+      className={`mb-6 break-inside-avoid rounded-control transition-[outline-color] duration-ui ease-ui ${over ? "outline-2 outline-offset-[6px] outline-dashed outline-sealed" : ""}`}
+    >
       <h2 className={`m-0 mb-1 flex items-baseline gap-2 border-b pb-[6px] text-body font-semibold ${today ? "border-sealed-line text-sealed-text" : "border-line text-text"}`}>
         {weekday}
         <span className="font-mono text-micro font-normal text-muted">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
@@ -464,16 +514,7 @@ function DayList({ date, items, when, onOpen }: { date: string; items: AgendaIte
         <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
       ))}
       <QuickAdd date={date} label={`Add a to-do on ${weekday}`} />
-      {repeats.length ? (
-        <div className="mt-2">
-          <span className="label flex items-center gap-[6px] px-1 pb-1">
-            <RepeatGlyph className="h-[10px] w-[10px]" /> Repeat
-          </span>
-          {repeats.map((i) => (
-            <ListRow key={i.key} item={i} when={when} onOpen={() => onOpen(i)} />
-          ))}
-        </div>
-      ) : null}
+      {repeats.length ? <ListRoutines date={date} when={when} items={repeats} onOpen={onOpen} /> : null}
     </section>
   );
 }
@@ -484,7 +525,8 @@ function ListView({ start, onOpen }: { start: string; onOpen: (i: AgendaItem) =>
   const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
   const today = todayKey(new Date(), dailyResetTime);
   return (
-    <div className="min-h-0 grow overflow-y-auto pr-1">
+    // The gutter (and the negative margin that keeps the text in line) gives a day's drop outline room.
+    <div className="-mx-2 min-h-0 grow overflow-y-auto px-2 pt-2">
       {/* Two flowing columns: Monday to Thursday, then Friday to Sunday and Pending. */}
       <div className="columns-2 gap-10">
         {days.map((d) => (

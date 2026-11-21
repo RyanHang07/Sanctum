@@ -88,6 +88,14 @@ function ProfilesSection() {
   );
 }
 
+/** What the Tomorrow tab's dot counts: anything, or what starts before a time (2026-11-20). */
+const TOMORROW_MARKS: { value: string; label: string }[] = [
+  { value: "", label: "Anything" },
+  { value: "09:00", label: "Before 9:00a" },
+  { value: "10:00", label: "Before 10:00a" },
+  { value: "12:00", label: "Before noon" },
+];
+
 const ON_LOGIN: { value: OnLogin; label: string }[] = [
   { value: "home", label: "Open Today" },
   { value: "tray", label: "Start in tray" },
@@ -173,7 +181,7 @@ function GoalsSection() {
 /** Behavior: how Sanctum starts, closes, and shrinks, then About. */
 function BehaviorSection() {
   const settings = useStore((s) => s.settings);
-  const { setOnLogin, setCloseAction, setCompactOnFocus, openOnboarding } = useStore();
+  const { setOnLogin, setCloseAction, setCompactOnFocus, setTomorrowTab, setTomorrowMarkBefore, openOnboarding } = useStore();
   return (
     <>
       <Section
@@ -195,6 +203,19 @@ function BehaviorSection() {
         <Row label="Go compact when focus starts">
           <Switch label="Go compact when focus starts" checked={settings.compactOnFocus} onChange={setCompactOnFocus} />
         </Row>
+        <Row label="Tomorrow on Today" hint="A Today | Tomorrow switch on the list">
+          <Switch label="Tomorrow on Today" checked={settings.tomorrowTab} onChange={setTomorrowTab} />
+        </Row>
+        {settings.tomorrowTab ? (
+          <Row label="Mark tomorrow" hint="The dot on the Tomorrow tab">
+            <MiniSelect
+              label="Mark tomorrow"
+              value={settings.tomorrowMarkBefore ?? ""}
+              options={TOMORROW_MARKS}
+              onChange={(v) => setTomorrowMarkBefore(v === "" ? null : v)}
+            />
+          </Row>
+        ) : null}
       </Section>
       <AboutSection />
     </>
@@ -256,7 +277,7 @@ const TABS: Tab[] = [
   { id: "data", group: "App", label: "Your Data", blurb: "Export, back up, or erase." },
 ];
 
-type Mark = { count?: number; attention?: boolean };
+type Mark = { count?: number; attention?: boolean; ok?: boolean };
 
 /**
  * What the list shows beside an item: a count where there's a list, and a dot only when a
@@ -279,6 +300,8 @@ function useNavMarks(): Partial<Record<SetupTab, Mark>> {
     trackers: { count: trackers },
   };
   for (const [id, tone] of tones) if (tone === "attention") marks[id] = { attention: true };
+  // The extension shows green once any browser is connected (2026-11-20); others stay quiet when fine.
+  if (tones.some(([id, tone]) => id === "browser" && tone === "ok")) marks.browser = { ok: true };
   return marks;
 }
 
@@ -341,7 +364,7 @@ function SetupNav({ tab, onChange }: { tab: SetupTab; onChange: (t: SetupTab) =>
                   }`}
                 >
                   <span className="min-w-0 grow truncate">{t.label}</span>
-                  {mark?.attention ? <StatusDot tone="attention" /> : null}
+                  {mark?.attention ? <StatusDot tone="attention" /> : mark?.ok ? <StatusDot tone="ok" /> : null}
                   {mark?.count ? (
                     <span aria-hidden="true" data-testid="nav-count" className="font-mono text-meta font-normal text-muted">
                       {mark.count}

@@ -44,7 +44,7 @@ describe("Start over", () => {
     fireEvent.change(screen.getByLabelText("Type start over to confirm"), { target: { value: "start over" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Erase and start over" })));
     expect(reload).not.toHaveBeenCalled();
-    expect(screen.getByText(/nothing is erased yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is erased yet/)).toBeInTheDocument();
     expect(await native.listNotes()).toHaveLength(1);
     // Still out of reach: Try again comes back to the same place.
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Try again" })));
@@ -65,7 +65,15 @@ describe("Start over", () => {
       </>,
     );
     const section = within(screen.getByRole("region", { name: "Start over" }));
+    // The confirmation folds open (2026-11-20): shut at rest, open on Start over.
+    const folds = () => section.getAllByTestId("fold");
+    expect(folds().every((f) => !f.hasAttribute("data-open"))).toBe(true);
     fireEvent.click(section.getByRole("button", { name: "Start over" }));
+    expect(folds().some((f) => f.hasAttribute("data-open"))).toBe(true);
+    // Short and scannable: what it erases, what it keeps.
+    expect(section.getByText("Erases")).toBeInTheDocument();
+    expect(section.getByText("Your account, partner, Protection")).toBeInTheDocument();
+    expect(section.getByLabelText("Type start over to confirm")).toHaveFocus();
     const erase = section.getByRole("button", { name: "Erase and start over" });
     expect(erase).toBeDisabled();
     fireEvent.change(section.getByLabelText("Type start over to confirm"), { target: { value: "Start Over" } });

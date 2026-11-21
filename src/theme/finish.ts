@@ -1,4 +1,4 @@
-import { contrast, mix, onColor, readable } from "./color";
+import { contrast, mix, onColor, readable, rgb } from "./color";
 import type { Palette, Theme } from "./palette";
 
 // The redesign's theme pass (v0.4, decided 2026-11-15, docs/decisions/2026-11-15-theme-pairs.md).
@@ -111,6 +111,47 @@ export function brokenRoles(broken: string, app: string, panel: string, dark: bo
 }
 
 /**
+ * The enabled color (2026-11-20): connected, on, turned on. Imported themes bring a green as
+ * their `open` color; Sanctum's own themes have none (their open is the text color), so they get
+ * a plain green for their scheme. Status only: it never marks the app's Open state.
+ */
+export const OK_GREEN = { dark: "#3FB950", light: "#1A7F37" } as const;
+
+/** A color with a hue of its own (not a grey, and not the theme's text). */
+function hasHue(c: string | undefined, text: string): c is string {
+  if (!c || !/^#[0-9A-Fa-f]{6}$/.test(c) || c.toUpperCase() === text.toUpperCase()) return false;
+  const v = rgb(c);
+  return Math.max(...v) - Math.min(...v) >= 48;
+}
+
+export function okRoles(source: string, app: string, panel: string, dark: boolean): Palette {
+  const away = dark ? WHITE : BLACK;
+  const ok = readable(source, [app, panel], 3, away);
+  const tint = mix(app, ok, dark ? 0.13 : 0.1);
+  return {
+    ok,
+    "ok-text": readable(ok, [app, panel, tint], 4.5, away),
+    "ok-tint": tint,
+    "ok-line": mix(app, ok, dark ? 0.4 : 0.35),
+  };
+}
+
+/**
+ * The delete color: the theme's broken red family under its own name, so a delete reads as
+ * destructive by name and a broken seal keeps its own meaning. Its text also reads on the panel,
+ * where most delete buttons sit (a few imported broken-texts fall just short there).
+ */
+export function dangerRoles(p: Palette, dark: boolean): Palette {
+  const tint = p["broken-tint"]!;
+  return {
+    danger: p.broken!,
+    "danger-text": readable(p["broken-text"]!, [p.app!, p.panel!, tint], 4.5, dark ? WHITE : BLACK),
+    "danger-tint": tint,
+    "danger-line": p["broken-line"]!,
+  };
+}
+
+/**
  * The month heatmap's steps. heat-1, the lightest, sits straight on the panel, so it reaches 2:1
  * there (UI audit, 2026-11-18; it was about 1.3:1 and needed an edge). heat-2 then sits halfway
  * to heat-3 when the raised heat-1 would crowd it, so the three steps still climb.
@@ -124,7 +165,7 @@ export function heatSteps(p: Palette, panel: string): Palette {
 }
 
 /** Surfaces muted text is drawn on. */
-export const MUTED_ON = ["app", "panel", "raised", "sidebar", "sealed-tint"] as const;
+export const MUTED_ON = ["app", "panel", "raised", "sidebar", "sealed-tint", "toast"] as const;
 
 export function finishTheme(theme: Theme): Theme {
   const dark = theme.scheme === "dark";
@@ -140,6 +181,18 @@ export function finishTheme(theme: Theme): Theme {
   }
 
   Object.assign(p, secondRoles(SECOND[theme.id] ?? p.event!, app, panel, dark));
+  // The enabled and delete colors (2026-11-20). The theme's own green (its imported open color)
+  // becomes the enabled color.
+  const green = hasHue(theme.palette.open, p.text!) ? theme.palette.open : OK_GREEN[theme.scheme];
+  Object.assign(p, okRoles(green, app, panel, dark));
+  Object.assign(p, dangerRoles(p, dark));
+  // Open is the enabled green on every surface and theme (2026-11-20): the sidebar pill, the tray
+  // and the extension all show it.
+  p.open = p.ok!;
+  // Toasts, the update notice and chart tooltips carry the theme's own text, so their surface is a
+  // step off the page in the same scheme. The OpenCode themes came in with it inverted (light on
+  // dark themes, dark on light ones), which left white boxes with unreadable text (2026-11-20).
+  if (contrast(p.text!, p.toast!) < 4.5) p.toast = dark ? mix(p.raised!, p.line!, 0.3) : panel;
   p.muted = readable(p.muted!, MUTED_ON.map((k) => p[k]!), 4.5, away);
   p["line-input"] = readable(p["line-input"]!, [app, panel], 3, away);
   // check-line is the hover step and the quiet mark (unchecked boxes, neutral and missed bars). It

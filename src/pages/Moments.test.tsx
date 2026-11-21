@@ -43,6 +43,9 @@ describe("the held page", () => {
 
   it("opens the review only on request", () => {
     render(<HeldPage held={{ ...held, task: { kind: "todo", id: 1, title: "Essay", date: "2026-11-16" } }} />);
+    // The task's check-off is on the card from the start, not in the review (2026-11-20).
+    const task = screen.getByTestId("held-task");
+    expect(task).toHaveTextContent("Mark Essay done");
     const add = screen.getByRole("button", { name: "Add a note" });
     expect(add).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(add);
@@ -50,7 +53,7 @@ describe("the held page", () => {
     const review = screen.getByTestId("held-review");
     expect(add).toHaveAttribute("aria-controls", review.id);
     expect(review).toContainElement(screen.getByTestId("held-wrap"));
-    expect(review).toContainElement(screen.getByTestId("held-task"));
+    expect(review).not.toContainElement(screen.getByTestId("held-task"));
     // No break offer (removed 2026-11-16): Enter again does the job.
     expect(screen.queryByTestId("held-break")).toBeNull();
     fireEvent.click(add);
