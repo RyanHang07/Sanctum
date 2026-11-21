@@ -143,9 +143,19 @@ function StreakChip({ o, delay }: { o: StatsOverview | null; delay: number }) {
       className="group relative flex h-control shrink-0 items-center gap-[10px] rounded-control border border-line bg-panel px-[10px] text-meta text-text transition-colors duration-ui ease-ui hover:border-line-input"
     >
       <Odometer text={String(n)} delay={delay} className="font-mono font-medium" />
-      <span className="text-muted">day streak</span>
-      {/* Never miss twice (v0.3.1): yesterday was missed, so today keeps it alive. */}
-      {o?.streakAtRisk && o.days.at(-1)?.status === "today" ? <span className="text-text-2">· keep it today</span> : null}
+      {/* The dot sits in its own slot, the same gap on each side (2026-11-21). */}
+      <span className="flex items-center gap-[6px]">
+        <span className="text-muted">day streak</span>
+        {/* Never miss twice (v0.3.1): yesterday was missed, so today keeps it alive. */}
+        {o?.streakAtRisk && o.days.at(-1)?.status === "today" ? (
+          <>
+            <span data-testid="streak-dot" aria-hidden="true" className="text-muted">
+              ·
+            </span>
+            <span className="text-text-2">keep it today</span>
+          </>
+        ) : null}
+      </span>
       <span className="flex items-center gap-[3px]" aria-hidden="true">
         {days.map((d, i) => (
           <DayCell key={d.date} d={d} today={i === days.length - 1} focused={focused} goal={goal} met={met} />

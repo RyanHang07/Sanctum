@@ -171,7 +171,7 @@ Setup is grouped into Focus, Protection, Tracking, and App. One Distractions lis
 
 ## Install
 
-1. Download `Sanctum_x.y.z_x64-setup.exe` (currently 0.4.2) from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
+1. Download `Sanctum_x.y.z_x64-setup.exe` (currently 0.4.3) from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 3. First-run setup walks you through profiles, your Distractions list, and a theme. After that Sanctum keeps itself up to date: it downloads new versions in the background, and **Restart to update** installs them.
 

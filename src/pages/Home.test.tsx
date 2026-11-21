@@ -237,6 +237,20 @@ describe("Home Pending tab (v0.1)", () => {
 });
 
 describe("Home streak chip", () => {
+  it("after a missed day, says keep it today with the dot evenly spaced", async () => {
+    const { addDays, todayKey } = await import("../lib/planner");
+    const t = todayKey();
+    mockControls.statsDays({ [addDays(t, -3)]: { focusMin: 130 }, [addDays(t, -2)]: { focusMin: 125 }, [addDays(t, -1)]: { focusMin: 10 } });
+    await act(async () => void render(<Home />));
+    const chip = await screen.findByTestId("streak");
+    await waitFor(() => expect(chip).toHaveTextContent("keep it today"));
+    // The dot is its own element, so the gap on each side is the same.
+    const dot = within(chip).getByTestId("streak-dot");
+    expect(dot).toHaveTextContent("·");
+    expect(dot.parentElement).toHaveClass("gap-[6px]");
+    expect(dot.nextElementSibling).toHaveTextContent(/^keep it today$/);
+  });
+
   it("shows the streak and the last 7 days, and opens Stats", async () => {
     const { addDays, todayKey } = await import("../lib/planner");
     const t = todayKey();

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.3 (2026-11-21)
+
+A hotfix.
+
+- **The streak chip's dot is evenly spaced.** "day streak · keep it today" has the same gap on each side of the dot.
+
 ## v0.4.2 (2026-11-21)
 
 Stability fixes from an audit of v0.4.1.
