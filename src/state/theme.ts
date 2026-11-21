@@ -64,7 +64,8 @@ function chrome(p: ThemePrefs, t: Theme) {
   if (!inTauri()) return;
   const w = getCurrentWindow();
   void w.setTheme(p.follow ? null : t.scheme).catch(() => undefined);
-  if (w.label === "main") void w.setBackgroundColor(t.palette.app!).catch(() => undefined);
+  // The main window and note windows (2026-11-20) sit on the page color, edge to edge.
+  if (w.label === "main" || w.label.startsWith("note-")) void w.setBackgroundColor(t.palette.app!).catch(() => undefined);
 }
 
 /** The kept theme goes to the extension and native surfaces; the main window speaks for every window. */

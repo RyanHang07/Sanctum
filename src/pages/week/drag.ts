@@ -10,6 +10,10 @@ import type { Todo } from "../../lib/types";
 /** What's being dragged right now (one drag at a time, across days and Pending). */
 export const drag: { item: AgendaItem | null } = { item: null };
 
+// A dragged row can leave the page mid-drag (moved by its own drop), and then its dragend never
+// comes; the window's still does, so nothing stays "held" (2026-11-20).
+if (typeof window !== "undefined") window.addEventListener("dragend", () => void (drag.item = null), true);
+
 export const todoItem = (t: Todo): AgendaItem => ({
   key: `todo:${t.id}`,
   kind: "todo",

@@ -106,11 +106,8 @@ export function QuickAddPanel({ anchor, date, initial = "", onClose }: { anchor:
     const ok = mask
       ? await saveRoutine({ title, daysMask: mask, time, durationMin: length, profileId, active: true })
       : await saveTodo({ title, dueDate: day, dueTime: time, durationMin: length, profileId });
-    if (ok) {
-      // Ready for the next one.
-      setText("");
-      setPicks({});
-    }
+    // Added: the panel closes (2026-11-20), so the day shows what you just put on it.
+    if (ok) onClose();
   };
 
   return createPortal(

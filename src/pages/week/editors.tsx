@@ -137,7 +137,7 @@ export function OneTimeDialog({ initial, date, onClose }: { initial?: Todo; date
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
         {initial ? (
-          <Button variant="ghost" onClick={() => void deleteTodo(initial.id).then((ok) => ok && onClose())}>
+          <Button variant="danger-quiet" onClick={() => void deleteTodo(initial.id).then((ok) => ok && onClose())}>
             Delete
           </Button>
         ) : null}
@@ -274,7 +274,7 @@ export function RoutineDialog({ initial, onClose }: { initial?: Routine; onClose
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
         {initial ? (
-          <Button variant="ghost" onClick={() => void deleteRoutine(initial.id).then((ok) => ok && onClose())}>
+          <Button variant="danger-quiet" onClick={() => void deleteRoutine(initial.id).then((ok) => ok && onClose())}>
             Delete
           </Button>
         ) : null}
@@ -402,7 +402,7 @@ export function EventDialog({ initial, date, onClose }: { initial: CalEvent; dat
       </div>
       <div className="flex items-center gap-2 border-t border-line bg-panel-footer px-[18px] py-3">
         {initial && !readOnly ? (
-          <Button variant="ghost" onClick={() => void remove()}>
+          <Button variant={confirmDelete ? "danger" : "danger-quiet"} onClick={() => void remove()}>
             {confirmDelete ? (all ? "Delete every occurrence" : "Delete from Google") : all ? "Delete series" : "Delete"}
           </Button>
         ) : null}

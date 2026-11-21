@@ -74,14 +74,13 @@ describe("Tray panel", () => {
     expect(panel.getByTestId("state-dot")).toHaveClass("bg-sealed");
   });
 
-  it("is neutral when open: a hollow dot, readable foot line, no faint text or outline-none", async () => {
+  it("is green when open: the enabled dot, readable foot line, no faint text or outline-none", async () => {
     await seed();
     render(<TrayPanel />);
     const panel = within(await screen.findByRole("region", { name: "Sanctum tray panel" }));
     await panel.findByText("Quit Sanctum");
     const dot = panel.getByTestId("state-dot");
-    expect(dot).toHaveClass("border-muted");
-    expect(dot).not.toHaveClass("bg-open");
+    expect(dot).toHaveClass("bg-ok");
     expect(panel.getByText(/check-in/)).toHaveClass("text-muted");
     const html = (await screen.findByRole("region", { name: "Sanctum tray panel" })).outerHTML;
     expect(html).not.toMatch(/text-faint|outline-none|uppercase/);

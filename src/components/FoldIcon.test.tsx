@@ -27,10 +27,21 @@ describe("fold buttons show what a click does", () => {
     expectHint(button);
   });
 
-  it("the notes list button points the way it folds, at a bigger size", () => {
+  it("the notes sidebar button points the way it folds, boxed, with hover text", () => {
     render(<NotesPage />);
-    const button = screen.getByRole("button", { name: /(Hide|Show) notes list/ });
+    const button = screen.getByRole("button", { name: /(Collapse|Expand) notes sidebar/ });
     expectHint(button);
-    expect(button.querySelector("svg")).toHaveAttribute("width", "20");
+    expect(button.querySelector("svg")).toHaveAttribute("width", "14");
+    expect(button).toHaveClass("!px-0");
+    expect(button).toHaveClass("h-control", "w-control");
+    expect(button).toHaveAttribute("title", "Collapse notes sidebar");
+  });
+});
+
+describe("the sidebar's state pill", () => {
+  it("draws Open as the enabled green, like the tray and the extension", () => {
+    render(<Sidebar />);
+    const dot = screen.getByTestId("state-pill").querySelector("span > span") as HTMLElement;
+    expect(dot).toHaveClass("bg-ok");
   });
 });

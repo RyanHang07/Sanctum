@@ -70,7 +70,7 @@ pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Note>> {
     rows.collect()
 }
 
-fn get(conn: &Connection, id: i64) -> Result<Note, String> {
+pub fn get(conn: &Connection, id: i64) -> Result<Note, String> {
     conn.query_row(&format!("SELECT {COLS} FROM notes WHERE id = ?1"), [id], row)
         .optional()
         .map_err(|e| e.to_string())?
@@ -127,24 +127,38 @@ pub fn list_notes(shared: State<Shared>) -> Result<Vec<Note>, String> {
     with(&shared, |c| list(c).map_err(|e| e.to_string()))
 }
 
+/// Saves a note and tells every window (`sanctum://notes`), so their lists follow.
 #[tauri::command]
-pub fn save_note(shared: State<Shared>, draft: NoteDraft) -> Result<Note, String> {
-    with(&shared, |c| save(c, draft, now_ms()))
+pub fn save_note(app: AppHandle, window: tauri::Window, shared: State<Shared>, draft: NoteDraft) -> Result<Note, String> {
+    let kind = if draft.id.is_some() { "saved" } else { "created" };
+    let n = with(&shared, |c| save(c, draft, now_ms()))?;
+    crate::note_windows::changed(&app, n.id, kind, window.label());
+    Ok(n)
 }
 
 #[tauri::command]
-pub fn pin_note(shared: State<Shared>, id: i64, pinned: bool) -> Result<Note, String> {
-    with(&shared, |c| set_pinned(c, id, pinned))
+pub fn pin_note(app: AppHandle, window: tauri::Window, shared: State<Shared>, id: i64, pinned: bool) -> Result<Note, String> {
+    let n = with(&shared, |c| set_pinned(c, id, pinned))?;
+    crate::note_windows::changed(&app, id, "pinned", window.label());
+    Ok(n)
 }
 
 /// A shared note's link comes down first, so nothing of it stays on the server (and the note
-/// isn't deleted while its link can't be stopped).
+/// isn't deleted while its link can't be stopped). A note with its own window closes it.
 #[tauri::command]
-pub async fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
+pub async fn delete_note(app: AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
     crate::note_share::stop_note_share(app.clone(), id)
         .await
         .map_err(|_| "Couldn't stop sharing this note, so it wasn't deleted. Try again online.".to_string())?;
-    with(&app.state::<Shared>(), |c| delete(c, id))
+    with(&app.state::<Shared>(), |c| {
+        delete(c, id)?;
+        crate::note_windows::forget_bounds(c, id);
+        Ok(())
+    })?;
+    // Closed once the database is free again: a closing window's last events may touch it.
+    crate::note_windows::close(&app, id);
+    crate::note_windows::changed(&app, id, "deleted", window.label());
+    Ok(())
 }
 
 #[cfg(test)]

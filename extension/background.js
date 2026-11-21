@@ -266,12 +266,23 @@ export function tintIcon(d, [r, g, b], [fr, fg, fb]) {
   }
 }
 
+/**
+ * The torii's ink on the accent tile (2026-11-20): white in a dark theme, as the app's own mark
+ * and tray icon draw it; in a light theme, the text that sits on the accent (sealed-on), which is
+ * the theme's dark ink. Using sealed-on everywhere drew a black arch on dark themes whose accent
+ * is light.
+ */
+export function toriiInk(theme) {
+  if (theme?.scheme !== "light") return "#FFFFFF";
+  const on = theme?.palette?.["sealed-on"];
+  return typeof on === "string" && HEX.test(on) ? on : "#FFFFFF";
+}
+
 async function applyActionIcon(theme) {
   if (typeof OffscreenCanvas === "undefined" || !chrome.action?.setIcon) return;
   try {
     const [r, g, b] = hexRgb(iconColor(theme));
-    const on = theme?.palette?.["sealed-on"];
-    const [fr, fg, fb] = hexRgb(typeof on === "string" && HEX.test(on) ? on : "#FFFFFF");
+    const [fr, fg, fb] = hexRgb(toriiInk(theme));
     const imageData = {};
     for (const size of ICON_SIZES) {
       const res = await fetch(chrome.runtime.getURL(`icons/${size}.png`));

@@ -74,7 +74,7 @@ function TrackerEditor({ start, used, onDone }: { start: TrackerDraft; used: boo
       </div>
       <div className="flex items-center gap-2">
         {d.id !== undefined ? (
-          <Button variant="quiet" size="sm" onClick={() => void deleteTracker(d.id!).then((ok) => ok && onDone())}>
+          <Button variant="danger-plain" size="sm" onClick={() => void deleteTracker(d.id!).then((ok) => ok && onDone())}>
             {used ? "Delete with its entries" : "Delete"}
           </Button>
         ) : null}
@@ -232,7 +232,7 @@ function CheckinEditor({ start, onDone }: { start: Checkin; onDone: () => void }
       </div>
       <div className="flex items-center gap-2">
         {c.id ? (
-          <Button variant="quiet" size="sm" onClick={() => void deleteCheckin(c.id).then((ok) => ok && onDone())}>
+          <Button variant="danger-plain" size="sm" onClick={() => void deleteCheckin(c.id).then((ok) => ok && onDone())}>
             Delete
           </Button>
         ) : null}

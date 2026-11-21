@@ -8,11 +8,10 @@ export interface Prompt {
   text: string;
 }
 
+/** A tab of prompts in Journal settings. Four short ones (2026-11-20), so the list scans. */
 export interface Theme {
   id: string;
   label: string;
-  /** One line on what the theme is for. */
-  blurb: string;
   prompts: Prompt[];
 }
 
@@ -21,8 +20,7 @@ const p = (id: string, text: string): Prompt => ({ id, text });
 export const THEMES: Theme[] = [
   {
     id: "productivity",
-    label: "Productivity",
-    blurb: "Plan the day and judge it honestly.",
+    label: "Plan",
     prompts: [
       p("prod-one-thing", "What's the one thing that would make today a win?"),
       p("prod-in-the-way", "What could get in the way, and what will I do about it?"),
@@ -36,8 +34,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: "reflection",
-    label: "Reflection",
-    blurb: "Look back to learn, not to grade.",
+    label: "Reflect",
     prompts: [
       p("refl-well", "What went well?"),
       p("refl-differently", "What would I do differently?"),
@@ -51,8 +48,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: "emotional",
-    label: "Emotional understanding",
-    blurb: "Name what you feel, and what's under it.",
+    label: "Feelings",
     prompts: [
       p("emo-feel", "How do I feel right now, in a few words?"),
       p("emo-under", "What's underneath that feeling?"),
@@ -62,13 +58,7 @@ export const THEMES: Theme[] = [
       p("emo-need", "What do I need more of this week?"),
       p("emo-let-go", "What can I let go of tonight?"),
       p("emo-connected", "Who did I feel connected to today?"),
-    ],
-  },
-  {
-    id: "gratitude",
-    label: "Gratitude",
-    blurb: "Notice what's going right.",
-    prompts: [
+      // Gratitude joined Feelings (2026-11-20); its prompts keep their ids.
       p("grat-three", "Three things I'm grateful for today"),
       p("grat-person", "Someone I'm glad is in my life, and why"),
       p("grat-small", "A small moment I'd like to remember"),
@@ -78,8 +68,7 @@ export const THEMES: Theme[] = [
   },
   {
     id: "focus",
-    label: "Focus review",
-    blurb: "How the sessions went, from inside Sanctum.",
+    label: "Focus",
     prompts: [
       p("focus-sessions", "How did my focus sessions go?"),
       p("focus-tempted", "What tempted me, and when?"),
@@ -88,14 +77,6 @@ export const THEMES: Theme[] = [
       p("focus-deep", "When was I most absorbed in the work?"),
     ],
   },
-];
-
-/** Quick picks for the setup: a few prompts that go together. */
-export const PRESETS: { id: string; label: string; blurb: string; prompts: string[] }[] = [
-  { id: "morning", label: "Morning intentions", blurb: "Set the day up.", prompts: ["prod-one-thing", "prod-in-the-way", "emo-feel"] },
-  { id: "evening", label: "Evening reflection", blurb: "Close the day.", prompts: ["refl-well", "focus-tempted", "refl-differently", "prod-tomorrow"] },
-  { id: "gratitude", label: "Gratitude", blurb: "Three good things.", prompts: ["grat-three", "grat-small"] },
-  { id: "focus", label: "Focus review", blurb: "How the seals went.", prompts: ["focus-sessions", "focus-tempted", "focus-worth"] },
 ];
 
 export const PROMPTS: Prompt[] = THEMES.flatMap((t) => t.prompts);

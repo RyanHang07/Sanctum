@@ -1,6 +1,7 @@
 import { contrast } from "./color";
 import { KEYS } from "./palette";
-import { ACCENT, SECOND } from "./finish";
+import { ACCENT, OK_GREEN, SECOND } from "./finish";
+import { OPENCODE_THEMES } from "./opencodeThemes";
 import { THEMES, themeById } from "./themes";
 
 // Every theme clears the same bar (v0.3). Ratios are WCAG's: 4.5 for text, 3 for large text
@@ -8,6 +9,9 @@ import { THEMES, themeById } from "./themes";
 const pairs: [fg: string, bg: string, min: number][] = [
   ["text", "app", 7],
   ["text", "panel", 7],
+  // Toasts and chart tooltips (2026-11-20: imported themes had them inverted).
+  ["text", "toast", 4.5],
+  ["muted", "toast", 4.5],
   ["text-2", "panel", 4.5],
   ["muted", "app", 4.5],
   ["muted", "panel", 4.5],
@@ -31,6 +35,15 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["second-text", "app", 4.5],
   ["second-text", "panel", 4.5],
   ["second-text", "second-tint", 4.5],
+  // The enabled and delete colors (2026-11-20): their text reads on the page, the panel and the tint.
+  ["ok", "app", 3],
+  ["ok", "panel", 3],
+  ["ok-text", "app", 4.5],
+  ["ok-text", "panel", 4.5],
+  ["ok-text", "ok-tint", 4.5],
+  ["danger-text", "app", 4.5],
+  ["danger-text", "panel", 4.5],
+  ["danger-text", "danger-tint", 4.5],
   // UI audit (2026-11-18): the lightest heatmap step reads on the panel without an edge.
   ["heat-1", "panel", 2],
 ];
@@ -106,6 +119,37 @@ describe("themes (v0.3)", () => {
     for (const [fg, bg, min] of pairs) {
       const ratio = contrast(t.palette[fg]!, t.palette[bg]!);
       expect(ratio, `${t.id}: ${fg} on ${bg} is ${ratio.toFixed(2)}, needs ${min}`).toBeGreaterThanOrEqual(min);
+    }
+  });
+});
+
+describe("Open is the enabled green", () => {
+  // The app, tray and extension draw Open as a green dot, the same green on every theme's surfaces (2026-11-20).
+  it("is the theme's ok color in every theme", () => {
+    for (const t of THEMES) expect(t.palette.open, t.id).toBe(t.palette.ok);
+  });
+});
+
+describe("The enabled and delete colors", () => {
+  const FAMILY = ["ok", "ok-text", "ok-tint", "ok-line", "danger", "danger-text", "danger-tint", "danger-line"];
+  it("every theme has them", () => {
+    for (const t of THEMES) for (const k of FAMILY) expect(t.palette[k], `${t.id} ${k}`).toMatch(/^#[0-9A-F]{6}$/i);
+  });
+
+  it("an imported theme's enabled color comes from its own green, not the text", () => {
+    const aura = OPENCODE_THEMES.find((t) => t.id === "aura")!;
+    expect(themeById("aura")!.palette.ok).toBe(aura.palette.open);
+  });
+
+  it("Sanctum's own themes get a plain green for their scheme", () => {
+    expect(themeById("sanctum-dark")!.palette.ok).toBe(OK_GREEN.dark);
+    expect(themeById("sanctum-light")!.palette.ok).toBe(OK_GREEN.light);
+  });
+
+  it("delete mirrors the broken red under its own name", () => {
+    for (const t of THEMES) {
+      expect(t.palette.danger, t.id).toBe(t.palette.broken);
+      expect(t.palette["danger-tint"], t.id).toBe(t.palette["broken-tint"]);
     }
   });
 });

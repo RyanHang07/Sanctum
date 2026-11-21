@@ -19,6 +19,11 @@ export interface NotesStore {
   /** The note open in the editor. */
   openId: number | null;
   load: () => Promise<void>;
+  /**
+   * Another window changed notes (sanctum://notes, 2026-11-20): reloads the list (titles, order,
+   * pins, deletions) but keeps this window's text for any note it's still saving.
+   */
+  sync: () => Promise<void>;
   open: (id: number | null) => void;
   /** Makes an empty note and opens it. */
   create: (body?: string) => Promise<Note | null>;
@@ -43,8 +48,8 @@ const PUSH_MS = 1500;
 const pushes = new Map<number, ReturnType<typeof setTimeout>>();
 /** Each note's saves run one after another, so an older one can't land after a newer one. */
 const chains = new Map<number, Promise<void>>();
-/** Notes edited while a load was in flight: the load keeps their local version. */
-let touched: Set<number> | null = null;
+/** Notes edited while a load (or sync) was in flight: that read keeps their local version. */
+const touched = new Set<Set<number>>();
 
 function sorted(list: Note[]): Note[] {
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id);
@@ -89,7 +94,7 @@ export const useNotes = create<NotesStore>()((set, get) => {
 
     load: async () => {
       const edited = new Set<number>();
-      touched = edited;
+      touched.add(edited);
       try {
         const [fetched, size] = await Promise.all([native.listNotes(), native.getSetting("note_font_size").catch(() => null)]);
         const fontSize = Number(size);
@@ -103,7 +108,30 @@ export const useNotes = create<NotesStore>()((set, get) => {
         set({ loaded: true });
         fail(e);
       } finally {
-        if (touched === edited) touched = null;
+        touched.delete(edited);
+      }
+    },
+
+    sync: async () => {
+      const edited = new Set<number>();
+      touched.add(edited);
+      try {
+        const fetched = await native.listNotes();
+        const local = get().notes;
+        // Typing here that isn't saved yet (or is saving) wins over the read.
+        const mine = (id: number) => edited.has(id) || pending.has(id) || chains.has(id);
+        const notes = sorted(
+          fetched.map((n) => {
+            const l = mine(n.id) ? local.find((x) => x.id === n.id) : undefined;
+            return l ? { ...n, title: l.title, body: l.body, doc: l.doc } : n;
+          }),
+        );
+        const openId = get().openId;
+        set({ notes, loaded: true, openId: openId !== null && notes.some((n) => n.id === openId) ? openId : (notes[0]?.id ?? null) });
+      } catch {
+        // The next change (or opening Notes) reads again.
+      } finally {
+        touched.delete(edited);
       }
     },
 
@@ -125,7 +153,7 @@ export const useNotes = create<NotesStore>()((set, get) => {
     },
 
     edit: (id, patch) => {
-      touched?.add(id);
+      touched.forEach((t) => t.add(id));
       set({ notes: get().notes.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
       clearTimeout(pending.get(id));
       pending.set(id, setTimeout(() => void save(id), SAVE_MS));

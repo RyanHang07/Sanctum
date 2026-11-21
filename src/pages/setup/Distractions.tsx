@@ -31,8 +31,10 @@ const EMPTY: Record<Filter, string> = {
   keyword: "Keywords block any window or tab whose title contains them, like “shorts”.",
 };
 
-const fadeButton =
-  "opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100";
+const fade = "opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-raised focus-visible:opacity-100 group-hover:opacity-100";
+const fadeButton = `${fade} hover:text-text`;
+/** Removing a distraction deletes it: the danger color on hover (2026-11-20). */
+const fadeDelete = `${fade} hover:text-danger-text focus-visible:text-danger-text`;
 
 /** The second line of a row: the exe, the domain, or where a keyword matches. */
 function detail(d: Distraction, label: string): string {
@@ -44,7 +46,8 @@ function Row({ d, sealed }: { d: Distraction; sealed: boolean }) {
   const { unflag, allowPage, unallowPage } = useStore();
   const [allowing, setAllowing] = useState(false);
   const [draft, setDraft] = useState("");
-  const iconButton = `flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted disabled:hidden ${fadeButton}`;
+  const icon = "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted disabled:hidden";
+  const iconButton = `${icon} ${fadeButton}`;
   const label = distractionLabel(d);
   const submit = async () => {
     if (!draft.trim()) return setAllowing(false);
@@ -71,7 +74,7 @@ function Row({ d, sealed }: { d: Distraction; sealed: boolean }) {
             Allow a page
           </button>
         ) : null}
-        <button type="button" aria-label={`Remove ${label}`} disabled={sealed} onClick={() => void unflag(d.id)} className={iconButton}>
+        <button type="button" aria-label={`Remove ${label}`} disabled={sealed} onClick={() => void unflag(d.id)} className={`${icon} ${fadeDelete}`}>
           <XIcon />
         </button>
       </div>
@@ -79,7 +82,7 @@ function Row({ d, sealed }: { d: Distraction; sealed: boolean }) {
         <div key={a.id} className="group flex h-7 items-center gap-2 pl-[88px] pr-[14px] transition-colors duration-ui ease-ui hover:bg-raised">
           <span className="text-meta text-muted">allows</span>
           <span className="min-w-0 grow truncate font-mono text-micro text-text-2">{a.prefix}</span>
-          <button type="button" aria-label={`Stop allowing ${a.prefix}`} onClick={() => void unallowPage(a.id)} className={iconButton}>
+          <button type="button" aria-label={`Stop allowing ${a.prefix}`} onClick={() => void unallowPage(a.id)} className={`${iconButton} hover:!text-danger-text`}>
             <XIcon />
           </button>
         </div>
@@ -162,7 +165,7 @@ function Suggested({ refreshKey }: { refreshKey: number }) {
               type="button"
               aria-label={`Dismiss ${c.label}`}
               onClick={() => drop(c)}
-              className="flex h-full w-6 items-center justify-center rounded-r-control text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-text"
+              className="flex h-full w-6 items-center justify-center rounded-r-control text-muted transition-colors duration-ui ease-ui hover:bg-raised hover:text-danger-text focus-visible:text-danger-text"
             >
               <XIcon size={9} />
             </button>

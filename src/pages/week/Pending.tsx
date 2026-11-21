@@ -170,7 +170,12 @@ export function PendingTab() {
     { scope: list, dependencies: [open] },
   );
   return (
-    <div {...park.props} data-testid="pending-tab" className={`flex min-h-0 shrink-0 flex-col border-t border-line ${park.over ? "bg-sealed-tint" : ""} ${open ? "max-h-[55%]" : ""}`}>
+    <div
+      {...park.props}
+      data-testid="pending-tab"
+      // Under a list with more below, the list's fade marks the edge instead of this divider.
+      className={`flex min-h-0 shrink-0 flex-col border-t border-line transition-colors duration-ui ease-ui group-data-[more]/day:border-transparent ${park.over ? "bg-sealed-tint" : ""} ${open ? "max-h-[55%]" : ""}`}
+    >
       <Toggle open={open} count={items.length} onClick={() => setOpen(!open)} label={open ? "Hide pending" : "Show pending"} />
       {open ? (
         <div ref={list} data-pending-list className="flex min-h-0 flex-col overflow-y-auto px-[6px] pb-[6px]">

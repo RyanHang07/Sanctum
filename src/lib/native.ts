@@ -102,6 +102,12 @@ export const EVENTS = {
   pause: "sanctum://pause",
   quiet: "sanctum://quiet",
   quietPause: "sanctum://quiet-pause",
+  /** The ids of the notes open in their own window (2026-11-20). */
+  noteWindows: "sanctum://note-windows",
+  /** A note was created, saved, pinned, or deleted in some window: { id, kind, from }. */
+  notes: "sanctum://notes",
+  /** Sent to a note window asked to close: save, then note_window_close. */
+  noteWindowClosing: "sanctum://note-window-closing",
 } as const;
 
 /** True when running inside the Tauri webview (false in `vite` in a browser and in tests). */
@@ -267,6 +273,11 @@ export const native = {
   saveNote: (draft: NoteDraft) => call<Note>("save_note", { draft }),
   pinNote: (id: number, pinned: boolean) => call<Note>("pin_note", { id, pinned }),
   deleteNote: (id: number) => call<void>("delete_note", { id }),
+  /** A note in its own window, or that window brought forward. `background` and `theme` paint it from the first frame. */
+  noteWindowOpen: (id: number, background: string | null = null, theme: "light" | "dark" | null = null) =>
+    call<void>("note_window_open", { id, background, theme }),
+  noteWindowClose: (id: number) => call<void>("note_window_close", { id }),
+  noteWindowList: () => call<number[]>("note_window_list"),
   /** `force` erases even though Google can't be reached, leaving the Sanctum calendar there. */
   resetAll: (force = false) => call<void>("reset_all", { force }),
   appVersion: () => call<string>("app_version"),

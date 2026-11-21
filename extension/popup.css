@@ -1,7 +1,7 @@
 /* The toolbar popup (ExtPopup.dc.html, redesign v0.4). Colours come from tokens.css, which
    theme.js repaints in the app's theme. Roles: accent (`sealed`) for the seal and its timing,
    `sealed-text` for accent text on the panel, `text-2` and `muted` for anything read (never
-   `faint`). Open is neutral: a hollow dot, no hue of its own. No glow, no gradient. */
+   `faint`). Open is the enabled green (`ok`). No glow, no gradient. */
 body {
   margin: 0;
   width: 300px;
@@ -45,9 +45,9 @@ body {
   height: 6px;
   border-radius: 999px;
 }
-/* Open: a hollow dot in the muted colour. */
+/* Open: the app's enabled green (2026-11-20), sent with the theme; the default green until then. */
 .pill .dot {
-  border: 1.5px solid var(--muted);
+  background: var(--ok, var(--open));
 }
 body[data-state="sealed"] .pill {
   border-color: var(--sealed-line);
@@ -132,13 +132,14 @@ body[data-state="sealed"] .pill .dot {
   font-size: 11px;
   color: var(--muted);
 }
-/* Connected is a fact, not a state: neutral, never the accent. Not connected: hollow. */
+/* Connected is a fact, not a state: the app's enabled color (--ok, sent with the theme), never
+   the accent. Not connected: hollow. Before Sanctum ever sends a theme, it falls back to text-2. */
 .conn .dot {
   border: 1.5px solid var(--muted);
 }
 body[data-connected="yes"] .conn .dot {
   border: 0;
-  background: var(--text-2);
+  background: var(--ok, var(--text-2));
 }
 button {
   margin-left: auto;

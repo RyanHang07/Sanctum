@@ -20,7 +20,8 @@ const TAB_ICONS: Record<TabId, ReactNode> = {
 };
 
 const PILL: Record<AppState, { label: string; box: string; dot: string }> = {
-  open: { label: "Open", box: "border-line-input bg-transparent text-text", dot: "bg-open ring-[3px] ring-line" },
+  // Open is the enabled green (2026-11-20), the same dot as the tray and the extension.
+  open: { label: "Open", box: "border-line-input bg-transparent text-text", dot: "bg-ok ring-[3px] ring-ok-tint" },
   sealed: {
     label: "Sealed",
     box: "border-sealed-line bg-sealed-tint text-text",

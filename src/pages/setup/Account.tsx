@@ -279,7 +279,7 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
     <>
       <Row label="Delete account" hint="This PC's data stays">
         {asking ? null : (
-          <Button variant="ghost" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
+          <Button variant="danger-quiet" size="sm" disabled={sealed} onClick={() => setAsking(true)}>
             {sealed ? "Waits until the seal ends" : "Delete account"}
           </Button>
         )}
@@ -295,7 +295,7 @@ export function DeleteAccount({ onDone }: { onDone: () => void }) {
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-broken"
+              className="h-control-sm min-w-0 grow rounded-control border border-line-input bg-raised px-[10px] font-mono text-body text-text transition-colors duration-ui ease-ui focus:border-danger"
             />
             <Button variant="ghost" size="sm" onClick={() => (setAsking(false), setTyped(""))}>
               Cancel

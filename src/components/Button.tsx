@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-export type ButtonVariant = "primary" | "raised" | "ghost" | "tint" | "quiet" | "danger";
+export type ButtonVariant = "primary" | "raised" | "ghost" | "tint" | "quiet" | "danger" | "danger-quiet" | "danger-plain";
 export type ButtonSize = "sm" | "md" | "lg" | "cta" | "cell";
 
 // Hover, press, and disabled states for every button in the app (BACKLOG: hover polish, M2).
@@ -13,8 +13,13 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "border border-line-input bg-transparent text-text-2 enabled:hover:border-check-line enabled:hover:bg-raised enabled:hover:text-text enabled:active:bg-transparent",
   tint: "border border-sealed-line bg-sealed-tint text-text enabled:hover:border-sealed enabled:active:bg-sealed-tint",
   quiet: "bg-transparent text-muted enabled:hover:bg-raised enabled:hover:text-text",
-  /** A step that can't be undone (delete data, delete the account): the broken role, never the accent. */
-  danger: "border border-broken-line bg-broken-tint font-medium text-broken-text enabled:hover:border-broken",
+  /** The final confirm of a step that can't be undone (delete data, delete the account): the danger role, never the accent. */
+  danger: "border border-danger-line bg-danger-tint font-medium text-danger-text enabled:hover:border-danger",
+  /** A delete or destructive action at rest (it opens a confirm, or is small and easy to redo): outlined in the danger role. */
+  "danger-quiet":
+    "border border-danger-line bg-transparent text-danger-text enabled:hover:border-danger enabled:hover:bg-danger-tint enabled:active:bg-transparent",
+  /** A delete in a row of quiet buttons (no edge): the danger text, its tint on hover. */
+  "danger-plain": "bg-transparent text-danger-text enabled:hover:bg-danger-tint",
 };
 
 // Two control heights (tokens): `control` 32 for fields and buttons, `control-sm` 26 for the compact

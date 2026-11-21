@@ -9,6 +9,7 @@ import { catalogDistractions, sampleProfiles } from "../lib/catalog";
 import { usePlanner } from "../state/planner";
 import { useTrackers } from "../state/trackers";
 import { RoutineDialog } from "./week/editors";
+import { useItemSelect } from "./itemSelect";
 import { homeLine } from "./headlines";
 import { EVERY_DAY, addDays, todayKey } from "../lib/planner";
 
@@ -32,6 +33,7 @@ beforeEach(() => {
   useStore.setState(initial, true);
   usePlanner.setState(initialPlanner, true);
   useTrackers.setState(initialTrackers, true);
+  useItemSelect.setState({ key: null, editing: null });
   disconnect = connectNativeEvents();
 });
 afterEach(() => disconnect());
@@ -73,8 +75,13 @@ describe("Home Today list (v0.1)", () => {
     // Untimed items drag into place, and the order is saved.
     const row = (name: string) => screen.getByRole("checkbox", { name }).closest("[data-testid=task-row]") as HTMLElement;
     expect(row("Dentist")).not.toHaveAttribute("draggable");
+    // A one-time item drags once it's selected: the first click picks it.
+    fireEvent.click(row("Call mom"));
     await act(async () => drag(row("Call mom"), row("Pay rent")));
     expect(titles("day-column")).toEqual(["Dentist", "Call mom", "Pay rent"]);
+    // Routines don't select; they drag as before.
+    fireEvent.click(row("Read"));
+    expect(row("Read")).not.toHaveAttribute("data-selected");
     await act(async () => drag(row("Read"), row("Stretch")));
     expect(titles("routines-column")).toEqual(["Read", "Stretch", "Run"]);
     const saved = await native.listTodos(day, day);
@@ -181,6 +188,51 @@ describe("Home Pending tab (v0.1)", () => {
     await act(async () => void render(<Home />));
     const row = screen.getByRole("checkbox", { name: "Send the weekly update" }).closest("[data-testid=task-row]")!;
     expect(row.lastElementChild).toHaveTextContent("Light Work");
+  });
+
+  it("a click selects a one-time item, only the selected one drags, and a double-click opens it", async () => {
+    const day = todayKey();
+    await native.saveTodo({ title: "Pay rent", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+    await native.saveTodo({ title: "Call mom", dueDate: day, dueTime: null, durationMin: null, profileId: null });
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    await act(async () => void render(<Home />));
+    const row = (name: string) => screen.getByRole("checkbox", { name }).closest("[data-testid=task-row]") as HTMLElement;
+    // Not selected: no drag, so a stray press-and-move does nothing.
+    expect(row("Pay rent")).not.toHaveAttribute("draggable");
+    expect(fireEvent.dragStart(row("Pay rent"), { dataTransfer: { setData: () => undefined } })).toBe(false);
+    fireEvent.click(row("Pay rent"));
+    expect(row("Pay rent")).toHaveAttribute("data-selected", "true");
+    expect(row("Pay rent")).toHaveAttribute("draggable", "true");
+    expect(row("Call mom")).not.toHaveAttribute("draggable");
+    // Another click moves the selection; a click outside clears it.
+    fireEvent.click(row("Call mom"));
+    expect(row("Pay rent")).not.toHaveAttribute("data-selected");
+    fireEvent.mouseDown(document.body);
+    expect(row("Call mom")).not.toHaveAttribute("data-selected");
+    // The box still just checks it off, without selecting.
+    await act(async () => fireEvent.click(screen.getByRole("checkbox", { name: "Call mom" })));
+    expect(row("Call mom")).not.toHaveAttribute("data-selected");
+    // A double-click opens the editor, where it can be deleted.
+    await act(async () => fireEvent.doubleClick(row("Pay rent")));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Delete" })));
+    await waitFor(() => expect(screen.queryByRole("checkbox", { name: "Pay rent" })).toBeNull());
+  });
+
+  it("gives a narrow row's room to the title: Focus first, then the type, then the time", async () => {
+    const day = todayKey();
+    const [p] = [await native.createProfile({ name: "Light Work" })];
+    await act(() => useStore.getState().loadProfiles());
+    await native.saveTodo({ title: "Inbox and email", dueDate: day, dueTime: "16:30", durationMin: null, profileId: p.id });
+    await act(() => usePlanner.getState().ensure(day, addDays(day, 1)));
+    await act(async () => void render(<Home />));
+    const row = screen.getByRole("checkbox", { name: "Inbox and email" }).closest("[data-testid=task-row]") as HTMLElement;
+    expect(row).toHaveClass("@container");
+    expect(within(row).getByText("Inbox and email")).not.toHaveClass("hidden");
+    expect(within(row).getByRole("button", { name: "Focus on Inbox and email" })).toHaveClass("hidden", "@[340px]:flex");
+    expect(within(row).getByText("Light Work")).toHaveClass("hidden", "@[300px]:flex");
+    expect(within(row).getByText("4:30p")).toHaveClass("hidden", "@[220px]:block");
   });
 });
 

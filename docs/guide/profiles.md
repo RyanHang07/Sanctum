@@ -36,6 +36,7 @@ Flagged also means counted as distracting time in Stats. Add a distraction any t
 A softer guard for the rest of the day. Turn on **Pause before opening** in Setup › Distractions, then pick **All day** or **These hours**. Outside seals, an app or site from your Distractions list makes you wait before it opens ("Discord can wait five seconds."):
 
 - The app is minimized behind the pause (a site waits on the extension's page) for five seconds.
+- While the pause waits for an answer, the app stays behind it: bring it forward, even on another monitor, and it goes back down and the pause comes to the front. Left unanswered for a minute, the pause answers **Not now** itself and the app is closed.
 - **Not now** (Enter) closes it. **Go on** brings it back and leaves it alone for 15 minutes.
 - Seals and quiet hours still block outright. Stats › Overview counts **Pauses turned back**.
 

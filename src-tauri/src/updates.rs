@@ -165,7 +165,7 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
 }
 
 /// The site's pages the app links to (v0.3).
-const SITE_PAGES: &[&str] = &["privacy", "terms", "legal", "docs", "changelog", "partner"];
+const SITE_PAGES: &[&str] = &["privacy", "terms", "legal", "docs", "docs/extension", "changelog", "partner"];
 
 /// A page on Sanctum's site, opened in your theme's light or dark. Only the site's own pages.
 pub fn site_url(page: &str, scheme: &str) -> Option<String> {
@@ -273,6 +273,7 @@ mod tests {
         let url = site_url("privacy", "light").unwrap();
         assert!(url.ends_with("/privacy?theme=light"), "{url}");
         assert!(site_url("/legal/", "sepia").unwrap().ends_with("/legal?theme=dark"));
+        assert!(site_url("docs/extension", "dark").unwrap().ends_with("/docs/extension?theme=dark"));
         assert!(site_url("https://evil.example", "dark").is_none());
         assert!(site_url("../admin", "dark").is_none());
     }

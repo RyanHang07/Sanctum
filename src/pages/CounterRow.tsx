@@ -131,7 +131,7 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
                 type="button"
                 aria-label={`Remove ${fmt(e.value ?? 0)}${unit}`}
                 onClick={() => void useTrackers.getState().deleteEntry(e.id)}
-                className="shrink-0 text-faint opacity-0 transition-opacity duration-ui ease-ui hover:text-text-2 focus-visible:opacity-100 group-hover:opacity-100"
+                className="shrink-0 text-faint opacity-0 transition-[opacity,color] duration-ui ease-ui hover:text-danger-text focus-visible:opacity-100 focus-visible:text-danger-text group-hover:opacity-100"
               >
                 <XIcon size={10} />
               </button>

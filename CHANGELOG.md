@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.4.1 (2026-11-20)
+
+Fixes from using v0.4.0 every day, a look at tomorrow from Today, and notes in their own window.
+
+**New**
+
+- **Tomorrow on Today (optional).** Setup › Behavior › Tomorrow on Today turns Today's list into Today | Tomorrow tabs, off by default. Tomorrow's items check off there, drag between the tabs, and a dot on the Tomorrow tab says something is planned. Mark tomorrow can limit the dot to what starts before a time you pick. At the reset time both lists refresh with the screens' swap, and the dot bumps in when tomorrow gains something.
+- **A note can open in its own window.** Open in new window, beside the pin, gives the note a window of its own that remembers its place and size. While it's open, Notes shows "Open in its own window." with Bring it forward in its place, and every window follows notes saved, pinned or deleted in another.
+- **Today's items select, then drag; a double-click opens one.** A click on a one-time item or event (on Today or Tomorrow) marks it with a light left edge, so you can see what you're about to move. Only the selected item drags, so a stray press-and-move does nothing. A double-click, or Enter on the selected one, opens the same editor Week uses, where it can be changed or deleted. A click elsewhere or Escape clears it. Routines reorder as before.
+- **Week's List view moves items too.** Drag a one-time item onto another day. Each day's routines fold under one Routines row with how many are done; a day opened here is open in the Week view too.
+
+**Fixed**
+
+- **Drag and drop works in the installed app.** Windows' native file-drop handler was taking every drag, so moving items between days, reordering Today and dropping on the Tomorrow tab did nothing outside the browser. It's off on every window now.
+- **A focused item is marked done.** Ending a session linked to a task now offers to mark it done on the card, and Done checks it off.
+- **A blocked app stays out of reach on a second monitor.** While its pause card waits, the app is minimized again whenever it comes forward, and the card takes focus back; a card left unanswered for a minute closes the app. Apps that can't be closed during a seal are minimized and get the card.
+- **Toasts and chart tooltips match their theme.** The OpenCode themes (Aura among them) had these surfaces inverted, so they showed as white boxes with unreadable text. They now sit a step off the page in the theme's own scheme, and every theme is tested for readable text on them.
+- **Open looks the same everywhere.** The Open dot in the sidebar, the tray and the extension is the same green on every theme; before, it was green in some themes, white in others, and hollow in the tray and extension.
+- **An item dragged to Tomorrow and back shows again.** Its row left mid-drag, so it kept the dragging dim when it came back. Routines on the Tomorrow tab carry the repeat mark, since they stay on their days.
+- **Week's add panel closes after adding,** with Add or Enter, so the day shows what you just put on it.
+- **The extension's toolbar torii is white on dark themes,** not black.
+- **Narrow Today rows keep the title.** As a row narrows, Focus goes first, then the profile tag, then the time. Compact hides its Ctrl M hint when the button is narrow.
+- **Green means on, red means delete, on every theme.** Each theme has a green for what's connected or working (Setup's status dots, a browser's Connected, the extension's connected dot; something that needs doing is red) and a red for deleting and other destructive actions (Delete buttons, remove icons on hover, Start over, Delete account, restore and remove-calendar confirms). Both are tested for readable text on every theme, and Open uses the same green.
+- **A profile's long link keeps its site name.** In a profile's sites, the name keeps its room and the link truncates first.
+- **The notes sidebar button says what it does** on hover: Collapse notes sidebar, or Expand notes sidebar. Its icon is the same size as the app sidebar's.
+- **Browser Extension reads at a glance.** Each browser has its own dot, green when connected and red when not, and the side list turns green once any browser is connected. The top row says what the extension does and links to the guide.
+- **Journal prompts scan quickly.** Four short tabs (Plan, Reflect, Feelings, Focus) and the prompts, without the quick picks and descriptions; the count beside a tab no longer wraps under it.
+- **Start over folds open,** and says in two lines what it erases and what it keeps.
+- **Suggested distractions' X turns red on hover,** like other remove buttons.
+
 ## v0.4.0 (2026-11-18)
 
 **The redesign.** Sanctum is flat and quieter: every screen sits on the theme's plain page color, headlines are one plain sentence, labels are sentence case, and motion is short and purposeful. Setup is reorganized, the seal is harder to slip, and a long list of stability fixes keeps the app from getting stuck.

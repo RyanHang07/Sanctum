@@ -47,7 +47,11 @@ export const TextIcon = ({ size = 14, className }: P) => (
 export const XIcon = ({ size = 12, className }: P) => (
   <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
 );
-export const ChevronRightIcon = ({ size = 12, className }: P) => (
+/** A window with an arrow out of its corner: open in a new window (note windows, 2026-11-20). */
+export const PopOutIcon = ({ size = 13, className }: P) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 4.5H7A2.5 2.5 0 0 0 4.5 7v10A2.5 2.5 0 0 0 7 19.5h10a2.5 2.5 0 0 0 2.5-2.5v-4" /><path d="M14.5 4.5h5v5M19.5 4.5L12 12" /></svg>
+);
+export const ChevronRightIcon =({ size = 12, className }: P) => (
   <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
 );
 /**

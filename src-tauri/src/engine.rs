@@ -828,9 +828,37 @@ fn pause_tick(app: &AppHandle, now: i64) {
         return;
     }
     track_foreground(&shared);
+    // Left unanswered, the card turns the app back: it's closed, as "Not now" would. Before, the
+    // card let go after two minutes and the app stayed open behind it.
+    let expired = {
+        let mut p = engine.pause.locked();
+        let gone = p.pending.as_ref().is_some_and(|w| pause::unanswered(w, now));
+        if gone { p.pending.take() } else { None }
+    };
+    if let Some(w) = expired {
+        let _ = pause::log(&shared.db.locked(), &w.exe, "app", "turned_back", now);
+        hide_intercept(app);
+        engine.blocker.locked().close_exe(&w.exe);
+        return;
+    }
     let Some(fg) = winutil::foreground() else { return };
     if fg.pid == std::process::id() {
         return;
+    }
+    // While its card waits, the app stays behind it. Brought to the front (on another monitor,
+    // say), it goes back down and the card comes forward, so it can't be used unanswered.
+    let waiting = engine.pause.locked().pending.as_ref().map(|w| w.exe.clone());
+    if let Some(waiting) = waiting {
+        let fg_exe = engine.blocker.locked().exe_of(fg.pid);
+        if fg_exe.as_deref() == Some(waiting.as_str()) {
+            let pids = engine.blocker.locked().pids_of(&waiting);
+            winutil::minimize_windows_of(&pids);
+            if let Some(w) = app.get_webview_window("intercept") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+            return;
+        }
     }
     let flags = distractions::list(&shared.db.locked()).unwrap_or_default();
     let exe = {
@@ -990,7 +1018,15 @@ fn session_sweep(app: &AppHandle) -> Option<Intercept> {
         session::record_attempt(&conn, id, exe, kind, now).ok()
     };
     let session = engine.active.locked().as_ref().map(|a| a.id);
-    for b in blocked.iter().filter(|b| b.closed) {
+    // What couldn't be closed (usually run as administrator) still can't be used: its windows go
+    // back down every pass, and it gets the card like anything else (2026-11-20). It used to be
+    // skipped, which left it open beside the seal.
+    for b in &blocked {
+        if !b.left.is_empty() {
+            winutil::minimize_windows_of(&b.left);
+        }
+    }
+    for b in blocked.iter().filter(|b| b.closed || !b.left.is_empty()) {
         // Closed every time; logged and shown once per ATTEMPT_EVERY_MS.
         if !session.is_some_and(|id| engine.kills.locked().counts(id, &b.exe, now)) {
             continue;

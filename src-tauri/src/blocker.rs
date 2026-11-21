@@ -103,6 +103,8 @@ pub struct Blocked {
     pub kind: &'static str,
     /// False when every kill failed (usually an elevated process).
     pub closed: bool,
+    /// The processes that couldn't be closed, so their windows can at least be kept down.
+    pub left: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -205,8 +207,11 @@ impl Blocker for SystemBlocker {
         let mut by_exe: BTreeMap<String, Blocked> = BTreeMap::new();
         for p in targets(&procs, &seal, &keep) {
             let killed = self.sys.process(sysinfo::Pid::from_u32(p.pid)).is_some_and(|proc_| proc_.kill());
-            let entry = by_exe.entry(p.exe.clone()).or_insert(Blocked { exe: p.exe.clone(), kind: "app", closed: false });
+            let entry = by_exe.entry(p.exe.clone()).or_insert(Blocked { exe: p.exe.clone(), kind: "app", closed: false, left: Vec::new() });
             entry.closed |= killed;
+            if !killed {
+                entry.left.push(p.pid);
+            }
         }
         by_exe.into_values().collect()
     }

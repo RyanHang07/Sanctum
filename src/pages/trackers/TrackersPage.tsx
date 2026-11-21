@@ -213,7 +213,7 @@ function DeleteEntry({ t, e }: { t: Tracker; e: TrackerEntry }) {
       type="button"
       aria-label={`Delete ${t.name} entry from ${shortDate(e.loggedAt)}`}
       onClick={() => void deleteEntry(e.id)}
-      className="flex h-6 w-6 items-center justify-center rounded-control text-muted opacity-0 transition-opacity duration-ui ease-ui hover:bg-raised hover:text-text focus-visible:opacity-100 group-hover:opacity-100"
+      className="flex h-6 w-6 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,color,background-color] duration-ui ease-ui hover:bg-danger-tint hover:text-danger-text focus-visible:opacity-100 focus-visible:text-danger-text group-hover:opacity-100"
     >
       <XIcon size={11} />
     </button>

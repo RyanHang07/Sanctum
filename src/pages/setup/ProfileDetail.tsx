@@ -57,7 +57,7 @@ function RulePanel({
     if (draft.trim() && (await onSubmit(draft))) setDraft("");
   };
   const iconButton =
-    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-text opacity-0 transition-[opacity,background-color] duration-ui ease-ui hover:bg-raised focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100";
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted opacity-0 transition-[opacity,background-color,color] duration-ui ease-ui hover:bg-line hover:text-danger-text focus-visible:opacity-100 focus-visible:text-danger-text group-hover:opacity-100 group-focus-within:opacity-100";
   return (
     <section aria-label={title} className="flex flex-col overflow-hidden rounded-panel border border-line bg-panel">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-[14px]">
@@ -73,8 +73,10 @@ function RulePanel({
           <div key={r.id} className="flex shrink-0 flex-col">
             <div className="group flex h-row shrink-0 items-center gap-[10px] px-[14px] transition-colors duration-ui ease-ui hover:bg-raised focus-within:bg-raised">
               <RuleIcon rule={r} apps={apps} />
-              <span className="min-w-0 truncate text-body text-text">{ruleLabel(r)}</span>
-              <span className="min-w-0 grow truncate font-mono text-micro text-muted">
+              {/* The name keeps its room (up to about half the row); a long link takes what's left
+                  and truncates first (2026-11-20). */}
+              <span data-rule-name className="min-w-0 max-w-[55%] shrink-0 truncate text-body text-text">{ruleLabel(r)}</span>
+              <span data-rule-meta className="min-w-0 flex-1 basis-0 truncate font-mono text-micro text-muted">
                 {ruleMeta(r)}
                 {notInstalled(r, apps) ? " · not installed" : ""}
               </span>
@@ -215,7 +217,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
             <Button variant="raised" size="sm" onClick={() => void testLaunch()} disabled={launching || opens.length === 0}>
               {launching ? "Opening" : "Test launch"}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+            <Button variant="danger-quiet" size="sm" onClick={() => setConfirmDelete(true)}>
               Delete
             </Button>
           </div>
@@ -293,7 +295,7 @@ export function ProfileDetail({ profile }: { profile: Profile }) {
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="danger"
               autoFocus
               onClick={async () => {
                 setConfirmDelete(false);

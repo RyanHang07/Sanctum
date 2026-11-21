@@ -472,11 +472,11 @@ describe("Setup's list", () => {
   it("puts a dot only on a connection that needs something", async () => {
     await renderSetup(false);
     const browser = screen.getByRole("tab", { name: "Browser Extension" });
-    // The extension isn't connected in Comet yet: the second color, and a description for readers.
+    // The extension isn't connected in Comet yet: red (danger), and a description for readers.
     await waitFor(() => expect(browser).toHaveAttribute("data-attention", "true"));
     const dot = browser.querySelector("[data-tone]")!;
     expect(dot).toHaveAttribute("data-tone", "attention");
-    expect(dot).toHaveClass("bg-second");
+    expect(dot).toHaveClass("bg-danger");
     expect(browser).toHaveAttribute("aria-description", "Needs attention");
     // Off and fine stay quiet.
     for (const name of ["Profiles", "Partner", "Calendar"]) expect(screen.getByRole("tab", { name }).querySelector("[data-tone]")).toBeNull();
@@ -661,13 +661,24 @@ describe("Browser Extension", () => {
     expect(section.getByText("Comet")).toBeInTheDocument();
     expect(section.queryByText("Edge")).toBeNull(); // not installed
     expect(section.getAllByText("Extension not loaded.")).toHaveLength(2);
-    expect(section.getByTestId("browser-status")).toHaveTextContent(/^Not connected in Comet and .+\. Sites aren’t blocked there yet./);
-    expect(section.getByTestId("browser-status")).toHaveAttribute("data-tone", "attention");
+    // No status line: a short description and the guide, and each browser's own dot (red: not connected).
+    expect(section.queryByTestId("browser-status")).toBeNull();
+    expect(section.getByTestId("extension-intro")).toHaveTextContent("Seals sites and keyword tabs inside your browser.");
+    const site = vi.spyOn(native, "openSite");
+    fireEvent.click(section.getByRole("button", { name: "How to use it" }));
+    expect(site).toHaveBeenCalledWith("docs/extension", expect.any(String));
+    expect(section.getAllByText("Not connected").map((t) => t.querySelector("[data-tone]"))).toEqual(expect.arrayContaining([expect.anything()]));
+    for (const dot of section.getAllByText("Not connected").map((t) => t.querySelector("[data-tone]")!)) expect(dot).toHaveClass("bg-danger");
+    const tab = () => screen.getByRole("tab", { name: "Browser Extension" }).querySelector("[data-tone]");
+    expect(tab()).toHaveAttribute("data-tone", "attention");
     expect(section.getByTestId("extension-dir")).toHaveTextContent("extension");
 
     await act(async () => mockControls.extension("comet.exe", { connected: true, incognito: false }));
     expect(await section.findByText("v0.1.0 · Off in private windows")).toBeInTheDocument();
     expect(section.queryByTestId("extension-dir")).toBeNull();
+    // One browser connected: the side list's dot turns green.
+    await waitFor(() => expect(tab()).toHaveAttribute("data-tone", "ok"));
+    expect(section.getByText("Connected").querySelector("[data-tone]")).toHaveClass("bg-ok");
     fireEvent.click(section.getByRole("button", { name: "Show steps" }));
     expect(section.getByTestId("extension-dir")).toBeInTheDocument();
 
@@ -675,7 +686,7 @@ describe("Browser Extension", () => {
     expect(await section.findByText("v0.1.0")).toBeInTheDocument();
     await act(async () => mockControls.extension("comet.exe", { connected: false, missing: true }));
     expect(await section.findByText("Extension removed. Its windows stay minimized.")).toBeInTheDocument();
-    expect(section.getByTestId("browser-status")).toHaveTextContent("Removed from Comet.");
+    expect(tab()).toHaveAttribute("data-tone", "attention");
   });
 });
 

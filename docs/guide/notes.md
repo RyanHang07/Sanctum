@@ -10,6 +10,8 @@ Type **@** to link a task, routine, tracker, or day. **/** then **Make it a task
 
 Move a block with **Alt ↑ / Alt ↓** or its drag handle.
 
+**Open in new window**, beside the pin, gives a note a window of its own, which remembers its place and size. While it's open, Notes shows **Bring it forward** in its place; edits, pins and deletes in either window show in the other.
+
 ## Sharing a note
 
 Choose **Share** on a note, then how long: 1 hour, 1 day, or 7 days. Anyone with the link can read it, live, as you edit. Choose **Stop sharing** to end it early.

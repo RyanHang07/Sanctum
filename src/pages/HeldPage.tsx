@@ -111,7 +111,20 @@ function HeldMark({ broken }: { broken: boolean }) {
   );
 }
 
-/** The session's task, checked off from here (v0.1). Already done shows as done. */
+/** Checks the session's task off, wherever the held page offers it. A task deleted meanwhile
+ *  has nothing to check off, so that counts as done too. */
+async function markTaskDone(task: TaskLink): Promise<void> {
+  try {
+    if (task.kind === "todo") await native.setTodoDone(task.id, true);
+    else await native.setRoutineDone(task.id, task.date, true);
+  } catch {
+    // Deleted meanwhile.
+  }
+  void usePlanner.getState().reload();
+}
+
+/** The session's task, checked off from here (v0.1). It sits on the card itself, not behind
+ *  Add a note, so finishing a session always offers it (2026-11-20). Already done shows as done. */
 function TaskDone({ task }: { task: TaskLink }) {
   const alreadyDone = usePlanner((p) =>
     task.kind === "todo" ? p.todos.some((t) => t.id === task.id && t.done) : routineDoneOn(p.routines, p.checks, task.id, task.date),
@@ -120,17 +133,9 @@ function TaskDone({ task }: { task: TaskLink }) {
   const [busy, setBusy] = useState(false);
   const mark = async () => {
     setBusy(true);
-    try {
-      if (task.kind === "todo") await native.setTodoDone(task.id, true);
-      else await native.setRoutineDone(task.id, task.date, true);
-      setDone(true);
-      void usePlanner.getState().reload();
-    } catch {
-      // Deleted meanwhile: nothing to check off.
-      setDone(true);
-    } finally {
-      setBusy(false);
-    }
+    await markTaskDone(task);
+    setDone(true);
+    setBusy(false);
   };
   const isDone = done || alreadyDone;
   return (
@@ -186,7 +191,12 @@ function WrapUp({ held, wrap, setWrap }: { held: HeldStats; wrap: Wrap; setWrap:
         </span>
         <div role="radiogroup" aria-label="Did it get done?" className="flex gap-[6px]">
           {RESULTS.map(([v, label]) => (
-            <button key={v} type="button" role="radio" aria-checked={wrap.result === v} className={chipClass(wrap.result === v)} onClick={() => setWrap({ ...wrap, result: wrap.result === v ? null : v })}>
+            <button key={v} type="button" role="radio" aria-checked={wrap.result === v} className={chipClass(wrap.result === v)} onClick={() => {
+              const result = wrap.result === v ? null : v;
+              setWrap({ ...wrap, result });
+              // "Done" means the task is done: check it off too (2026-11-20).
+              if (result === "done" && held.task) void markTaskDone(held.task);
+            }}>
               {label}
             </button>
           ))}
@@ -244,7 +254,7 @@ function Parked({ sessionId }: { sessionId: number }) {
           <Button variant="quiet" size="sm" onClick={() => void tomorrow(t.id, t.title)}>
             Tomorrow
           </Button>
-          <Button variant="quiet" size="sm" aria-label={`Delete ${t.title}`} onClick={() => void drop(t.id)}>
+          <Button variant="danger-plain" size="sm" aria-label={`Delete ${t.title}`} onClick={() => void drop(t.id)}>
             Delete
           </Button>
         </div>
@@ -389,11 +399,15 @@ export function HeldPage({ held }: { held: HeldStats }) {
                 {line}
               </p>
             </div>
+            {held.task ? (
+              <div data-rise="note" className="w-full max-w-[520px]">
+                <TaskDone task={held.task} />
+              </div>
+            ) : null}
           </div>
           {reviewOpen ? (
             <div ref={reviewRef} className="overflow-hidden">
               <section id={reviewId} aria-label="Review this session" data-testid="held-review" className="flex flex-col gap-4 border-t border-line px-10 py-6">
-                {held.task ? <TaskDone task={held.task} /> : null}
                 <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
                 <Parked sessionId={held.sessionId} />
               </section>
