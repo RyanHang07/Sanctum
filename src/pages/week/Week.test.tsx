@@ -474,6 +474,8 @@ describe("Home follows the schedule", () => {
     expect(screen.getByTestId("suggestion")).toHaveClass("border-sealed");
     expect(screen.getByTestId("suggestion")).not.toHaveClass("border-sealed-line");
     const prompt = screen.getByRole("alertdialog", { name: "Deep Work starts now" });
+    // The same surface as the other notices (2026-11-20).
+    expect(prompt).toHaveClass("bg-toast", "shadow-toast");
     expect(prompt).toHaveTextContent("Work session: SQL + DSA · 60 min");
     await act(async () => fireEvent.click(within(prompt).getByRole("button", { name: /Enter focus/ })));
     expect(useStore.getState().session?.profileName).toBe("Deep Work");

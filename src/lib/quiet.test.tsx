@@ -102,6 +102,9 @@ describe("quiet hours schedule", () => {
     };
     render(<QuietCard p={p} onBack={vi.fn()} onPause={onPause} />);
     expect(screen.getByRole("alertdialog")).toHaveTextContent("Discord waits until 7:00 AM.");
+    // Always "Back to work", however long the app's name (2026-11-20).
+    expect(screen.getByRole("button", { name: /^Back to work/ })).toHaveClass("shrink-0");
+    expect(screen.queryByText(/Visual Studio Code/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Pause 15 min" }));
     expect(onPause).toHaveBeenCalledOnce();
   });

@@ -5,7 +5,7 @@ import { useTheme } from "../state/theme";
 import type { TabId } from "../state/appState";
 import { applyTheme, type Palette, type Theme } from "../theme/palette";
 import { THEMES, derive, themeById } from "../theme/themes";
-import { finishTheme, secondRoles } from "../theme/finish";
+import { finishTheme, okRoles, secondRoles } from "../theme/finish";
 import { contrast, toHex } from "../theme/color";
 import { HIT } from "./controls";
 
@@ -14,7 +14,7 @@ import { HIT } from "./controls";
 // in them live, then copy the palette out as JSON in the shape of src/theme/opencodeThemes.ts.
 
 /** The colors the creator edits, in the order they show. */
-export const DRAFT_KEYS = ["app", "panel", "raised", "sidebar", "line", "line-input", "text", "text-2", "muted", "faint", "sealed", "event", "second", "broken", "toast"] as const;
+export const DRAFT_KEYS = ["app", "panel", "raised", "sidebar", "line", "line-input", "text", "text-2", "muted", "faint", "sealed", "event", "second", "ok", "broken", "toast"] as const;
 type DraftKey = (typeof DRAFT_KEYS)[number];
 
 const LABELS: Record<DraftKey, string> = {
@@ -31,6 +31,7 @@ const LABELS: Record<DraftKey, string> = {
   sealed: "Sealed (accent)",
   event: "Event",
   second: "Second",
+  ok: "Ok (enabled)",
   broken: "Broken",
   toast: "Toast",
 };
@@ -86,7 +87,8 @@ export function draftTheme(d: Draft): Theme {
   const c = d.colors;
   const id = `${base.id}-draft`;
   const name = `${base.name} draft`;
-  if (!d.derive) return { id, name, scheme: d.scheme, palette: { ...base.palette, ...c } };
+  // Open is the enabled color everywhere (finish.ts), so it follows the draft's ok.
+  if (!d.derive) return { id, name, scheme: d.scheme, palette: { ...base.palette, ...c, open: c.ok } };
   const p = base.palette;
   const four = (k: string) => [1, 2, 3, 4].map((i) => toHex(p[`${k}-${i}`])) as [string, string, string, string];
   const built = finishTheme(
@@ -111,8 +113,11 @@ export function draftTheme(d: Draft): Theme {
       ember: four("ember"),
     }),
   );
-  // finishTheme takes the second color from the event; the draft names its own.
-  const palette: Palette = { ...built.palette, ...secondRoles(c.second, c.app, c.panel, d.scheme === "dark") };
+  // finishTheme takes the second color from the event and the enabled green from the theme; the
+  // draft names its own, and their text, tint and line follow as they do for a real theme.
+  const dark = d.scheme === "dark";
+  const ok = okRoles(c.ok, c.app, c.panel, dark);
+  const palette: Palette = { ...built.palette, ...secondRoles(c.second, c.app, c.panel, dark), ...ok, open: ok.ok! };
   return { ...built, palette };
 }
 
@@ -181,6 +186,7 @@ export function ThemeCreator({ onClose }: { onClose: () => void }) {
     { label: "Text on panel", fg: "text", bg: "panel" },
     { label: "Muted on panel", fg: "muted", bg: "panel" },
     { label: "Text on toast", fg: "text", bg: "toast" },
+    { label: "Ok text on panel", fg: "ok-text", bg: "panel" },
   ];
 
   const copy = async () => {

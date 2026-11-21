@@ -8,7 +8,7 @@ import { DUR, EASE, gsap, useGSAP } from "../lib/gsap";
 import { useMotion } from "../lib/useMotion";
 import { clock, countdown, minutes, minutesIn } from "../lib/time";
 import type { Intercept as Payload } from "../lib/types";
-import { HEADLINE, PARK_LINES, QUIET_LINES, overlayLine, pauseHeadline, pick, planLine, welcome } from "../pages/headlines";
+import { HEADLINE, PARK_LINES, QUIET_LINES, overlayLine, pick, planLine, welcome } from "../pages/headlines";
 
 const RETURN_AFTER_S = 5;
 const NUDGE_MS = 3500;
@@ -187,7 +187,8 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
     return () => window.removeEventListener("keydown", onKey);
   }, [onAnswer]);
   const left = Math.max(0, Math.ceil(((p.endsAt ?? 0) - now) / 1000));
-  const headline = pauseHeadline(p.label, p.endsAt ?? 0);
+  // Worded like the other cards (2026-11-20): "{app} waits ...", and Back to work as the way out.
+  const headline = HEADLINE.pauseWaits(p.label);
   return (
     <div role="alertdialog" aria-label={headline} className="flex w-[420px] animate-fade-in flex-col overflow-hidden rounded-dialog border border-line-input bg-panel shadow-toast">
       <div className="flex flex-col gap-[6px] px-[22px] pb-[18px] pt-[22px]">
@@ -195,10 +196,10 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
         <p className="m-0 text-body leading-normal text-text-2">
           {left ? (
             <>
-              Go on unlocks in <span className="font-mono text-text">{left}s</span>, for 15 minutes if you still want it.
+              Go on in <span className="font-mono text-text">{left}s</span> gives you 15 minutes.
             </>
           ) : (
-            "It's yours for 15 minutes if you still want it."
+            "Go on gives you 15 minutes."
           )}
         </p>
       </div>
@@ -206,8 +207,8 @@ export function PauseCard({ p, onAnswer }: { p: Payload; onAnswer: (goOn: boolea
         <Button variant="quiet" className="-ml-3" disabled={left > 0} onClick={() => onAnswer(true)}>
           Go on
         </Button>
-        <Button variant="primary" className="ml-auto gap-[10px] px-[14px]" onClick={() => onAnswer(false)}>
-          Not now
+        <Button variant="primary" className="ml-auto shrink-0 gap-[10px] px-[14px]" onClick={() => onAnswer(false)}>
+          Back to work
           <Kbd onFill>↵</Kbd>
         </Button>
       </div>
@@ -243,8 +244,9 @@ export function QuietCard({ p, onBack, onPause }: { p: Payload; onBack: () => vo
           </Button>
         )}
         <Returning left={left} />
-        <Button variant="primary" className="min-w-0 gap-[10px] px-[14px]" onClick={onBack}>
-          <span className="max-w-[160px] truncate">Back to {p.backTo ?? "work"}</span>
+        {/* Always "Back to work" (2026-11-20): an app's long name pushed the button out of the card. */}
+        <Button variant="primary" className="shrink-0 gap-[10px] px-[14px]" onClick={onBack}>
+          Back to work
           <Kbd onFill>↵</Kbd>
         </Button>
       </div>
@@ -258,8 +260,8 @@ export function TitleNudge({ p }: { p: Payload }) {
     <div role="status" className="flex w-[348px] animate-rise-in items-center gap-3 rounded-panel border border-line-input bg-toast px-[14px] py-3 shadow-toast">
       <LockIcon size={14} className="shrink-0 text-sealed" />
       <div className="flex min-w-0 flex-col gap-[2px]">
-        <span className="text-body text-text">“{p.keyword}” stays sealed.</span>
-        <span className="truncate text-meta text-muted">Minimized {p.label}</span>
+        <span className="text-body text-text">{HEADLINE.stays(`“${p.keyword}”`)}</span>
+        <span className="truncate text-meta text-muted">{p.label} waits, minimized.</span>
         {p.plan ? <span className="text-meta text-text-2">{planLine(p.plan)}</span> : null}
       </div>
     </div>

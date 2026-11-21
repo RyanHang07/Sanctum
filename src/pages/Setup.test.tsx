@@ -575,6 +575,9 @@ describe("Account", () => {
     await openTab("Partner");
     const account = within(await screen.findByRole("region", { name: "Account" }));
     expect(account.getByTestId("partner-status")).toHaveTextContent("No partner. Early unlocks need only you.");
+    // No partner reads red: the dot and the words (2026-11-20).
+    expect(account.getByTestId("partner-status")).toHaveAttribute("data-tone", "attention");
+    expect(account.getByText("No partner.")).toHaveClass("text-danger-text");
     expect(account.getByText("Sign in to add a partner")).toBeInTheDocument();
     fireEvent.change(account.getByLabelText("Email for a sign-in link"), { target: { value: "me@example.com" } });
     await act(async () => fireEvent.click(account.getByRole("button", { name: "Email me a link" })));

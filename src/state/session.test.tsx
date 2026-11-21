@@ -256,7 +256,7 @@ describe("intercept overlay", () => {
 
   it("shows a corner nudge for title keywords", () => {
     render(<TitleNudge p={{ ...payload, kind: "title", label: "Funny cats - YouTube Shorts", keyword: "shorts" }} />);
-    expect(screen.getByRole("status")).toHaveTextContent("“shorts” stays sealed.Minimized Funny cats - YouTube Shorts");
+    expect(screen.getByRole("status")).toHaveTextContent("“shorts” stays sealed.Funny cats - YouTube Shorts waits, minimized.");
   });
 
   it("uses English ordinals", () => {
