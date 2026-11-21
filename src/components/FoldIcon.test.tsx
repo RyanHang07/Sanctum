@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, StatePill } from "./Sidebar";
 import { NotesPage } from "../pages/notes/NotesPage";
 import { useStore } from "../state/store";
 import { resetMockBackend } from "../lib/mockBackend";
@@ -43,5 +43,14 @@ describe("the sidebar's state pill", () => {
     render(<Sidebar />);
     const dot = screen.getByTestId("state-pill").querySelector("span > span") as HTMLElement;
     expect(dot).toHaveClass("bg-ok");
+  });
+
+  it("shows the extra line in the state's own font, quieter, shortening to fit", () => {
+    render(<StatePill state="open" meta="Quiet to 8:00 AM" />);
+    const meta = screen.getByTestId("state-meta");
+    expect(meta).toHaveTextContent("Quiet to 8:00 AM");
+    expect(meta).toHaveClass("text-meta", "font-medium", "text-muted", "truncate", "min-w-0");
+    expect(meta).not.toHaveClass("font-mono");
+    expect(meta).toHaveAttribute("title", "Quiet to 8:00 AM");
   });
 });

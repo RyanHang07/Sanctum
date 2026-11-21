@@ -58,8 +58,14 @@ export function StatePill({ state, meta, compact = false }: { state: AppState; m
         <span className={`h-[7px] w-[7px] rounded-full transition-colors duration-700 ${p.dot}`} />
       </span>
       <span aria-hidden={compact || undefined} className={`flex min-w-0 grow items-center gap-[10px] ${fade(compact)}`}>
-        <span className="whitespace-nowrap text-meta font-medium">{p.label}</span>
-        {meta ? <span className="ml-auto whitespace-nowrap font-mono text-meta text-muted">{meta}</span> : null}
+        <span className="shrink-0 whitespace-nowrap text-meta font-medium">{p.label}</span>
+        {/* The same text as the state, in the quieter color, and it shortens to fit (2026-11-21):
+            the mono "Quiet to 8:00 AM" ran past the box. */}
+        {meta ? (
+          <span data-testid="state-meta" title={meta} className="ml-auto min-w-0 truncate text-meta font-medium text-muted">
+            {meta}
+          </span>
+        ) : null}
       </span>
     </div>
   );
