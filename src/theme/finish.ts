@@ -111,17 +111,49 @@ export function brokenRoles(broken: string, app: string, panel: string, dark: bo
 }
 
 /**
- * The enabled color (2026-11-20): connected, on, turned on. Imported themes bring a green as
- * their `open` color; Sanctum's own themes have none (their open is the text color), so they get
- * a plain green for their scheme. Status only: it never marks the app's Open state.
+ * The enabled color (2026-11-20): connected, on, turned on, and the app's Open state. Sanctum's
+ * own themes share one green (2026-11-21): #6EEB80 on dark (hue 129, 76% saturation, 68%
+ * lightness, between the sealed blue's 59% and the second coral's 71%), and on light the same hue
+ * at the light second's 62% saturation, as light as a 3:1 fill on the page allows. It is also the
+ * fallback for an imported theme that brings no green of its own.
  */
-export const OK_GREEN = { dark: "#3FB950", light: "#1A7F37" } as const;
+export const OK_GREEN = { dark: "#6EEB80", light: "#27A53A" } as const;
 
-/** A color with a hue of its own (not a grey, and not the theme's text). */
-function hasHue(c: string | undefined, text: string): c is string {
-  if (!c || !/^#[0-9A-Fa-f]{6}$/.test(c) || c.toUpperCase() === text.toUpperCase()) return false;
-  const v = rgb(c);
-  return Math.max(...v) - Math.min(...v) >= 48;
+/** Sanctum's own themes, which always take OK_GREEN. */
+const SANCTUM = new Set(["sanctum-dark", "sanctum-light"]);
+
+/**
+ * Enabled greens picked by hand, where a theme's imported open color isn't its green
+ * (green audit, 2026-11-21).
+ */
+export const OK: Readonly<Record<string, string>> = {
+  // Built here from its published colors, which name no open: Latte's own green.
+  "catppuccin-latte": "#40A02B",
+  // Its open is a grey teal; Nord's aurora green (the dark Nord's open).
+  "nord-light": "#A3BE8C",
+  // Rosé Pine has no green; pine is the color it gives success, so it stays.
+  rosepine: "#31748F",
+  "rosepine-light": "#286983",
+};
+
+/** A green: a hue from yellow-green to sea green, with enough color not to read as grey. */
+export function isGreen(c: string | undefined): c is string {
+  if (!c || !/^#[0-9A-Fa-f]{6}$/.test(c)) return false;
+  const [r, g, b] = rgb(c);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d < 24) return false;
+  const hue = max === r ? 60 * (((g - b) / d + 6) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  // 55 takes in Gruvbox Light's olive; 176 takes in Night Owl Light's sea green (175) and stops
+  // short of Nord Light's grey teal (178).
+  return hue >= 55 && hue <= 176;
+}
+
+/** Where a theme's enabled green comes from: Sanctum's green, a hand pick, its own open, or the fallback. */
+export function okSource(theme: Theme): string {
+  if (SANCTUM.has(theme.id)) return OK_GREEN[theme.scheme];
+  const own = theme.palette.open;
+  return OK[theme.id] ?? (isGreen(own) ? own : OK_GREEN[theme.scheme]);
 }
 
 export function okRoles(source: string, app: string, panel: string, dark: boolean): Palette {
@@ -182,9 +214,8 @@ export function finishTheme(theme: Theme): Theme {
 
   Object.assign(p, secondRoles(SECOND[theme.id] ?? p.event!, app, panel, dark));
   // The enabled and delete colors (2026-11-20). The theme's own green (its imported open color)
-  // becomes the enabled color.
-  const green = hasHue(theme.palette.open, p.text!) ? theme.palette.open : OK_GREEN[theme.scheme];
-  Object.assign(p, okRoles(green, app, panel, dark));
+  // becomes the enabled color; Sanctum's themes share one (okSource).
+  Object.assign(p, okRoles(okSource(theme), app, panel, dark));
   Object.assign(p, dangerRoles(p, dark));
   // Open is the enabled green on every surface and theme (2026-11-20): the sidebar pill, the tray
   // and the extension all show it.

@@ -230,7 +230,8 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
   } else {
     line = (
       <StatusLine
-        tone={tone}
+        // No partner reads red here (2026-11-20); the side list stays quiet, since it's a choice.
+        tone="attention"
         testId="partner-status"
         action={
           <Button variant="primary" size="sm" disabled={sealed} onClick={() => run(native.cloudCreateInvite)}>
@@ -238,7 +239,7 @@ function PartnerRows({ p, onChange, onError }: { p: PartnerStatus; onChange: (p:
           </Button>
         }
       >
-        No partner. Early unlocks need only you.
+        <span className="text-danger-text">No partner.</span> Early unlocks need only you.
       </StatusLine>
     );
   }
@@ -346,8 +347,8 @@ export function AccountSection() {
           </StatusLine>
         )
       ) : (
-        <StatusLine tone="off" testId="partner-status">
-          No partner. Early unlocks need only you.
+        <StatusLine tone="attention" testId="partner-status">
+          <span className="text-danger-text">No partner.</span> Early unlocks need only you.
         </StatusLine>
       )}
       <div ref={rows}>

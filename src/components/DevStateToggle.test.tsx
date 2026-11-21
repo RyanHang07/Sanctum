@@ -111,7 +111,7 @@ describe("dev tools", () => {
     expect(screen.queryByRole("alertdialog", { name: "Discord is sealed" })).toBeNull();
     expect(screen.getByText("“reddit” stays sealed.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pause mode" }));
-    fireEvent.click(screen.getByRole("button", { name: /Not now/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Back to work/ }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 

@@ -1,6 +1,6 @@
 import { contrast } from "./color";
 import { KEYS } from "./palette";
-import { ACCENT, OK_GREEN, SECOND } from "./finish";
+import { ACCENT, OK, OK_GREEN, SECOND, isGreen } from "./finish";
 import { OPENCODE_THEMES } from "./opencodeThemes";
 import { THEMES, themeById } from "./themes";
 
@@ -141,9 +141,40 @@ describe("The enabled and delete colors", () => {
     expect(themeById("aura")!.palette.ok).toBe(aura.palette.open);
   });
 
-  it("Sanctum's own themes get a plain green for their scheme", () => {
+  it("Sanctum's own themes share one green, #6EEB80 on dark and its light counterpart", () => {
+    expect(OK_GREEN.dark).toBe("#6EEB80");
     expect(themeById("sanctum-dark")!.palette.ok).toBe(OK_GREEN.dark);
+    expect(themeById("sanctum-dark")!.palette.open).toBe(OK_GREEN.dark);
     expect(themeById("sanctum-light")!.palette.ok).toBe(OK_GREEN.light);
+    expect(themeById("sanctum-light")!.palette.open).toBe(OK_GREEN.light);
+  });
+
+  it("every imported theme's enabled color comes from its own green", () => {
+    for (const src of OPENCODE_THEMES) {
+      const t = themeById(src.id);
+      if (!t || t.id !== src.id || OK[src.id]) continue;
+      const own = src.palette.open;
+      // readable() may only lift (or deepen) the theme's green to 3:1, never swap it.
+      if (isGreen(own)) expect(t.palette.ok, src.id).toBe(own);
+      else expect(t.palette.ok, src.id).not.toBe(own);
+    }
+    // Themes whose open is not their green: a blue (Orng), a grey teal (Nord Light).
+    expect(isGreen("#6BA1E6")).toBe(false);
+    expect(isGreen("#6D8F8E")).toBe(false);
+    // Yellow-greens (Gruvbox Light) and sea greens (Night Owl Light) are still greens.
+    expect(isGreen("#79740E")).toBe(true);
+    expect(isGreen("#27958C")).toBe(true);
+    expect(themeById("orng")!.palette.ok).toBe(OK_GREEN.dark);
+    expect(themeById("nord-light")!.palette.ok).not.toBe("#6D8F8E");
+    expect(themeById("catppuccin-latte")!.palette.ok).not.toBe(OK_GREEN.light);
+  });
+
+  it("every theme's delete color is its own broken red", () => {
+    for (const src of OPENCODE_THEMES) {
+      const t = themeById(src.id);
+      if (!t || t.id !== src.id || ACCENT[src.id]) continue;
+      expect(t.palette.danger, src.id).toBe(src.palette.broken);
+    }
   });
 
   it("delete mirrors the broken red under its own name", () => {

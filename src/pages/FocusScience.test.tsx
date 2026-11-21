@@ -190,14 +190,16 @@ describe("pause mode", () => {
     expect(useStore.getState().notice?.lead).toBe("Pause hours need a start and an end that differ.");
   });
 
-  it("the card waits five seconds before Go on works; Not now is the default", async () => {
+  it("the card waits five seconds before Go on works; Back to work is the default", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval"] });
     const answer = vi.fn();
     render(<PauseCard p={{ kind: "pause", label: "Discord", attempts: 0, profileName: "", elapsedMs: 0, remainingMs: 5000, backTo: null, keyword: null, endsAt: Date.now() + 5000 }} onAnswer={answer} />);
     // A statement, never "Still want Discord?" (headlines.ts PAUSE).
-    expect(screen.getByRole("alertdialog", { name: /Discord/ })).toHaveTextContent("Go on unlocks in 5s");
+    expect(screen.getByRole("alertdialog", { name: /Discord/ })).toHaveTextContent("Discord waits five seconds.Go on in 5s gives you 15 minutes.");
     expect(screen.getByRole("heading")).not.toHaveTextContent("?");
     expect(screen.getByRole("button", { name: "Go on" })).toBeDisabled();
+    // The way out reads like the other cards' (2026-11-20).
+    expect(screen.getByRole("button", { name: /Back to work/ })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Enter" });
     expect(answer).toHaveBeenLastCalledWith(false);
     await act(async () => vi.advanceTimersByTime(5_500));

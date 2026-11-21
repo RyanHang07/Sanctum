@@ -21,7 +21,8 @@ export function BlockPrompt() {
     <div
       role="alertdialog"
       aria-label={`${profile.name} starts now`}
-      className="absolute bottom-7 left-1/2 z-30 flex w-[440px] -translate-x-1/2 animate-rise-in items-center gap-3 rounded-panel border border-sealed-line bg-panel py-3 pl-4 pr-3 shadow-dialog"
+      // The same surface as the other notices (2026-11-20): the toast's color, edge and shadow.
+      className="absolute bottom-7 left-1/2 z-30 flex w-[440px] -translate-x-1/2 animate-rise-in items-center gap-3 rounded-panel border border-line-input bg-toast py-3 pl-4 pr-3 shadow-toast"
     >
       <div className="flex min-w-0 grow flex-col gap-[2px]">
         <span className="text-body font-semibold text-text">{profile.name} starts now.</span>

@@ -135,6 +135,8 @@ export const HEADLINE = {
   open: "You’re open again.",
   /** Quiet hours, on the overlay. */
   waits: (what: string, until: string) => `${what} waits until ${until}.`,
+  /** Pause mode, on the card (2026-11-20): the same "{app} waits ..." as quiet hours. */
+  pauseWaits: (what: string) => `${what} waits five seconds.`,
   quietPause: "Fifteen minutes needs a reason.",
   partnerDenied: (partner: string) => `${partner} said no, so the seal stands.`,
   partnerExpired: "The request expired, so the seal stands.",

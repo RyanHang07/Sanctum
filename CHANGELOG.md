@@ -22,11 +22,14 @@ Fixes from using v0.4.0 every day, a look at tomorrow from Today, and notes in t
 - **Week's add panel closes after adding,** with Add or Enter, so the day shows what you just put on it.
 - **The extension's toolbar torii is white on dark themes,** not black.
 - **Narrow Today rows keep the title.** As a row narrows, Focus goes first, then the profile tag, then the time. Compact hides its Ctrl M hint when the button is narrow.
-- **Green means on, red means delete, on every theme.** Each theme has a green for what's connected or working (Setup's status dots, a browser's Connected, the extension's connected dot; something that needs doing is red) and a red for deleting and other destructive actions (Delete buttons, remove icons on hover, Start over, Delete account, restore and remove-calendar confirms). Both are tested for readable text on every theme, and Open uses the same green.
+- **Green means on, red means delete, on every theme.** Each theme has a green for what's connected or working (Setup's status dots, a browser's Connected, the extension's connected dot; something that needs doing is red) and a red for deleting and other destructive actions (Delete buttons, remove icons on hover, Start over, Delete account, restore and remove-calendar confirms). Both are tested for readable text on every theme, and Open uses the same green. Sanctum Dark and Light share one green (#6EEB80, and #27A53A in light); every other theme uses its own green and red, with Sanctum's green where a theme has none.
 - **A profile's long link keeps its site name.** In a profile's sites, the name keeps its room and the link truncates first.
 - **The notes sidebar button says what it does** on hover: Collapse notes sidebar, or Expand notes sidebar. Its icon is the same size as the app sidebar's.
 - **Browser Extension reads at a glance.** Each browser has its own dot, green when connected and red when not, and the side list turns green once any browser is connected. The top row says what the extension does and links to the guide.
 - **Journal prompts scan quickly.** Four short tabs (Plan, Reflect, Feelings, Focus) and the prompts, without the quick picks and descriptions; the count beside a tab no longer wraps under it.
+- **Quiet hours' button fits.** It always says Back to work; a long app name pushed it out of the card. Pause mode's card now reads like the others ("Discord waits five seconds.", with Back to work as the way out), and the title nudge says "… waits, minimized."
+- **Block starts looks like the other notices,** on the same surface as the toasts.
+- **No partner reads red** in Setup › Partner.
 - **Start over folds open,** and says in two lines what it erases and what it keeps.
 - **Suggested distractions' X turns red on hover,** like other remove buttons.
 
