@@ -8,7 +8,7 @@
 use crate::engine::Locked;
 use crate::{db, notes, Shared};
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
 
@@ -38,22 +38,45 @@ fn bounds_key(id: i64) -> String {
     format!("note_window:{id}")
 }
 
-/// The notes with their own window, kept as windows open and close.
+/// How long a closing note window has to save before it's closed anyway: the main window's 3s.
+pub const CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// The notes with their own window, kept as windows open and close, and each window's latest
+/// place and size, kept in memory while it moves and written once when it closes (2026-11-21:
+/// a write per Moved/Resized event held the database lock through a whole drag).
 #[derive(Default)]
-pub struct Open(Mutex<BTreeSet<i64>>);
+pub struct Open {
+    ids: Mutex<BTreeSet<i64>>,
+    placed: Mutex<HashMap<i64, Bounds>>,
+}
 
 impl Open {
     /// True when this changed the list.
     pub fn opened(&self, id: i64) -> bool {
-        self.0.locked().insert(id)
+        self.ids.locked().insert(id)
     }
 
     pub fn closed(&self, id: i64) -> bool {
-        self.0.locked().remove(&id)
+        self.ids.locked().remove(&id)
     }
 
     pub fn ids(&self) -> Vec<i64> {
-        self.0.locked().iter().copied().collect()
+        self.ids.locked().iter().copied().collect()
+    }
+
+    /// The window moved or resized: remembered, not written yet.
+    pub fn place(&self, id: i64, b: Bounds) {
+        self.placed.locked().insert(id, b);
+    }
+
+    /// A window's place to write now, taken so it's written once.
+    pub fn take_place(&self, id: i64) -> Option<Bounds> {
+        self.placed.locked().remove(&id)
+    }
+
+    /// Every place still waiting to be written.
+    pub fn take_places(&self) -> Vec<(i64, Bounds)> {
+        self.placed.locked().drain().collect()
     }
 }
 
@@ -229,32 +252,74 @@ pub fn on_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                 close(app, id);
                 return;
             }
+            // The main window's 3s (2026-11-21): 1.5s could cut off a save waiting on the database.
             let app = app.clone();
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1500));
+                std::thread::sleep(CLOSE_WAIT);
                 close(&app, id);
             });
         }
         tauri::WindowEvent::Destroyed => {
+            write_place(app, id);
             if app.try_state::<Open>().is_some_and(|o| o.closed(id)) {
                 emit_list(app);
             }
         }
-        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => save_bounds(window, id),
+        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => remember_place(window, id),
         _ => {}
     }
 }
 
-fn save_bounds(window: &tauri::Window, id: i64) {
+fn remember_place(window: &tauri::Window, id: i64) {
     // Minimized windows sit far off screen, and a maximized one has no size of its own to keep.
     if window.is_minimized().unwrap_or(true) || window.is_maximized().unwrap_or(true) || !window.is_visible().unwrap_or(false) {
         return;
     }
     let (Ok(p), Ok(s)) = (window.outer_position(), window.inner_size()) else { return };
-    let Some(shared) = window.app_handle().try_state::<Shared>() else { return };
-    let b = Bounds { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 };
-    let conn = shared.db.locked();
-    let _ = db::set_setting(&conn, &bounds_key(id), &b.text());
+    let Some(open) = window.app_handle().try_state::<Open>() else { return };
+    open.place(id, Bounds { x: p.x, y: p.y, w: s.width as i32, h: s.height as i32 });
+}
+
+/// Writes a window's last place, if it moved since it was last written.
+fn write_place(app: &AppHandle, id: i64) {
+    let (Some(open), Some(shared)) = (app.try_state::<Open>(), app.try_state::<Shared>()) else { return };
+    if let Some(b) = open.take_place(id) {
+        let _ = db::set_setting(&shared.db.locked(), &bounds_key(id), &b.text());
+    }
+}
+
+/// Writes every place still waiting, then quits.
+fn finish_exit(app: &AppHandle) {
+    if let (Some(open), Some(shared)) = (app.try_state::<Open>(), app.try_state::<Shared>()) {
+        let conn = shared.db.locked();
+        for (id, b) in open.take_places() {
+            let _ = db::set_setting(&conn, &bounds_key(id), &b.text());
+        }
+    }
+    app.exit(0);
+}
+
+/// Quits once every note window has saved and closed, each asked the way its X asks, or after
+/// CLOSE_WAIT (2026-11-21). Quitting used to exit as soon as the main window had saved, so a note
+/// window's last typing could be lost. Their places are written first either way.
+pub fn exit_after_saving(app: &AppHandle) {
+    let ids = app.try_state::<Open>().map(|o| o.ids()).unwrap_or_default();
+    if ids.is_empty() {
+        return finish_exit(app);
+    }
+    for id in &ids {
+        if app.emit_to(label_for(*id).as_str(), CLOSING_EVENT, *id).is_err() {
+            close(app, *id);
+        }
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let until = std::time::Instant::now() + CLOSE_WAIT;
+        while std::time::Instant::now() < until && app.try_state::<Open>().is_some_and(|o| !o.ids().is_empty()) {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        finish_exit(&app);
+    });
 }
 
 #[cfg(test)]
@@ -280,6 +345,21 @@ mod tests {
         assert!(open.closed(7));
         assert!(!open.closed(7));
         assert_eq!(open.ids(), vec![3]);
+    }
+
+    #[test]
+    fn a_window_place_is_kept_in_memory_and_taken_once_to_write() {
+        let open = Open::default();
+        // A drag fires many moves: only the last place is kept, nothing is written yet.
+        for x in 0..50 {
+            open.place(3, Bounds { x, y: 10, w: 560, h: 640 });
+        }
+        open.place(7, Bounds { x: 1, y: 1, w: 400, h: 400 });
+        assert_eq!(open.take_place(3), Some(Bounds { x: 49, y: 10, w: 560, h: 640 }));
+        // Taken once: a second close writes nothing.
+        assert_eq!(open.take_place(3), None);
+        assert_eq!(open.take_places(), vec![(7, Bounds { x: 1, y: 1, w: 400, h: 400 })]);
+        assert!(open.take_places().is_empty());
     }
 
     #[test]

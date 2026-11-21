@@ -709,7 +709,8 @@ fn quit_app(app: AppHandle, shared: State<Shared>) -> Result<(), String> {
     if shared.sealed() {
         return Err("Sanctum stays open while sealed.".into());
     }
-    app.exit(0);
+    // Note windows save their last typing first (2026-11-21).
+    note_windows::exit_after_saving(&app);
     Ok(())
 }
 
@@ -720,13 +721,14 @@ pub fn quit_via_window(app: &AppHandle) {
         return;
     }
     if app.get_webview_window("main").is_none() || app.emit_to("main", "sanctum://quit", ()).is_err() {
-        app.exit(0);
+        note_windows::exit_after_saving(app);
         return;
     }
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
-        app.exit(0);
+        // Main didn't answer: note windows still get their chance to save.
+        note_windows::exit_after_saving(&app);
     });
 }
 

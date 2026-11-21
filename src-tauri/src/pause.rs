@@ -132,7 +132,32 @@ impl State {
     pub fn allow(&mut self, exe: &str, now: i64) {
         self.allowed.insert(exe.to_string(), now + ALLOW_MS);
     }
+    /// What to do with the waiting card on this pass (2026-11-21). With pause mode off (its hours
+    /// ended), or a card far past its minute (quiet hours or a break held the engine elsewhere),
+    /// the card is dropped and the app left alone: closing it hours later would cost unsaved work.
+    /// A card just past its minute answers "Not now", and the app is closed.
+    pub fn expire(&mut self, now: i64, on: bool) -> Expired {
+        let Some(p) = self.pending.as_ref() else { return Expired::Keep };
+        if !on || now - p.at > STALE_MS {
+            return self.pending.take().map_or(Expired::Keep, Expired::Drop);
+        }
+        if unanswered(p, now) {
+            return self.pending.take().map_or(Expired::Keep, Expired::Close);
+        }
+        Expired::Keep
+    }
 }
+
+/// The waiting card's fate on a pass: still waiting, closed as "Not now", or let go unanswered.
+#[derive(Debug, PartialEq)]
+pub enum Expired {
+    Keep,
+    Close(Pending),
+    Drop(Pending),
+}
+
+/// Past this, an unanswered card is too old to act on: it's let go, not answered.
+pub const STALE_MS: i64 = 2 * UNANSWERED_MS;
 
 /// How long a card waits for an answer before it answers "Not now" itself and the app is
 /// closed (2026-11-20). It used to let go after two minutes, leaving the app open behind it.
@@ -173,6 +198,24 @@ mod tests {
         // While it waits, the same app isn't paused twice (the engine keeps it down instead).
         let mut s = State { pending: Some(p), ..Default::default() };
         assert!(!s.should_pause("discord.exe", 1_000 + 5 * UNANSWERED_MS));
+    }
+
+    #[test]
+    fn a_stale_card_is_let_go_and_a_fresh_one_closes_its_app() {
+        let p = || Pending { exe: "discord.exe".into(), pids: vec![1], at: 1_000 };
+        let mut s = State { pending: Some(p()), ..Default::default() };
+        // Still inside its minute: it waits.
+        assert_eq!(s.expire(1_000 + UNANSWERED_MS, true), Expired::Keep);
+        // Just past it: Not now, the app closes.
+        assert_eq!(s.expire(1_000 + UNANSWERED_MS + 1, true), Expired::Close(p()));
+        assert!(s.pending.is_none());
+        // Pause mode's hours ended while it waited: let go, never closed later.
+        s.pending = Some(p());
+        assert_eq!(s.expire(1_000 + 10, false), Expired::Drop(p()));
+        // Found hours later (quiet hours held the engine): let go.
+        s.pending = Some(p());
+        assert_eq!(s.expire(1_000 + 6 * 60 * 60_000, true), Expired::Drop(p()));
+        assert_eq!(s.expire(2_000, true), Expired::Keep);
     }
 
     #[test]
