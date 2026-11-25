@@ -7,6 +7,9 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # A test run from the Actions tab builds the same release as a draft under a "test-" tag.
+  # Installed copies never see a draft, and the tag doesn't match v*, so nothing ships.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,8 +18,8 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -36,12 +39,23 @@ jobs:
       - id: notes
         shell: bash
         run: |
+          if [ "${{ github.event_name }}" = push ]; then
+            version="${{ github.ref_name }}"
+            echo "tag=$version" >> "$GITHUB_OUTPUT"
+            echo "name=Sanctum $version" >> "$GITHUB_OUTPUT"
+            echo "draft=false" >> "$GITHUB_OUTPUT"
+          else
+            version="v$(node -p "require('./package.json').version")"
+            echo "tag=test-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            echo "name=Sanctum $version (test build ${{ github.run_number }})" >> "$GITHUB_OUTPUT"
+            echo "draft=true" >> "$GITHUB_OUTPUT"
+          fi
           {
             echo 'body<<NOTES_EOF'
-            node scripts/release-notes.mjs "${{ github.ref_name }}"
+            node scripts/release-notes.mjs "$version"
             echo 'NOTES_EOF'
           } >> "$GITHUB_OUTPUT"
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs updates so only published builds install (not Windows code signing).
@@ -54,12 +68,16 @@ jobs:
           SANCTUM_SUPABASE_KEY: ${{ vars.SANCTUM_SUPABASE_KEY }}
           SANCTUM_PARTNER_URL: ${{ vars.SANCTUM_PARTNER_URL }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Sanctum ${{ github.ref_name }}
+          tagName: ${{ steps.notes.outputs.tag }}
+          releaseName: ${{ steps.notes.outputs.name }}
           releaseBody: ${{ steps.notes.outputs.body }}
+          releaseCommitish: ${{ github.sha }}
           # Published as soon as it builds (decided 2026-10-29): installed copies see it within hours.
-          releaseDraft: false
+          # A test run stays a draft.
+          releaseDraft: ${{ steps.notes.outputs.draft }}
           prerelease: false
-          includeUpdaterJson: true
+          # latest.json links to each installer through the GitHub API (tauri-action v1); the
+          # updater sends Accept: application/octet-stream, so those links download the file.
+          uploadUpdaterJson: true
           # Update artifacts need the private key, so only releases make them.
           args: --config {"bundle":{"createUpdaterArtifacts":true}}
