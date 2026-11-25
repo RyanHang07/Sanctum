@@ -51,6 +51,20 @@ describe("Stats", () => {
     expect(tempted.getByText("Site")).toBeInTheDocument();
   });
 
+  it("keeps each figure inside its tile, however wide (2026-11-24: '5 of 30' ran into the next tile)", async () => {
+    seed();
+    mockControls.pauseLog(Array.from({ length: 30 }, (_, i) => ({ what: "discord.exe", kind: "app" as const, outcome: i < 5 ? ("turned_back" as const) : ("went_on" as const), ts: Date.now() - i * 3_600_000 })));
+    render(<StatsPage />);
+    const summary = await screen.findByTestId("stats-summary");
+    expect(tile(summary, "Pauses turned back")).toBe("5 of 30");
+    // Tiles size to at least their content, and a figure never wraps.
+    expect(summary.style.gridTemplateColumns).toMatch(/^repeat\(5, minmax\(min-content, 1fr\)\)/);
+    const values = summary.querySelectorAll('[data-testid="stat-value"]');
+    expect(values).toHaveLength(5);
+    for (const v of values) expect(v).toHaveClass("whitespace-nowrap");
+    for (const c of summary.querySelectorAll("[data-stat]:not([data-stat=Focused])")) expect(c).toHaveClass("min-w-[96px]");
+  });
+
   it("draws the week as Focused bars on a ruler, with kept marks and the dashed target", async () => {
     seed();
     render(<StatsPage />);

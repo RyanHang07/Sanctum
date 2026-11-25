@@ -47,11 +47,12 @@ function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSumm
     <div
       data-testid="stats-summary"
       className="grid shrink-0 overflow-hidden rounded-panel border border-line bg-panel"
-      style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(96px, 1fr)) minmax(240px, 2fr)` }}
+      // A tile is never narrower than its figure (2026-11-24: "5 of 30" ran into the next tile).
+      style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(min-content, 1fr)) minmax(240px, 2fr)` }}
     >
       {cells.map(([v, k], i) => (
-        <div key={k} data-stat={k} className={`flex flex-col justify-center gap-[6px] px-[18px] py-4 ${i ? "border-l border-line" : ""}`}>
-          <span className="flex h-6 items-center font-mono text-[24px] font-medium leading-none tracking-[-0.02em]">
+        <div key={k} data-stat={k} className={`flex min-w-[96px] flex-col justify-center gap-[6px] px-[18px] py-4 ${i ? "border-l border-line" : ""}`}>
+          <span data-testid="stat-value" className="flex h-6 items-center whitespace-nowrap font-mono text-[24px] font-medium leading-none tracking-[-0.02em]">
             <Odometer text={v} />
           </span>
           <span className="text-meta text-muted">{k}</span>

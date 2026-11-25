@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Stats figures stay in their tiles.** A wide figure like "5 of 30" pauses turned back ran past its tile into the focused time; each tile is now at least as wide as its figure.
+
 ## v0.4.4 (2026-11-24)
 
 - **A counter's tracker shows its real numbers.** Trackers adds up a counter routine's day (it charted each day's last amount, so a counter looked like it had lost its entries), the card shows today's total and the routine's goal, and the table labels its entries Routine.

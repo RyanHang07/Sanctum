@@ -55,7 +55,8 @@ jobs:
             node scripts/release-notes.mjs "$version"
             echo 'NOTES_EOF'
           } >> "$GITHUB_OUTPUT"
-      - uses: tauri-apps/tauri-action@v1
+      - id: release
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs updates so only published builds install (not Windows code signing).
@@ -81,3 +82,18 @@ jobs:
           uploadUpdaterJson: true
           # Update artifacts need the private key, so only releases make them.
           args: --config {"bundle":{"createUpdaterArtifacts":true}}
+      # The release as installed copies will meet it: latest.json names this version, each
+      # installer link downloads an installer, and each signature verifies against the app's
+      # key. A published release is also read from the public endpoint, with no token.
+      - name: Check the update
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-update.mjs "${{ steps.notes.outputs.tag }}"
+      # A test run removes its draft once the check passes (a failed one is kept to look at).
+      - name: Remove the test draft
+        if: github.event_name != 'push' && steps.release.outputs.releaseId != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/releases/${{ steps.release.outputs.releaseId }}"

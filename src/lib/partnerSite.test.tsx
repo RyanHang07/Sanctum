@@ -179,6 +179,12 @@ describe("the home page says what v0.4.0 does", () => {
     expect(container.querySelectorAll("img.shot")).toHaveLength(9);
   });
 
+  // The docs page is a lazy chunk with every guide inlined; compiling it under a full parallel
+  // run took over 10s (2026-11-24), so it loads before the test, which then times the swap alone.
+  beforeAll(async () => {
+    await import("../../partner/src/site/Docs");
+  }, 60_000);
+
   it("swaps pages inside one frame: the bar stays, the page changes", async () => {
     history.replaceState(null, "", "/");
     render(<App />);
