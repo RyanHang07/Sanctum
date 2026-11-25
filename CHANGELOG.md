@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.4 (2026-11-24)
+
+- **A counter's tracker shows its real numbers.** Trackers adds up a counter routine's day (it charted each day's last amount, so a counter looked like it had lost its entries), the card shows today's total and the routine's goal, and the table labels its entries Routine.
+- **Trackers say what fills them.** Each tracker carries one plain word on a raised surface, edged like the tables' dividers: Routine when a counter routine counts into it, Tracked otherwise. It sits in the corner of each chart card's footer and at the end of each row in Setup, with the sources' names on hover, and reads in every theme.
+- **A session for a routine counts one session.** Checking a routine off after a seal, from its row or from Done, used to fill it whole, so one session of a routine three times a day checked off all three. It now adds this one session, once. A counter routine's session takes an amount toward its total instead, and is never checked off whole.
+- **Deleting a tracker asks first.** A confirm says what goes (the tracker and its entries) and that a counter routine counting into it becomes a plain routine, and a notice says so after. The routine's goal goes with the link, so nothing half-counter is left.
+- **Kept days on the Stats calendar read in every theme.** A day's number and focus time were always the theme's text color, so on light fills (Aura's kept days, at 1.08:1) they all but vanished; 73 of 75 themes fell under 4.5:1. Each fill step now has its own text color: the theme's text where it reads, else its dark or light ink, else plain black or white. The fills don't change, and a theme test holds every step to 4.5:1.
+- **A tracker card's header sits on one line.** The unit sat 4px below the figure; the name, goal, figure, and unit now share one baseline, and the name is a size larger.
+- **Sanctum can fill the screen.** The window's maximize button works, and F11 takes it full screen and back.
+- **The counter's add field fits its unit.** It sizes to "+ grams" or whatever unit you set, up to a cap, and shortens with an ellipsis past it.
+
 ## v0.4.3 (2026-11-21)
 
 A hotfix.

@@ -9,7 +9,9 @@ import { useStore } from "../../state/store";
 import { useTrackers } from "../../state/trackers";
 import { charted, entriesOf, formatValue, num, RANGE_LABEL, RANGES, rangeNote, rangeStart, shortDate, type TrackerRange } from "../../lib/trackers";
 import type { Tracker, TrackerEntry } from "../../lib/types";
-import { atGoal, goalDirection, goalText, trackerChart, type RulerTick } from "./chart";
+import { OriginLabel } from "./Origin";
+import { usePlanner } from "../../state/planner";
+import { atGoal, goalDirection, goalText, trackerChart, type RulerTick, todayTotal } from "./chart";
 
 // Trackers (gate-canvas ProtoTrackers.dc.html, SPEC 4.13): one chart per tracker (never two
 // metrics on one axis), drawn on rulers. The left ruler is the value axis; the bottom ruler has a
@@ -38,15 +40,19 @@ function pointValue(t: Tracker, v: number, share: boolean) {
   return share ? `${Math.round(v * 100)}% yes` : formatValue(t, { value: v, text: null });
 }
 
-function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry[]; history: TrackerEntry[]; range: TrackerRange }) {
+function ChartCard({ t: tracker, list, history, range }: { t: Tracker; list: TrackerEntry[]; history: TrackerEntry[]; range: TrackerRange }) {
   const root = useRef<HTMLElement>(null);
   const { run } = useMotion(root);
   const [hover, setHover] = useState<number | null>(null);
-  const dir = useMemo(() => goalDirection(history, t.goal), [history, t.goal]);
+  // A counter routine's tracker (2026-11-24): days add up, the figure is today's total, and the
+  // routine's daily goal stands in when the tracker has none of its own.
+  const counter = usePlanner((s) => s.routines.find((r) => r.trackerId === tracker.id && r.goalAmount !== null));
+  const t = useMemo(() => (counter ? { ...tracker, goal: tracker.goal ?? counter.goalAmount, sum: true } : tracker), [tracker, counter]);
+  const dir = useMemo(() => (counter ? "up" : goalDirection(history, t.goal)), [counter, history, t.goal]);
   const c = useMemo(() => trackerChart(t, list, range, dir), [t, list, range, dir]);
   const last = list[list.length - 1];
   const h = hover !== null ? c.points[hover] : null;
-  const current = !last ? "—" : t.kind === "bool" ? (last.value ? "Yes" : "No") : num(last.value ?? 0);
+  const current = counter ? num(todayTotal(list)) : !last ? "—" : t.kind === "bool" ? (last.value ? "Yes" : "No") : num(last.value ?? 0);
   const unit = t.kind === "scale" ? "/ 10" : t.kind === "number" ? t.unit : "";
   const hasGoal = t.kind !== "bool" && t.goal !== null;
   const line = t.kind !== "bool" || c.share;
@@ -84,11 +90,12 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
     <section ref={root} aria-label={t.name} className="flex min-w-0 flex-col gap-2 rounded-panel border border-line bg-panel px-[18px] pb-3 pt-[14px]">
       <div className="flex items-end gap-[10px]">
         {/* The odometer's digit strips have no useful baseline, so the figure sits on the row's bottom edge instead. */}
-        <h2 className="m-0 min-w-0 truncate pb-[2px] text-body font-semibold">{t.name}</h2>
-        <span className="shrink-0 pb-[2px] text-meta text-muted">{goalText(t, dir)}</span>
+        <h2 className="m-0 min-w-0 truncate pb-[4px] text-[15px] font-semibold leading-none">{t.name}</h2>
+        <span className="shrink-0 pb-[4px] text-meta leading-none text-muted">{goalText(t, dir)}</span>
         <span className="ml-auto flex shrink-0 items-end gap-1" aria-live="polite">
           <Odometer text={current} className="font-mono text-[22px] font-medium tracking-[-0.02em] text-text" />
-          {unit && last ? <span className="text-meta leading-none text-muted">{unit}</span> : null}
+          {/* Lifted onto the digits' baseline: the odometer's box runs 4px below its glyphs (2026-11-24). */}
+          {unit && (last || counter) ? <span className="pb-[4px] text-meta leading-none text-muted">{unit}</span> : null}
         </span>
       </div>
       {c.points.length ? (
@@ -176,15 +183,22 @@ function ChartCard({ t, list, history, range }: { t: Tracker; list: TrackerEntry
       ) : (
         <p className="m-0 flex h-[134px] items-center justify-center text-body text-muted">No entries in this range.</p>
       )}
-      <div className="flex justify-between gap-3 border-t border-line pt-2 text-meta text-text-2">
-        <span>{rangeNote(t, list)}</span>
-        {hasGoal ? <span className="text-muted">{`${c.hitDays} of ${c.days} ${c.days === 1 ? "day" : "days"} at goal`}</span> : null}
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-2 text-meta text-text-2">
+        {/* A counter's entries are amounts, so first-to-last change means nothing: today's total instead. */}
+        <span className="min-w-0 truncate">{counter ? `${current} today` : rangeNote(t, list)}</span>
+        <span className="flex min-w-0 items-center gap-3">
+          {hasGoal ? <span className="truncate text-muted">{`${c.hitDays} of ${c.days} ${c.days === 1 ? "day" : "days"} at goal`}</span> : null}
+          {/* Where its entries come from, in the footer's corner (2026-11-24). */}
+          <OriginLabel trackerId={t.id} />
+        </span>
       </div>
     </section>
   );
 }
 
 const SOURCE = { checkin: "Check-in", manual: "Logged" } as const;
+/** An entry's source as read: a counter routine's entries say Routine, not Logged (2026-11-24). */
+const sourceOf = (e: TrackerEntry, counters: ReadonlySet<number>) => (e.source === "manual" && counters.has(e.trackerId) ? "Routine" : SOURCE[e.source]);
 const COLS = "grid-cols-[90px_110px_minmax(0,1fr)_90px_28px]";
 /** One tracker: no Tracker column; Change and Goal take its place (decided 2026-11-16). */
 const ONE_COLS = "grid-cols-[90px_minmax(0,1fr)_80px_110px_28px]";
@@ -227,6 +241,9 @@ function DeleteEntry({ t, e }: { t: Tracker; e: TrackerEntry }) {
  */
 function EntryTable({ trackers, list, limit }: { trackers: Tracker[]; list: TrackerEntry[]; limit?: number }) {
   const [filter, setFilter] = useState<number | "all">("all");
+  // Trackers a counter routine counts into, as one string so the selector stays stable.
+  const counterKey = usePlanner((s) => s.routines.flatMap((r) => (r.trackerId === null ? [] : [r.trackerId])).join(","));
+  const counters = useMemo(() => new Set(counterKey ? counterKey.split(",").map(Number) : []), [counterKey]);
   const one = filter === "all" ? null : (trackers.find((t) => t.id === filter) ?? null);
   const name = (id: number) => trackers.find((t) => t.id === id);
   const mine = one ? list.filter((e) => e.trackerId === one.id) : list;
@@ -319,7 +336,7 @@ function EntryTable({ trackers, list, limit }: { trackers: Tracker[]; list: Trac
               <span className="font-mono text-meta text-text-2">{shortDate(e.loggedAt)}</span>
               <span className="truncate">{t.name}</span>
               {value}
-              <span className="text-muted">{SOURCE[e.source]}</span>
+              <span className="text-muted">{sourceOf(e, counters)}</span>
               <DeleteEntry t={t} e={e} />
             </div>
           );

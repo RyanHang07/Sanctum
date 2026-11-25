@@ -136,6 +136,9 @@ describe("Home counters (v0.1.4)", () => {
     // Pinned at the top, not a checkbox row.
     expect(screen.queryByRole("checkbox", { name: "Protein" })).toBeNull();
     const amount = within(counter).getByLabelText("Add to Protein");
+    // Sized to the unit's text, capped, and cut short with an ellipsis past that (2026-11-24).
+    expect(amount).toHaveClass("field-sizing-content", "min-w-[64px]", "max-w-[140px]", "text-ellipsis");
+    expect(amount).toHaveAttribute("title", amount.getAttribute("placeholder"));
     const note = within(counter).getByLabelText("Note for Protein");
     fireEvent.change(amount, { target: { value: "60" } });
     await act(async () => fireEvent.submit(amount.closest("form")!));

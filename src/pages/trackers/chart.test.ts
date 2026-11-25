@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { atGoal, bucketsFor, goalDirection, goalSpark, goalText, trackerChart } from "./chart";
+import { atGoal, bucketsFor, goalDirection, goalSpark, goalText, trackerChart, todayTotal } from "./chart";
 import type { TrackerEntry } from "../../lib/types";
 
 const DAY = 86_400_000;
@@ -50,6 +50,16 @@ describe("tracker chart rulers", () => {
     // The goal sits inside the padded axis.
     expect(c.goalY).toBeGreaterThan(0);
     expect(c.goalY).toBeLessThan(100);
+  });
+
+  it("adds up a counter's day, and gives today's total (2026-11-24)", () => {
+    const list = [entry(0.3, 40), entry(0.2, 35), entry(0.1, 20), entry(1, 150)];
+    const c = trackerChart({ kind: "number", goal: 150, sum: true }, list, "7D", "up", NOW);
+    expect(c.points.at(-1)!.value).toBe(95);
+    expect(c.points.at(-2)!.value).toBe(150);
+    expect(todayTotal(list, NOW)).toBe(95);
+    // Without sum, the day's last entry, as before.
+    expect(trackerChart({ kind: "number", goal: 150 }, list, "7D", "up", NOW).points.at(-1)!.value).toBe(20);
   });
 
   it("keeps a day's last entry, and averages days over weeks", () => {

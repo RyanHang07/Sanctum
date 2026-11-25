@@ -196,6 +196,24 @@ export function heatSteps(p: Palette, panel: string): Palette {
   return { "heat-1": one, "heat-2": two, "heat-3": three };
 }
 
+/**
+ * The text on each heatmap step (2026-11-24): the day's number and its focused time. It stays the
+ * theme's own text where that reads (4.5:1), and otherwise turns to the theme's ink for the other
+ * side, dark on a light fill and light on a dark one. The fills themselves never change. Before,
+ * the text was always `text`, so light fills under light text (Aura's kept days at 1.08:1) lost it.
+ */
+export function heatInk(p: Palette, dark: boolean): Palette {
+  const other = dark ? p.app! : p.panel!;
+  // A mid-tone fill can sit between both (Aura Light's lightest step): then plain black or white,
+  // whichever reads, which always clears 4.5:1 on any color.
+  const ink = (fill: string) => {
+    if (contrast(p.text!, fill) >= 4.5) return p.text!;
+    if (contrast(other, fill) >= 4.5) return other;
+    return onColor(fill, WHITE, BLACK);
+  };
+  return { "heat-on-1": ink(p["heat-1"]!), "heat-on-2": ink(p["heat-2"]!), "heat-on-3": ink(p["heat-3"]!) };
+}
+
 /** Surfaces muted text is drawn on. */
 export const MUTED_ON = ["app", "panel", "raised", "sidebar", "sealed-tint", "toast"] as const;
 
@@ -234,5 +252,6 @@ export function finishTheme(theme: Theme): Theme {
   // (visual polish, 2026-11-17).
   p.locked = readable(p.locked!, [p.sidebar!, app], 3, away);
   Object.assign(p, heatSteps(p, panel));
+  Object.assign(p, heatInk(p, dark));
   return { ...theme, palette: p };
 }

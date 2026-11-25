@@ -119,6 +119,67 @@ describe("Setup > Trackers", () => {
   });
 });
 
+describe("a counter routine's tracker (2026-11-24)", () => {
+  async function counter() {
+    const t = await native.saveTracker({ name: "Protein", kind: "number", unit: "g" });
+    await native.saveCheckin({ id: 0, name: "Morning check-in", time: "08:00", daysMask: 127, trackerIds: [t.id], includeGoalReview: false } as Checkin);
+    const w = await native.saveTracker({ name: "Weight", kind: "number", unit: "lb" });
+    await native.saveCheckin({ id: 0, name: "Weigh-in", time: "07:00", daysMask: 127, trackerIds: [w.id], includeGoalReview: false } as Checkin);
+    await act(() => usePlanner.getState().saveRoutine({ title: "Protein", daysMask: 127, time: null, durationMin: null, profileId: null, active: true, trackerId: t.id, goalAmount: 150, noteMode: "off", onCalendar: false, sessionsPerDay: 1 }));
+    await act(() => useTrackers.getState().load());
+    await act(() => useTrackers.getState().log([{ trackerId: t.id, value: 40, text: null }]));
+    await act(() => useTrackers.getState().log([{ trackerId: t.id, value: 35, text: null }]));
+    return t;
+  }
+
+  it("is marked as the routine's, apart from a check-in's, and its chart adds up the day", async () => {
+    await counter();
+    await act(async () => void render(<TrackersPage />));
+    const protein = within(await screen.findByRole("region", { name: "Protein" }));
+    // One plain word in the footer's corner: Routine for a counter's, Tracked for the rest.
+    const label = protein.getByTestId("tracker-origin");
+    expect(label).toHaveTextContent(/^Routine$/);
+    expect(label).toHaveAttribute("title", "Counted on Today by Protein");
+    expect(label.parentElement?.parentElement).toHaveClass("border-t");
+    const weight = within(screen.getByRole("region", { name: "Weight" }));
+    expect(weight.getByTestId("tracker-origin")).toHaveTextContent(/^Tracked$/);
+    expect(weight.getByTestId("tracker-origin")).toHaveAttribute("title", "Asked for by Weigh-in");
+    // Today's total and the routine's goal, not the last amount.
+    expect(protein.getByText("75 today")).toBeInTheDocument();
+    expect(protein.getByText(/Goal 150/)).toBeInTheDocument();
+    // In the table, its entries come from the routine.
+    fireEvent.click(within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Table" }));
+    const entries = within(await screen.findByRole("region", { name: "Entries" }));
+    expect(entries.getAllByText("Routine")).toHaveLength(2);
+  });
+
+  it("asks before deleting, says the routine becomes plain, and says so after", async () => {
+    await counter();
+    render(
+      <>
+        <TrackersTab />
+        <Toast />
+      </>,
+    );
+    const row = await screen.findByRole("button", { name: "Edit Protein" });
+    expect(within(row).getByTestId("tracker-origin")).toHaveTextContent(/^Routine$/);
+    await click(row);
+    await click(screen.getByRole("button", { name: "Delete with its entries" }));
+    const dialog = within(screen.getByRole("alertdialog", { name: "Delete this tracker" }));
+    expect(dialog.getByText("Protein, and its 2 entries")).toBeInTheDocument();
+    expect(dialog.getByText("The Protein routine stops counting and becomes a plain routine")).toBeInTheDocument();
+    // Cancel keeps everything.
+    await click(dialog.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(useTrackers.getState().trackers.some((t) => t.name === "Protein")).toBe(true);
+    await click(screen.getByRole("button", { name: "Delete with its entries" }));
+    await click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(useTrackers.getState().trackers.some((t) => t.name === "Protein")).toBe(false));
+    expect(await screen.findByRole("status")).toHaveTextContent("Protein deleted.The Protein routine is a plain routine now.");
+    await waitFor(() => expect(usePlanner.getState().routines.find((r) => r.title === "Protein")?.trackerId).toBeNull());
+  });
+});
+
 describe("Trackers page", () => {
   it("shows an empty state that leads to Setup", async () => {
     render(<TrackersPage />);

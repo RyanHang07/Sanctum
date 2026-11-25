@@ -1,6 +1,6 @@
 import { contrast } from "./color";
 import { KEYS } from "./palette";
-import { ACCENT, OK, OK_GREEN, SECOND, isGreen } from "./finish";
+import { ACCENT, OK, OK_GREEN, SECOND, heatInk, isGreen } from "./finish";
 import { OPENCODE_THEMES } from "./opencodeThemes";
 import { THEMES, themeById } from "./themes";
 
@@ -13,6 +13,11 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["text", "toast", 4.5],
   ["muted", "toast", 4.5],
   ["text-2", "panel", 4.5],
+  // A tracker's Routine / Tracked label, a small word on the raised surface (2026-11-24).
+  ["text", "raised", 4.5],
+  // A delete confirm: Deletes in the danger text, and the Delete button on its tint (2026-11-24).
+  ["danger-text", "panel", 4.5],
+  ["danger-text", "danger-tint", 4.5],
   ["muted", "app", 4.5],
   ["muted", "panel", 4.5],
   ["sealed-on", "sealed", 4.5],
@@ -89,6 +94,30 @@ describe("theme pass (v0.4)", () => {
       const c = (k: string) => contrast(t.palette[k]!, t.palette.panel!);
       for (const k of ["heat-1", "heat-2", "heat-3"]) expect(c(k), `${t.id} ${k}`).toBeGreaterThanOrEqual(2);
       if (t.id.startsWith("sanctum")) expect(c("heat-2"), t.id).toBeGreaterThan(c("heat-1"));
+    }
+  });
+
+  it("the text on every heatmap step reads at 4.5:1 in every theme, from the theme's own colors (2026-11-24)", () => {
+    for (const t of THEMES) {
+      const p = t.palette;
+      for (const k of ["1", "2", "3"]) {
+        const fill = p[`heat-${k}`]!;
+        const ink = p[`heat-on-${k}`]!;
+        expect(contrast(ink, fill), `${t.id} heat-${k}`).toBeGreaterThanOrEqual(4.5);
+        // The theme's text, its app (dark) or panel (light) for the other side, or plain black or white.
+        expect([p.text, t.scheme === "dark" ? p.app : p.panel, "#FFFFFF", "#000000"], `${t.id} heat-on-${k}`).toContain(ink);
+        // The theme's own text stays wherever it already reads.
+        if (contrast(p.text!, fill) >= 4.5) expect(ink, `${t.id} heat-on-${k}`).toBe(p.text);
+      }
+    }
+  });
+
+  it("choosing the heatmap's text leaves every other color as it was", () => {
+    for (const t of THEMES) {
+      const { "heat-on-1": a, "heat-on-2": b, "heat-on-3": c, ...rest } = t.palette;
+      const again = heatInk({ ...rest }, t.scheme === "dark");
+      expect(again, t.id).toEqual({ "heat-on-1": a, "heat-on-2": b, "heat-on-3": c });
+      expect(Object.keys(again).every((k) => k.startsWith("heat-on-")), t.id).toBe(true);
     }
   });
 

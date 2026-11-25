@@ -70,6 +70,9 @@ function Summary({ o, paused, targetMin }: { o: StatsOverview; paused: PauseSumm
   );
 }
 
+/** The text on each heatmap step, by the same index as its fill (theme/finish.ts heatInk). */
+const HEAT_INK = ["text-text", "text-heat-on-1", "text-heat-on-2", "text-heat-on-3"] as const;
+
 function cellClass(d: DayStat, goal: number): string {
   switch (d.status) {
     case "kept":
@@ -117,6 +120,9 @@ function Heatmap({
           if (!inMonth(d.date)) return <span key={d.date} aria-hidden="true" data-day={d.date} />;
           const quiet = d.status === "future" || d.status === "none";
           const note = d.status === "kept" ? null : DAY_NOTE[d.status];
+          // On a kept day's fill, its step's own text color: dark on a light fill, light on a dark
+          // one, so the number and time read in every theme (2026-11-24).
+          const ink = d.status === "kept" ? HEAT_INK[shade(d.focusMin, o.goalMin)] : quiet ? "text-muted" : "text-text";
           return (
             <button
               key={d.date}
@@ -133,11 +139,11 @@ function Heatmap({
               } ${d.status === "future" ? "cursor-default" : ""}`}
             >
               <span className="flex w-full items-center justify-between">
-                <span className={`font-mono text-micro ${quiet ? "text-muted" : "text-text"}`}>{fromKey(d.date).getDate()}</span>
+                <span data-testid="day-number" className={`font-mono text-micro ${ink}`}>{fromKey(d.date).getDate()}</span>
                 {d.status === "kept" ? <DayDot day={d} /> : null}
                 {note ? <span className={`text-micro ${d.status === "broken" ? "text-broken-text" : d.status === "today" ? "text-sealed-text" : "text-muted"}`}>{note}</span> : null}
               </span>
-              {d.focusMin > 0 ? <span className="font-mono text-micro text-text">{minutes(d.focusMin)}</span> : null}
+              {d.focusMin > 0 ? <span data-testid="day-time" className={`font-mono text-micro ${d.status === "kept" ? ink : "text-text"}`}>{minutes(d.focusMin)}</span> : null}
             </button>
           );
         })}

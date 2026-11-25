@@ -117,6 +117,8 @@ describe("design tokens", () => {
       minHeight: 640,
       center: true,
       resizable: true,
+      // Maximize and F11 full screen (2026-11-24).
+      maximizable: true,
       backgroundColor: tokens.color.app,
     });
   });

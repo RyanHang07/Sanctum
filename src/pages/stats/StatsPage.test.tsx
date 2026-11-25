@@ -147,6 +147,14 @@ describe("Stats", () => {
     for (const d of region.querySelectorAll('[data-testid="day-dot"]')) expect(d).toHaveAttribute("data-status", "kept");
     // The lightest heat level reads on the panel by its own fill (heat-1 is 2:1 in every theme), no edge.
     for (const c of region.querySelectorAll(".bg-heat-1")) expect(c).not.toHaveClass("border-line-input");
+    // A kept day's number and time take their step's own text color (2026-11-24).
+    const filled = [1, 2, 3].flatMap((n) => [...region.querySelectorAll(`[data-day].bg-heat-${n}`)].map((c) => [n, c] as const));
+    expect(filled.length).toBeGreaterThan(0);
+    for (const [n, c] of filled) {
+      expect(c.querySelector('[data-testid="day-number"]')).toHaveClass(`text-heat-on-${n}`);
+      const time = c.querySelector('[data-testid="day-time"]');
+      if (time) expect(time).toHaveClass(`text-heat-on-${n}`);
+    }
     expect(heat.queryByTestId("stats-target")).toBeNull();
     // Days in the month are buttons with their details, on focus as on hover.
     const todayCell = heat.getByRole("button", { name: /^Today:/ });

@@ -6,8 +6,10 @@ import { play } from "../lib/sound";
 import { DUR, EASE, RISE_FROM, RISE_STAGGER, RISE_TO, gsap, useGSAP } from "../lib/gsap";
 import { useMotion } from "../lib/useMotion";
 import { minutes } from "../lib/time";
-import type { HeldStats, SessionResult, TaskLink } from "../lib/types";
+import type { HeldStats, Routine, SessionResult, TaskLink } from "../lib/types";
 import { usePlanner } from "../state/planner";
+import { useTrackers } from "../state/trackers";
+import { addToCounter, counterAmount, useCounterDay } from "./CounterRow";
 import { native } from "../lib/native";
 import { CheckIcon, PlusIcon } from "../components/icons";
 import { HEADLINE, brokeLine, heldLine } from "./headlines";
@@ -111,48 +113,147 @@ function HeldMark({ broken }: { broken: boolean }) {
   );
 }
 
-/** Checks the session's task off, wherever the held page offers it. A task deleted meanwhile
- *  has nothing to check off, so that counts as done too. */
+/**
+ * Checks the session's task off, wherever the held page offers it: a one-time item is done, and
+ * a routine gains this one session (2026-11-24). It used to jump a routine to its full count, so
+ * one session of "Stretch, 3 a day" checked off all three. A task deleted meanwhile has nothing
+ * to check off, so that counts as done too.
+ */
 async function markTaskDone(task: TaskLink): Promise<void> {
   try {
     if (task.kind === "todo") await native.setTodoDone(task.id, true);
-    else await native.setRoutineDone(task.id, task.date, true);
+    else {
+      const p = usePlanner.getState();
+      const r = p.routines.find((x) => x.id === task.id);
+      const target = Math.max(1, r?.sessionsPerDay ?? 1);
+      const now = p.checks.find((c) => c.routineId === task.id && c.date === task.date)?.completed ?? 0;
+      await native.setRoutineProgress(task.id, task.date, Math.min(target, now + 1));
+    }
   } catch {
     // Deleted meanwhile.
   }
-  void usePlanner.getState().reload();
+  await usePlanner.getState().reload();
 }
 
-/** The session's task, checked off from here (v0.1). It sits on the card itself, not behind
- *  Add a note, so finishing a session always offers it (2026-11-20). Already done shows as done. */
-function TaskDone({ task }: { task: TaskLink }) {
-  const alreadyDone = usePlanner((p) =>
-    task.kind === "todo" ? p.todos.some((t) => t.id === task.id && t.done) : routineDoneOn(p.routines, p.checks, task.id, task.date),
-  );
-  const [done, setDone] = useState(false);
+/** The session's routine, when it counts an amount: its day's total decides it, not a check. */
+function useCounterOf(task: TaskLink) {
+  return usePlanner((p) => (task.kind === "routine" ? p.routines.find((r) => r.id === task.id && r.trackerId !== null && r.goalAmount !== null) : undefined));
+}
+
+/**
+ * The session's task, checked off from here (v0.1). It sits on the card itself, not behind
+ * Add a note, so finishing a session always offers it (2026-11-20). Already done shows as done.
+ * A routine of several sessions a day marks this one ("1 of 3"); a counter routine takes an
+ * amount instead, since only its total checks it off (2026-11-24).
+ */
+function TaskDone({ task, marked, mark }: { task: TaskLink; marked: boolean; mark: () => Promise<void> }) {
+  const counter = useCounterOf(task);
+  const progress = usePlanner((p) => {
+    if (task.kind === "todo") return p.todos.some((t) => t.id === task.id && t.done) ? "1/1" : "0/1";
+    const r = p.routines.find((x) => x.id === task.id);
+    const target = Math.max(1, r?.sessionsPerDay ?? 1);
+    const done = p.checks.find((c) => c.routineId === task.id && c.date === task.date)?.completed ?? 0;
+    return `${Math.min(done, target)}/${target}`;
+  });
   const [busy, setBusy] = useState(false);
-  const mark = async () => {
+  if (counter) return <CounterTask task={task} routine={counter} />;
+  const [done, target] = progress.split("/").map(Number) as [number, number];
+  const isDone = done >= target;
+  // This session is marked (or the task is complete): nothing more to press here.
+  const off = isDone || marked || busy;
+  const press = async () => {
     setBusy(true);
-    await markTaskDone(task);
-    setDone(true);
+    await mark();
     setBusy(false);
   };
-  const isDone = done || alreadyDone;
+  const label = isDone
+    ? `${task.title} is done`
+    : target > 1
+      ? marked
+        ? `${done} of ${target} ${task.title} sessions done`
+        : `Mark this ${task.title} session done, ${done + 1} of ${target}`
+      : `Mark ${task.title} done`;
   return (
     <button
       type="button"
       data-testid="held-task"
-      disabled={isDone || busy}
-      onClick={() => void mark()}
+      disabled={off}
+      onClick={() => void press()}
       className={`flex h-9 min-w-0 items-center gap-[10px] rounded-control border px-3 text-left text-body transition-colors duration-ui ease-ui ${
-        isDone ? "border-line text-muted" : "border-line-input text-text enabled:hover:bg-raised"
+        off ? "border-line text-muted" : "border-line-input text-text enabled:hover:bg-raised"
       }`}
     >
-      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] ${isDone ? "bg-sealed text-sealed-on" : "border-[1.5px] border-line-input"}`}>
-        {isDone ? <CheckIcon /> : null}
+      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] ${isDone || marked ? "bg-sealed text-sealed-on" : "border-[1.5px] border-line-input"}`}>
+        {isDone || marked ? <CheckIcon /> : null}
       </span>
-      <span className="truncate">{isDone ? `${task.title} is done` : `Mark ${task.title} done`}</span>
+      <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+/** A counter routine's session: add what it came to, toward the day's goal (2026-11-24). */
+function CounterTask({ task, routine }: { task: TaskLink; routine: Routine }) {
+  const { loaded, total, goal, met, unit } = useCounterDay(routine, task.date);
+  useEffect(() => {
+    if (!loaded) void useTrackers.getState().load();
+  }, [loaded]);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const add = async () => {
+    const err = await addToCounter(routine, amount, note);
+    if (err === false) return;
+    setError(err);
+    if (err) return;
+    setAmount("");
+    setNote("");
+  };
+  return (
+    <form
+      data-testid="held-task"
+      data-counter
+      aria-label={`Add to ${task.title}`}
+      className="flex flex-col gap-[6px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void add();
+      }}
+    >
+      <div className="flex h-9 min-w-0 items-center gap-[10px] rounded-control border border-line-input pl-3 pr-1">
+        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] ${met ? "bg-sealed text-sealed-on" : "border-[1.5px] border-line-input"}`}>
+          {met ? <CheckIcon /> : null}
+        </span>
+        <span className="min-w-0 grow truncate text-body text-text">{task.title}</span>
+        <span data-testid="held-counter-total" className="shrink-0 font-mono text-meta text-text-2">
+          {counterAmount(Math.round(total * 10) / 10)} / {counterAmount(goal)}
+          {unit}
+        </span>
+        <input
+          aria-label={`Amount for ${task.title}`}
+          inputMode="decimal"
+          placeholder={`+ ${unit.trim() || "amount"}`}
+          title={`+ ${unit.trim() || "amount"}`}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="h-control-sm field-sizing-content min-w-[64px] max-w-[120px] shrink-0 text-ellipsis rounded-control border border-line-input bg-raised px-2 font-mono text-meta text-text placeholder:text-muted focus:border-sealed"
+        />
+        {routine.noteMode !== "off" ? (
+          <input
+            aria-label={`Note for ${task.title}`}
+            placeholder={routine.noteMode === "required" ? "note (required)" : "note (optional)"}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="h-control-sm w-[120px] min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text placeholder:text-muted focus:border-sealed"
+          />
+        ) : null}
+        <Button type="submit" variant="primary" size="sm" className="px-3">
+          Add
+        </Button>
+      </div>
+      {error ? <p className="m-0 text-meta text-broken-text">{error}</p> : null}
+    </form>
   );
 }
 
@@ -175,7 +276,7 @@ const hasWrap = (w: Wrap) => w.result !== null || w.rating !== null || w.leftOff
 
 /** How it went (v0.3.1): Done / Partly / No and a 1-5 focus rating (feedback on a specific
  *  goal, Locke & Latham), and where you left off, for the next seal (Leroy 2009). */
-function WrapUp({ held, wrap, setWrap }: { held: HeldStats; wrap: Wrap; setWrap: (w: Wrap) => void }) {
+function WrapUp({ held, wrap, setWrap, mark }: { held: HeldStats; wrap: Wrap; setWrap: (w: Wrap) => void; mark: () => Promise<void> }) {
   const what = held.goal ?? held.task?.title ?? null;
   return (
     <div data-testid="held-wrap" className="flex flex-col gap-3">
@@ -194,8 +295,8 @@ function WrapUp({ held, wrap, setWrap }: { held: HeldStats; wrap: Wrap; setWrap:
             <button key={v} type="button" role="radio" aria-checked={wrap.result === v} className={chipClass(wrap.result === v)} onClick={() => {
               const result = wrap.result === v ? null : v;
               setWrap({ ...wrap, result });
-              // "Done" means the task is done: check it off too (2026-11-20).
-              if (result === "done" && held.task) void markTaskDone(held.task);
+              // "Done" means the task is done: check it off too (2026-11-20), once per session.
+              if (result === "done") void mark();
             }}>
               {label}
             </button>
@@ -272,6 +373,19 @@ export function HeldPage({ held }: { held: HeldStats }) {
   const close = useStore((s) => s.dismissHeld);
   const [wrap, setWrap] = useState<Wrap>({ result: null, rating: null, leftOff: "" });
   const [reviewOpen, setReviewOpen] = useState(false);
+  // This session's task is checked off once, whether from its row or from Done: a second press
+  // must not count a second session (2026-11-24). A counter is never checked off from here.
+  const marking = useRef(false);
+  const [marked, setMarked] = useState(false);
+  const counter = usePlanner((p) =>
+    held.task?.kind === "routine" ? p.routines.some((r) => r.id === held.task!.id && r.trackerId !== null && r.goalAmount !== null) : false,
+  );
+  const mark = async () => {
+    if (!held.task || counter || marking.current) return;
+    marking.current = true;
+    await markTaskDone(held.task);
+    setMarked(true);
+  };
   // Closing plays out before the panel unmounts; the button already reads closed.
   const [closing, setClosing] = useState(false);
   const reviewId = useId();
@@ -401,14 +515,14 @@ export function HeldPage({ held }: { held: HeldStats }) {
             </div>
             {held.task ? (
               <div data-rise="note" className="w-full max-w-[520px]">
-                <TaskDone task={held.task} />
+                <TaskDone task={held.task} marked={marked} mark={mark} />
               </div>
             ) : null}
           </div>
           {reviewOpen ? (
             <div ref={reviewRef} className="overflow-hidden">
               <section id={reviewId} aria-label="Review this session" data-testid="held-review" className="flex flex-col gap-4 border-t border-line px-10 py-6">
-                <WrapUp held={held} wrap={wrap} setWrap={setWrap} />
+                <WrapUp held={held} wrap={wrap} setWrap={setWrap} mark={mark} />
                 <Parked sessionId={held.sessionId} />
               </section>
             </div>

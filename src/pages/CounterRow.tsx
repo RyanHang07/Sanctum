@@ -18,17 +18,34 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 const inputClass =
   "h-control-sm min-w-0 rounded-control border border-line-input bg-raised px-2 text-meta text-text transition-colors duration-ui ease-ui placeholder:text-muted focus:border-sealed";
 
-export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routine }) {
+/** A counter routine's day: its entries, their total, the goal, and whether the total meets it.
+ *  Shared by the Today row and the held page, so a session for a counter adds to the same total. */
+export function useCounterDay(routine: Routine, date: string) {
   const loaded = useTrackers((s) => s.loaded);
   const tracker = useTrackers((s) => s.trackers.find((t) => t.id === routine.trackerId));
   const all = useTrackers((s) => s.entries);
   const dailyResetTime = useStore((s) => s.settings.dailyResetTime);
-  const [from, to] = useMemo(() => dayBounds(item.date, dailyResetTime), [item.date, dailyResetTime]);
+  const [from, to] = useMemo(() => dayBounds(date, dailyResetTime), [date, dailyResetTime]);
   const entries = useMemo(() => all.filter((e) => e.trackerId === routine.trackerId && e.loggedAt >= from && e.loggedAt < to), [all, routine.trackerId, from, to]);
   const total = entries.reduce((sum, e) => sum + (e.value ?? 0), 0);
   const goal = routine.goalAmount ?? 0;
-  const met = goal > 0 && total >= goal;
-  const unit = tracker?.unit ? ` ${tracker.unit}` : "";
+  return { loaded, tracker, entries, total, goal, met: goal > 0 && total >= goal, unit: tracker?.unit ? ` ${tracker.unit}` : "", dailyResetTime };
+}
+
+export const counterAmount = fmt;
+
+/** Logs one amount to a counter routine's tracker: null once saved, what to fix when the input
+ *  won't do, or false when the save failed (the store already says why; keep what was typed). */
+export async function addToCounter(routine: Routine, amount: string, note: string): Promise<string | null | false> {
+  const v = Number(amount);
+  if (!amount.trim() || !Number.isFinite(v) || v === 0) return "Enter an amount.";
+  if (routine.noteMode === "required" && !note.trim()) return "Add a note.";
+  const ok = await useTrackers.getState().log([{ trackerId: routine.trackerId!, value: v, text: routine.noteMode === "off" ? null : note.trim() || null }]);
+  return ok ? null : false;
+}
+
+export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routine }) {
+  const { loaded, tracker, entries, total, goal, met, unit, dailyResetTime } = useCounterDay(routine, item.date);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
@@ -47,15 +64,12 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
 
   const needsNote = routine.noteMode === "required";
   const add = async () => {
-    const v = Number(amount);
-    if (!amount.trim() || !Number.isFinite(v) || v === 0) return setError("Enter an amount.");
-    if (needsNote && !note.trim()) return setError("Add a note.");
-    const ok = await useTrackers.getState().log([{ trackerId: routine.trackerId!, value: v, text: routine.noteMode === "off" ? null : note.trim() || null }]);
-    if (ok) {
-      setAmount("");
-      setNote("");
-      setError(null);
-    }
+    const err = await addToCounter(routine, amount, note);
+    if (err === false) return;
+    setError(err);
+    if (err) return;
+    setAmount("");
+    setNote("");
   };
 
   return (
@@ -95,9 +109,12 @@ export function CounterRow({ item, routine }: { item: AgendaItem; routine: Routi
           aria-label={`Add to ${item.title}`}
           inputMode="decimal"
           placeholder={`+ ${tracker?.unit || "amount"}`}
+          title={`+ ${tracker?.unit || "amount"}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className={`${inputClass} w-[72px] font-mono`}
+          // Sized to its text (the unit you set), between 64 and 140px; past that it truncates
+          // with an ellipsis (2026-11-24). It was a fixed 72px, which cut "+ amount" short.
+          className={`${inputClass} field-sizing-content min-w-[64px] max-w-[140px] shrink-0 text-ellipsis font-mono`}
         />
         {routine.noteMode !== "off" ? (
           <input

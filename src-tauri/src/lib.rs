@@ -751,6 +751,15 @@ fn show_main(app: AppHandle) {
     show_main_window(&app);
 }
 
+/// F11: the main window fills the screen, or goes back to its window.
+#[tauri::command]
+fn toggle_fullscreen(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let on = w.is_fullscreen().unwrap_or(false);
+        let _ = w.set_fullscreen(!on);
+    }
+}
+
 #[tauri::command]
 fn set_tray_theme(app: AppHandle, accent: Option<String>) {
     tray::set_theme(&app, accent);
@@ -908,6 +917,7 @@ pub fn run() {
             request_quit,
             show_compact,
             show_main,
+            toggle_fullscreen,
             list_profiles,
             create_profile,
             update_profile,

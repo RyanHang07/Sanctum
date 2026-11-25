@@ -16,3 +16,15 @@ extension/.key.pem
 
 # Intermediate GIF frames (npm run screenshots)
 docs/screenshots/frames/
+
+# Development notes and design working files, kept locally, not published
+BACKLOG.md
+SPEC.md
+CLAUDE.md
+.claude/
+docs/decisions/
+docs/manual-testing.md
+design/README.md
+design/_archive/
+design/gate-canvas/
+design/screens/

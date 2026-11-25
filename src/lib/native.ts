@@ -141,6 +141,8 @@ export const native = {
   requestQuit: () => call<void>("request_quit"),
   showCompact: () => call<void>("show_compact"),
   showMain: () => call<void>("show_main"),
+  /** F11: the main window fills the screen, or goes back to its window. */
+  toggleFullscreen: () => call<void>("toggle_fullscreen"),
 
   listProfiles: () => call<Profile[]>("list_profiles"),
   createProfile: (draft: ProfileDraft) => call<Profile>("create_profile", { draft }),

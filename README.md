@@ -171,7 +171,7 @@ Setup is grouped into Focus, Protection, Tracking, and App. One Distractions lis
 
 ## Install
 
-1. Download `Sanctum_x.y.z_x64-setup.exe` (currently 0.4.3) from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
+1. Download `Sanctum_x.y.z_x64-setup.exe` (currently 0.4.4) from the [latest release](https://github.com/ryanhang07/sanctum/releases/latest) and run it. It installs for your user, with no admin prompt.
 2. Sanctum isn't code-signed yet, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 3. First-run setup walks you through profiles, your Distractions list, and a theme. After that Sanctum keeps itself up to date: it downloads new versions in the background, and **Restart to update** installs them.
 
@@ -252,8 +252,7 @@ Google Calendar sync and the account and partner features need your own keys. Wi
 | `extension/` | The Chromium MV3 extension, talking to the app through native messaging |
 | `partner/` | The site (Vite, on Vercel): home, docs, changelog, legal, and the partner's pages |
 | `supabase/` | Database migrations and Edge Functions for the account and partner |
-| `design/` | The design reference: screens, tokens, and the logo |
-| `SPEC.md` | What Sanctum does and why, milestone by milestone |
+| `design/` | The design tokens and the logo |
 
 ## Roadmap
 
@@ -266,7 +265,7 @@ Ideas and votes welcome in [Issues](https://github.com/ryanhang07/sanctum/issues
 
 ## Contributing
 
-Issues and pull requests are welcome. For a bug, include what Setup › Behavior › About › **Copy diagnostics** gives you. Keep changes in the voice and design of the app (see `design/README.md`), with tests. See the [CHANGELOG](CHANGELOG.md) for what's shipped.
+Issues and pull requests are welcome. For a bug, include what Setup › Behavior › About › **Copy diagnostics** gives you. Keep changes in the voice and design of the app (plain, declarative copy in sentence case, colors only from the design tokens), with tests. See the [CHANGELOG](CHANGELOG.md) for what's shipped.
 
 ## License
 

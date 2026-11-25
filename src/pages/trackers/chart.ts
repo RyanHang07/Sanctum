@@ -78,10 +78,20 @@ export function bucketsFor(range: TrackerRange, now = Date.now(), firstAt: numbe
 }
 
 /** One value a day: the day's last entry (logging again replaces it). Keyed by the day's start. */
-export function dailyValues(list: TrackerEntry[]): Map<number, number> {
+/** Each day's value: its last entry, or (`sum`, a counter's tracker) its entries added up. */
+export function dailyValues(list: TrackerEntry[], sum = false): Map<number, number> {
   const out = new Map<number, number>();
-  for (const e of [...list].sort((a, b) => a.loggedAt - b.loggedAt)) if (e.value !== null) out.set(startOfDay(e.loggedAt), e.value);
+  for (const e of [...list].sort((a, b) => a.loggedAt - b.loggedAt)) {
+    if (e.value === null) continue;
+    const d = startOfDay(e.loggedAt);
+    out.set(d, sum ? (out.get(d) ?? 0) + e.value : e.value);
+  }
   return out;
+}
+
+/** Today's total, for a counter's tracker. */
+export function todayTotal(list: TrackerEntry[], now = Date.now()): number {
+  return dailyValues(list, true).get(startOfDay(now)) ?? 0;
 }
 
 export interface RulerTick {
@@ -111,10 +121,14 @@ export interface TrackerChart {
   dir: GoalDirection;
 }
 
-export function trackerChart(t: Pick<Tracker, "kind" | "goal">, list: TrackerEntry[], range: TrackerRange, dir: GoalDirection, now = Date.now()): TrackerChart {
+/**
+ * `sum`: a counter routine counts into this tracker, so a day's entries are amounts that add up
+ * (2026-11-24). Charting each day's last amount made a counter look like it lost its data.
+ */
+export function trackerChart(t: Pick<Tracker, "kind" | "goal"> & { sum?: boolean }, list: TrackerEntry[], range: TrackerRange, dir: GoalDirection, now = Date.now()): TrackerChart {
   const bool = t.kind === "bool";
   const goal = bool ? null : t.goal;
-  const daily = dailyValues(list);
+  const daily = dailyValues(list, !!t.sum);
   const { grain, buckets } = bucketsFor(range, now, list[0]?.loggedAt ?? null);
   const share = bool && grain !== "day";
   const P = buckets.length;

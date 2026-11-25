@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
-import { CheckMark, MiniSelect, Switch } from "../../components/controls";
+import { CheckMark, Dialog, MiniSelect, Switch } from "../../components/controls";
 import { ChevronRightIcon } from "../../components/icons";
 import { Row, Section } from "./parts";
 import { native } from "../../lib/native";
@@ -8,6 +8,9 @@ import { daysLabel, EVERY_DAY, hasDay, longTime, WEEKDAYS } from "../../lib/plan
 import { KIND_LABEL, TEMPLATES, trackerMeta } from "../../lib/trackers";
 import type { Checkin, Tracker, TrackerDisplay, TrackerDraft, TrackerKind } from "../../lib/types";
 import { useTrackers } from "../../state/trackers";
+import { usePlanner } from "../../state/planner";
+import { useStore } from "../../state/store";
+import { OriginLabel } from "../trackers/Origin";
 import { useTheme } from "../../state/theme";
 
 // Setup > Trackers (design/screens/Setup.dc.html, SPEC 4.13): custom trackers, the check-ins
@@ -32,9 +35,34 @@ function Labeled({ label, children, grow = false }: { label: string; children: R
   );
 }
 
+/** "the Protein routine", "the Protein and Water routines". */
+const routineNames = (names: string[]) =>
+  names.length <= 1 ? `the ${names[0]} routine` : `the ${names.slice(0, -1).join(", ")} and ${names.at(-1)} routines`;
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function TrackerEditor({ start, used, onDone }: { start: TrackerDraft; used: boolean; onDone: () => void }) {
   const { saveTracker, deleteTracker } = useTrackers();
   const [d, setD] = useState<TrackerDraft>(start);
+  // Deleting asks first (2026-11-24), and says what it takes: the entries, and a counter routine's
+  // link, since a routine counting into this tracker becomes a plain routine.
+  const [asking, setAsking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const entryCount = useTrackers((s) => (d.id === undefined ? 0 : s.entries.filter((e) => e.trackerId === d.id).length));
+  // One string from the store, so the selector's value is stable between renders.
+  const counterNames = usePlanner((s) => (d.id === undefined ? "" : s.routines.filter((r) => r.trackerId === d.id).map((r) => r.title).join("\n")));
+  const counters = useMemo(() => (counterNames ? counterNames.split("\n") : []), [counterNames]);
+  const remove = async () => {
+    setDeleting(true);
+    const ok = await deleteTracker(d.id!);
+    setDeleting(false);
+    if (!ok) return;
+    setAsking(false);
+    if (counters.length) {
+      useStore.getState().showNotice({ lead: `${start.name} deleted.`, rest: `${cap(routineNames(counters))} ${counters.length > 1 ? "are" : "is"} a plain routine now.` });
+    }
+    onDone();
+  };
   const [goal, setGoal] = useState(start.goal != null ? String(start.goal) : "");
   const save = async () => {
     const g = goal.trim() === "" ? null : Number(goal);
@@ -72,9 +100,41 @@ function TrackerEditor({ start, used, onDone }: { start: TrackerDraft; used: boo
           </Labeled>
         ) : null}
       </div>
+      {asking ? (
+        // The same confirm as deleting a note (2026-11-24): what goes, what changes, no undo.
+        <Dialog label="Delete this tracker" alert onClose={() => (deleting ? null : setAsking(false))} width={420}>
+          <div data-testid="tracker-delete" className="flex flex-col gap-4 p-5">
+            <div className="flex flex-col gap-2">
+              <h2 className="m-0 text-[16px] font-semibold text-text">Delete this tracker</h2>
+              <dl className="m-0 grid grid-cols-[64px_1fr] gap-x-3 gap-y-1 text-body">
+                <dt className="text-danger-text">Deletes</dt>
+                <dd className="m-0 text-text-2">
+                  {start.name}
+                  {entryCount ? `, and its ${entryCount} ${entryCount === 1 ? "entry" : "entries"}` : ""}
+                </dd>
+                {counters.length ? (
+                  <>
+                    <dt className="text-muted">Changes</dt>
+                    <dd className="m-0 text-text-2">{`${cap(routineNames(counters))} stop${counters.length > 1 ? "" : "s"} counting and become${counters.length > 1 ? "" : "s"} a plain routine`}</dd>
+                  </>
+                ) : null}
+              </dl>
+              <p className="m-0 text-body text-muted">This cannot be undone.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="quiet" onClick={() => setAsking(false)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={() => void remove()} disabled={deleting}>
+                {deleting ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
       <div className="flex items-center gap-2">
         {d.id !== undefined ? (
-          <Button variant="danger-plain" size="sm" onClick={() => void deleteTracker(d.id!).then((ok) => ok && onDone())}>
+          <Button variant="danger-plain" size="sm" onClick={() => setAsking(true)}>
             {used ? "Delete with its entries" : "Delete"}
           </Button>
         ) : null}
@@ -134,13 +194,16 @@ function TrackersSection() {
             aria-expanded={editing === t.id}
             aria-label={`Edit ${t.name}`}
             onClick={() => edit(t)}
-            className="flex h-10 w-full items-center gap-[10px] border-b border-line-soft px-[14px] text-left transition-colors duration-ui ease-ui hover:bg-raised"
+            className="@container flex h-10 w-full items-center gap-[10px] border-b border-line-soft px-[14px] text-left transition-colors duration-ui ease-ui hover:bg-raised"
           >
-            <span className="grow text-body">
+            <span className="min-w-0 truncate text-body">
               {t.name} {t.unit ? <span className="font-mono text-meta text-muted">{t.unit}</span> : null}
             </span>
-            {t.goal !== null ? <span className="font-mono text-meta text-muted">goal {t.goal}</span> : null}
-            <span className="text-meta text-muted">{trackerMeta(t)}</span>
+            <span className="grow" />
+            {t.goal !== null ? <span className="hidden shrink-0 font-mono text-meta text-muted @[520px]:inline">goal {t.goal}</span> : null}
+            <span className="hidden shrink-0 text-meta text-muted @[440px]:inline">{trackerMeta(t)}</span>
+            {/* Routine or Tracked (2026-11-24). */}
+            <OriginLabel trackerId={t.id} />
             <ChevronRightIcon size={11} className="text-muted" />
           </button>
           {editing === t.id ? <TrackerEditor start={{ ...t }} used={used(t.id)} onDone={() => setEditing(null)} /> : null}

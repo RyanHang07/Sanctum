@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useStore } from "./store";
 import { usePlanner } from "./planner";
+import { useTrackers } from "./trackers";
 import { connectNativeEvents } from "./events";
 import { mockControls, resetMockBackend } from "../lib/mockBackend";
 import { native } from "../lib/native";
@@ -11,6 +12,8 @@ import { HeldPage } from "../pages/HeldPage";
 
 const initial = useStore.getState();
 const initialPlanner = usePlanner.getState();
+const initialTrackers = useTrackers.getState();
+beforeEach(() => useTrackers.setState(initialTrackers, true));
 
 let disconnect = () => {};
 beforeEach(() => {
@@ -134,5 +137,61 @@ describe("a session for a task (v0.1)", () => {
     await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
     expect((await native.listTodos(todayKey(), todayKey())).find((t) => t.id === todo.id)?.done).toBe(true);
     expect(page.getByTestId("held-task")).toHaveTextContent("Write the essay is done");
+  });
+});
+
+describe("a session for a routine adds one, not all (2026-11-24)", () => {
+  /** Seals for a routine and lands on the held page. */
+  async function sealFor(draft: Partial<Parameters<typeof native.saveRoutine>[0]>) {
+    await setup();
+    await act(() =>
+      usePlanner.getState().saveRoutine({ title: "Stretch", daysMask: 127, time: null, durationMin: null, profileId: null, active: true, trackerId: null, goalAmount: null, noteMode: "off", onCalendar: false, sessionsPerDay: 3, ...draft }),
+    );
+    const r = usePlanner.getState().routines.find((x) => x.title === (draft.title ?? "Stretch"))!;
+    act(() => useStore.getState().setFocusTask({ kind: "routine", id: r.id, date: todayKey(), title: r.title }));
+    await act(async () => void (await useStore.getState().enterFocus()));
+    await act(async () => mockControls.fastForward(24 * 60 * 60_000));
+    render(<HeldPage held={useStore.getState().held!} />);
+    return { r, page: within(screen.getByTestId("held-page")) };
+  }
+  const progress = (id: number) => usePlanner.getState().checks.find((c) => c.routineId === id && c.date === todayKey())?.completed ?? 0;
+
+  it("marks one session of a routine done three times a day, once, from the row or from Done", async () => {
+    const { r, page } = await sealFor({});
+    await act(async () => fireEvent.click(page.getByRole("button", { name: "Mark this Stretch session done, 1 of 3" })));
+    expect(progress(r.id)).toBe(1);
+    expect(page.getByTestId("held-task")).toHaveTextContent("1 of 3 Stretch sessions done");
+    expect(page.getByTestId("held-task")).toBeDisabled();
+    // Done in How it went doesn't count this session a second time.
+    fireEvent.click(page.getByRole("button", { name: "Add a note" }));
+    await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
+    await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
+    await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
+    expect(progress(r.id)).toBe(1);
+  });
+
+  it("a routine once a day is still checked off whole", async () => {
+    const { r, page } = await sealFor({ sessionsPerDay: 1 });
+    await act(async () => fireEvent.click(page.getByRole("button", { name: "Mark Stretch done" })));
+    expect(progress(r.id)).toBe(1);
+    expect(page.getByTestId("held-task")).toHaveTextContent("Stretch is done");
+  });
+
+  it("a counter routine takes an amount toward its total and is never checked off whole", async () => {
+    const t = await native.saveTracker({ name: "Reading", kind: "number", unit: "pages" });
+    await act(() => useTrackers.getState().load());
+    const { r, page } = await sealFor({ title: "Reading", trackerId: t.id, goalAmount: 30 });
+    const task = within(page.getByTestId("held-task"));
+    expect(page.queryByRole("button", { name: /^Mark/ })).toBeNull();
+    expect(page.getByTestId("held-counter-total")).toHaveTextContent("0 / 30 pages");
+    // Done in How it went leaves it to the total.
+    fireEvent.click(page.getByRole("button", { name: "Add a note" }));
+    await act(async () => fireEvent.click(page.getByRole("radio", { name: "Done" })));
+    expect(progress(r.id)).toBe(0);
+    fireEvent.change(task.getByRole("textbox", { name: "Amount for Reading" }), { target: { value: "12" } });
+    await act(async () => fireEvent.click(task.getByRole("button", { name: "Add" })));
+    expect(page.getByTestId("held-counter-total")).toHaveTextContent("12 / 30 pages");
+    expect(useTrackers.getState().entries.filter((e) => e.trackerId === t.id).map((e) => e.value)).toEqual([12]);
+    expect(progress(r.id)).toBe(0);
   });
 });

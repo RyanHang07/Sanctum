@@ -74,6 +74,12 @@ function isEditableTarget(target: EventTarget | null): boolean {
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // F11 fills the screen and gives it back, as in any Windows app (2026-11-24).
+      if (e.key === "F11" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault();
+        void native.toggleFullscreen();
+        return;
+      }
       if (!e.ctrlKey || e.altKey || e.metaKey) return;
       const s = useStore.getState();
       if (s.closeDialogOpen || s.held || document.querySelector("[role=dialog]")) return;

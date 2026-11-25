@@ -147,8 +147,10 @@ pub fn save(conn: &Connection, d: TrackerDraft, now: i64) -> Result<Tracker> {
     get(conn, id)
 }
 
-/// Deletes a tracker, its entries, and its place in any check-in.
+/// Deletes a tracker, its entries, and its place in any check-in. A counter routine counting
+/// into it becomes a plain routine: its link, goal and note setting go (2026-11-24).
 pub fn delete(conn: &Connection, id: i64) -> Result<()> {
+    db(conn.execute("UPDATE daily_goals SET tracker_id = NULL, goal_amount = NULL WHERE tracker_id = ?1", [id]))?;
     db(conn.execute("DELETE FROM trackers WHERE id = ?1", [id]))?;
     for mut c in list_checkins(conn).map_err(|e| e.to_string())? {
         if c.tracker_ids.contains(&id) {
@@ -583,6 +585,19 @@ mod tests {
         assert!(save(&conn, TrackerDraft { id: Some(w.id), name: "Weight".into(), kind: "scale".into(), ..Default::default() }, 0).is_err());
         delete_entry(&conn, out[0].id).unwrap();
         assert_eq!(entries(&conn, 0, 10_000).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn deleting_a_counters_tracker_leaves_a_plain_routine() {
+        let mut conn = fresh();
+        let t = tracker(&conn, "Protein", "number");
+        conn.execute("INSERT INTO daily_goals (name, tracker_id, goal_amount, note_mode) VALUES ('Protein', ?1, 150, 'required')", [t.id]).unwrap();
+        log(&mut conn, &[NewEntry { tracker_id: t.id, value: Some(40.0), text: Some("lunch".into()) }], "manual", None, 1_000).unwrap();
+        delete(&conn, t.id).unwrap();
+        let (link, goal, name): (Option<i64>, Option<f64>, String) =
+            conn.query_row("SELECT tracker_id, goal_amount, name FROM daily_goals", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!((link, goal, name.as_str()), (None, None, "Protein"), "the routine stays, as a plain one");
+        assert!(entries(&conn, 0, i64::MAX).unwrap().is_empty(), "its entries go with it");
     }
 
     #[test]
